@@ -1,0 +1,60 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Xunit;
+
+namespace SwiftReview.IntegrationTests;
+
+public sealed class OpenApiSmokeTests
+{
+    [Fact]
+    public async Task ApiHost_PublishesOrvalReadyContract()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(x => x.UseEnvironment("Production"));
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/openapi/v1.json", ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        var root = json.RootElement;
+
+        var paths = root.GetProperty("paths");
+        foreach (var path in RequiredPaths) Assert.True(paths.TryGetProperty(path, out _), $"OpenAPI path is missing: {path}");
+
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        Assert.Equal(500, schemas.GetProperty("MessageSearchRequest").GetProperty("properties").GetProperty("take").GetProperty("maximum").GetInt32());
+        Assert.Equal(3, schemas.GetProperty("StartReviewRequest").GetProperty("properties").GetProperty("level").GetProperty("maximum").GetInt32());
+        Assert.Contains("Completed", schemas.GetProperty("MessageState").GetProperty("enum").EnumerateArray().Select(x => x.GetString()));
+
+        var approveResponses = paths.GetProperty("/api/messages/{id}/reviews/approve").GetProperty("post").GetProperty("responses");
+        foreach (var status in new[] { "204", "400", "403", "404", "409" }) Assert.True(approveResponses.TryGetProperty(status, out _));
+        Assert.Contains("null", schemas.GetProperty("ApproveReviewRequest").GetProperty("properties").GetProperty("comment").GetProperty("type")
+            .EnumerateArray().Select(x => x.GetString()));
+
+        Assert.True(paths.GetProperty("/api/messages/import").GetProperty("post").GetProperty("responses")
+            .GetProperty("201").GetProperty("content").GetProperty("application/json").TryGetProperty("schema", out _));
+        Assert.True(paths.GetProperty("/api/messages/{id}/reviews/start").GetProperty("post").GetProperty("responses")
+            .GetProperty("201").GetProperty("content").GetProperty("application/json").TryGetProperty("schema", out _));
+        Assert.True(paths.GetProperty("/api/me").GetProperty("get").GetProperty("responses")
+            .GetProperty("200").GetProperty("content").GetProperty("application/json").TryGetProperty("schema", out _));
+
+        using var scalar = await client.GetAsync("/scalar", ct);
+        Assert.Equal(HttpStatusCode.OK, scalar.StatusCode);
+        Assert.Contains("SwiftReview API", await scalar.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        using var negotiate = await client.PostAsync("/hubs/messages/negotiate?negotiateVersion=1", null, ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, negotiate.StatusCode);
+        using var internalCallback = await client.PostAsJsonAsync("/internal/message-changed",
+            new { type = "MessageChanged", messageId = 1, version = "1", branchId = 1, departmentId = 1, eventId = "test:1" }, ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, internalCallback.StatusCode);
+    }
+
+    private static readonly string[] RequiredPaths =
+    [
+        "/api/messages/{id}", "/api/messages/search", "/api/messages/{id}/assign", "/api/messages/{id}/reassign",
+        "/api/messages/{id}/reviews/start", "/api/messages/{id}/reviews/approve", "/api/messages/{id}/reviews/reject",
+        "/api/messages/{id}/undo", "/api/messages/{id}/audit", "/api/dashboard/summary", "/api/me", "/api/workflows", "/api/users"
+    ];
+}
