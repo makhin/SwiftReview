@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SwiftReview.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using SwiftReview.Infrastructure.Persistence;
 namespace SwiftReview.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SwiftReviewDbContext))]
-    partial class SwiftReviewDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260822163945_FixThreeLevelWorkflowSeed")]
+    partial class FixThreeLevelWorkflowSeed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

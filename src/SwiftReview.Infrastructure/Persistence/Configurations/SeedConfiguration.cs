@@ -85,7 +85,7 @@ public sealed class SeedConfiguration :
         b.HasData(rows);
     }
 
-    internal static int RequiredLevelCount(int workflowId) => workflowId % 3 switch { 1 => 1, 2 => 2, _ => 3 };
+    internal static int RequiredLevelCount(int workflowId) => (workflowId % 3) switch { 1 => 1, 2 => 2, _ => 3 };
     internal static DateTimeOffset SeedReceivedAt(int i) => new DateTimeOffset(2026, 8, 1, 8, 0, 0, TimeSpan.Zero).AddHours(i);
     internal static MessageState[] ValidStates(int levels) => levels switch
     {

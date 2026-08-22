@@ -1,10 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SwiftReview.Application.Abstractions;
 using SwiftReview.Domain.Messages;
 using SwiftReview.Infrastructure.Persistence;
@@ -15,6 +19,11 @@ namespace SwiftReview.IntegrationTests;
 
 public sealed class ApiWorkflowTests
 {
+    private static readonly JsonSerializerOptions ResponseJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     [Fact]
     public async Task SqlServer_BackendWorkflow_ContractsAndConcurrency_WorkEndToEnd()
     {
@@ -28,6 +37,13 @@ public sealed class ApiWorkflowTests
             web.UseEnvironment("Development");
             web.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             { ["ConnectionStrings:SwiftReview"] = sql.GetConnectionString(), ["BootstrapDatabase"] = "false" }));
+            web.ConfigureServices(services =>
+            {
+                services.RemoveAll<SwiftReviewDbContext>();
+                services.RemoveAll<DbContextOptions<SwiftReviewDbContext>>();
+                services.RemoveAll<IDbContextOptionsConfiguration<SwiftReviewDbContext>>();
+                services.AddDbContext<SwiftReviewDbContext>(options => options.UseSqlServer(sql.GetConnectionString()));
+            });
         });
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -69,33 +85,33 @@ public sealed class ApiWorkflowTests
         Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
 
-        var before = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        var before = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         var ineligible = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(2, before.RowVersion), ct);
         Assert.Equal(HttpStatusCode.BadRequest, ineligible.StatusCode);
         var assigned = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(6, before.RowVersion), ct);
         Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
         var stale = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(1, before.RowVersion), ct);
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-        var assignedMessage = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        var assignedMessage = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/reassign", new AssignMessageRequest(1, assignedMessage.RowVersion), ct)).StatusCode);
 
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "cs-reviewer");
-        var afterAssign = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        var afterAssign = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         var started = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1, afterAssign.RowVersion), ct);
         Assert.Equal(HttpStatusCode.Created, started.StatusCode);
-        var afterStart = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        var afterStart = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         var approved = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, afterStart.RowVersion, "confirmed"), ct);
         Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
-        Assert.Equal(MessageState.Completed, (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!.State);
+        Assert.Equal(MessageState.Completed, (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!.State);
 
         var search = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 10,
             [new SortClause("receivedAt", "desc")], new MessageFilter([MessageState.Completed], [1], ["MT199"], [1], null, null, "IT", "EUR")), ct);
-        search.EnsureSuccessStatusCode(); Assert.True((await search.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ct))!.TotalCount >= 1);
+        search.EnsureSuccessStatusCode(); Assert.True((await search.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ResponseJson, ct))!.TotalCount >= 1);
         var page = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 1, null, null), ct);
-        Assert.Single((await page.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ct))!.Items);
+        Assert.Single((await page.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ResponseJson, ct))!.Items);
         var multiSort = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 20,
             [new SortClause("messageType", "asc"), new SortClause("receivedAt", "desc")], null), ct);
-        var multiSortItems = (await multiSort.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ct))!.Items;
+        var multiSortItems = (await multiSort.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ResponseJson, ct))!.Items;
         Assert.Equal(multiSortItems.OrderBy(x => x.MessageType).ThenByDescending(x => x.ReceivedAt).ThenBy(x => x.Id).Select(x => x.Id),
             multiSortItems.Select(x => x.Id));
 
@@ -136,15 +152,16 @@ public sealed class ApiWorkflowTests
         var created = await client.PostAsJsonAsync("/api/messages/import", new ImportMessageRequest("IT-PERM-1", "MT760", 3, 3,
             DateTimeOffset.UtcNow, "BANKA", "BANKB", null, "USD", 50, null, "raw"), ct);
         var id = (await created.Content.ReadFromJsonAsync<Created>(ct))!.Id;
-        var message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        var message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(5, message.RowVersion), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
-        message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
-        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1, message.RowVersion), ct)).StatusCode);
-        message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
+        var start = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1, message.RowVersion), ct);
+        Assert.True(start.StatusCode == HttpStatusCode.Created, await start.Content.ReadAsStringAsync(ct));
+        message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, message.RowVersion, null), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "dc-reviewer");
-        message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ct))!;
+        message = (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!;
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(2, message.RowVersion), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
     }
