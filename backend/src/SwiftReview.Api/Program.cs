@@ -19,6 +19,7 @@ using SwiftReview.Application.Abstractions;
 using SwiftReview.Infrastructure;
 using SwiftReview.Infrastructure.Persistence;
 
+DotNetEnv.Env.NoClobber().TraversePath().Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

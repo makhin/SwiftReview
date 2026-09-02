@@ -37,6 +37,16 @@ flowchart TD
 - Для запуска API с mock data достаточно .NET SDK 10.0.100 и свободного порта `5080`.
 - Для полного запуска с постоянным хранилищем нужны Docker Engine / Docker Desktop с Compose и свободные порты `1433` и `5080`.
 
+## Конфигурация
+
+Скопируйте корневой `.env.example` в `.env` и при необходимости измените локальные значения:
+
+```bash
+cp .env.example .env
+```
+
+`.env` не попадает в Git. API и Worker загружают его при локальном запуске, а Vite использует значения с префиксом `VITE_`. Переменные, уже заданные в окружении процесса, имеют приоритет над файлом. Для production передавайте секреты через окружение платформы, не через `.env`.
+
 ## Запуск API без базы данных
 
 Development-конфигурация по умолчанию использует EF Core InMemory и загружает 75 воспроизводимых mock-сообщений, сгенерированных через Bogus:
@@ -50,7 +60,7 @@ API будет доступен на <http://localhost:5080>. Данные су�
 ## Запуск одной командой
 
 ```bash
-docker compose -f backend/docker-compose.yml up --build
+docker compose --env-file .env -f backend/docker-compose.yml up --build
 ```
 
 Compose запускает SQL Server, дожидается health check, применяет initial migration только в Development bootstrap, затем запускает API и Worker.
@@ -64,7 +74,7 @@ Compose запускает SQL Server, дожидается health check, при
 Остановка:
 
 ```bash
-docker compose -f backend/docker-compose.yml down
+docker compose --env-file .env -f backend/docker-compose.yml down
 ```
 
 Добавьте `-v` только если нужно намеренно удалить локальный SQL volume.
@@ -75,14 +85,14 @@ docker compose -f backend/docker-compose.yml down
 
 ```bash
 cd backend
-docker compose up -d sqlserver
+docker compose --env-file ../.env up -d sqlserver
 dotnet tool restore
 dotnet ef database update --project src/SwiftReview.Infrastructure --startup-project src/SwiftReview.Api
 UseMockData=false dotnet run --project src/SwiftReview.Api
 dotnet run --project src/SwiftReview.Worker
 ```
 
-Connection string находится в `appsettings.json` и может быть переопределён через `ConnectionStrings__SwiftReview`. `UseMockData=false` переключает Development API с InMemory на SQL Server. Production startup автоматически migrations не применяет. Development bootstrap включается параметром `BootstrapDatabase=true`.
+Connection string задаётся в корневом `.env` через `ConnectionStrings__SwiftReview`. `UseMockData=false` переключает Development API с InMemory на SQL Server. Production startup автоматически migrations не применяет. Development bootstrap включается параметром `BootstrapDatabase=true`.
 
 Создание новой migration:
 

@@ -13,7 +13,11 @@ public sealed class OpenApiSmokeTests
     public async Task ApiHost_PublishesOrvalReadyContract()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(x => x.UseEnvironment("Production"));
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(web =>
+        {
+            web.UseEnvironment("Production");
+            web.UseSetting("UseMockData", "true");
+        });
         using var client = factory.CreateClient();
         using var response = await client.GetAsync("/openapi/v1.json", ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

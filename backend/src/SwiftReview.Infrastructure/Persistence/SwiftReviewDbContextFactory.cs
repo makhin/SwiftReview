@@ -7,8 +7,11 @@ public sealed class SwiftReviewDbContextFactory : IDesignTimeDbContextFactory<Sw
 {
     public SwiftReviewDbContext CreateDbContext(string[] args)
     {
+        DotNetEnv.Env.NoClobber().TraversePath().Load();
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__SwiftReview")
+            ?? throw new InvalidOperationException("Connection string 'SwiftReview' is required.");
         var options = new DbContextOptionsBuilder<SwiftReviewDbContext>()
-            .UseSqlServer("Server=localhost,1433;Database=SwiftReview;User Id=sa;Password=SwiftReview_Strong_Passw0rd!;TrustServerCertificate=True")
+            .UseSqlServer(connectionString)
             .Options;
         return new SwiftReviewDbContext(options);
     }

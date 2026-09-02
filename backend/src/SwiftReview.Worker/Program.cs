@@ -7,6 +7,7 @@ using SwiftReview.Application.Abstractions;
 using SwiftReview.Infrastructure;
 using SwiftReview.Worker;
 
+DotNetEnv.Env.NoClobber().TraversePath().Load();
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddSingleton<ICorrelationContext, WorkerCorrelationContext>();
 builder.Services.AddApplication();

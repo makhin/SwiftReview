@@ -3,6 +3,7 @@
     <ProjectReference Include="../SwiftReview.Application/SwiftReview.Application.csproj" />
     <ProjectReference Include="../SwiftReview.Infrastructure/SwiftReview.Infrastructure.csproj" />
     <PackageReference Include="DevExtreme.AspNet.Data" />
+    <PackageReference Include="DotNetEnv" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
