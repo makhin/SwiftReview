@@ -88,6 +88,9 @@ export default function GlobalHeader() {
           <NavLink to="/messages" onClick={() => setMenuOpen(false)}>
             Messages
           </NavLink>
+          <NavLink to="/me" onClick={() => setMenuOpen(false)}>
+            Current user
+          </NavLink>
           <NavLink to="/design-system" onClick={() => setMenuOpen(false)}>
             Design system
           </NavLink>

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import DesignSystemPage from '../design-system/DesignSystemPage';
+import MePage from '../me/MePage';
 import MessagesPage from '../messages/MessagesPage';
 import RootLayout from './RootLayout';
 
@@ -10,6 +11,7 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <Navigate to="/design-system" replace /> },
       { path: '/design-system', element: <DesignSystemPage /> },
+      { path: '/me', element: <MePage /> },
       { path: '/messages', element: <MessagesPage /> },
     ],
   },

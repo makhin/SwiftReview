@@ -10,9 +10,15 @@ The implementation standard and UI rules live in [`DESIGN_GUIDE.md`](DESIGN_GUID
 npm run dev
 npm run lint
 npm run typecheck
+npm run api:generate
 npm run theme:build
 npm run build
 ```
+
+`api:generate` regenerates `src/api/schema.d.ts` from the backend OpenAPI document at
+`http://localhost:5080/openapi/v1.json`. Run the backend before generating. Use the
+typed `apiClient` from `src/api/client.ts` for API calls; the DevExtreme messages grid
+keeps its dedicated `CustomStore` integration.
 
 Run `theme:build` after changing mapped design tokens or ThemeBuilder settings. It synchronizes metadata from the canonical values in `src/theme/tokens.css`, then regenerates `src/theme/dx.smbc.css`. Keep the generated metadata and CSS under source control; do not edit the generated CSS manually.
 
@@ -21,6 +27,7 @@ Run `theme:build` after changing mapped design tokens or ThemeBuilder settings. 
 - `/` — redirects to the design-system reference
 - `/design-system` — component and token reference
 - `/messages` — messages DataGrid backed by `GET /api/messages/grid`
+- `/me` — current user details loaded through the typed OpenAPI client
 
 All routes render inside `RootLayout`, which provides the shared EMEA-style global header. The header uses semantic HTML and React Router links; DevExtreme is reserved for interactive widgets inside the shell rather than the structural navigation itself.
 
