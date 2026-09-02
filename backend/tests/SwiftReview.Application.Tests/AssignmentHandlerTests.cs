@@ -28,7 +28,7 @@ public sealed class AssignmentHandlerTests
 
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, clock, correlation);
         await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1,
-            new AssignMessageRequest(2, Convert.ToBase64String([1])), CancellationToken.None));
+            new AssignMessageRequest(2), CancellationToken.None));
         await store.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

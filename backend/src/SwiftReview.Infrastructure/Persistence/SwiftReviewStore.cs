@@ -23,11 +23,9 @@ public sealed class SwiftReviewStore(SwiftReviewDbContext db) : ISwiftReviewStor
     public void AddAssignment(Assignment x) => db.Assignments.Add(x);
     public void AddAudit(AuditEvent x) => db.AuditEvents.Add(x);
     public void AddOutbox(OutboxMessage x) => db.OutboxMessages.Add(x);
-    public void SetExpectedRowVersion(Message message, byte[] version) => db.Entry(message).Property(x => x.RowVersion).OriginalValue = version;
     public async Task<int> SaveChangesAsync(CancellationToken ct)
     {
         try { return await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException ex) { throw new ConcurrencyConflictException("The message was changed by another user. Reload and retry.", ex); }
         catch (DbUpdateException ex) when (ex.GetBaseException() is SqlException { Number: 2601 or 2627 } sql &&
             sql.Message.Contains("IX_Messages_ExternalId", StringComparison.Ordinal))
         { throw new DuplicateExternalIdException("A message with the same external ID was imported concurrently.", ex); }

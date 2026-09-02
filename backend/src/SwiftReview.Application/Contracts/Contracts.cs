@@ -16,13 +16,13 @@ public sealed record ImportMessageRequest(
     decimal? Amount,
     [property: StringLength(200)] string? Reference,
     [property: Required] string RawContent);
-public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo, [property: Required] string RowVersion);
-public sealed record StartReviewRequest([property: Range(1, 3)] int Level, [property: Required] string RowVersion);
-public sealed record ApproveReviewRequest([property: Range(1, 3)] int Level, [property: Required] string RowVersion,
+public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo);
+public sealed record StartReviewRequest([property: Range(1, 3)] int Level);
+public sealed record ApproveReviewRequest([property: Range(1, 3)] int Level,
     [property: StringLength(2000)] string? Comment);
-public sealed record RejectReviewRequest([property: Range(1, 3)] int Level, [property: Required] string RowVersion,
+public sealed record RejectReviewRequest([property: Range(1, 3)] int Level,
     [property: Required, StringLength(2000)] string Comment);
-public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long ReviewId, [property: Required] string RowVersion);
+public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long ReviewId);
 
 public sealed record ImportMessageResponse(long Id, bool Duplicate);
 public sealed record StartReviewResponse(long ReviewId);
@@ -31,9 +31,9 @@ public sealed record CurrentUserResponse(int UserId, string UserName, IReadOnlyL
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
-    string? Account, string? Currency, decimal? Amount, string? Reference, string RowVersion);
+    string? Account, string? Currency, decimal? Amount, string? Reference);
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
-    MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string? Account, string? Currency, decimal? Amount, string RowVersion);
+    MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string? Account, string? Currency, decimal? Amount);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
 public sealed record SortClause([property: Required] string Field,
     [property: Required, RegularExpression("^(?i:asc|desc)$")] string Direction);

@@ -32,5 +32,5 @@ public sealed class MessagesHub(IMessageQueries queries, IUserAccessService acce
     }
 }
 
-public sealed record MessageChangedNotification(string Type, long MessageId, string Version, int BranchId,
+public sealed record MessageChangedNotification(string Type, long MessageId, int BranchId,
     int DepartmentId, string EventId);

@@ -37,7 +37,6 @@ public sealed class Message
     public DateTimeOffset ReceivedAt { get; private set; }
     public int? CurrentAssigneeId { get; private set; }
     public int WorkflowDefinitionId { get; private set; }
-    public byte[] RowVersion { get; private set; } = [];
     public string Sender { get; private set; } = null!;
     public string Receiver { get; private set; } = null!;
     public string? Account { get; private set; }

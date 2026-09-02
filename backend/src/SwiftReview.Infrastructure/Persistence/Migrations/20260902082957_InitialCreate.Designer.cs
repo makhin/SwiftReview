@@ -12,8 +12,8 @@ using SwiftReview.Infrastructure.Persistence;
 namespace SwiftReview.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SwiftReviewDbContext))]
-    [Migration("20260822095419_HardenWorkflowAndOutbox")]
-    partial class HardenWorkflowAndOutbox
+    [Migration("20260902082957_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -2663,6 +2663,90 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Id = 5903L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":1}",
+                            EventType = "ReviewStarted",
+                            MessageId = 59L,
+                            NewState = "FirstReviewInProgress",
+                            OldState = "Assigned",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 5
+                        },
+                        new
+                        {
+                            Id = 5904L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":1}",
+                            EventType = "ReviewApproved",
+                            MessageId = 59L,
+                            NewState = "WaitingForSecondReview",
+                            OldState = "FirstReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 5
+                        },
+                        new
+                        {
+                            Id = 5905L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":2}",
+                            EventType = "ReviewStarted",
+                            MessageId = 59L,
+                            NewState = "SecondReviewInProgress",
+                            OldState = "WaitingForSecondReview",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 6
+                        },
+                        new
+                        {
+                            Id = 5906L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":2}",
+                            EventType = "ReviewApproved",
+                            MessageId = 59L,
+                            NewState = "WaitingForThirdReview",
+                            OldState = "SecondReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 6
+                        },
+                        new
+                        {
+                            Id = 5907L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":3}",
+                            EventType = "ReviewStarted",
+                            MessageId = 59L,
+                            NewState = "ThirdReviewInProgress",
+                            OldState = "WaitingForThirdReview",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 4
+                        },
+                        new
+                        {
+                            Id = 900593L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":3}",
+                            EventType = "ReviewApproved",
+                            MessageId = 59L,
+                            NewState = "Completed",
+                            OldState = "ThirdReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 34, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 4
+                        },
+                        new
+                        {
+                            Id = 5908L,
+                            CorrelationId = "seed-0059",
+                            DetailsJson = "{\"level\":3}",
+                            EventType = "MessageCompleted",
+                            MessageId = 59L,
+                            NewState = "Completed",
+                            OldState = "ThirdReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 4
+                        },
+                        new
+                        {
                             Id = 6001L,
                             CorrelationId = "seed-0060",
                             DetailsJson = "{}",
@@ -2762,6 +2846,90 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                             OldState = "New",
                             Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             UserId = 6
+                        },
+                        new
+                        {
+                            Id = 6203L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":1}",
+                            EventType = "ReviewStarted",
+                            MessageId = 62L,
+                            NewState = "FirstReviewInProgress",
+                            OldState = "Assigned",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 5
+                        },
+                        new
+                        {
+                            Id = 6204L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":1}",
+                            EventType = "ReviewApproved",
+                            MessageId = 62L,
+                            NewState = "WaitingForSecondReview",
+                            OldState = "FirstReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 5
+                        },
+                        new
+                        {
+                            Id = 6205L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":2}",
+                            EventType = "ReviewStarted",
+                            MessageId = 62L,
+                            NewState = "SecondReviewInProgress",
+                            OldState = "WaitingForSecondReview",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 6
+                        },
+                        new
+                        {
+                            Id = 6206L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":2}",
+                            EventType = "ReviewApproved",
+                            MessageId = 62L,
+                            NewState = "WaitingForThirdReview",
+                            OldState = "SecondReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 6
+                        },
+                        new
+                        {
+                            Id = 6207L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":3}",
+                            EventType = "ReviewStarted",
+                            MessageId = 62L,
+                            NewState = "ThirdReviewInProgress",
+                            OldState = "WaitingForThirdReview",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 4
+                        },
+                        new
+                        {
+                            Id = 900623L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":3}",
+                            EventType = "ReviewApproved",
+                            MessageId = 62L,
+                            NewState = "Completed",
+                            OldState = "ThirdReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 34, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 4
+                        },
+                        new
+                        {
+                            Id = 6208L,
+                            CorrelationId = "seed-0062",
+                            DetailsJson = "{\"level\":3}",
+                            EventType = "MessageCompleted",
+                            MessageId = 62L,
+                            NewState = "Completed",
+                            OldState = "ThirdReviewInProgress",
+                            Timestamp = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            UserId = 4
                         },
                         new
                         {
@@ -3766,12 +3934,6 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
                     b.Property<string>("Sender")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -3796,7 +3958,10 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("WorkflowDefinitionId");
 
-                    b.HasIndex("BranchId", "OwningDepartmentId", "State", "ReceivedAt");
+                    b.HasIndex("BranchId", "OwningDepartmentId", "ReceivedAt", "Id")
+                        .IsDescending(false, false, true, false);
+
+                    b.HasIndex("BranchId", "OwningDepartmentId", "State", "ReceivedAt", "Id");
 
                     b.ToTable("Messages", (string)null);
 
@@ -6095,6 +6260,39 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Id = 591L,
+                            Comment = "Seed approval",
+                            CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Level = 1,
+                            MessageId = 59L,
+                            ReviewerId = 5,
+                            StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Status = "Approved"
+                        },
+                        new
+                        {
+                            Id = 592L,
+                            Comment = "Seed approval",
+                            CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Level = 2,
+                            MessageId = 59L,
+                            ReviewerId = 6,
+                            StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Status = "Approved"
+                        },
+                        new
+                        {
+                            Id = 593L,
+                            Comment = "Seed approval",
+                            CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Level = 3,
+                            MessageId = 59L,
+                            ReviewerId = 4,
+                            StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 19, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Status = "Approved"
+                        },
+                        new
+                        {
                             Id = 601L,
                             Comment = "Seed approval",
                             CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 20, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
@@ -6102,6 +6300,39 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                             MessageId = 60L,
                             ReviewerId = 5,
                             StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 20, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Status = "Approved"
+                        },
+                        new
+                        {
+                            Id = 621L,
+                            Comment = "Seed approval",
+                            CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Level = 1,
+                            MessageId = 62L,
+                            ReviewerId = 5,
+                            StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Status = "Approved"
+                        },
+                        new
+                        {
+                            Id = 622L,
+                            Comment = "Seed approval",
+                            CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Level = 2,
+                            MessageId = 62L,
+                            ReviewerId = 6,
+                            StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Status = "Approved"
+                        },
+                        new
+                        {
+                            Id = 623L,
+                            Comment = "Seed approval",
+                            CompletedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Level = 3,
+                            MessageId = 62L,
+                            ReviewerId = 4,
+                            StartedAt = new DateTimeOffset(new DateTime(2026, 8, 3, 22, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Status = "Approved"
                         },
                         new
@@ -6319,23 +6550,23 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                             Order = 1,
                             Required = true,
                             ReviewLevel = 1,
-                            WorkflowDefinitionId = 4
+                            WorkflowDefinitionId = 3
                         },
                         new
                         {
                             Id = 5,
-                            Order = 1,
+                            Order = 2,
                             Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 5
+                            ReviewLevel = 2,
+                            WorkflowDefinitionId = 3
                         },
                         new
                         {
                             Id = 6,
-                            Order = 2,
+                            Order = 3,
                             Required = true,
-                            ReviewLevel = 2,
-                            WorkflowDefinitionId = 5
+                            ReviewLevel = 3,
+                            WorkflowDefinitionId = 3
                         },
                         new
                         {
@@ -6343,7 +6574,7 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                             Order = 1,
                             Required = true,
                             ReviewLevel = 1,
-                            WorkflowDefinitionId = 7
+                            WorkflowDefinitionId = 4
                         },
                         new
                         {
@@ -6351,11 +6582,59 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                             Order = 1,
                             Required = true,
                             ReviewLevel = 1,
-                            WorkflowDefinitionId = 8
+                            WorkflowDefinitionId = 5
                         },
                         new
                         {
                             Id = 9,
+                            Order = 2,
+                            Required = true,
+                            ReviewLevel = 2,
+                            WorkflowDefinitionId = 5
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Order = 1,
+                            Required = true,
+                            ReviewLevel = 1,
+                            WorkflowDefinitionId = 6
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Order = 2,
+                            Required = true,
+                            ReviewLevel = 2,
+                            WorkflowDefinitionId = 6
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Order = 3,
+                            Required = true,
+                            ReviewLevel = 3,
+                            WorkflowDefinitionId = 6
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Order = 1,
+                            Required = true,
+                            ReviewLevel = 1,
+                            WorkflowDefinitionId = 7
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Order = 1,
+                            Required = true,
+                            ReviewLevel = 1,
+                            WorkflowDefinitionId = 8
+                        },
+                        new
+                        {
+                            Id = 15,
                             Order = 2,
                             Required = true,
                             ReviewLevel = 2,

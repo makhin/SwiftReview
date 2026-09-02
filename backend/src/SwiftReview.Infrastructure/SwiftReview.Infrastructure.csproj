@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="../SwiftReview.Application/SwiftReview.Application.csproj" />
     <ProjectReference Include="../SwiftReview.Domain/SwiftReview.Domain.csproj" />
+    <PackageReference Include="DevExtreme.AspNet.Data" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>

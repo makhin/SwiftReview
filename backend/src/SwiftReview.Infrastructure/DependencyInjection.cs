@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddDbContext<SwiftReviewDbContext>(options => options.UseSqlServer(connection, sql => sql.EnableRetryOnFailure()));
         services.AddScoped<ISwiftReviewStore, SwiftReviewStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();
+        services.AddScoped<MessageGridQueries>();
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();

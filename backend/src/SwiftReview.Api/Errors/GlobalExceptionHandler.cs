@@ -15,7 +15,6 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             ValidationException or FormatException or BadHttpRequestException => (StatusCodes.Status400BadRequest, "Validation failed"),
             ResourceNotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
             UnauthorizedAccessException => (StatusCodes.Status403Forbidden, "Forbidden"),
-            ConcurrencyConflictException => (StatusCodes.Status409Conflict, "Concurrency conflict"),
             DomainRuleViolationException => (StatusCodes.Status409Conflict, "Domain rule violation"),
             _ => (StatusCodes.Status500InternalServerError, "Unexpected error")
         };

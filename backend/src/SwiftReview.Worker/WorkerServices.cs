@@ -18,16 +18,16 @@ public sealed class WorkerCorrelationContext : ICorrelationContext
 
 public interface IRealtimeNotifier
 {
-    Task MessageChangedAsync(long id, string version, int branchId, int departmentId,
+    Task MessageChangedAsync(long id, int branchId, int departmentId,
         string idempotencyKey, CancellationToken ct);
 }
 public sealed class ApiRealtimeNotifier(HttpClient http, IConfiguration config) : IRealtimeNotifier
 {
-    public async Task MessageChangedAsync(long id, string version, int branchId, int departmentId,
+    public async Task MessageChangedAsync(long id, int branchId, int departmentId,
         string idempotencyKey, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/internal/message-changed")
-        { Content = JsonContent.Create(new { type = "MessageChanged", messageId = id, version, branchId, departmentId, eventId = idempotencyKey }) };
+        { Content = JsonContent.Create(new { type = "MessageChanged", messageId = id, branchId, departmentId, eventId = idempotencyKey }) };
         request.Headers.Add("X-Internal-Key", config["InternalApiKey"]);
         request.Headers.Add("Idempotency-Key", idempotencyKey);
         using var response = await http.SendAsync(request, ct); response.EnsureSuccessStatusCode();
@@ -95,7 +95,7 @@ public sealed class OutboxWorker(IServiceScopeFactory scopes, IRealtimeNotifier 
             if (message is not null)
             {
                 var idempotencyKey = $"outbox:{item.Id}";
-                await realtime.MessageChangedAsync(message.Id, Convert.ToBase64String(message.RowVersion), message.BranchId,
+                await realtime.MessageChangedAsync(message.Id, message.BranchId,
                     message.OwningDepartmentId, idempotencyKey, ct);
                 var notifications = scope.ServiceProvider.GetRequiredService<INotificationSender>();
                 await notifications.SendAsync(message.CurrentAssigneeId?.ToString() ?? "operations",

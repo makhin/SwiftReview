@@ -25,7 +25,6 @@ public interface ISwiftReviewStore
     void AddAssignment(Assignment assignment);
     void AddAudit(AuditEvent auditEvent);
     void AddOutbox(OutboxMessage outboxMessage);
-    void SetExpectedRowVersion(Message message, byte[] rowVersion);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
 
@@ -62,5 +61,4 @@ public sealed record UserAccess(int UserId, string UserName, IReadOnlySet<string
 }
 
 public sealed class ResourceNotFoundException(string message) : Exception(message);
-public sealed class ConcurrencyConflictException(string message, Exception? inner = null) : Exception(message, inner);
 public sealed class DuplicateExternalIdException(string message, Exception? inner = null) : Exception(message, inner);

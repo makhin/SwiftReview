@@ -11,7 +11,7 @@ namespace SwiftReview.Application.Assignments.Assign;
 
 public sealed class AssignMessageValidator : AbstractValidator<AssignMessageRequest>
 {
-    public AssignMessageValidator() { RuleFor(x => x.AssignedTo).GreaterThan(0); RuleFor(x => x.RowVersion).NotEmpty(); }
+    public AssignMessageValidator() { RuleFor(x => x.AssignedTo).GreaterThan(0); }
 }
 
 public sealed class AssignMessageHandler(ISwiftReviewStore store, IUserAccessService accessService,
@@ -21,7 +21,6 @@ public sealed class AssignMessageHandler(ISwiftReviewStore store, IUserAccessSer
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var message = await store.FindMessageAsync(messageId, cancellationToken) ?? throw new ResourceNotFoundException("Message was not found.");
-        store.SetExpectedRowVersion(message, Convert.FromBase64String(request.RowVersion));
         var target = await accessService.GetByIdAsync(request.AssignedTo, cancellationToken)
             ?? throw new ResourceNotFoundException("Assignee was not found.");
         if (!target.Permissions.Contains(Permissions.MessageView) ||

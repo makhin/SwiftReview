@@ -18,12 +18,14 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(x => x.MessageType).HasMaxLength(20).IsRequired(); builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
         builder.Property(x => x.Sender).HasMaxLength(100); builder.Property(x => x.Receiver).HasMaxLength(100);
         builder.Property(x => x.Account).HasMaxLength(100); builder.Property(x => x.Currency).HasMaxLength(3); builder.Property(x => x.Amount).HasPrecision(19, 4);
-        builder.Property(x => x.Reference).HasMaxLength(200); builder.Property(x => x.RowVersion).IsRowVersion();
+        builder.Property(x => x.Reference).HasMaxLength(200);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Department>().WithMany().HasForeignKey(x => x.OwningDepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(x => new { x.BranchId, x.OwningDepartmentId, x.State, x.ReceivedAt });
+        builder.HasIndex(x => new { x.BranchId, x.OwningDepartmentId, x.State, x.ReceivedAt, x.Id });
+        builder.HasIndex(x => new { x.BranchId, x.OwningDepartmentId, x.ReceivedAt, x.Id })
+            .IsDescending(false, false, true, false);
     }
 }
 

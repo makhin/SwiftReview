@@ -3931,12 +3931,6 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
                     b.Property<string>("Sender")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -3961,7 +3955,10 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("WorkflowDefinitionId");
 
-                    b.HasIndex("BranchId", "OwningDepartmentId", "State", "ReceivedAt");
+                    b.HasIndex("BranchId", "OwningDepartmentId", "ReceivedAt", "Id")
+                        .IsDescending(false, false, true, false);
+
+                    b.HasIndex("BranchId", "OwningDepartmentId", "State", "ReceivedAt", "Id");
 
                     b.ToTable("Messages", (string)null);
 

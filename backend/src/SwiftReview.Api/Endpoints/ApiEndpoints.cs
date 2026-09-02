@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.SignalR;
+using DevExtreme.AspNet.Data.ResponseModel;
 using SwiftReview.Api.Authorization;
 using SwiftReview.Api.Hubs;
 using SwiftReview.Api.Infrastructure;
@@ -16,6 +17,7 @@ using SwiftReview.Application.Reviews;
 using SwiftReview.Application.ReferenceData;
 using SwiftReview.Domain.Identity;
 using SwiftReview.Domain.Messages;
+using SwiftReview.Infrastructure.Persistence;
 
 namespace SwiftReview.Api.Endpoints;
 
@@ -26,6 +28,7 @@ public static class ApiEndpoints
         var api = endpoints.MapGroup("/api").RequireAuthorization();
         var messages = api.MapGroup("/messages");
 
+        messages.MapGet("/grid", Grid).Produces<LoadResult>().ProducesProblem(400).ProducesProblem(403);
         messages.MapGet("/{id:long}", GetMessage).Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(403);
         messages.MapPost("/search", Search).Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
         messages.MapPost("/import", Import)
@@ -48,6 +51,12 @@ public static class ApiEndpoints
     }
 
     private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
+    private static async Task<LoadResult> Grid([AsParameters] DevExtremeGridRequest request, MessageGridQueries queries, ICurrentUser currentUser,
+        IUserAccessService accessService, CancellationToken ct)
+    {
+        var access = await accessService.GetByIdAsync(currentUser.UserId, ct) ?? throw new UnauthorizedAccessException();
+        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(request), access, ct);
+    }
     private static Task<PagedResult<MessageListItemDto>> Search(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);
     private static async Task<Results<Created<ImportMessageResponse>, Ok<ImportMessageResponse>>> Import(
         ImportMessageRequest request, ImportMessageHandler handler, CancellationToken ct)

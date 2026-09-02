@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -33,7 +34,11 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDeta
 builder.Services.AddSingleton<IAuthorizationHandler, MessageActionAuthorizationHandler>();
 builder.Services.AddAuthentication("Debug").AddScheme<AuthenticationSchemeOptions, DebugAuthenticationHandler>("Debug", _ => { });
 builder.Services.AddOpenApi();
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddHealthChecks().AddDbContextCheck<SwiftReviewDbContext>();
 builder.Services.AddOpenTelemetry().ConfigureResource(r => r.AddService("SwiftReview.Api"))
     .WithTracing(t =>

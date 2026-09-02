@@ -13,8 +13,7 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
         if (!access.Permissions.Contains(Permissions.MessageView)) return null;
         var x = await Accessible(access).SingleOrDefaultAsync(x => x.Id == id, ct);
         return x is null ? null : new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.OwningDepartmentId,
-            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount, x.Reference,
-            Convert.ToBase64String(x.RowVersion));
+            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount, x.Reference);
     }
 
     public async Task<PagedResult<MessageListItemDto>> SearchAsync(MessageSearchRequest request, UserAccess access, CancellationToken ct)
@@ -34,8 +33,7 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
         query = ApplySort(query, request.Sort);
         var rows = await query.Skip(request.Skip).Take(request.Take).ToListAsync(ct);
         var items = rows.Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
-            x.OwningDepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Account, x.Currency, x.Amount,
-            Convert.ToBase64String(x.RowVersion))).ToList();
+            x.OwningDepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Account, x.Currency, x.Amount)).ToList();
         return new(items, count);
     }
 

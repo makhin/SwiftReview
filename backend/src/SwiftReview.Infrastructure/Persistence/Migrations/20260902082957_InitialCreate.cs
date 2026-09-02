@@ -50,6 +50,8 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     OccurredAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     ProcessedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     LockedUntil = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    LockId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    NextAttemptAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     Attempts = table.Column<int>(type: "int", nullable: false),
                     LastError = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
                     CorrelationId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
@@ -238,7 +240,6 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     ReceivedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     CurrentAssigneeId = table.Column<int>(type: "int", nullable: true),
                     WorkflowDefinitionId = table.Column<int>(type: "int", nullable: false),
-                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false),
                     Sender = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Receiver = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Account = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
@@ -446,7 +447,8 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 6, "review.reject" },
                     { 7, "review.undo" },
                     { 8, "audit.view" },
-                    { 9, "workflow.manage" }
+                    { 9, "workflow.manage" },
+                    { 10, "message.import" }
                 });
 
             migrationBuilder.InsertData(
@@ -508,7 +510,8 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 6, 6 },
                     { 7, 6 },
                     { 8, 6 },
-                    { 9, 6 }
+                    { 9, 6 },
+                    { 10, 6 }
                 });
 
             migrationBuilder.InsertData(
@@ -667,12 +670,18 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 1, 1, true, 1, 1 },
                     { 2, 1, true, 1, 2 },
                     { 3, 2, true, 2, 2 },
-                    { 4, 1, true, 1, 4 },
-                    { 5, 1, true, 1, 5 },
-                    { 6, 2, true, 2, 5 },
-                    { 7, 1, true, 1, 7 },
-                    { 8, 1, true, 1, 8 },
-                    { 9, 2, true, 2, 8 }
+                    { 4, 1, true, 1, 3 },
+                    { 5, 2, true, 2, 3 },
+                    { 6, 3, true, 3, 3 },
+                    { 7, 1, true, 1, 4 },
+                    { 8, 1, true, 1, 5 },
+                    { 9, 2, true, 2, 5 },
+                    { 10, 1, true, 1, 6 },
+                    { 11, 2, true, 2, 6 },
+                    { 12, 3, true, 3, 6 },
+                    { 13, 1, true, 1, 7 },
+                    { 14, 1, true, 1, 8 },
+                    { 15, 2, true, 2, 8 }
                 });
 
             migrationBuilder.InsertData(
@@ -921,6 +930,12 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 5802L, "seed-0058", "{}", "MessageAssigned", 58L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 3, 18, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
                     { 5901L, "seed-0059", "{}", "MessageImported", 59L, "New", null, new DateTimeOffset(new DateTime(2026, 8, 3, 19, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), null },
                     { 5902L, "seed-0059", "{}", "MessageAssigned", 59L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 5903L, "seed-0059", "{\"level\":1}", "ReviewStarted", 59L, "FirstReviewInProgress", "Assigned", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 5904L, "seed-0059", "{\"level\":1}", "ReviewApproved", 59L, "WaitingForSecondReview", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 5905L, "seed-0059", "{\"level\":2}", "ReviewStarted", 59L, "SecondReviewInProgress", "WaitingForSecondReview", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 5906L, "seed-0059", "{\"level\":2}", "ReviewApproved", 59L, "WaitingForThirdReview", "SecondReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 5907L, "seed-0059", "{\"level\":3}", "ReviewStarted", 59L, "ThirdReviewInProgress", "WaitingForThirdReview", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 4 },
+                    { 5908L, "seed-0059", "{\"level\":3}", "MessageCompleted", 59L, "Completed", "ThirdReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 4 },
                     { 6001L, "seed-0060", "{}", "MessageImported", 60L, "New", null, new DateTimeOffset(new DateTime(2026, 8, 3, 20, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), null },
                     { 6002L, "seed-0060", "{}", "MessageAssigned", 60L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 3, 20, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
                     { 6003L, "seed-0060", "{\"level\":1}", "ReviewStarted", 60L, "FirstReviewInProgress", "Assigned", new DateTimeOffset(new DateTime(2026, 8, 3, 20, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
@@ -929,6 +944,12 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 6102L, "seed-0061", "{}", "MessageAssigned", 61L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 3, 21, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
                     { 6201L, "seed-0062", "{}", "MessageImported", 62L, "New", null, new DateTimeOffset(new DateTime(2026, 8, 3, 22, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), null },
                     { 6202L, "seed-0062", "{}", "MessageAssigned", 62L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 6203L, "seed-0062", "{\"level\":1}", "ReviewStarted", 62L, "FirstReviewInProgress", "Assigned", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 6204L, "seed-0062", "{\"level\":1}", "ReviewApproved", 62L, "WaitingForSecondReview", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 6205L, "seed-0062", "{\"level\":2}", "ReviewStarted", 62L, "SecondReviewInProgress", "WaitingForSecondReview", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 6206L, "seed-0062", "{\"level\":2}", "ReviewApproved", 62L, "WaitingForThirdReview", "SecondReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 6207L, "seed-0062", "{\"level\":3}", "ReviewStarted", 62L, "ThirdReviewInProgress", "WaitingForThirdReview", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 4 },
+                    { 6208L, "seed-0062", "{\"level\":3}", "MessageCompleted", 62L, "Completed", "ThirdReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 4 },
                     { 6301L, "seed-0063", "{}", "MessageImported", 63L, "New", null, new DateTimeOffset(new DateTime(2026, 8, 3, 23, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), null },
                     { 6302L, "seed-0063", "{}", "MessageAssigned", 63L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 3, 23, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
                     { 6303L, "seed-0063", "{\"level\":1}", "ReviewStarted", 63L, "FirstReviewInProgress", "Assigned", new DateTimeOffset(new DateTime(2026, 8, 3, 23, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
@@ -956,7 +977,18 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 7403L, "seed-0074", "{\"level\":1}", "ReviewStarted", 74L, "FirstReviewInProgress", "Assigned", new DateTimeOffset(new DateTime(2026, 8, 4, 10, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
                     { 7404L, "seed-0074", "{\"level\":1}", "ReviewApproved", 74L, "WaitingForSecondReview", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 4, 10, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
                     { 7501L, "seed-0075", "{}", "MessageImported", 75L, "New", null, new DateTimeOffset(new DateTime(2026, 8, 4, 11, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), null },
-                    { 7502L, "seed-0075", "{}", "MessageAssigned", 75L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 4, 11, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 }
+                    { 7502L, "seed-0075", "{}", "MessageAssigned", 75L, "Assigned", "New", new DateTimeOffset(new DateTime(2026, 8, 4, 11, 1, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 900251L, "seed-0025", "{\"level\":1}", "ReviewApproved", 25L, "Completed", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 2, 9, 14, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 900281L, "seed-0028", "{\"level\":1}", "ReviewApproved", 28L, "Completed", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 2, 12, 14, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 900311L, "seed-0031", "{\"level\":1}", "ReviewApproved", 31L, "Completed", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 2, 15, 14, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 900422L, "seed-0042", "{\"level\":2}", "ReviewApproved", 42L, "Completed", "SecondReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 2, 24, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 900452L, "seed-0045", "{\"level\":2}", "ReviewApproved", 45L, "Completed", "SecondReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 5, 24, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 900482L, "seed-0048", "{\"level\":2}", "ReviewApproved", 48L, "Completed", "SecondReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 8, 24, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 6 },
+                    { 900571L, "seed-0057", "{\"level\":1}", "ReviewApproved", 57L, "Completed", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 17, 14, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 900593L, "seed-0059", "{\"level\":3}", "ReviewApproved", 59L, "Completed", "ThirdReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 34, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 4 },
+                    { 900601L, "seed-0060", "{\"level\":1}", "ReviewApproved", 60L, "Completed", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 20, 14, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 },
+                    { 900623L, "seed-0062", "{\"level\":3}", "ReviewApproved", 62L, "Completed", "ThirdReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 34, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 4 },
+                    { 900631L, "seed-0063", "{\"level\":1}", "ReviewApproved", 63L, "Completed", "FirstReviewInProgress", new DateTimeOffset(new DateTime(2026, 8, 3, 23, 14, 59, 999, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 5 }
                 });
 
             migrationBuilder.InsertData(
@@ -1092,7 +1124,13 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                     { 543L, null, null, 3, 54L, 4, new DateTimeOffset(new DateTime(2026, 8, 3, 14, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "InProgress" },
                     { 551L, null, null, 1, 55L, 5, new DateTimeOffset(new DateTime(2026, 8, 3, 15, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "InProgress" },
                     { 571L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 17, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 1, 57L, 5, new DateTimeOffset(new DateTime(2026, 8, 3, 17, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
+                    { 591L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 1, 59L, 5, new DateTimeOffset(new DateTime(2026, 8, 3, 19, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
+                    { 592L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 2, 59L, 6, new DateTimeOffset(new DateTime(2026, 8, 3, 19, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
+                    { 593L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 19, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 3, 59L, 4, new DateTimeOffset(new DateTime(2026, 8, 3, 19, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
                     { 601L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 20, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 1, 60L, 5, new DateTimeOffset(new DateTime(2026, 8, 3, 20, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
+                    { 621L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 1, 62L, 5, new DateTimeOffset(new DateTime(2026, 8, 3, 22, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
+                    { 622L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 25, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 2, 62L, 6, new DateTimeOffset(new DateTime(2026, 8, 3, 22, 20, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
+                    { 623L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 22, 35, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 3, 62L, 4, new DateTimeOffset(new DateTime(2026, 8, 3, 22, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
                     { 631L, "Seed approval", new DateTimeOffset(new DateTime(2026, 8, 3, 23, 15, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), 1, 63L, 5, new DateTimeOffset(new DateTime(2026, 8, 3, 23, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "Approved" },
                     { 661L, null, null, 1, 66L, 5, new DateTimeOffset(new DateTime(2026, 8, 4, 2, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "InProgress" },
                     { 691L, null, null, 1, 69L, 5, new DateTimeOffset(new DateTime(2026, 8, 4, 5, 10, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "InProgress" },
@@ -1128,9 +1166,15 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Messages_BranchId_OwningDepartmentId_State_ReceivedAt",
+                name: "IX_Messages_BranchId_OwningDepartmentId_ReceivedAt_Id",
                 table: "Messages",
-                columns: new[] { "BranchId", "OwningDepartmentId", "State", "ReceivedAt" });
+                columns: new[] { "BranchId", "OwningDepartmentId", "ReceivedAt", "Id" },
+                descending: new[] { false, false, true, false });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_BranchId_OwningDepartmentId_State_ReceivedAt_Id",
+                table: "Messages",
+                columns: new[] { "BranchId", "OwningDepartmentId", "State", "ReceivedAt", "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Messages_CurrentAssigneeId",
@@ -1154,9 +1198,16 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                 column: "WorkflowDefinitionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_OutboxMessages_ProcessedAt_LockedUntil_OccurredAt",
+                name: "IX_OutboxMessages_LockId",
                 table: "OutboxMessages",
-                columns: new[] { "ProcessedAt", "LockedUntil", "OccurredAt" });
+                column: "LockId",
+                unique: true,
+                filter: "[LockId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessages_ProcessedAt_NextAttemptAt_LockedUntil_OccurredAt",
+                table: "OutboxMessages",
+                columns: new[] { "ProcessedAt", "NextAttemptAt", "LockedUntil", "OccurredAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Permissions_Name",
@@ -1219,9 +1270,11 @@ namespace SwiftReview.Infrastructure.Persistence.Migrations
                 column: "DepartmentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_WorkflowDefinitions_MessageType_DepartmentId_BranchId_IsActive",
+                name: "IX_WorkflowDefinitions_MessageType_DepartmentId_BranchId",
                 table: "WorkflowDefinitions",
-                columns: new[] { "MessageType", "DepartmentId", "BranchId", "IsActive" });
+                columns: new[] { "MessageType", "DepartmentId", "BranchId" },
+                unique: true,
+                filter: "[IsActive] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_WorkflowSteps_WorkflowDefinitionId_Order",

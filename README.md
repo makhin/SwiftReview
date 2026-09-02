@@ -27,7 +27,6 @@ flowchart TD
 - four-eyes, запрет self-assignment, повторного approve и invalid transitions;
 - atomic permissions, branch/department scope и resource-based authorization;
 - SQL-side filtering, sorting, pagination и permission-scoped dashboard counts;
-- SQL Server `rowversion`, конфликт устаревшей команды возвращается как HTTP 409;
 - append-only audit trail и retryable outbox с atomic SQL claim, lease owner и idempotency key;
 - SignalR groups `branch:{id}`, `department:{id}`, `message:{id}` с server-side membership checks;
 - OpenAPI, Scalar, ProblemDetails, correlation IDs, logs и OpenTelemetry instrumentation;
@@ -125,16 +124,16 @@ curl -X POST http://localhost:5080/api/messages/search \
   }'
 ```
 
-Для mutating endpoints сначала получите message и передайте возвращённый Base64 `rowVersion`:
+Пример mutating endpoint:
 
 ```bash
 curl -X POST http://localhost:5080/api/messages/1/assign \
   -H 'Content-Type: application/json' \
   -H 'X-Debug-User: supervisor' \
-  -d '{"assignedTo":1,"rowVersion":"<value-from-GET>"}'
+  -d '{"assignedTo":1}'
 ```
 
-Полный контракт requests/responses, enums, nullable fields, ProblemDetails, 403/409 и pagination опубликован в OpenAPI и пригоден как input для Orval.
+Полный контракт requests/responses, enums, nullable fields, ProblemDetails, 403/409 и pagination опубликован в OpenAPI и пригоден как input для Orval. Для DevExtreme DataGrid endpoint `GET /api/messages/grid` поддерживает remote paging, filtering, sorting, grouping и summaries в стандартном формате `DevExtreme.AspNet.Data`; одна страница ограничена 500 строками.
 
 ## Fake integrations и worker
 
@@ -142,7 +141,7 @@ curl -X POST http://localhost:5080/api/messages/1/assign \
 - `FakeDocumentStorage` логирует сохранение confirmation.
 - `FakeNotificationSender` логирует recipient/message/event.
 - Worker атомарно забирает outbox records через SQL Server `UPDLOCK/READPAST`, использует lease owner, exponential retry и передаёт стабильный idempotency key всем side effects.
-- Worker передаёт API только `{ type, messageId, version, branchId, departmentId }`; клиенты перечитывают REST/SQL source of truth.
+- Worker передаёт API только `{ type, messageId, branchId, departmentId, eventId }`; клиенты перечитывают REST/SQL source of truth.
 
 Production HTTP adapter slot зарегистрирован через `HttpClientFactory` с timeout, retry и circuit breaker; реальные AWH/SharePoint/SMTP/Teams implementations сознательно не входят в прототип.
 
