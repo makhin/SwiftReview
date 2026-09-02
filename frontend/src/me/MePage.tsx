@@ -1,9 +1,41 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { ApiError } from '../api/errors';
+import PageError from '../app/PageError';
+import PageLoading from '../app/PageLoading';
 import { currentUserQueryOptions } from './currentUserQueries';
+
+function getErrorContent(error: Error) {
+  if (error instanceof ApiError && error.status === 401) {
+    return {
+      title: 'Authentication required',
+      message: 'Please sign in again to view your profile.',
+    };
+  }
+
+  if (error instanceof ApiError && error.status === 403) {
+    return {
+      title: 'Access denied',
+      message: 'You do not have permission to view this profile.',
+    };
+  }
+
+  if (error instanceof ApiError && error.status >= 500) {
+    return {
+      title: 'Profile temporarily unavailable',
+      message: 'Please wait a moment and try again.',
+    };
+  }
+
+  return {
+    title: 'Unable to load profile',
+    message: 'Check your connection and try again.',
+  };
+}
 
 export default function MePage() {
   const { data: user, error, isPending, refetch } = useQuery(currentUserQueryOptions());
+  const errorContent = error ? getErrorContent(error) : undefined;
 
   return (
     <main className="app-content app-page">
@@ -21,13 +53,13 @@ export default function MePage() {
           <div className="app-card__title">Profile</div>
         </div>
         <div className="app-card__body" aria-busy={isPending}>
-          {error ? (
-            <div className="app-callout app-callout--danger" role="alert">
-              <div>{error.message}</div>
-              <button type="button" onClick={() => void refetch()}>
-                Retry
-              </button>
-            </div>
+          {errorContent ? (
+            <PageError
+              title={errorContent.title}
+              message={errorContent.message}
+              actionLabel="Retry"
+              onAction={() => void refetch()}
+            />
           ) : user ? (
             <dl className="app-details">
               <dt>User ID</dt>
@@ -42,7 +74,7 @@ export default function MePage() {
               <dd>{user.departments.join(', ') || 'None'}</dd>
             </dl>
           ) : (
-            <div role="status">Loading current user…</div>
+            <PageLoading message="Loading current user…" />
           )}
         </div>
       </div>

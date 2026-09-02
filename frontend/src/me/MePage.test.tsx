@@ -66,30 +66,46 @@ describe('MePage', () => {
     expect(screen.getAllByText('None')).toHaveLength(3);
   });
 
-  it('shows a client error without automatically retrying', async () => {
-    getCurrentUser.mockRejectedValue(
-      new ApiError('Unable to load the current user (403).', 403),
-    );
+  it.each([
+    {
+      status: 401,
+      title: 'Authentication required',
+      message: 'Please sign in again to view your profile.',
+    },
+    {
+      status: 403,
+      title: 'Access denied',
+      message: 'You do not have permission to view this profile.',
+    },
+    {
+      status: 503,
+      title: 'Profile temporarily unavailable',
+      message: 'Please wait a moment and try again.',
+    },
+  ])('shows safe error content for a $status response', async ({ status, title, message }) => {
+    getCurrentUser.mockRejectedValue(new ApiError('Internal backend exception', status));
 
     renderPage();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Unable to load the current user (403).',
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(title);
+    expect(alert).toHaveTextContent(message);
+    expect(alert).not.toHaveTextContent('Internal backend exception');
     expect(getCurrentUser).toHaveBeenCalledTimes(1);
   });
 
   it('lets the user retry a failed request', async () => {
     getCurrentUser
-      .mockRejectedValueOnce(new Error('Unable to load the current user.'))
+      .mockRejectedValueOnce(new Error('Internal network details'))
       .mockResolvedValueOnce(currentUser);
     const user = userEvent.setup();
 
     renderPage();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Unable to load the current user.',
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Unable to load profile');
+    expect(alert).toHaveTextContent('Check your connection and try again.');
+    expect(alert).not.toHaveTextContent('Internal network details');
     await user.click(screen.getByRole('button', { name: 'Retry' }));
 
     expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();

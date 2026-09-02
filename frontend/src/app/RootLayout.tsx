@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import GlobalHeader from './GlobalHeader';
+import PageLoading from './PageLoading';
 
 export default function RootLayout() {
   return (
@@ -13,8 +14,8 @@ export default function RootLayout() {
       <div id="main-content">
         <Suspense
           fallback={
-            <div className="app-content app-page" role="status">
-              Loading page…
+            <div className="app-content app-page">
+              <PageLoading message="Loading page…" />
             </div>
           }
         >
