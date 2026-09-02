@@ -1,8 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
-import DesignSystemPage from '../design-system/DesignSystemPage';
-import MePage from '../me/MePage';
-import MessagesPage from '../messages/MessagesPage';
+import { DesignSystemPage, MePage, MessagesPage } from './LazyRoutes';
 import RootLayout from './RootLayout';
 
 const router = createBrowserRouter([

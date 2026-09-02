@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import GlobalHeader from './GlobalHeader';
@@ -10,7 +11,15 @@ export default function RootLayout() {
       </a>
       <GlobalHeader />
       <div id="main-content">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="app-content app-page" role="status">
+              Loading page…
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   );
