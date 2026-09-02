@@ -41,7 +41,7 @@ flowchart TD
 ## Запуск одной командой
 
 ```bash
-docker compose up --build
+docker compose -f backend/docker-compose.yml up --build
 ```
 
 Compose запускает SQL Server, дожидается health check, применяет initial migration только в Development bootstrap, затем запускает API и Worker.
@@ -55,7 +55,7 @@ Compose запускает SQL Server, дожидается health check, при
 Остановка:
 
 ```bash
-docker compose down
+docker compose -f backend/docker-compose.yml down
 ```
 
 Добавьте `-v` только если нужно намеренно удалить локальный SQL volume.
@@ -65,6 +65,7 @@ docker compose down
 Поднять только SQL Server:
 
 ```bash
+cd backend
 docker compose up -d sqlserver
 dotnet tool restore
 dotnet ef database update --project src/SwiftReview.Infrastructure --startup-project src/SwiftReview.Api
@@ -77,6 +78,7 @@ Connection string находится в `appsettings.json` и может быт�
 Создание новой migration:
 
 ```bash
+cd backend
 dotnet ef migrations add MigrationName \
   --project src/SwiftReview.Infrastructure \
   --startup-project src/SwiftReview.Api \
@@ -149,6 +151,7 @@ OpenTelemetry instrumentation включён в API и Worker. Для отпра
 ## Тесты
 
 ```bash
+cd backend
 dotnet restore SwiftReview.sln --configfile NuGet.Config
 dotnet build SwiftReview.sln --no-restore
 dotnet test SwiftReview.sln --no-build --no-restore
@@ -157,6 +160,7 @@ dotnet test SwiftReview.sln --no-build --no-restore
 Domain/application tests и host-level проверки OpenAPI, Scalar, SignalR mapping и authorization выполняются всегда. SQL Server integration suite использует Testcontainers и не использует EF InMemory. Для явного запуска при доступном Docker:
 
 ```bash
+cd backend
 RUN_INTEGRATION_TESTS=1 dotnet test tests/SwiftReview.IntegrationTests
 ```
 
