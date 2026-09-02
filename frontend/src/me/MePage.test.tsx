@@ -81,13 +81,15 @@ describe('MePage', () => {
 
   it('lets the user retry a failed request', async () => {
     getCurrentUser
-      .mockRejectedValueOnce(new Error('Network unavailable'))
+      .mockRejectedValueOnce(new Error('Unable to load the current user.'))
       .mockResolvedValueOnce(currentUser);
     const user = userEvent.setup();
 
     renderPage();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Network unavailable');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to load the current user.',
+    );
     await user.click(screen.getByRole('button', { name: 'Retry' }));
 
     expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();

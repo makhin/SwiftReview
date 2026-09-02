@@ -1,0 +1,71 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { ApiError } from '../api/errors';
+import { getMessageGrid } from './messagesApi';
+
+describe('getMessageGrid', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('serializes paging and remote operations into the request', async () => {
+    const result = { data: [{ id: 1 }], totalCount: 1 };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(result),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      getMessageGrid({
+        skip: 20,
+        take: 10,
+        sort: [{ selector: 'receivedAt', desc: true }],
+        filter: ['state', '=', 'New'],
+        requireTotalCount: true,
+      }),
+    ).resolves.toEqual(result);
+
+    const requestUrl = new URL(fetchMock.mock.calls[0][0], 'https://example.test');
+    expect(requestUrl.pathname).toBe('/api/messages/grid');
+    expect(requestUrl.searchParams.get('skip')).toBe('20');
+    expect(requestUrl.searchParams.get('take')).toBe('10');
+    expect(requestUrl.searchParams.get('sort')).toBe(
+      JSON.stringify([{ selector: 'receivedAt', desc: true }]),
+    );
+    expect(requestUrl.searchParams.get('filter')).toBe(
+      JSON.stringify(['state', '=', 'New']),
+    );
+    expect(requestUrl.searchParams.get('requireTotalCount')).toBe('true');
+  });
+
+  it('uses default paging values', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ data: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getMessageGrid({});
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/messages/grid?skip=0&take=20');
+  });
+
+  it('normalizes unsuccessful responses into ApiError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getMessageGrid({})).rejects.toEqual(
+      new ApiError('Unable to load messages (503).', 503),
+    );
+  });
+
+  it('normalizes network failures and preserves their cause', async () => {
+    const networkError = new TypeError('fetch failed');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(networkError));
+
+    await expect(getMessageGrid({})).rejects.toMatchObject({
+      message: 'Unable to load messages.',
+      cause: networkError,
+    });
+  });
+});

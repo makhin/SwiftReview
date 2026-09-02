@@ -36,9 +36,31 @@ describe('getCurrentUser', () => {
     );
   });
 
+  it('normalizes a network failure and preserves its cause', async () => {
+    const networkError = new TypeError('fetch failed');
+    get.mockRejectedValue(networkError);
+
+    await expect(getCurrentUser()).rejects.toMatchObject({
+      message: 'Unable to load the current user.',
+      cause: networkError,
+    });
+  });
+
   it('normalizes a non-Error request failure', async () => {
     get.mockRejectedValue('network unavailable');
 
-    await expect(getCurrentUser()).rejects.toThrow('Unable to load the current user.');
+    await expect(getCurrentUser()).rejects.toMatchObject({
+      message: 'Unable to load the current user.',
+      cause: 'network unavailable',
+    });
+  });
+
+  it('preserves abort errors', async () => {
+    const controller = new AbortController();
+    const abortError = new DOMException('aborted', 'AbortError');
+    controller.abort();
+    get.mockRejectedValue(abortError);
+
+    await expect(getCurrentUser(controller.signal)).rejects.toBe(abortError);
   });
 });

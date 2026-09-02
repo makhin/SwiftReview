@@ -17,7 +17,7 @@ export async function getCurrentUser(signal?: AbortSignal): Promise<CurrentUser>
 
     return data;
   } catch (error) {
-    if (error instanceof Error) {
+    if (error instanceof ApiError || signal?.aborted) {
       throw error;
     }
 
