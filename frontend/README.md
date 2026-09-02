@@ -10,6 +10,8 @@ The implementation standard and UI rules live in [`DESIGN_GUIDE.md`](DESIGN_GUID
 npm run dev
 npm run lint
 npm run typecheck
+npm test
+npm run test:watch
 npm run api:generate
 npm run theme:build
 npm run build
