@@ -1,0 +1,7 @@
+[
+  { "day": "Mon", "approved": 42, "pending": 14 },
+  { "day": "Tue", "approved": 51, "pending": 18 },
+  { "day": "Wed", "approved": 47, "pending": 10 },
+  { "day": "Thu", "approved": 64, "pending": 16 },
+  { "day": "Fri", "approved": 58, "pending": 13 }
+]

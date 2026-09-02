@@ -1,0 +1,82 @@
+/* Page patterns */
+
+/* Typical grid-heavy enterprise page */
+.page-grid-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page-grid-view__grid {
+  min-width: 0;
+}
+
+/* Review / detail split */
+.page-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(320px, .75fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.page-review__main,
+.page-review__aside {
+  min-width: 0;
+}
+
+.page-review__aside {
+  position: sticky;
+  top: calc(var(--topbar-height) + var(--space-4));
+}
+
+/* Details definition list */
+.app-details {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.app-details dt {
+  color: var(--color-text-secondary);
+}
+
+.app-details dd {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+/* Action footer for review/workflow screens */
+.app-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-sticky);
+  border-top: var(--border-width-default) solid var(--color-border-default);
+  backdrop-filter: blur(6px);
+}
+
+@media (max-width: 980px) {
+  .page-review {
+    grid-template-columns: 1fr;
+  }
+
+  .page-review__aside {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-details {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+
+  .app-details dd:not(:last-child) {
+    margin-bottom: var(--space-2);
+  }
+}

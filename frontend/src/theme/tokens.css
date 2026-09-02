@@ -1,0 +1,183 @@
+/*
+ * SMBC application design tokens
+ *
+ * Components consume semantic tokens. Palette primitives are kept here as the
+ * single source of truth and are only referenced by semantic aliases or the
+ * design-system swatch reference.
+ */
+
+:root {
+  /* Palette primitives */
+  --color-brand-traditional: #004831;
+  --color-brand-traditional-tint-90: #005742;
+  --color-brand-traditional-tint-80: #006451;
+  --color-brand-traditional-tint-70: #137260;
+  --color-brand-traditional-tint-60: #398171;
+  --color-brand-traditional-tint-50: #589284;
+  --color-brand-traditional-tint-40: #75a499;
+  --color-brand-traditional-tint-30: #91b7ae;
+  --color-brand-traditional-tint-20: #b1ccc4;
+  --color-brand-traditional-tint-10: #d5e4e1;
+
+  --color-brand-green-900: #003322;
+  --color-brand-green-800: #003d2a;
+  --color-brand-green-700: var(--color-brand-traditional);
+  --color-brand-green-600: #13542b;
+  --color-brand-header: var(--color-brand-traditional);
+  --color-brand-fresh-500: #c4d600;
+  --color-brand-fresh-300: #e0eb7e;
+  --color-brand-fresh-100: #f2f6da;
+
+  /* Approved supplementary brand colours */
+  --color-brand-pure-crimson: #c3272b;
+  --color-brand-daylily: #ff8936;
+  --color-brand-triandra-grass: #e2b13c;
+  --color-brand-thousand-herbs: #317589;
+  --color-brand-navy: #003171;
+  --color-brand-vine-grape: #6d2b50;
+  --color-brand-cherry-blossom: #fcc9ba;
+  --color-brand-smoked-bamboo: #593a27;
+  --color-brand-indigo-ink: #393432;
+
+  --color-neutral-white: #ffffff;
+  --color-neutral-025: #fbfcfb;
+  --color-neutral-050: #f6f8f6;
+  --color-neutral-100: #eef1ef;
+  --color-neutral-200: #d8ddd9;
+  --color-neutral-300: #b9c1bc;
+  --color-neutral-400: #7f8c85;
+  --color-neutral-500: #68716c;
+  --color-neutral-700: #3d4541;
+  --color-neutral-900: #1f2522;
+
+  --color-green-hover: #f1f5f2;
+  --color-feedback-success: #007a52;
+  --color-feedback-warning: #a95a00;
+  --color-feedback-danger: var(--color-brand-pure-crimson);
+  --color-feedback-info: var(--color-brand-thousand-herbs);
+
+  /* Data visualisation primitives */
+  --color-data-green-muted: #6f8f7f;
+  --color-data-fresh-dark: #9fb300;
+  --color-data-green-medium: #2f6a58;
+  --color-data-green-pale: #b7c7be;
+
+  /* Semantic colour roles */
+  --color-page-background: var(--color-neutral-050);
+  --color-surface-default: var(--color-neutral-white);
+  --color-surface-alternate: var(--color-neutral-025);
+  --color-surface-subtle: var(--color-neutral-050);
+  --color-surface-hover: var(--color-green-hover);
+  --color-surface-selected: var(--color-brand-fresh-100);
+  --color-surface-sticky: rgb(255 255 255 / 96%);
+
+  --color-text-primary: var(--color-neutral-900);
+  --color-text-secondary: var(--color-neutral-500);
+  --color-text-inverse: var(--color-neutral-white);
+  --color-text-link: var(--color-brand-green-700);
+
+  --color-border-default: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-300);
+  --color-border-control: var(--color-neutral-400);
+  --color-table-rule-emphasis: var(--color-brand-traditional-tint-70);
+  --color-border-inverse-subtle: rgb(255 255 255 / 8%);
+  --color-border-inverse: rgb(255 255 255 / 72%);
+
+  --color-action-primary: var(--color-brand-green-700);
+  --color-action-primary-hover: var(--color-brand-green-800);
+  --color-action-primary-active: var(--color-brand-green-900);
+  --color-action-accent: var(--color-brand-fresh-500);
+  --color-action-accent-muted: rgb(196 214 0 / 70%);
+  --color-action-primary-muted: rgb(0 72 49 / 18%);
+
+  --color-feedback-success-subtle: rgb(0 122 82 / 10%);
+  --color-feedback-warning-subtle: rgb(169 90 0 / 10%);
+  --color-feedback-warning-faint: rgb(169 90 0 / 7%);
+  --color-feedback-danger-subtle: rgb(195 39 43 / 10%);
+  --color-feedback-danger-faint: rgb(195 39 43 / 7%);
+  --color-feedback-info-subtle: rgb(49 117 137 / 10%);
+
+  --color-navigation-background: var(--color-brand-green-700);
+  --color-navigation-text: rgb(255 255 255 / 78%);
+  --color-navigation-text-muted: rgb(255 255 255 / 62%);
+  --color-navigation-text-secondary: rgb(255 255 255 / 68%);
+  --color-navigation-hover: rgb(255 255 255 / 6%);
+  --color-navigation-active: rgb(255 255 255 / 8%);
+  --color-link-underline: rgb(0 72 49 / 35%);
+  --color-header-background: var(--color-brand-header);
+  --color-header-border: var(--color-action-accent-muted);
+
+  /* Data visualisation roles */
+  --color-data-series-1: var(--color-brand-green-700);
+  --color-data-series-2: var(--color-brand-fresh-500);
+  --color-data-series-3: var(--color-brand-green-600);
+  --color-data-series-4: var(--color-data-green-muted);
+  --color-data-series-5: var(--color-data-fresh-dark);
+  --color-data-series-6: var(--color-data-green-medium);
+  --color-data-series-7: var(--color-data-green-pale);
+  --color-data-positive: var(--color-feedback-success);
+  --color-data-target: var(--color-brand-fresh-500);
+  --color-data-caution: var(--color-feedback-warning);
+  --color-data-gradient-start: var(--color-brand-fresh-300);
+  --color-data-gradient-end: var(--color-brand-green-700);
+
+  /* Typography */
+  --font-sans: "myriad-pro", "Myriad Pro", Arial, sans-serif;
+  --font-display: "capitolium-2", Georgia, serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Spacing: 4px system */
+  --space-half: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
+
+  /* Borders and outlines */
+  --border-width-default: 1px;
+  --border-width-emphasis: 3px;
+  --outline-width: 2px;
+  --outline-offset: 2px;
+  --outline-offset-control: -2px;
+  --outline-offset-inset: -3px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgb(0 72 49 / 5%);
+  --shadow-popup: 0 8px 24px rgb(0 72 49 / 12%);
+
+  /* Motion */
+  --transition-fast: 120ms ease;
+  --transition-normal: 180ms ease;
+
+  /* Focus */
+  --focus-ring-color-on-light: var(--color-action-primary);
+  --focus-ring-color-on-dark: var(--color-action-accent);
+  --focus-ring-color: var(--focus-ring-color-on-light);
+}

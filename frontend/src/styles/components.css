@@ -1,0 +1,219 @@
+/* Application-level components */
+
+.app-card {
+  background: var(--color-surface-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.app-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+}
+
+.app-card__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.app-card__body {
+  padding: var(--space-4);
+}
+
+.app-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width-default) solid var(--color-border-default);
+}
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.app-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app-filter-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.app-field {
+  min-width: 0;
+}
+
+.app-field > .dx-radiogroup {
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.app-field--wide {
+  grid-column: span 2;
+}
+
+.app-divider {
+  height: 1px;
+  margin: var(--space-4) 0;
+  background: var(--color-border-default);
+}
+
+.app-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+}
+
+.app-badge--success {
+  color: var(--color-feedback-success);
+  background: var(--color-feedback-success-subtle);
+}
+
+.app-badge--warning {
+  color: var(--color-feedback-warning);
+  background: var(--color-feedback-warning-subtle);
+}
+
+.app-badge--danger {
+  color: var(--color-feedback-danger);
+  background: var(--color-feedback-danger-subtle);
+}
+
+.app-badge--info {
+  color: var(--color-feedback-info);
+  background: var(--color-feedback-info-subtle);
+}
+
+.app-badge--brand {
+  color: var(--color-action-primary);
+  background: var(--color-surface-selected);
+}
+
+.app-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-default);
+  border: var(--border-width-default) dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.app-kpi {
+  padding: var(--space-4);
+  background: var(--color-surface-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.app-kpi__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.app-kpi__value {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.app-kpi__meta {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.app-table-shell {
+  overflow: hidden;
+  background: var(--color-surface-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.app-callout {
+  padding: var(--space-3) var(--space-4);
+  border-left: var(--border-width-emphasis) solid var(--color-action-primary);
+  background: var(--color-surface-subtle);
+}
+
+.app-callout--fresh {
+  border-left-color: var(--color-action-accent);
+  background: var(--color-surface-selected);
+}
+
+.app-callout--warning {
+  border-left-color: var(--color-feedback-warning);
+  background: var(--color-feedback-warning-faint);
+}
+
+.app-callout--danger {
+  border-left-color: var(--color-feedback-danger);
+  background: var(--color-feedback-danger-faint);
+}
+
+/* Keeps embedded DevExtreme widgets visually integrated with cards/toolbars */
+.app-card .dx-toolbar,
+.app-toolbar .dx-toolbar {
+  background: transparent;
+}
+
+.app-table-shell .dx-datagrid,
+.app-table-shell .dx-treelist {
+  border: 0;
+}
+
+@media (max-width: 1100px) {
+  .app-filter-panel {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .app-filter-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .app-field--wide {
+    grid-column: auto;
+  }
+
+  .app-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-toolbar__group {
+    flex-wrap: wrap;
+  }
+}

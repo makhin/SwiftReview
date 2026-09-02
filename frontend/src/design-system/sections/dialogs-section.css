@@ -1,0 +1,4 @@
+/* Overlay roots toggle display and must not become flex items when visible. */
+.ds-overlay-host {
+  position: absolute;
+}

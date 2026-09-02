@@ -1,0 +1,609 @@
+/*
+ * SMBC / DevExtreme presentation layer
+ * Target: DevExtreme 25.1, base theme: fluent.blue.light.compact
+ *
+ * Keep the generated ThemeBuilder CSS as the foundation and import this file
+ * immediately after it. The overrides deliberately use a small set of
+ * common DevExtreme classes; smoke-test them after a DevExtreme upgrade.
+ */
+
+/* All values below resolve through app-styles/tokens.css. */
+
+/* Base */
+.dx-viewport,
+.dx-widget {
+  font-family: var(--font-sans);
+}
+
+.dx-widget {
+  color: var(--color-text-primary);
+}
+
+.dx-link {
+  color: var(--color-action-primary);
+  text-decoration-color: var(--color-link-underline);
+}
+
+.dx-link:hover {
+  color: var(--color-action-primary-hover);
+  text-decoration: underline;
+}
+
+/* Editors */
+.dx-texteditor.dx-editor-outlined {
+  background: var(--color-surface-default);
+  border-color: var(--color-border-control);
+  border-radius: var(--radius-sm);
+}
+
+.dx-texteditor.dx-state-hover.dx-editor-outlined {
+  border-color: var(--color-action-primary);
+}
+
+.dx-texteditor.dx-editor-outlined::before {
+  display: none;
+}
+
+.dx-texteditor.dx-state-focused.dx-editor-outlined {
+  border-color: transparent;
+  box-shadow: none;
+  outline: var(--outline-width) solid var(--focus-ring-color);
+  outline-offset: var(--outline-offset-control);
+}
+
+.dx-texteditor.dx-state-focused.dx-invalid.dx-editor-outlined {
+  outline-color: var(--color-feedback-danger);
+}
+
+.dx-texteditor .dx-placeholder,
+.dx-texteditor-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 1;
+}
+
+/* Buttons */
+.dx-button {
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dx-button-mode-contained.dx-button-default {
+  background: var(--color-action-primary);
+  border-color: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+.dx-button-mode-contained.dx-button-default.dx-state-hover {
+  background: var(--color-action-primary-hover);
+  border-color: var(--color-action-primary-hover);
+}
+
+.dx-button-mode-contained.dx-button-default.dx-state-focused {
+  background: var(--color-action-primary-hover);
+  border-color: var(--color-action-primary-hover);
+}
+
+.dx-button-mode-contained.dx-button-default.dx-state-active {
+  background: var(--color-action-primary-active);
+  border-color: var(--color-action-primary-active);
+}
+
+.dx-button-mode-contained.dx-button-default.dx-state-selected {
+  background: var(--color-action-primary-active);
+  border-color: var(--color-action-primary-active);
+}
+
+.dx-button-mode-outlined.dx-button-default {
+  background: var(--color-surface-default);
+  border-color: var(--color-action-primary);
+  color: var(--color-action-primary);
+}
+
+.dx-button-mode-outlined.dx-button-default:is(.dx-state-hover, .dx-state-focused),
+.dx-button-mode-text.dx-button-default:is(.dx-state-hover, .dx-state-focused) {
+  background: var(--color-surface-hover);
+  color: var(--color-action-primary-hover);
+}
+
+.dx-button-mode-outlined.dx-button-default.dx-state-selected,
+.dx-button-mode-text.dx-button-default.dx-state-selected {
+  background: var(--color-surface-selected);
+  color: var(--color-action-primary);
+}
+
+.dx-button-mode-outlined.dx-button-default.dx-state-active,
+.dx-button-mode-text.dx-button-default.dx-state-active {
+  background: var(--color-action-primary-muted);
+  color: var(--color-action-primary-active);
+}
+
+.dx-button-mode-outlined.dx-button-default:is(
+  .dx-state-hover,
+  .dx-state-focused,
+  .dx-state-selected,
+  .dx-state-active
+) .dx-icon,
+.dx-button-mode-text.dx-button-default:is(
+  .dx-state-hover,
+  .dx-state-focused,
+  .dx-state-selected,
+  .dx-state-active
+) .dx-icon {
+  color: inherit;
+}
+
+.dx-button.dx-state-focused {
+  box-shadow: none;
+  outline: var(--outline-width) solid var(--focus-ring-color);
+  outline-offset: var(--outline-offset);
+}
+
+.dx-button-mode-contained.dx-button-success {
+  background: var(--color-feedback-success);
+  border-color: var(--color-feedback-success);
+  color: var(--color-text-inverse);
+}
+
+.dx-button-mode-contained.dx-button-danger {
+  background: var(--color-feedback-danger);
+  border-color: var(--color-feedback-danger);
+  color: var(--color-text-inverse);
+}
+
+/* CheckBox / Radio / Switch */
+.dx-checkbox,
+.dx-radiobutton {
+  min-height: var(--space-8);
+}
+
+.dx-checkbox {
+  min-width: var(--space-8);
+}
+
+.dx-checkbox .dx-checkbox-container {
+  min-height: var(--space-8);
+}
+
+.dx-checkbox-checked .dx-checkbox-icon {
+  background: var(--color-action-primary);
+  border-color: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+.dx-checkbox.dx-state-focused .dx-checkbox-icon,
+.dx-radiobutton.dx-state-focused .dx-radiobutton-icon {
+  box-shadow: none;
+  outline: var(--outline-width) solid var(--focus-ring-color);
+  outline-offset: var(--outline-offset);
+}
+
+.dx-radiobutton-checked .dx-radiobutton-icon::before {
+  background: var(--color-action-primary);
+}
+
+.dx-radiogroup .dx-radiobutton {
+  margin-block: 0;
+}
+
+.dx-switch-on-value .dx-switch-container {
+  border-color: var(--color-action-primary);
+  background: var(--color-action-primary-muted);
+}
+
+.dx-switch-on-value .dx-switch-handle::before {
+  background: var(--color-action-primary);
+}
+
+/* DataGrid / TreeList */
+.dx-datagrid,
+.dx-treelist {
+  color: var(--color-text-primary);
+  background: var(--color-surface-default);
+}
+
+.dx-datagrid .dx-header-filter,
+.dx-datagrid-container .dx-header-filter,
+.dx-treelist .dx-header-filter,
+.dx-treelist-container .dx-header-filter {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: var(--space-1);
+}
+
+.dx-datagrid .dx-select-checkbox .dx-checkbox-container,
+.dx-datagrid-container .dx-select-checkbox .dx-checkbox-container,
+.dx-treelist .dx-select-checkbox .dx-checkbox-container,
+.dx-treelist-container .dx-select-checkbox .dx-checkbox-container {
+  justify-content: center;
+}
+
+.dx-datagrid-headers,
+.dx-treelist-headers {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+  border-bottom: var(--border-width-emphasis) solid var(--color-table-rule-emphasis);
+}
+
+.dx-datagrid-headers .dx-datagrid-table .dx-row > td,
+.dx-treelist-headers .dx-treelist-table .dx-row > td {
+  background: var(--color-surface-subtle);
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+}
+
+.dx-datagrid-rowsview,
+.dx-treelist-rowsview,
+.dx-datagrid-rowsview .dx-row > td,
+.dx-treelist-rowsview .dx-row > td {
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: var(--color-border-default);
+  border-left-color: transparent;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.dx-datagrid-rowsview .dx-row.dx-state-hover > td,
+.dx-treelist-rowsview .dx-row.dx-state-hover > td {
+  background: var(--color-surface-hover);
+}
+
+.dx-datagrid-rowsview .dx-selection.dx-row > td,
+.dx-treelist-rowsview .dx-selection.dx-row > td,
+.dx-datagrid-rowsview .dx-row.dx-selection > td,
+.dx-treelist-rowsview .dx-row.dx-selection > td {
+  background: var(--color-surface-selected);
+  color: var(--color-text-primary);
+}
+
+.dx-datagrid .dx-row-alt > td,
+.dx-treelist .dx-row-alt > td {
+  background: var(--color-surface-alternate);
+}
+
+.dx-datagrid .dx-datagrid-group-opened,
+.dx-datagrid .dx-datagrid-group-closed,
+.dx-treelist .dx-treelist-collapsed,
+.dx-treelist .dx-treelist-expanded {
+  color: var(--color-action-primary);
+}
+
+/* Pager */
+.dx-pager .dx-page,
+.dx-pager .dx-navigate-button {
+  border-radius: var(--radius-sm);
+}
+
+.dx-pager .dx-page.dx-selection {
+  background: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+/* Tabs */
+.dx-tabs {
+  border-color: var(--color-border-default);
+}
+
+.dx-tab.dx-tab-selected,
+.dx-tab.dx-state-focused {
+  color: var(--color-action-primary);
+}
+
+.dx-tab.dx-tab-selected::after {
+  background: var(--color-action-accent);
+}
+
+/* Lists / menus */
+.dx-list-item,
+.dx-menu-item {
+  border-radius: var(--radius-sm);
+}
+
+.dx-list-item-selected,
+.dx-menu-item-selected {
+  background: var(--color-surface-selected);
+  color: var(--color-action-primary);
+}
+
+.dx-list-item.dx-state-hover,
+.dx-menu-item.dx-state-hover {
+  background: var(--color-surface-hover);
+}
+
+.dx-tag-content {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+}
+
+/* Popup / dropdown surfaces */
+.dx-overlay-content,
+.dx-popup-wrapper > .dx-overlay-content {
+  border-radius: var(--radius-md);
+}
+
+.dx-popup-wrapper > .dx-overlay-content {
+  border: var(--border-width-default) solid var(--color-border-default);
+  box-shadow: var(--shadow-popup);
+}
+
+.dx-popup-title {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-border-default);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dx-dropdowneditor-overlay .dx-list {
+  background: var(--color-surface-default);
+}
+
+/* Toolbar */
+.dx-toolbar {
+  background: var(--color-surface-default);
+  color: var(--color-text-primary);
+}
+
+.dx-toolbar-menu-section
+  .dx-toolbar-hidden-button
+  .dx-button-default:is(.dx-state-hover, .dx-state-focused) {
+  background: var(--color-surface-hover);
+  color: var(--color-action-primary-hover);
+}
+
+.dx-toolbar-menu-section
+  .dx-toolbar-hidden-button
+  .dx-button-default.dx-state-selected {
+  background: var(--color-surface-selected);
+  color: var(--color-action-primary);
+}
+
+.dx-toolbar-menu-section
+  .dx-toolbar-hidden-button
+  .dx-button-default.dx-state-active {
+  background: var(--color-action-primary-muted);
+  color: var(--color-action-primary-active);
+}
+
+.dx-toolbar-menu-section
+  .dx-toolbar-hidden-button
+  .dx-button-default:is(
+    .dx-state-hover,
+    .dx-state-focused,
+    .dx-state-selected,
+    .dx-state-active
+  )
+  .dx-icon {
+  color: inherit;
+}
+
+/* Calendar */
+.dx-calendar-cell.dx-calendar-selected-date,
+.dx-calendar-cell.dx-calendar-selected-date.dx-state-hover {
+  background: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+.dx-calendar-cell.dx-calendar-selected-date span,
+.dx-calendar-cell.dx-calendar-selected-date.dx-state-hover span {
+  background: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+.dx-calendar-cell.dx-state-hover span {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.dx-calendar-cell.dx-state-active span {
+  background: var(--color-action-primary-muted);
+  color: var(--color-text-primary);
+}
+
+.dx-calendar-cell.dx-calendar-contoured-date span {
+  box-shadow: 0 0 0 var(--outline-width) var(--color-action-primary);
+}
+
+.dx-calendar-cell-in-range::before {
+  background: var(--color-surface-selected);
+  border-color: var(--color-action-accent) transparent;
+}
+
+.dx-calendar-cell-range-hover::after {
+  border-color: var(--color-action-primary) transparent;
+}
+
+.dx-calendar-cell-in-range:is(
+  .dx-calendar-range-start-date,
+  .dx-calendar-cell-start-in-row,
+  .dx-calendar-cell-start
+)::before,
+.dx-calendar-cell-range-hover:is(
+  .dx-calendar-cell-range-hover-start,
+  .dx-calendar-cell-start-in-row,
+  .dx-calendar-cell-start
+)::after {
+  border-inline-start-color: var(--color-action-accent);
+}
+
+.dx-calendar-cell-in-range:is(
+  .dx-calendar-range-end-date,
+  .dx-calendar-cell-end-in-row,
+  .dx-calendar-cell-end
+)::before,
+.dx-calendar-cell-range-hover:is(
+  .dx-calendar-cell-range-hover-end,
+  .dx-calendar-cell-end-in-row,
+  .dx-calendar-cell-end
+)::after {
+  border-inline-end-color: var(--color-action-accent);
+}
+
+.dx-calendar-cell.dx-calendar-other-view:is(
+  .dx-calendar-cell-in-range,
+  .dx-calendar-cell-range-hover,
+  .dx-calendar-range-start-date,
+  .dx-calendar-range-end-date
+).dx-state-hover span {
+  background: var(--color-surface-hover);
+}
+
+.dx-calendar-cell.dx-calendar-other-view:is(
+  .dx-calendar-cell-in-range,
+  .dx-calendar-cell-range-hover,
+  .dx-calendar-range-start-date,
+  .dx-calendar-range-end-date
+).dx-state-active span {
+  background: var(--color-action-primary-muted);
+}
+
+.dx-calendar-cell.dx-calendar-today {
+  color: var(--color-action-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Scheduler's compact appointment toolbar bypasses the regular button modes. */
+.dx-popup-content
+  .dx-scheduler-dropdown-appointment-buttons-block
+  .dx-button:is(.dx-state-hover, .dx-state-focused) {
+  background: var(--color-surface-hover);
+  color: var(--color-action-primary-hover);
+}
+
+.dx-popup-content
+  .dx-scheduler-dropdown-appointment-buttons-block
+  .dx-button.dx-state-selected {
+  background: var(--color-surface-selected);
+  color: var(--color-action-primary);
+}
+
+.dx-popup-content
+  .dx-scheduler-dropdown-appointment-buttons-block
+  .dx-button.dx-state-active {
+  background: var(--color-action-primary-muted);
+  color: var(--color-action-primary-active);
+}
+
+.dx-popup-content
+  .dx-scheduler-dropdown-appointment-buttons-block
+  .dx-button:is(
+    .dx-state-hover,
+    .dx-state-focused,
+    .dx-state-selected,
+    .dx-state-active
+  )
+  .dx-icon {
+  color: inherit;
+}
+
+/* Fluent does not expose the focused appointment fill in ThemeBuilder metadata. */
+.dx-scheduler-appointment
+  .dx-scheduler-appointment:not(
+    .dx-scheduler-appointment-has-resource-color,
+    .dx-scheduler-appointment-drag-source
+  )::before,
+.dx-scheduler-appointment.dx-state-focused:not(
+  .dx-scheduler-appointment-has-resource-color,
+  .dx-scheduler-appointment-drag-source
+)::before,
+.dx-scheduler-fixed-appointments
+  .dx-draggable-dragging
+  .dx-scheduler-appointment:not(
+    .dx-scheduler-appointment-has-resource-color,
+    .dx-scheduler-appointment-drag-source
+  )::before,
+.dx-scheduler-fixed-appointments
+  .dx-draggable-dragging.dx-state-focused:not(
+    .dx-scheduler-appointment-has-resource-color,
+    .dx-scheduler-appointment-drag-source
+  )::before {
+  background: var(--color-action-primary-muted);
+}
+
+/* Progress / load indication */
+.dx-progressbar-range {
+  background: var(--color-action-primary);
+}
+
+/* ThemeBuilder does not expose these Fluent component colours as inputs. */
+.dx-scheduler-header-panel-cell.dx-scheduler-header-panel-current-time-cell::before,
+.dx-scheduler-time-panel-cell.dx-scheduler-time-panel-current-time-cell::before,
+.dx-scheduler-date-time-indicator,
+.dx-scheduler-timeline
+  .dx-scheduler-header-panel-cell.dx-scheduler-header-panel-current-time-cell::after {
+  background-color: var(--color-feedback-danger);
+}
+
+.dx-scheduler-date-time-indicator::before {
+  color: var(--color-feedback-danger);
+}
+
+.dx-gantt .dx-gantt-taskWrapper .dx-gantt-task.dx-gantt-parent {
+  background-color: var(--color-feedback-success);
+  border-left-color: var(--color-feedback-success);
+  border-right-color: var(--color-feedback-success);
+  border-top-color: var(--color-feedback-success);
+}
+
+.dx-gantt
+  .dx-gantt-taskWrapper
+  .dx-gantt-task.dx-gantt-parent.dx-gantt-cmpl
+  .dx-gantt-tPrg::after {
+  border-right-color: var(--color-feedback-success);
+  border-top-color: var(--color-feedback-success);
+}
+
+/*
+ * Optional application-shell helpers.
+ * These are not required by DevExtreme, but reproduce the SMBC-style
+ * dark green navigation + bright "fresh green" active marker.
+ */
+.smbc-app-shell {
+  min-height: 100vh;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.smbc-sidebar {
+  --focus-ring-color: var(--focus-ring-color-on-dark);
+
+  background: var(--color-action-primary);
+  color: var(--color-text-inverse);
+}
+
+.smbc-sidebar .dx-list,
+.smbc-sidebar .dx-list-item,
+.smbc-sidebar .dx-treeview,
+.smbc-sidebar .dx-treeview-item {
+  background: transparent;
+  color: var(--color-text-inverse);
+}
+
+.smbc-sidebar .dx-list-item,
+.smbc-sidebar .dx-treeview-item {
+  border-radius: 0;
+}
+
+.smbc-sidebar .dx-list-item-selected,
+.smbc-sidebar .dx-treeview-node.dx-state-selected > .dx-treeview-item {
+  background: var(--color-navigation-active);
+  box-shadow: inset var(--border-width-emphasis) 0 0 var(--color-action-accent);
+  color: var(--color-text-inverse);
+}
+
+.smbc-sidebar .dx-list-item.dx-state-hover,
+.smbc-sidebar .dx-treeview-item.dx-state-hover {
+  background: var(--color-navigation-hover);
+}
+
+/* Generic application cards, useful around DevExtreme widgets */
+.smbc-card {
+  background: var(--color-surface-default);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}

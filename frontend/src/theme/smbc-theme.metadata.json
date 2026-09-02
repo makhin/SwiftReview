@@ -1,0 +1,241 @@
+{
+  "items": [
+    {
+      "key": "$base-accent",
+      "value": "#004831"
+    },
+    {
+      "key": "$base-text-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$base-bg",
+      "value": "#ffffff"
+    },
+    {
+      "key": "$base-border-color",
+      "value": "#d8ddd9"
+    },
+    {
+      "key": "$base-border-radius",
+      "value": "3px"
+    },
+    {
+      "key": "$base-font-family",
+      "value": "myriad-pro, Myriad Pro, Arial, sans-serif"
+    },
+    {
+      "key": "$base-success",
+      "value": "#007a52"
+    },
+    {
+      "key": "$base-warning",
+      "value": "#a95a00"
+    },
+    {
+      "key": "$base-danger",
+      "value": "#c3272b"
+    },
+    {
+      "key": "$base-hover-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$base-hover-bg",
+      "value": "#f1f5f2"
+    },
+    {
+      "key": "$base-focus-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$base-focus-bg",
+      "value": "#f1f5f2"
+    },
+    {
+      "key": "$base-link-color",
+      "value": "#004831"
+    },
+    {
+      "key": "$button-normal-hover-bg",
+      "value": "#f1f5f2"
+    },
+    {
+      "key": "$button-normal-focused-bg",
+      "value": "#f1f5f2"
+    },
+    {
+      "key": "$button-normal-active-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$button-normal-selected-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$button-default-hover-bg",
+      "value": "#003d2a"
+    },
+    {
+      "key": "$button-default-focused-bg",
+      "value": "#003d2a"
+    },
+    {
+      "key": "$button-default-active-bg",
+      "value": "#003322"
+    },
+    {
+      "key": "$button-default-selected-bg",
+      "value": "#003322"
+    },
+    {
+      "key": "$calendar-cell-selected-bg",
+      "value": "#004831"
+    },
+    {
+      "key": "$datagrid-selection-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$datagrid-row-selected-border-color",
+      "value": "#d8ddd9"
+    },
+    {
+      "key": "$datagrid-row-selected-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$datagrid-row-focused-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$datagrid-row-focused-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$datagrid-row-alternation-bg",
+      "value": "#fbfcfb"
+    },
+    {
+      "key": "$list-item-hover-bg",
+      "value": "#f1f5f2"
+    },
+    {
+      "key": "$list-item-selected-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$list-item-active-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$menu-item-selected-bg",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$pagination-page-selected-color",
+      "value": "#ffffff"
+    },
+    {
+      "key": "$pagination-page-selected-bg",
+      "value": "#004831"
+    },
+    {
+      "key": "$load-indicator-segment-bg-color",
+      "value": "#004831"
+    },
+    {
+      "key": "$progressbar-range-bg",
+      "value": "#004831"
+    },
+    {
+      "key": "$chat-bubble-color-primary",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$chat-bubble-background-color-primary",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$cardview-fluent-card--selected-bg-color",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$cardview-fluent-card--selected-border-color",
+      "value": "#b9c1bc"
+    },
+    {
+      "key": "$cardview-fluent-card--selected-divider-color",
+      "value": "#d8ddd9"
+    },
+    {
+      "key": "$cardview-fluent-card--selected-text-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$cardview-fluent-header-panel__dropzone-bg-color",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$cardview-fluent-header-panel__dropzone-border-color",
+      "value": "#004831"
+    },
+    {
+      "key": "$cardview-fluent-header-panel__dropzone-text-color",
+      "value": "#004831"
+    },
+    {
+      "key": "$cardview-fluent-header-panel__dropzone__icon-color",
+      "value": "#004831"
+    },
+    {
+      "key": "$scheduler-appointment-base-color",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$scheduler-appointment-text-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$scheduler-appointment-start-color",
+      "value": "rgb(0 72 49 / 18%)"
+    },
+    {
+      "key": "$scheduler-workspace-focused-cell-color",
+      "value": "#f2f6da"
+    },
+    {
+      "key": "$load-indicator-inner-segment-border-color",
+      "value": "#d8ddd9"
+    },
+    {
+      "key": "$tagbox-tag-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$tagbox-tag-bg",
+      "value": "#f1f5f2"
+    },
+    {
+      "key": "$tagbox-tag-active-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$tagbox-tag-button-remove-bg",
+      "value": "#68716c"
+    },
+    {
+      "key": "$accordion-title-color",
+      "value": "#1f2522"
+    },
+    {
+      "key": "$fluent-accordion-title-font-size",
+      "value": "13px"
+    }
+  ],
+  "baseTheme": "fluent.blue.light.compact",
+  "outputColorScheme": "smbc",
+  "makeSwatch": false,
+  "version": "25.1.13",
+  "assetsBasePath": "../../node_modules/devextreme/dist/css/"
+}

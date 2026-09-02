@@ -1,0 +1,100 @@
+/* Typography and document defaults */
+
+html {
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-page-background);
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  font-variant-numeric: lining-nums proportional-nums;
+  line-height: var(--line-height-normal);
+  text-align: left;
+  color: var(--color-text-primary);
+  background: var(--color-page-background);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  text-transform: none;
+}
+
+h1 {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-semibold);
+}
+
+h2 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-semibold);
+}
+
+h3 {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-semibold);
+}
+
+/*
+ * EMEA brand typography uses Capitolium only for editorial/display headings.
+ * Operational headings and all component text remain in Myriad Pro.
+ */
+.app-display-title,
+.app-display-heading {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}
+
+.app-display-title {
+  font-size: var(--font-size-3xl);
+}
+
+a {
+  color: var(--color-text-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: var(--outline-width) solid var(--focus-ring-color);
+  outline-offset: var(--outline-offset);
+}
+
+.app-muted {
+  color: var(--color-text-secondary);
+}
+
+.app-caption {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.app-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}

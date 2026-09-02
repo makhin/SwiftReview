@@ -1,0 +1,10 @@
+{
+  "countries": ["Poland", "Germany", "United Kingdom", "Japan", "France"],
+  "priorities": ["Standard", "Urgent", "Critical"],
+  "reviewTeams": [
+    "Payments Operations",
+    "Financial Crime",
+    "Credit Risk",
+    "Relationship Management"
+  ]
+}
