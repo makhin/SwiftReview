@@ -20,8 +20,11 @@ Run `theme:build` after changing mapped design tokens or ThemeBuilder settings. 
 
 - `/` — redirects to the design-system reference
 - `/design-system` — component and token reference
+- `/messages` — messages DataGrid backed by `GET /api/messages/grid`
 
 All routes render inside `RootLayout`, which provides the shared EMEA-style global header. The header uses semantic HTML and React Router links; DevExtreme is reserved for interactive widgets inside the shell rather than the structural navigation itself.
+
+During local Vite development, `/api` requests are proxied to `http://localhost:5080` with the backend's `supervisor` debug identity. Start the backend before opening the messages page.
 
 ## Style order
 

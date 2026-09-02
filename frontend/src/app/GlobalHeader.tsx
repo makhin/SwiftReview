@@ -85,6 +85,9 @@ export default function GlobalHeader() {
           aria-label="Global navigation"
           data-open={menuOpen}
         >
+          <NavLink to="/messages" onClick={() => setMenuOpen(false)}>
+            Messages
+          </NavLink>
           <NavLink to="/design-system" onClick={() => setMenuOpen(false)}>
             Design system
           </NavLink>
