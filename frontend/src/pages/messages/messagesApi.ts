@@ -1,7 +1,7 @@
 import type { LoadOptions, LoadResultObject } from 'devextreme/common/data';
 
-import { ApiError } from '../api/errors';
-import type { components } from '../api/schema';
+import { ApiError } from '../../shared/api/errors';
+import type { components } from '../../shared/api/schema';
 
 export type MessageRow = components['schemas']['MessageListItemDto'];
 

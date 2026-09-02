@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 
-vi.mock('../api/client', () => ({ apiClient: { GET: get } }));
+vi.mock('../../shared/api/client', () => ({ apiClient: { GET: get } }));
 
-import { ApiError } from '../api/errors';
+import { ApiError } from '../../shared/api/errors';
 import { getCurrentUser } from './currentUserApi';
 
 const currentUser = {

@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
-import { ApiError } from '../api/errors';
-import RootLayout from './RootLayout';
+import { ApiError } from '../../shared/api/errors';
+import RootLayout from '../layout/RootLayout';
 import RouteErrorBoundary from './RouteErrorBoundary';
 
 function renderBrokenRoute(element: ReactNode) {

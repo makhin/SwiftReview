@@ -1,6 +1,6 @@
-import { apiClient } from '../api/client';
-import { ApiError } from '../api/errors';
-import type { components } from '../api/schema';
+import { apiClient } from '../../shared/api/client';
+import { ApiError } from '../../shared/api/errors';
+import type { components } from '../../shared/api/schema';
 
 type CurrentUser = components['schemas']['CurrentUserResponse'];
 

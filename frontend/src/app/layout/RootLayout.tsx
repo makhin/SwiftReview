@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 
+import PageLoading from '../../shared/components/feedback/PageLoading';
 import GlobalHeader from './GlobalHeader';
-import PageLoading from './PageLoading';
 
 export default function RootLayout() {
   return (

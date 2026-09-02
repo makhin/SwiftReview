@@ -1,6 +1,6 @@
 import Chart, { Legend, Series } from 'devextreme-react/chart';
 
-import { smbcVizPalette } from '../../theme/smbc-viz-palette';
+import { smbcVizPalette } from '../../../theme/smbc-viz-palette';
 import Section from '../components/Section';
 import paymentVolume from '../data/payment-volume.json';
 

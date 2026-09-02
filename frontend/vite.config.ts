@@ -11,14 +11,14 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: [
-        'src/api/client.ts',
+        'src/shared/api/client.ts',
         'src/app/**/*.{ts,tsx}',
-        'src/me/**/*.{ts,tsx}',
-        'src/messages/**/*.{ts,tsx}',
+        'src/pages/current-user/**/*.{ts,tsx}',
+        'src/pages/messages/**/*.{ts,tsx}',
       ],
       exclude: [
         'src/**/*.test.{ts,tsx}',
-        'src/design-system/**',
+        'src/pages/design-system/**',
         'src/theme/**',
       ],
       thresholds: {

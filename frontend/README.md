@@ -4,6 +4,19 @@ React application shell and design-system reference built with DevExtreme and a 
 
 The implementation standard and UI rules live in [`DESIGN_GUIDE.md`](DESIGN_GUIDE.md).
 
+## Source structure
+
+- `src/app` owns application composition: providers, routing, and the root layout.
+- `src/pages` contains route-level vertical slices and their page-specific API/query code.
+- `src/shared/api` contains the generated API contract and common HTTP infrastructure.
+- `src/shared/components` contains reusable React components grouped by responsibility.
+- `src/features` is reserved for reusable business actions that span multiple pages.
+- `src/shared/hooks`, `src/shared/lib`, and `src/shared/types` are reserved for proven
+  cross-page abstractions. Keep code within a page until it has a real second consumer.
+
+Dependencies flow from `app` to `pages` to `shared`; page code must not import from
+`app`. Tests remain colocated with the code they cover.
+
 ## Commands
 
 ```bash
@@ -18,9 +31,9 @@ npm run theme:build
 npm run build
 ```
 
-`api:generate` regenerates `src/api/schema.d.ts` from the backend OpenAPI document at
+`api:generate` regenerates `src/shared/api/schema.d.ts` from the backend OpenAPI document at
 `http://localhost:5080/openapi/v1.json`. Run the backend before generating. Use the
-typed `apiClient` from `src/api/client.ts` for API calls; the DevExtreme messages grid
+typed `apiClient` from `src/shared/api/client.ts` for API calls; the DevExtreme messages grid
 keeps its dedicated `CustomStore` integration.
 
 Run `theme:build` after changing mapped design tokens or ThemeBuilder settings. It synchronizes metadata from the canonical values in `src/theme/tokens.css`, then regenerates `src/theme/dx.smbc.css`. Keep the generated metadata and CSS under source control; do not edit the generated CSS manually.

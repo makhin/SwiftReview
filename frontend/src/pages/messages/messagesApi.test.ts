@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
+import { ApiError } from '../../shared/api/errors';
 import { getMessageGrid } from './messagesApi';
 
 describe('getMessageGrid', () => {

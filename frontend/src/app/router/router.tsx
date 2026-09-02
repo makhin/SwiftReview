@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
-import { DesignSystemPage, MePage, MessagesPage } from './LazyRoutes';
-import RootLayout from './RootLayout';
+import RootLayout from '../layout/RootLayout';
+import { CurrentUserPage, DesignSystemPage, MessagesPage } from './LazyRoutes';
 import RouteErrorBoundary from './RouteErrorBoundary';
 
 const router = createBrowserRouter([
@@ -11,7 +11,7 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <Navigate to="/design-system" replace /> },
       { path: '/design-system', element: <DesignSystemPage /> },
-      { path: '/me', element: <MePage /> },
+      { path: '/me', element: <CurrentUserPage /> },
       { path: '/messages', element: <MessagesPage /> },
     ],
   },

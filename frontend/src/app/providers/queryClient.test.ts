@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiError } from '../api/errors';
+import { ApiError } from '../../shared/api/errors';
 import queryClient from './queryClient';
 
 function getRetryPolicy() {

@@ -68,8 +68,8 @@ Redux или Zustand добавляются только при появлени
 1. Установить runtime-зависимость `@tanstack/react-query`.
 2. Установить `@tanstack/eslint-plugin-query` как dev dependency и подключить его
    рекомендуемые правила к текущему flat ESLint config.
-3. Создать `src/app/queryClient.ts` с единственным application-level `QueryClient`.
-4. Создать `src/app/AppProviders.tsx` и подключить `QueryClientProvider` вокруг router.
+3. Создать `src/app/providers/queryClient.ts` с единственным application-level `QueryClient`.
+4. Создать `src/app/providers/AppProviders.tsx` и подключить `QueryClientProvider` вокруг router.
 5. Не подключать React Query Devtools в production bundle. При необходимости добавить
    их позже как development-only lazy dependency.
 
@@ -101,20 +101,21 @@ Retry должен учитывать тип ошибки: не повторят
 ```text
 src/
   app/
-    AppProviders.tsx
-    queryClient.ts
-  api/
+    providers/
+      AppProviders.tsx
+      queryClient.ts
+  shared/api/
     client.ts
     errors.ts
-  me/
+  pages/current-user/
     currentUserApi.ts
     currentUserQueries.ts
-    MePage.tsx
+    CurrentUserPage.tsx
 ```
 
 ### Изменения
 
-1. Вынести HTTP-вызов из `MePage` в `getCurrentUser(signal)`.
+1. Вынести HTTP-вызов из `CurrentUserPage` в `getCurrentUser(signal)`.
 2. Ввести небольшой `ApiError` со статусом ответа; не строить общую иерархию ошибок.
 3. Создать `currentUserQueryOptions()` с ключом `['current-user']`.
 4. Заменить ручные `useEffect`, `AbortController`, `user` и `error` на `useQuery`.
@@ -132,7 +133,7 @@ src/
 
 ### Критерии готовности
 
-- в `MePage` нет ручного жизненного цикла HTTP-запроса;
+- в `CurrentUserPage` нет ручного жизненного цикла HTTP-запроса;
 - повторное открытие страницы в пределах `staleTime` не создаёт новый запрос;
 - пользователь может повторить неуспешную загрузку;
 - существующие показатели покрытия не снижаются.
@@ -160,7 +161,7 @@ const messageKeys = {
 Текущая production-сборка предупреждает о крупном JavaScript chunk. Основная мера —
 ленивая загрузка route-компонентов.
 
-1. Перевести `MePage`, `MessagesPage` и особенно `DesignSystemPage` на dynamic imports.
+1. Перевести `CurrentUserPage`, `MessagesPage` и особенно `DesignSystemPage` на dynamic imports.
 2. Добавить route-level fallback для загрузки chunk.
 3. Проверить, что код design-system и тяжёлые модули DevExtreme не входят в initial
    application chunk.
@@ -196,7 +197,7 @@ const messageKeys = {
    - открытие и фильтрация `/messages`;
    - навигация через global header;
    - отображение 403 и временной серверной ошибки.
-5. Не включать `src/design-system/**` и `src/theme/**` в unit coverage согласно текущей
+5. Не включать `src/pages/design-system/**` и `src/theme/**` в unit coverage согласно текущей
    политике проекта.
 
 ## Этап 7. URL как состояние навигации
@@ -223,7 +224,7 @@ const messageKeys = {
 ## Рекомендуемый порядок pull request
 
 1. **PR 1 — Query foundation:** зависимости, provider, ESLint plugin, test helper.
-2. **PR 2 — Current user migration:** API-функция, query options, новый `MePage`.
+2. **PR 2 — Current user migration:** API-функция, query options, новый `CurrentUserPage`.
 3. **PR 3 — Route splitting:** lazy routes и измерение bundle.
 4. **PR 4 — Error UX:** route boundary и retry состояния.
 5. **PR 5 — MSW:** интеграционные тесты запросов после появления второго query flow.

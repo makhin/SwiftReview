@@ -10,20 +10,20 @@ const { meModule } = vi.hoisted(() => {
   return { meModule: { loaded, resolve } };
 });
 
-vi.mock('../design-system/DesignSystemPage', () => ({
+vi.mock('../pages/design-system/DesignSystemPage', () => ({
   default: () => <main>Design system page</main>,
 }));
-vi.mock('../me/MePage', async () => {
+vi.mock('../pages/current-user/CurrentUserPage', async () => {
   await meModule.loaded;
 
   return { default: () => <main>Current user page</main> };
 });
-vi.mock('../messages/MessagesPage', () => ({
+vi.mock('../pages/messages/MessagesPage', () => ({
   default: () => <main>Messages page</main>,
 }));
 
 import App from './App';
-import router from './router';
+import router from './router/router';
 
 describe('App routing', () => {
   it('renders application routes inside the shared layout', async () => {

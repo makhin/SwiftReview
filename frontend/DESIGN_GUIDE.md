@@ -45,19 +45,28 @@ src/
   index.css
   app/
     App.tsx
-    router.tsx
-    RootLayout.tsx
-    GlobalHeader.tsx
-    global-header.css
+    layout/
+    providers/
+    router/
   assets/fonts/
-  design-system/
-    DesignSystemPage.tsx
+  features/
+  pages/
+    current-user/
+    design-system/
+      components/
+      data/
+      sections/
+    messages/
+  shared/
+    api/
     components/
-      Section.tsx
-      section.css
-    data/
-    sections/
-    design-system.css
+      data-display/
+      feedback/
+      forms/
+      layout/
+    hooks/
+    lib/
+    types/
   styles/
     fonts.css
     typography.css
@@ -79,8 +88,13 @@ src/
 |---|---|---|
 | `src/theme/` | Brand and semantic tokens, ThemeBuilder input/output, global DevExtreme corrections, and the chart palette bridge | Application shell layout, page composition, reference-page demos, or one-off component dimensions |
 | `src/styles/` | Application-level primitives and reusable `.app-*` patterns | Brand palette definitions, generated vendor CSS, or styles used only by `/design-system` |
-| `src/app/` | Routing, the root shell, global navigation, and application-specific React components | Theme generation or reference-page examples |
-| `src/design-system/` | The development reference page, demonstrations, regression surface, and demo fixtures | Production business components or the canonical implementation of a shared style |
+| `src/app/` | Providers, routing, the root shell, and global navigation | Page-specific behavior or generally reusable components |
+| `src/pages/` | Route-level vertical slices and their page-specific data access | Application bootstrap or cross-page primitives |
+| `src/features/` | Reusable business actions used by multiple pages | One-page-only code or generic UI primitives |
+| `src/shared/api/` | Generated API contracts and common HTTP infrastructure | Page-specific endpoint orchestration |
+| `src/shared/components/` | Reusable React components grouped by responsibility | Route composition or business workflows |
+| `src/shared/hooks/`, `src/shared/lib/`, `src/shared/types/` | Proven cross-page hooks, utilities, and types | Speculative abstractions with only one consumer |
+| `src/pages/design-system/` | The development reference page, demonstrations, regression surface, and demo fixtures | Production business components or the canonical implementation of a shared style |
 | `src/assets/` | Locally bundled fonts and other static brand assets | Remote asset references or component styles |
 
 ### Theme ownership
@@ -92,9 +106,9 @@ belongs here only when changing it should consistently affect multiple
 components or application surfaces.
 
 Layout dimensions owned by one component remain with that component. For
-example, global-header dimensions live in `app/global-header.css`, application
+example, global-header dimensions live in `app/layout/global-header.css`, application
 shell dimensions live in `styles/layout.css`, and reference-page dimensions
-live in `design-system/design-system.css`.
+live in `pages/design-system/design-system.css`.
 
 The remaining theme files have narrow responsibilities:
 
@@ -140,7 +154,7 @@ spacing, motion, and focus tokens from the theme.
 
 ### Design-system reference ownership
 
-`src/design-system` documents and exercises the implementation; it does not
+`src/pages/design-system` documents and exercises the implementation; it does not
 replace it. Its parts are divided as follows:
 
 - `DesignSystemPage.tsx` composes navigation, page chrome, and section

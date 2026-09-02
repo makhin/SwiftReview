@@ -1,7 +1,7 @@
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
 
-import { ApiError } from '../api/errors';
-import PageError from './PageError';
+import { ApiError } from '../../shared/api/errors';
+import PageError from '../../shared/components/feedback/PageError';
 
 function getStatus(error: unknown) {
   if (error instanceof ApiError) {

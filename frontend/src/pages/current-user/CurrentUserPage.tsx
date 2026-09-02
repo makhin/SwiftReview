@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { ApiError } from '../api/errors';
-import PageError from '../app/PageError';
-import PageLoading from '../app/PageLoading';
+import { ApiError } from '../../shared/api/errors';
+import PageError from '../../shared/components/feedback/PageError';
+import PageLoading from '../../shared/components/feedback/PageLoading';
 import { currentUserQueryOptions } from './currentUserQueries';
 
 function getErrorContent(error: Error) {
@@ -33,7 +33,7 @@ function getErrorContent(error: Error) {
   };
 }
 
-export default function MePage() {
+export default function CurrentUserPage() {
   const { data: user, error, isPending, refetch } = useQuery(currentUserQueryOptions());
   const errorContent = error ? getErrorContent(error) : undefined;
 

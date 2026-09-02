@@ -3,14 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
-import { createTestQueryClient } from '../test/createTestQueryClient';
+import { ApiError } from '../../shared/api/errors';
+import { createTestQueryClient } from '../../test/createTestQueryClient';
 
 const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
 
 vi.mock('./currentUserApi', () => ({ getCurrentUser }));
 
-import MePage from './MePage';
+import CurrentUserPage from './CurrentUserPage';
 
 const currentUser = {
   userId: 42,
@@ -23,12 +23,12 @@ const currentUser = {
 function renderPage(queryClient = createTestQueryClient()) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <MePage />
+      <CurrentUserPage />
     </QueryClientProvider>,
   );
 }
 
-describe('MePage', () => {
+describe('CurrentUserPage', () => {
   beforeEach(() => {
     getCurrentUser.mockReset();
   });
