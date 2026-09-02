@@ -34,8 +34,18 @@ flowchart TD
 
 ## Требования
 
-- Docker Engine / Docker Desktop с Compose; либо .NET SDK 10.0.100 и доступный SQL Server.
-- Порты `1433` и `5080` должны быть свободны.
+- Для запуска API с mock data достаточно .NET SDK 10.0.100 и свободного порта `5080`.
+- Для полного запуска с постоянным хранилищем нужны Docker Engine / Docker Desktop с Compose и свободные порты `1433` и `5080`.
+
+## Запуск API без базы данных
+
+Development-конфигурация по умолчанию использует EF Core InMemory и загружает 75 воспроизводимых mock-сообщений, сгенерированных через Bogus:
+
+```bash
+dotnet run --project backend/src/SwiftReview.Api
+```
+
+API будет доступен на <http://localhost:5080>. Данные существуют только в памяти процесса и сбрасываются после перезапуска. Чтобы из CLI использовать SQL Server, задайте `UseMockData=false`.
 
 ## Запуск одной командой
 
@@ -68,11 +78,11 @@ cd backend
 docker compose up -d sqlserver
 dotnet tool restore
 dotnet ef database update --project src/SwiftReview.Infrastructure --startup-project src/SwiftReview.Api
-dotnet run --project src/SwiftReview.Api
+UseMockData=false dotnet run --project src/SwiftReview.Api
 dotnet run --project src/SwiftReview.Worker
 ```
 
-Connection string находится в `appsettings.json` и может быть переопределён через `ConnectionStrings__SwiftReview`. Production startup автоматически migrations не применяет. Development bootstrap включается параметром `BootstrapDatabase=true`.
+Connection string находится в `appsettings.json` и может быть переопределён через `ConnectionStrings__SwiftReview`. `UseMockData=false` переключает Development API с InMemory на SQL Server. Production startup автоматически migrations не применяет. Development bootstrap включается параметром `BootstrapDatabase=true`.
 
 Создание новой migration:
 

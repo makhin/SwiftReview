@@ -12,8 +12,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connection = configuration.GetConnectionString("SwiftReview") ?? throw new InvalidOperationException("Connection string 'SwiftReview' is required.");
-        services.AddDbContext<SwiftReviewDbContext>(options => options.UseSqlServer(connection, sql => sql.EnableRetryOnFailure()));
+        if (configuration.GetValue<bool>("UseMockData"))
+        {
+            services.AddDbContext<SwiftReviewDbContext>(options => options.UseInMemoryDatabase("SwiftReviewMock"));
+        }
+        else
+        {
+            var connection = configuration.GetConnectionString("SwiftReview") ?? throw new InvalidOperationException("Connection string 'SwiftReview' is required.");
+            services.AddDbContext<SwiftReviewDbContext>(options => options.UseSqlServer(connection, sql => sql.EnableRetryOnFailure()));
+        }
         services.AddScoped<ISwiftReviewStore, SwiftReviewStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();
         services.AddScoped<MessageGridQueries>();

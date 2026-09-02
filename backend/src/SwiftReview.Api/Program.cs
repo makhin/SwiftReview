@@ -63,7 +63,14 @@ app.MapScalarApiReference("/scalar", options => options.WithTitle("SwiftReview A
 app.MapHub<MessagesHub>("/hubs/messages");
 app.MapApiEndpoints();
 
-if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("BootstrapDatabase"))
+if (app.Configuration.GetValue<bool>("UseMockData"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<SwiftReviewDbContext>();
+    await db.Database.EnsureCreatedAsync();
+    await MockDataSeeder.SeedAsync(db);
+}
+else if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("BootstrapDatabase"))
 {
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<SwiftReviewDbContext>().Database.MigrateAsync();
