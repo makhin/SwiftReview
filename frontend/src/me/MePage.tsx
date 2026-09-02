@@ -1,43 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import { apiClient } from '../api/client';
-import type { components } from '../api/schema';
-
-type CurrentUser = components['schemas']['CurrentUserResponse'];
+import { currentUserQueryOptions } from './currentUserQueries';
 
 export default function MePage() {
-  const [user, setUser] = useState<CurrentUser>();
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadCurrentUser = async () => {
-      try {
-        const { data, response } = await apiClient.GET('/api/me', {
-          signal: controller.signal,
-        });
-
-        if (!data) {
-          throw new Error(`Unable to load the current user (${response.status}).`);
-        }
-
-        setUser(data);
-      } catch (requestError) {
-        if (!controller.signal.aborted) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : 'Unable to load the current user.',
-          );
-        }
-      }
-    };
-
-    void loadCurrentUser();
-
-    return () => controller.abort();
-  }, []);
+  const { data: user, error, isPending, refetch } = useQuery(currentUserQueryOptions());
 
   return (
     <main className="app-content app-page">
@@ -54,10 +20,13 @@ export default function MePage() {
         <div className="app-card__header">
           <div className="app-card__title">Profile</div>
         </div>
-        <div className="app-card__body" aria-busy={!user && !error}>
+        <div className="app-card__body" aria-busy={isPending}>
           {error ? (
             <div className="app-callout app-callout--danger" role="alert">
-              {error}
+              <div>{error.message}</div>
+              <button type="button" onClick={() => void refetch()}>
+                Retry
+              </button>
             </div>
           ) : user ? (
             <dl className="app-details">

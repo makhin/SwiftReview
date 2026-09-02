@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { ApiError } from '../api/errors';
 import queryClient from './queryClient';
 
 function getRetryPolicy() {
@@ -14,7 +15,7 @@ function getRetryPolicy() {
 
 describe('queryClient', () => {
   it('does not retry client errors', () => {
-    const error = Object.assign(new Error('Forbidden'), { status: 403 });
+    const error = new ApiError('Forbidden', 403);
 
     expect(getRetryPolicy()(0, error)).toBe(false);
   });
@@ -23,7 +24,7 @@ describe('queryClient', () => {
     const retry = getRetryPolicy();
 
     expect(retry(0, new Error('Network error'))).toBe(true);
-    expect(retry(1, Object.assign(new Error('Unavailable'), { status: 503 }))).toBe(true);
+    expect(retry(1, new ApiError('Unavailable', 503))).toBe(true);
     expect(retry(2, new Error('Network error'))).toBe(false);
   });
 });
