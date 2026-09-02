@@ -7,6 +7,27 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: [
+        'src/api/client.ts',
+        'src/app/**/*.{ts,tsx}',
+        'src/me/**/*.{ts,tsx}',
+        'src/messages/**/*.{ts,tsx}',
+      ],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/design-system/**',
+        'src/theme/**',
+      ],
+      thresholds: {
+        branches: 80,
+        functions: 90,
+        lines: 90,
+        statements: 90,
+      },
+    },
   },
   server: {
     proxy: {
