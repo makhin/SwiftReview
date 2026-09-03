@@ -65,6 +65,9 @@ public sealed class ApiWorkflowTests
         Assert.Equal(75, (await client.GetFromJsonAsync<DashboardSummaryDto>("/api/dashboard/summary", ct))!.Total);
         Assert.Equal(8, (await client.GetFromJsonAsync<List<WorkflowSummaryDto>>("/api/workflows", ct))!.Count);
         Assert.Equal(6, (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Count);
+        Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
+        Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct))!.Count);
+        Assert.Equal(8, (await client.GetFromJsonAsync<List<string>>("/api/message-types", ct))!.Count);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/me", ct)).StatusCode);
 
         var import = Request("IT-0001");
@@ -112,6 +115,12 @@ public sealed class ApiWorkflowTests
 
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "tfo-reviewer");
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/messages/{id}", ct)).StatusCode);
+        Assert.Equal([new ReferenceItemDto(2, "Dublin")],
+            await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct));
+        Assert.Equal([new ReferenceItemDto(2, "TFO")],
+            await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct));
+        Assert.Equal(["MT299", "MT710", "MT999"],
+            await client.GetFromJsonAsync<List<string>>("/api/message-types", ct));
         using (var scopedGrid = await client.GetAsync("/api/messages/grid?skip=0&take=50", ct))
         {
             scopedGrid.EnsureSuccessStatusCode();

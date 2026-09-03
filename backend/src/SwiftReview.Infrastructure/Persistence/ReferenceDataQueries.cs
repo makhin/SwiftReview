@@ -22,4 +22,26 @@ public sealed class ReferenceDataQueries(SwiftReviewDbContext db) : IReferenceDa
         return users.Select(x => new UserSummaryDto(x.Id, x.UserName, x.DisplayName,
             x.Branches.Select(b => b.BranchId).Order().ToList(), x.Departments.Select(d => d.DepartmentId).Order().ToList())).ToList();
     }
+
+    public async Task<IReadOnlyList<ReferenceItemDto>> GetBranchesAsync(UserAccess access, CancellationToken ct) =>
+        await db.Branches.AsNoTracking()
+            .Where(x => access.BranchIds.Contains(x.Id))
+            .OrderBy(x => x.Name).ThenBy(x => x.Id)
+            .Select(x => new ReferenceItemDto(x.Id, x.Name))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ReferenceItemDto>> GetDepartmentsAsync(UserAccess access, CancellationToken ct) =>
+        await db.Departments.AsNoTracking()
+            .Where(x => access.DepartmentIds.Contains(x.Id))
+            .OrderBy(x => x.Name).ThenBy(x => x.Id)
+            .Select(x => new ReferenceItemDto(x.Id, x.Name))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<string>> GetMessageTypesAsync(UserAccess access, CancellationToken ct) =>
+        await db.Messages.AsNoTracking()
+            .Where(x => access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.OwningDepartmentId))
+            .Select(x => x.MessageType)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync(ct);
 }

@@ -43,6 +43,8 @@ public sealed class OpenApiSmokeTests
             Assert.Contains(parameter, gridParameters);
         Assert.Contains("null", schemas.GetProperty("ApproveReviewRequest").GetProperty("properties").GetProperty("comment").GetProperty("type")
             .EnumerateArray().Select(x => x.GetString()));
+        Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("id", out _));
+        Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("name", out _));
 
         Assert.True(paths.GetProperty("/api/messages/import").GetProperty("post").GetProperty("responses")
             .GetProperty("201").GetProperty("content").GetProperty("application/json").TryGetProperty("schema", out _));
@@ -65,6 +67,7 @@ public sealed class OpenApiSmokeTests
     [
         "/api/messages/{id}", "/api/messages/grid", "/api/messages/search", "/api/messages/{id}/assign", "/api/messages/{id}/reassign",
         "/api/messages/{id}/reviews/start", "/api/messages/{id}/reviews/approve", "/api/messages/{id}/reviews/reject",
-        "/api/messages/{id}/undo", "/api/messages/{id}/audit", "/api/dashboard/summary", "/api/me", "/api/workflows", "/api/users"
+        "/api/messages/{id}/undo", "/api/messages/{id}/audit", "/api/dashboard/summary", "/api/me", "/api/workflows", "/api/users",
+        "/api/branches", "/api/departments", "/api/message-types"
     ];
 }

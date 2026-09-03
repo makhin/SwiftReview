@@ -30,6 +30,9 @@ public static class DependencyInjection
         services.AddScoped<SearchMessagesHandler>();
         services.AddScoped<GetWorkflowsHandler>();
         services.AddScoped<GetUsersHandler>();
+        services.AddScoped<GetBranchesHandler>();
+        services.AddScoped<GetDepartmentsHandler>();
+        services.AddScoped<GetMessageTypesHandler>();
         return services;
     }
 }

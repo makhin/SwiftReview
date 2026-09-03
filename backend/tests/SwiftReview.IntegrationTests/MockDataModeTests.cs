@@ -1,8 +1,10 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using SwiftReview.Application.Abstractions;
 using Xunit;
 
 namespace SwiftReview.IntegrationTests;
@@ -35,5 +37,21 @@ public sealed class MockDataModeTests
         Assert.Equal(75, json.RootElement.GetProperty("totalCount").GetInt32());
         Assert.All(json.RootElement.GetProperty("data").EnumerateArray(), row =>
             Assert.StartsWith("MSG-", row.GetProperty("externalId").GetString()));
+
+        Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
+        Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct))!.Count);
+        Assert.Equal(8, (await client.GetFromJsonAsync<List<string>>("/api/message-types", ct))!.Count);
+        Assert.Equal(6, (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Count);
+
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "cs-reviewer");
+        Assert.Equal([new ReferenceItemDto(1, "London")],
+            await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct));
+        Assert.Equal([new ReferenceItemDto(1, "CS")],
+            await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct));
+        Assert.Equal(["MT199", "MT700", "MT799"],
+            await client.GetFromJsonAsync<List<string>>("/api/message-types", ct));
+        Assert.Equal([6, 1, 4, 5],
+            (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Select(x => x.Id));
     }
 }

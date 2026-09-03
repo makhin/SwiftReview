@@ -46,6 +46,9 @@ public static class ApiEndpoints
         api.MapGet("/me", Me).Produces<CurrentUserResponse>();
         api.MapGet("/workflows", Workflows).Produces<IReadOnlyList<WorkflowSummaryDto>>().ProducesProblem(403);
         api.MapGet("/users", Users).Produces<IReadOnlyList<UserSummaryDto>>().ProducesProblem(403);
+        api.MapGet("/branches", Branches).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
+        api.MapGet("/departments", Departments).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
+        api.MapGet("/message-types", MessageTypes).Produces<IReadOnlyList<string>>().ProducesProblem(403);
         endpoints.MapPost("/internal/message-changed", Notify).AllowAnonymous();
         return endpoints;
     }
@@ -97,6 +100,9 @@ public static class ApiEndpoints
         context.User.FindAll("department").Select(x => int.Parse(x.Value)).Order().ToList()));
     private static Task<IReadOnlyList<WorkflowSummaryDto>> Workflows(GetWorkflowsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<UserSummaryDto>> Users(GetUsersHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
+    private static Task<IReadOnlyList<ReferenceItemDto>> Branches(GetBranchesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
+    private static Task<IReadOnlyList<ReferenceItemDto>> Departments(GetDepartmentsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
+    private static Task<IReadOnlyList<string>> MessageTypes(GetMessageTypesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static async Task<IResult> Notify(MessageChangedNotification notification, HttpContext context,
         IConfiguration config, IHubContext<MessagesHub> hub, InternalEventDeduplicator deduplicator)
     {

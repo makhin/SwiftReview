@@ -52,6 +52,9 @@ public interface IReferenceDataQueries
 {
     Task<IReadOnlyList<WorkflowSummaryDto>> GetWorkflowsAsync(UserAccess access, CancellationToken cancellationToken);
     Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(UserAccess access, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ReferenceItemDto>> GetBranchesAsync(UserAccess access, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ReferenceItemDto>> GetDepartmentsAsync(UserAccess access, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> GetMessageTypesAsync(UserAccess access, CancellationToken cancellationToken);
 }
 
 public sealed record UserAccess(int UserId, string UserName, IReadOnlySet<string> Permissions,
