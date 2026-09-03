@@ -172,81 +172,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/messages/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ImportMessageRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ImportMessageResponse"];
-                    };
-                };
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ImportMessageResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/messages/{id}/assign": {
         parameters: {
             query?: never;
@@ -1082,29 +1007,6 @@ export interface components {
             waitingForThirdReview: number | string;
             /** Format: int32 */
             completed: number | string;
-        };
-        ImportMessageRequest: {
-            externalId: string;
-            messageType: string;
-            /** Format: int32 */
-            branchId: number | string;
-            /** Format: int32 */
-            departmentId: number | string;
-            /** Format: date-time */
-            receivedAt: string;
-            sender: string;
-            receiver: string;
-            account: null | string;
-            currency: null | string;
-            /** Format: double */
-            amount: null | number | string;
-            reference: null | string;
-            rawContent: string;
-        };
-        ImportMessageResponse: {
-            /** Format: int64 */
-            id: number | string;
-            duplicate: boolean;
         };
         LoadResult: {
             data?: null | unknown[];

@@ -13,28 +13,28 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
 {
     public void Configure(EntityTypeBuilder<Message> builder)
     {
-        builder.ToTable("Messages"); builder.HasKey(x => x.Id);
-        builder.Property(x => x.ExternalId).HasMaxLength(100).IsRequired(); builder.HasIndex(x => x.ExternalId).IsUnique();
-        builder.Property(x => x.MessageType).HasMaxLength(20).IsRequired(); builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
-        builder.Property(x => x.Sender).HasMaxLength(100); builder.Property(x => x.Receiver).HasMaxLength(100);
-        builder.Property(x => x.Account).HasMaxLength(100); builder.Property(x => x.Currency).HasMaxLength(3); builder.Property(x => x.Amount).HasPrecision(19, 4);
-        builder.Property(x => x.Reference).HasMaxLength(200);
-        builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.OwningDepartmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.ToTable("Messages"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).HasColumnName("MessageId").ValueGeneratedNever();
+        builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(x => new { x.BranchId, x.OwningDepartmentId, x.State, x.ReceivedAt, x.Id });
-        builder.HasIndex(x => new { x.BranchId, x.OwningDepartmentId, x.ReceivedAt, x.Id })
-            .IsDescending(false, false, true, false);
     }
 }
 
-public sealed class MessageRawDataConfiguration : IEntityTypeConfiguration<MessageRawData>
+public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<SwiftMessageRecord>
 {
-    public void Configure(EntityTypeBuilder<MessageRawData> builder)
+    public void Configure(EntityTypeBuilder<SwiftMessageRecord> builder)
     {
-        builder.ToTable("MessageRawData"); builder.HasKey(x => x.MessageId); builder.Property(x => x.RawContent).HasColumnType("nvarchar(max)");
-        builder.HasOne(x => x.Message).WithOne().HasForeignKey<MessageRawData>(x => x.MessageId).OnDelete(DeleteBehavior.Cascade);
+        builder.ToView("SwiftMessageSource", "ORP");
+        builder.HasKey(x => x.MessageId);
+        builder.Property(x => x.MessageId).HasColumnName("MessageID").ValueGeneratedNever();
+        builder.Property(x => x.ExternalId).HasMaxLength(100);
+        builder.Property(x => x.MessageType).HasMaxLength(20);
+        builder.Property(x => x.Sender).HasMaxLength(100);
+        builder.Property(x => x.Receiver).HasMaxLength(100);
+        builder.Property(x => x.Account).HasMaxLength(100);
+        builder.Property(x => x.Currency).HasMaxLength(3);
+        builder.Property(x => x.Amount).HasPrecision(19, 4);
+        builder.Property(x => x.Reference).HasMaxLength(200);
     }
 }
 

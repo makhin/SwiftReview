@@ -12,7 +12,7 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
     {
         if (!access.Permissions.Contains(Permissions.MessageView)) return null;
         var x = await Accessible(access).SingleOrDefaultAsync(x => x.Id == id, ct);
-        return x is null ? null : new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.OwningDepartmentId,
+        return x is null ? null : new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount, x.Reference);
     }
 
@@ -23,7 +23,7 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
         var f = request.Filter;
         if (f?.States is { Count: > 0 }) query = query.Where(x => f.States.Contains(x.State));
         if (f?.Branches is { Count: > 0 }) query = query.Where(x => f.Branches.Contains(x.BranchId));
-        if (f?.Departments is { Count: > 0 }) query = query.Where(x => f.Departments.Contains(x.OwningDepartmentId));
+        if (f?.Departments is { Count: > 0 }) query = query.Where(x => f.Departments.Contains(x.DepartmentId));
         if (f?.MessageTypes is { Count: > 0 }) query = query.Where(x => f.MessageTypes.Contains(x.MessageType));
         if (f?.DateFrom is not null) query = query.Where(x => x.ReceivedAt >= f.DateFrom);
         if (f?.DateTo is not null) query = query.Where(x => x.ReceivedAt <= f.DateTo);
@@ -33,7 +33,7 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
         query = ApplySort(query, request.Sort);
         var rows = await query.Skip(request.Skip).Take(request.Take).ToListAsync(ct);
         var items = rows.Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
-            x.OwningDepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Account, x.Currency, x.Amount)).ToList();
+            x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Account, x.Currency, x.Amount)).ToList();
         return new(items, count);
     }
 
@@ -55,13 +55,13 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
             .Select(x => new AuditEventDto(x.Id, x.EventType, x.UserId, x.Timestamp, x.OldState, x.NewState, x.DetailsJson, x.CorrelationId)).ToListAsync(ct);
     }
 
-    private IQueryable<Message> Accessible(UserAccess access) => db.Messages.AsNoTracking()
-        .Where(x => access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.OwningDepartmentId));
+    private IQueryable<MessageReadRow> Accessible(UserAccess access) => db.ReadMessages()
+        .Where(x => access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.DepartmentId));
 
-    private static IQueryable<Message> ApplySort(IQueryable<Message> query, IReadOnlyList<SortClause>? sort)
+    private static IQueryable<MessageReadRow> ApplySort(IQueryable<MessageReadRow> query, IReadOnlyList<SortClause>? sort)
     {
         var clauses = sort is { Count: > 0 } ? sort : [new SortClause("receivedAt", "desc")];
-        IOrderedQueryable<Message>? ordered = null;
+        IOrderedQueryable<MessageReadRow>? ordered = null;
         foreach (var clause in clauses)
         {
             var desc = clause.Direction.Equals("desc", StringComparison.OrdinalIgnoreCase);
@@ -77,8 +77,8 @@ public sealed class MessageQueries(SwiftReviewDbContext db) : IMessageQueries
         return ordered!.ThenBy(x => x.Id);
     }
 
-    private static IOrderedQueryable<Message> Apply<TKey>(IQueryable<Message> query,
-        IOrderedQueryable<Message>? ordered, Expression<Func<Message, TKey>> key, bool descending) =>
+    private static IOrderedQueryable<MessageReadRow> Apply<TKey>(IQueryable<MessageReadRow> query,
+        IOrderedQueryable<MessageReadRow>? ordered, Expression<Func<MessageReadRow, TKey>> key, bool descending) =>
         ordered is null
             ? descending ? query.OrderByDescending(key) : query.OrderBy(key)
             : descending ? ordered.ThenByDescending(key) : ordered.ThenBy(key);

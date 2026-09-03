@@ -6,15 +6,16 @@ using SwiftReview.Domain.Reviews;
 namespace SwiftReview.Api.Authorization;
 
 public sealed record MessageActionRequirement(string Permission, int? ReviewLevel = null) : IAuthorizationRequirement;
-public sealed record MessageAuthorizationResource(Message Message, IReadOnlyCollection<Review> Reviews);
+public sealed record MessageAuthorizationResource(Message Message, int BranchId, int DepartmentId,
+    IReadOnlyCollection<Review> Reviews);
 
 public sealed class MessageActionAuthorizationHandler : AuthorizationHandler<MessageActionRequirement, MessageAuthorizationResource>
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, MessageActionRequirement requirement, MessageAuthorizationResource resource)
     {
         var permission = context.User.HasClaim("permission", requirement.Permission);
-        var branch = context.User.HasClaim("branch", resource.Message.BranchId.ToString());
-        var department = context.User.HasClaim("department", resource.Message.OwningDepartmentId.ToString());
+        var branch = context.User.HasClaim("branch", resource.BranchId.ToString());
+        var department = context.User.HasClaim("department", resource.DepartmentId.ToString());
         var stateOk = requirement.ReviewLevel switch
         {
             1 => resource.Message.State is MessageState.Assigned or MessageState.FirstReviewInProgress,

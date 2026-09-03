@@ -26,16 +26,16 @@ public sealed class MessageGridQueries(SwiftReviewDbContext db)
 {
     public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access, CancellationToken ct)
     {
-        var query = db.Messages.AsNoTracking()
+        var query = db.ReadMessages()
             .Where(x => access.Permissions.Contains(Permissions.MessageView) &&
-                access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.OwningDepartmentId))
+                access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.DepartmentId))
             .Select(x => new MessageGridRowDto
             {
                 Id = x.Id,
                 ExternalId = x.ExternalId,
                 MessageType = x.MessageType,
                 BranchId = x.BranchId,
-                DepartmentId = x.OwningDepartmentId,
+                DepartmentId = x.DepartmentId,
                 State = x.State,
                 ReceivedAt = x.ReceivedAt,
                 CurrentAssigneeId = x.CurrentAssigneeId,

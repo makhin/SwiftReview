@@ -112,7 +112,7 @@ public sealed class MessageWorkflowTests
     public void OptionalThirdStep_DoesNotBlockCompletion()
     {
         var workflow = new WorkflowDefinition("Optional third", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3, false);
-        var message = new Message("EXT-O", "MT199", 1, 1, workflow.Id, Now, "A", "B", null, null, null, null);
+        var message = new Message(1, workflow.Id);
         var reviews = new List<Review>(); message.Assign(2);
         CompleteLevel(message, workflow, reviews, 1, 10); CompleteLevel(message, workflow, reviews, 2, 11);
         Assert.Equal(MessageState.Completed, message.State);
@@ -138,7 +138,7 @@ public sealed class MessageWorkflowTests
     {
         var workflow = new WorkflowDefinition("Test", "MT199", 1);
         for (var i = 0; i < levels.Length; i++) workflow.AddStep(i + 1, levels[i]);
-        var message = new Message("EXT-1", "MT199", 1, 1, workflow.Id, Now, "A", "B", null, "EUR", 100, null);
+        var message = new Message(1, workflow.Id);
         return (message, workflow, []);
     }
     private static void CompleteLevel(Message message, WorkflowDefinition workflow, List<Review> reviews, int level, int reviewer)

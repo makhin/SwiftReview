@@ -38,8 +38,8 @@ public sealed class ReferenceDataQueries(SwiftReviewDbContext db) : IReferenceDa
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<string>> GetMessageTypesAsync(UserAccess access, CancellationToken ct) =>
-        await db.Messages.AsNoTracking()
-            .Where(x => access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.OwningDepartmentId))
+        await db.ReadMessages()
+            .Where(x => access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.DepartmentId))
             .Select(x => x.MessageType)
             .Distinct()
             .OrderBy(x => x)

@@ -40,7 +40,6 @@ public sealed class Department { private Department() { } public Department(stri
 public static class Permissions
 {
     public const string MessageView = "message.view";
-    public const string MessageImport = "message.import";
     public const string MessageAssign = "message.assign";
     public const string ReviewLevel1 = "review.level1";
     public const string ReviewLevel2 = "review.level2";
@@ -49,5 +48,5 @@ public static class Permissions
     public const string ReviewUndo = "review.undo";
     public const string AuditView = "audit.view";
     public const string WorkflowManage = "workflow.manage";
-    public static readonly string[] All = [MessageView, MessageAssign, ReviewLevel1, ReviewLevel2, ReviewLevel3, ReviewReject, ReviewUndo, AuditView, WorkflowManage, MessageImport];
+    public static readonly string[] All = [MessageView, MessageAssign, ReviewLevel1, ReviewLevel2, ReviewLevel3, ReviewReject, ReviewUndo, AuditView, WorkflowManage];
 }

@@ -3,7 +3,6 @@ using FluentValidation;
 using SwiftReview.Application.Abstractions;
 using SwiftReview.Domain.Assignments;
 using SwiftReview.Domain.Auditing;
-using SwiftReview.Domain.Outbox;
 using SwiftReview.Domain.Identity;
 using SwiftReview.Domain.Messages;
 
@@ -21,10 +20,11 @@ public sealed class AssignMessageHandler(ISwiftReviewStore store, IUserAccessSer
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var message = await store.FindMessageAsync(messageId, cancellationToken) ?? throw new ResourceNotFoundException("Message was not found.");
+        var source = await store.FindMessageSourceAsync(messageId, cancellationToken) ?? throw new ResourceNotFoundException("SWIFT message was not found.");
         var target = await accessService.GetByIdAsync(request.AssignedTo, cancellationToken)
             ?? throw new ResourceNotFoundException("Assignee was not found.");
         if (!target.Permissions.Contains(Permissions.MessageView) ||
-            !target.CanAccess(message.BranchId, message.OwningDepartmentId) ||
+            !target.CanAccess(source.BranchId, source.DepartmentId) ||
             RequiredReviewPermission(message.State) is { } permission && !target.Permissions.Contains(permission))
             throw new ValidationException("The assignee cannot access or process the message in its current workflow state.");
         var oldState = message.State;
@@ -36,7 +36,6 @@ public sealed class AssignMessageHandler(ISwiftReviewStore store, IUserAccessSer
         var eventType = previous is null ? "MessageAssigned" : "MessageReassigned";
         store.AddAudit(new AuditEvent(messageId, eventType, user.UserId, clock.UtcNow, oldState.ToString(), message.State.ToString(),
             JsonSerializer.Serialize(new { request.AssignedTo }), correlation.CorrelationId));
-        store.AddOutbox(new OutboxMessage("MessageAssigned", JsonSerializer.Serialize(new { messageId, request.AssignedTo, message.BranchId, departmentId = message.OwningDepartmentId }), clock.UtcNow, correlation.CorrelationId));
         await store.SaveChangesAsync(cancellationToken);
     }
 

@@ -2,7 +2,6 @@ using System.Text.Json;
 using FluentValidation;
 using SwiftReview.Application.Abstractions;
 using SwiftReview.Domain.Auditing;
-using SwiftReview.Domain.Outbox;
 using SwiftReview.Domain.Reviews;
 
 namespace SwiftReview.Application.Reviews;
@@ -52,8 +51,6 @@ public sealed class StartReviewHandler(ISwiftReviewStore store, IValidator<Start
         string newState, int level, DateTimeOffset now, string correlationId)
     {
         AddAudit(store, messageId, type, userId, oldState, newState, level, now, correlationId);
-        store.AddOutbox(new OutboxMessage(newState == "Completed" ? "MessageCompleted" : "MessageStatusChanged",
-            JsonSerializer.Serialize(new { messageId, state = newState }), now, correlationId));
     }
 
     internal static void AddAudit(ISwiftReviewStore store, long messageId, string type, int userId, string oldState,

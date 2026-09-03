@@ -5,7 +5,6 @@ using SwiftReview.Application.Assignments.Reassign;
 using SwiftReview.Application.Audit.GetAuditTrail;
 using SwiftReview.Application.Dashboard.GetSummary;
 using SwiftReview.Application.Messages.Get;
-using SwiftReview.Application.Messages.Import;
 using SwiftReview.Application.Messages.Search;
 using SwiftReview.Application.Reviews;
 using SwiftReview.Application.ReferenceData;
@@ -16,8 +15,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        services.AddValidatorsFromAssemblyContaining<ImportMessageValidator>();
-        services.AddScoped<ImportMessageHandler>();
+        services.AddValidatorsFromAssemblyContaining<MessageSearchValidator>();
         services.AddScoped<GetMessageHandler>();
         services.AddScoped<GetAuditTrailHandler>();
         services.AddScoped<GetDashboardSummaryHandler>();

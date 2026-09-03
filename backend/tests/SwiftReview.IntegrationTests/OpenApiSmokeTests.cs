@@ -45,8 +45,7 @@ public sealed class OpenApiSmokeTests
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("id", out _));
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("name", out _));
 
-        Assert.True(paths.GetProperty("/api/messages/import").GetProperty("post").GetProperty("responses")
-            .GetProperty("201").GetProperty("content").GetProperty("application/json").TryGetProperty("schema", out _));
+        Assert.False(paths.TryGetProperty("/api/messages/import", out _));
         Assert.True(paths.GetProperty("/api/messages/{id}/reviews/start").GetProperty("post").GetProperty("responses")
             .GetProperty("201").GetProperty("content").GetProperty("application/json").TryGetProperty("schema", out _));
         Assert.True(paths.GetProperty("/api/me").GetProperty("get").GetProperty("responses")

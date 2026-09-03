@@ -12,14 +12,16 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        if (configuration.GetValue<bool>("UseMockData"))
+        if (bool.TryParse(configuration["UseMockData"], out var useMockData) && useMockData)
         {
-            services.AddDbContext<SwiftReviewDbContext>(options => options.UseInMemoryDatabase("SwiftReviewMock"));
+            var databaseName = $"SwiftReviewMock-{Guid.NewGuid():N}";
+            services.AddDbContext<SwiftReviewDbContext>(options => options.UseInMemoryDatabase(databaseName));
         }
         else
         {
             var connection = configuration.GetConnectionString("SwiftReview") ?? throw new InvalidOperationException("Connection string 'SwiftReview' is required.");
-            services.AddDbContext<SwiftReviewDbContext>(options => options.UseSqlServer(connection, sql => sql.EnableRetryOnFailure()));
+            services.AddDbContext<SwiftReviewDbContext>(options => options.UseSqlServer(connection, sql =>
+                sql.EnableRetryOnFailure()));
         }
         services.AddScoped<ISwiftReviewStore, SwiftReviewStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();
@@ -28,16 +30,6 @@ public static class DependencyInjection
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<IAwhClient, FakeAwhClient>();
-        services.AddSingleton<IDocumentStorage, FakeDocumentStorage>();
-        services.AddSingleton<INotificationSender, FakeNotificationSender>();
-        services.AddHttpClient("AwhProductionAdapter").AddStandardResilienceHandler(options =>
-        {
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
-            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
-            options.Retry.MaxRetryAttempts = 3;
-            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
-        });
         return services;
     }
 }

@@ -36,7 +36,7 @@ public sealed class ApiWorkflowTests
         {
             web.UseEnvironment("Development");
             web.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            { ["ConnectionStrings:SwiftReview"] = sql.GetConnectionString(), ["BootstrapDatabase"] = "false" }));
+            { ["ConnectionStrings:SwiftReview"] = sql.GetConnectionString(), ["BootstrapDatabase"] = "false", ["UseMockData"] = "false" }));
             web.ConfigureServices(services =>
             {
                 services.RemoveAll<SwiftReviewDbContext>();
@@ -50,19 +50,31 @@ public sealed class ApiWorkflowTests
             var seeded = scope.ServiceProvider.GetRequiredService<SwiftReviewDbContext>();
             await seeded.Database.MigrateAsync(ct);
             Assert.Equal(75, await seeded.Messages.CountAsync(ct));
-            Assert.Equal(75, await seeded.MessageRawData.CountAsync(ct));
+            Assert.Equal(0, await seeded.SwiftMessageSource.CountAsync(ct));
+            Assert.True(await seeded.Reviews.AnyAsync(ct));
+            Assert.Equal(2, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
+            var historyTableCount = await seeded.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS [Value] FROM sys.tables AS t JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE t.name = N'__EFMigrationsHistory' AND s.name = N'dbo'")
+                .SingleAsync(ct);
+            Assert.Equal(1, historyTableCount);
+            await CreateAndSeedSwiftSource(seeded, ct);
+            Assert.Equal(76, await seeded.Messages.CountAsync(ct));
+            Assert.Equal(76, await seeded.SwiftMessageSource.CountAsync(ct));
             Assert.Equal(8, await seeded.WorkflowDefinitions.CountAsync(ct));
-            Assert.False(await seeded.Messages.AnyAsync(m => !seeded.WorkflowDefinitions.Any(w =>
-                w.Id == m.WorkflowDefinitionId && w.MessageType == m.MessageType && w.DepartmentId == m.OwningDepartmentId), ct));
+            Assert.False(await seeded.Messages.AnyAsync(m => !seeded.WorkflowDefinitions.Any(w => w.Id == m.WorkflowDefinitionId), ct));
             Assert.DoesNotContain(await seeded.Reviews.AsNoTracking().Where(x => x.Status == Domain.Reviews.ReviewStatus.Approved)
                 .GroupBy(x => x.MessageId).Select(g => g.Select(x => x.ReviewerId).Count() != g.Select(x => x.ReviewerId).Distinct().Count()).ToListAsync(ct), x => x);
+            var forbiddenSourceWrite = new SwiftMessageRecord { MessageId = 2000, ExternalId = "FORBIDDEN", MessageType = "MT199", BranchId = 1, DepartmentId = 1, ReceivedAt = DateTimeOffset.UtcNow, Sender = "A", Receiver = "B" };
+            seeded.SwiftMessageSource.Add(forbiddenSourceWrite);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => seeded.SaveChangesAsync(ct));
+            seeded.Entry(forbiddenSourceWrite).State = EntityState.Detached;
         }
 
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health", ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/openapi/v1.json", ct)).StatusCode);
-        Assert.Equal(75, (await client.GetFromJsonAsync<DashboardSummaryDto>("/api/dashboard/summary", ct))!.Total);
+        Assert.Equal(76, (await client.GetFromJsonAsync<DashboardSummaryDto>("/api/dashboard/summary", ct))!.Total);
         Assert.Equal(8, (await client.GetFromJsonAsync<List<WorkflowSummaryDto>>("/api/workflows", ct))!.Count);
         Assert.Equal(6, (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Count);
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
@@ -70,23 +82,8 @@ public sealed class ApiWorkflowTests
         Assert.Equal(8, (await client.GetFromJsonAsync<List<string>>("/api/message-types", ct))!.Count);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/me", ct)).StatusCode);
 
-        var import = Request("IT-0001");
-        var forbiddenImport = await client.PostAsJsonAsync("/api/messages/import", import, ct);
-        Assert.Equal(HttpStatusCode.Forbidden, forbiddenImport.StatusCode);
-        Assert.Equal("application/problem+json", forbiddenImport.Content.Headers.ContentType?.MediaType);
-        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
-        var noWorkflow = await client.PostAsJsonAsync("/api/messages/import", import with
-        {
-            ExternalId = "IT-NO-WORKFLOW",
-            DepartmentId = 2
-        }, ct);
-        Assert.Equal(HttpStatusCode.NotFound, noWorkflow.StatusCode);
-        var created = await client.PostAsJsonAsync("/api/messages/import", import, ct);
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var id = (await created.Content.ReadFromJsonAsync<Created>(ct))!.Id;
-        var duplicate = await client.PostAsJsonAsync("/api/messages/import", import, ct);
-        Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
-        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/api/messages/import", null, ct)).StatusCode);
+        const long id = 1001;
 
         var ineligible = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(2), ct);
         Assert.Equal(HttpStatusCode.BadRequest, ineligible.StatusCode);
@@ -131,28 +128,18 @@ public sealed class ApiWorkflowTests
         }
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
         var audit = await client.GetFromJsonAsync<List<AuditEventDto>>($"/api/messages/{id}/audit", ct);
-        Assert.Contains(audit!, x => x.EventType == "MessageImported"); Assert.Contains(audit!, x => x.EventType == "MessageReassigned");
+        Assert.Contains(audit!, x => x.EventType == "MessageReassigned");
         Assert.Contains(audit!, x => x.EventType == "ReviewApproved");
         Assert.Contains(audit!, x => x.EventType == "MessageCompleted");
 
         await VerifyLevelPermission(client, ct);
 
-        await using (var scope = factory.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<SwiftReviewDbContext>();
-            Assert.True(await db.OutboxMessages.CountAsync(x => x.ProcessedAt == null, ct) >= 4);
-        }
     }
-
-    private static ImportMessageRequest Request(string externalId) => new(externalId, "MT199", 1, 1,
-        new DateTimeOffset(2026, 8, 22, 8, 0, 0, TimeSpan.Zero), "BANKA", "BANKB", "IT-ACCOUNT", "EUR", 1200, "IT-REF", "{1:F01TEST}");
 
     private static async Task VerifyLevelPermission(HttpClient client, CancellationToken ct)
     {
+        const long id = 6;
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
-        var created = await client.PostAsJsonAsync("/api/messages/import", new ImportMessageRequest("IT-PERM-1", "MT760", 3, 3,
-            DateTimeOffset.UtcNow, "BANKA", "BANKB", null, "USD", 50, null, "raw"), ct);
-        var id = (await created.Content.ReadFromJsonAsync<Created>(ct))!.Id;
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(5), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
         var start = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1), ct);
@@ -190,5 +177,45 @@ public sealed class ApiWorkflowTests
         var invalid = Uri.EscapeDataString("[{\"selector\":\"rawContent\",\"desc\":false}]");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/api/messages/grid?skip=0&take=10&sort={invalid}", ct)).StatusCode);
     }
-    private sealed record Created(long Id);
+    private static async Task CreateAndSeedSwiftSource(SwiftReviewDbContext db, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlRawAsync("DROP VIEW IF EXISTS [ORP].[SwiftMessageSource];", ct);
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE [ORP].[SwiftMessageSource]
+            (
+                [MessageID] bigint NOT NULL PRIMARY KEY,
+                [ExternalId] nvarchar(100) NOT NULL,
+                [MessageType] nvarchar(20) NOT NULL,
+                [BranchId] int NOT NULL,
+                [DepartmentId] int NOT NULL,
+                [ReceivedAt] datetimeoffset NOT NULL,
+                [Sender] nvarchar(100) NOT NULL,
+                [Receiver] nvarchar(100) NOT NULL,
+                [Account] nvarchar(100) NULL,
+                [Currency] nvarchar(3) NULL,
+                [Amount] decimal(19,4) NULL,
+                [Reference] nvarchar(200) NULL
+            );
+            """, ct);
+        for (var i = 1; i <= 75; i++)
+        {
+            string[] messageTypes = ["MT199", "MT299", "MT671", "MT700", "MT710", "MT760", "MT799", "MT999"];
+            var typeIndex = (i - 1) % messageTypes.Length;
+            await InsertSwiftMessage(db, i, $"SEED-{i:0000}", messageTypes[typeIndex],
+                (i - 1) % 3 + 1, typeIndex % 3 + 1, ct);
+        }
+        await InsertSwiftMessage(db, 1001, "IT-0001", "MT199", 1, 1, ct);
+        await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
+        await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
+        Assert.Equal(1, await db.Messages.CountAsync(x => x.Id == 1001, ct));
+    }
+
+    private static Task<int> InsertSwiftMessage(SwiftReviewDbContext db, long id, string externalId,
+        string messageType, int branchId, int departmentId, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO [ORP].[SwiftMessageSource]
+                ([MessageID], [ExternalId], [MessageType], [BranchId], [DepartmentId], [ReceivedAt], [Sender], [Receiver], [Account], [Currency], [Amount], [Reference])
+            VALUES
+                ({id}, {externalId}, {messageType}, {branchId}, {departmentId}, {new DateTimeOffset(2026, 8, 22, 8, 0, 0, TimeSpan.Zero)}, {"A"}, {"B"}, {"IT-ACCOUNT"}, {"EUR"}, {1200m}, {"IT-REF"});
+            """, ct);
 }

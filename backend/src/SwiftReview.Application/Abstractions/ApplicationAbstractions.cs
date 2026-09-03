@@ -2,7 +2,6 @@ using SwiftReview.Domain.Assignments;
 using SwiftReview.Domain.Auditing;
 using SwiftReview.Domain.Identity;
 using SwiftReview.Domain.Messages;
-using SwiftReview.Domain.Outbox;
 using SwiftReview.Domain.Reviews;
 using SwiftReview.Domain.Workflows;
 
@@ -15,18 +14,19 @@ public interface ICurrentUser { int UserId { get; } string UserName { get; } }
 public interface ISwiftReviewStore
 {
     Task<Message?> FindMessageAsync(long id, CancellationToken cancellationToken);
-    Task<Message?> FindMessageByExternalIdAsync(string externalId, CancellationToken cancellationToken);
+    Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken cancellationToken);
     Task<WorkflowDefinition?> FindWorkflowAsync(int id, CancellationToken cancellationToken);
     Task<List<Review>> GetReviewsAsync(long messageId, CancellationToken cancellationToken);
     Task<Assignment?> GetActiveAssignmentAsync(long messageId, CancellationToken cancellationToken);
-    void AddMessage(Message message);
-    void AddRawData(MessageRawData rawData);
     void AddReview(Review review);
     void AddAssignment(Assignment assignment);
     void AddAudit(AuditEvent auditEvent);
-    void AddOutbox(OutboxMessage outboxMessage);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
+
+public sealed record MessageSourceDto(long MessageId, string ExternalId, string MessageType, int BranchId,
+    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver, string? Account,
+    string? Currency, decimal? Amount, string? Reference);
 
 public interface IMessageQueries
 {
@@ -64,4 +64,3 @@ public sealed record UserAccess(int UserId, string UserName, IReadOnlySet<string
 }
 
 public sealed class ResourceNotFoundException(string message) : Exception(message);
-public sealed class DuplicateExternalIdException(string message, Exception? inner = null) : Exception(message, inner);

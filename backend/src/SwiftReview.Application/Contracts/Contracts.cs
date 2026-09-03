@@ -3,19 +3,6 @@ using SwiftReview.Domain.Messages;
 
 namespace SwiftReview.Application.Abstractions;
 
-public sealed record ImportMessageRequest(
-    [property: Required, StringLength(100)] string ExternalId,
-    [property: Required, StringLength(20)] string MessageType,
-    [property: Range(1, int.MaxValue)] int BranchId,
-    [property: Range(1, int.MaxValue)] int DepartmentId,
-    DateTimeOffset ReceivedAt,
-    [property: Required, StringLength(100)] string Sender,
-    [property: Required, StringLength(100)] string Receiver,
-    [property: StringLength(100)] string? Account,
-    [property: StringLength(3, MinimumLength = 3)] string? Currency,
-    decimal? Amount,
-    [property: StringLength(200)] string? Reference,
-    [property: Required] string RawContent);
 public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo);
 public sealed record StartReviewRequest([property: Range(1, 3)] int Level);
 public sealed record ApproveReviewRequest([property: Range(1, 3)] int Level,
@@ -24,7 +11,6 @@ public sealed record RejectReviewRequest([property: Range(1, 3)] int Level,
     [property: Required, StringLength(2000)] string Comment);
 public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long ReviewId);
 
-public sealed record ImportMessageResponse(long Id, bool Duplicate);
 public sealed record StartReviewResponse(long ReviewId);
 public sealed record CurrentUserResponse(int UserId, string UserName, IReadOnlyList<string> Permissions,
     IReadOnlyList<int> Branches, IReadOnlyList<int> Departments);

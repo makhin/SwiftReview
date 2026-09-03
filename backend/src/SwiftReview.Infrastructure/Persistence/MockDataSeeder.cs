@@ -1,6 +1,6 @@
 using Bogus;
 using Microsoft.EntityFrameworkCore;
-using SwiftReview.Domain.Messages;
+using SwiftReview.Infrastructure.Persistence.Configurations;
 
 namespace SwiftReview.Infrastructure.Persistence;
 
@@ -8,6 +8,8 @@ public static class MockDataSeeder
 {
     public static async Task SeedAsync(SwiftReviewDbContext db, CancellationToken ct = default)
     {
+        if (await db.SwiftMessageSource.AnyAsync(ct)) return;
+
         var faker = new Faker<MockMessageFields>("en_GB")
             .CustomInstantiator(f => new MockMessageFields(
                 f.Random.AlphaNumeric(5).ToUpperInvariant(),
@@ -18,29 +20,30 @@ public static class MockDataSeeder
                 f.Finance.Amount(500, 5_000_000, 2),
                 $"PAY-{f.Random.Number(10_000_000, 99_999_999)}-{f.Random.AlphaNumeric(4).ToUpperInvariant()}"))
             .UseSeed(20260902);
-        var messages = await db.Messages.OrderBy(x => x.Id).ToListAsync(ct);
-        var rawData = await db.MessageRawData.ToDictionaryAsync(x => x.MessageId, ct);
-
-        foreach (var message in messages)
+        var messages = Enumerable.Range(1, 75).Select(i => new Domain.Messages.Message(i,
+            (i - 1) % SeedConfiguration.MessageTypes.Length + 1)).ToList();
+        var source = messages.Select(message =>
         {
             var fake = faker.Generate();
-            var externalId = $"MSG-{message.Id:00000}-{fake.IdSuffix}";
-
-            var entry = db.Entry(message);
-            entry.Property(nameof(Message.ExternalId)).CurrentValue = externalId;
-            entry.Property(nameof(Message.Sender)).CurrentValue = fake.Sender;
-            entry.Property(nameof(Message.Receiver)).CurrentValue = fake.Receiver;
-            entry.Property(nameof(Message.Account)).CurrentValue = fake.Account;
-            entry.Property(nameof(Message.Currency)).CurrentValue = fake.Currency;
-            entry.Property(nameof(Message.Amount)).CurrentValue = fake.Amount;
-            entry.Property(nameof(Message.Reference)).CurrentValue = fake.Reference;
-
-            if (rawData.TryGetValue(message.Id, out var raw))
+            var typeIndex = ((int)message.Id - 1) % SeedConfiguration.MessageTypes.Length;
+            return new SwiftMessageRecord
             {
-                db.Entry(raw).Property(nameof(MessageRawData.RawContent)).CurrentValue =
-                    $"{{1:F01{fake.Sender}}}{{2:I{message.MessageType[2..]}{fake.Receiver}}}{{4::20:{fake.Reference}:21:{externalId}-}}";
-            }
-        }
+                MessageId = message.Id,
+                ExternalId = $"MSG-{message.Id:00000}-{fake.IdSuffix}",
+                MessageType = SeedConfiguration.MessageTypes[typeIndex],
+                BranchId = ((int)message.Id - 1) % 3 + 1,
+                DepartmentId = typeIndex % 3 + 1,
+                ReceivedAt = SeedConfiguration.SeedReceivedAt((int)message.Id),
+                Sender = fake.Sender,
+                Receiver = fake.Receiver,
+                Account = fake.Account,
+                Currency = fake.Currency,
+                Amount = fake.Amount,
+                Reference = fake.Reference
+            };
+        });
+        db.Messages.AddRange(messages);
+        db.SwiftMessageSource.AddRange(source);
 
         await db.SaveChangesAsync(ct);
     }

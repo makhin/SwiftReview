@@ -9,7 +9,6 @@ using SwiftReview.Application.Assignments.Reassign;
 using SwiftReview.Application.Audit.GetAuditTrail;
 using SwiftReview.Application.Dashboard.GetSummary;
 using SwiftReview.Application.Messages.Get;
-using SwiftReview.Application.Messages.Import;
 using SwiftReview.Application.Messages.Search;
 using SwiftReview.Application.Reviews;
 using SwiftReview.Application.ReferenceData;
@@ -29,10 +28,6 @@ public static class ApiEndpoints
         messages.MapGet("/grid", Grid).Produces<LoadResult>().ProducesProblem(400).ProducesProblem(403);
         messages.MapGet("/{id:long}", GetMessage).Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(403);
         messages.MapPost("/search", Search).Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
-        messages.MapPost("/import", Import)
-            .RequireAuthorization(policy => policy.RequireClaim("permission", Permissions.MessageImport))
-            .Produces<ImportMessageResponse>(StatusCodes.Status201Created).Produces<ImportMessageResponse>()
-            .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404);
         messages.MapPost("/{id:long}/assign", Assign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reassign", Reassign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/start", StartReview).Produces<StartReviewResponse>(StatusCodes.Status201Created).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
@@ -58,23 +53,15 @@ public static class ApiEndpoints
         return await queries.LoadAsync(DevExtremeLoadOptions.Parse(request), access, ct);
     }
     private static Task<PagedResult<MessageListItemDto>> Search(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);
-    private static async Task<Results<Created<ImportMessageResponse>, Ok<ImportMessageResponse>>> Import(
-        ImportMessageRequest request, ImportMessageHandler handler, CancellationToken ct)
-    {
-        var (message, created) = await handler.HandleAsync(request, ct);
-        var response = new ImportMessageResponse(message.Id, !created);
-        return created ? TypedResults.Created($"/api/messages/{message.Id}", response) : TypedResults.Ok(response);
-    }
-
     private static async Task<IResult> Assign(long id, AssignMessageRequest request, AssignMessageHandler handler, ISwiftReviewStore store, IAuthorizationService authorization, HttpContext context, CancellationToken ct)
     {
-        var resource = new MessageAuthorizationResource(await store.FindMessageAsync(id, ct) ?? throw new ResourceNotFoundException("Message not found."), await store.GetReviewsAsync(id, ct));
+        var resource = await AuthorizationResource(id, store, ct);
         var result = await authorization.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.MessageAssign));
         if (!result.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent();
     }
     private static async Task<IResult> Reassign(long id, AssignMessageRequest request, ReassignMessageHandler handler, ISwiftReviewStore store, IAuthorizationService authorization, HttpContext context, CancellationToken ct)
     {
-        var resource = new MessageAuthorizationResource(await store.FindMessageAsync(id, ct) ?? throw new ResourceNotFoundException("Message not found."), await store.GetReviewsAsync(id, ct));
+        var resource = await AuthorizationResource(id, store, ct);
         var result = await authorization.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.MessageAssign));
         if (!result.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent();
     }
@@ -85,9 +72,9 @@ public static class ApiEndpoints
     private static Task<IResult> Reject(long id, RejectReviewRequest request, RejectReviewHandler handler, ISwiftReviewStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
         ReviewAction(id, request.Level, store, auth, context, ct, async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); }, Permissions.ReviewReject);
     private static async Task<IResult> ReviewAction(long id, int level, ISwiftReviewStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct, Func<Task<IResult>> action, string? permission = null)
-    { var resource = new MessageAuthorizationResource(await store.FindMessageAsync(id, ct) ?? throw new ResourceNotFoundException("Message not found."), await store.GetReviewsAsync(id, ct)); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(permission ?? ReviewPermissions.ForLevel(level), level)); return ok.Succeeded ? await action() : Forbidden(); }
+    { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(permission ?? ReviewPermissions.ForLevel(level), level)); return ok.Succeeded ? await action() : Forbidden(); }
     private static async Task<IResult> Undo(long id, UndoReviewRequest request, UndoReviewHandler handler, ISwiftReviewStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct)
-    { var resource = new MessageAuthorizationResource(await store.FindMessageAsync(id, ct) ?? throw new ResourceNotFoundException("Message not found."), await store.GetReviewsAsync(id, ct)); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.ReviewUndo)); if (!ok.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent(); }
+    { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.ReviewUndo)); if (!ok.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent(); }
     private static async Task<IReadOnlyList<AuditEventDto>> Audit(long id, GetAuditTrailHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
     private static async Task<DashboardSummaryDto> Dashboard(GetDashboardSummaryHandler handler, CancellationToken ct) => await handler.HandleAsync(ct);
     private static Ok<CurrentUserResponse> Me(ICurrentUser current, HttpContext context) => TypedResults.Ok(new CurrentUserResponse(
@@ -100,6 +87,13 @@ public static class ApiEndpoints
     private static Task<IReadOnlyList<ReferenceItemDto>> Branches(GetBranchesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<ReferenceItemDto>> Departments(GetDepartmentsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<string>> MessageTypes(GetMessageTypesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
+
+    private static async Task<MessageAuthorizationResource> AuthorizationResource(long id, ISwiftReviewStore store, CancellationToken ct)
+    {
+        var message = await store.FindMessageAsync(id, ct) ?? throw new ResourceNotFoundException("Message not found.");
+        var source = await store.FindMessageSourceAsync(id, ct) ?? throw new ResourceNotFoundException("SWIFT message not found.");
+        return new MessageAuthorizationResource(message, source.BranchId, source.DepartmentId, await store.GetReviewsAsync(id, ct));
+    }
 
     private static IResult Forbidden() => Results.Problem(statusCode: StatusCodes.Status403Forbidden,
         title: "Forbidden", detail: "The current user is not allowed to perform this action.");

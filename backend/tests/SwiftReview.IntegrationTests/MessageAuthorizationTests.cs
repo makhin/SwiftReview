@@ -46,10 +46,10 @@ public sealed class MessageAuthorizationTests
     private static (MessageAuthorizationResource Resource, int Branch, int Department) WaitingForLevelTwo()
     {
         var workflow = new WorkflowDefinition("Two", "MT199", 20).AddStep(1, 1).AddStep(2, 2);
-        var message = new Message("AUTH-1", "MT199", 10, 20, workflow.Id, DateTimeOffset.UtcNow, "A", "B", null, null, null, null);
+        var message = new Message(1, workflow.Id);
         var reviews = new List<Review>(); message.Assign(2);
         var first = message.StartReview(1, 5, workflow, reviews, DateTimeOffset.UtcNow); reviews.Add(first);
         message.Approve(first, workflow, reviews, null, DateTimeOffset.UtcNow);
-        return (new MessageAuthorizationResource(message, reviews), message.BranchId, message.OwningDepartmentId);
+        return (new MessageAuthorizationResource(message, 10, 20, reviews), 10, 20);
     }
 }

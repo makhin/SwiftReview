@@ -9,40 +9,18 @@ public sealed class Message
 {
     private Message() { }
 
-    public Message(string externalId, string messageType, int branchId, int departmentId,
-        int workflowDefinitionId, DateTimeOffset receivedAt, string sender, string receiver,
-        string? account, string? currency, decimal? amount, string? reference)
+    public Message(long messageId, int workflowDefinitionId)
     {
-        ExternalId = Required(externalId, nameof(externalId));
-        MessageType = Required(messageType, nameof(messageType));
-        BranchId = branchId;
-        OwningDepartmentId = departmentId;
+        if (messageId <= 0) throw new ArgumentOutOfRangeException(nameof(messageId));
+        Id = messageId;
         WorkflowDefinitionId = workflowDefinitionId;
-        ReceivedAt = receivedAt;
-        Sender = Required(sender, nameof(sender));
-        Receiver = Required(receiver, nameof(receiver));
-        Account = account;
-        Currency = currency;
-        Amount = amount;
-        Reference = reference;
         State = MessageState.New;
     }
 
     public long Id { get; private set; }
-    public string ExternalId { get; private set; } = null!;
-    public string MessageType { get; private set; } = null!;
-    public int BranchId { get; private set; }
-    public int OwningDepartmentId { get; private set; }
     public MessageState State { get; private set; }
-    public DateTimeOffset ReceivedAt { get; private set; }
     public int? CurrentAssigneeId { get; private set; }
     public int WorkflowDefinitionId { get; private set; }
-    public string Sender { get; private set; } = null!;
-    public string Receiver { get; private set; } = null!;
-    public string? Account { get; private set; }
-    public string? Currency { get; private set; }
-    public decimal? Amount { get; private set; }
-    public string? Reference { get; private set; }
 
     public void Assign(int assigneeId)
     {
@@ -188,16 +166,4 @@ public sealed class Message
         3 => MessageState.WaitingForThirdReview,
         _ => throw new DomainRuleViolationException("Unsupported review level.")
     };
-
-    private static string Required(string value, string name) =>
-        string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Value is required.", name) : value;
-}
-
-public sealed class MessageRawData
-{
-    private MessageRawData() { }
-    public MessageRawData(Message message, string rawContent) { Message = message; RawContent = rawContent; }
-    public long MessageId { get; private set; }
-    public string RawContent { get; private set; } = null!;
-    public Message Message { get; private set; } = null!;
 }
