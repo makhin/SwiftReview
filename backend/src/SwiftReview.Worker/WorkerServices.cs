@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SwiftReview.Application.Abstractions;
@@ -16,25 +15,7 @@ public sealed class WorkerCorrelationContext : ICorrelationContext
     public static void Clear() => Value.Value = null;
 }
 
-public interface IRealtimeNotifier
-{
-    Task MessageChangedAsync(long id, int branchId, int departmentId,
-        string idempotencyKey, CancellationToken ct);
-}
-public sealed class ApiRealtimeNotifier(HttpClient http, IConfiguration config) : IRealtimeNotifier
-{
-    public async Task MessageChangedAsync(long id, int branchId, int departmentId,
-        string idempotencyKey, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/internal/message-changed")
-        { Content = JsonContent.Create(new { type = "MessageChanged", messageId = id, branchId, departmentId, eventId = idempotencyKey }) };
-        request.Headers.Add("X-Internal-Key", config["InternalApiKey"]);
-        request.Headers.Add("Idempotency-Key", idempotencyKey);
-        using var response = await http.SendAsync(request, ct); response.EnsureSuccessStatusCode();
-    }
-}
-
-public sealed class OutboxWorker(IServiceScopeFactory scopes, IRealtimeNotifier realtime, ILogger<OutboxWorker> logger) : BackgroundService
+public sealed class OutboxWorker(IServiceScopeFactory scopes, ILogger<OutboxWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -95,8 +76,6 @@ public sealed class OutboxWorker(IServiceScopeFactory scopes, IRealtimeNotifier 
             if (message is not null)
             {
                 var idempotencyKey = $"outbox:{item.Id}";
-                await realtime.MessageChangedAsync(message.Id, message.BranchId,
-                    message.OwningDepartmentId, idempotencyKey, ct);
                 var notifications = scope.ServiceProvider.GetRequiredService<INotificationSender>();
                 await notifications.SendAsync(message.CurrentAssigneeId?.ToString() ?? "operations",
                     $"Message {message.ExternalId} changed", item.Type, idempotencyKey, ct);

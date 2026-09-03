@@ -24,7 +24,6 @@ services:
       UseMockData: "false"
       BootstrapDatabase: "true"
       ConnectionStrings__SwiftReview: "${DOCKER_CONNECTION_STRING:?Set DOCKER_CONNECTION_STRING in .env}"
-      InternalApiKey: "${InternalApiKey:?Set InternalApiKey in .env}"
     ports:
       - "5080:8080"
     depends_on:
@@ -37,11 +36,9 @@ services:
       dockerfile: src/SwiftReview.Worker/Dockerfile
     environment:
       ConnectionStrings__SwiftReview: "${DOCKER_CONNECTION_STRING:?Set DOCKER_CONNECTION_STRING in .env}"
-      ApiBaseUrl: http://api:8080
-      InternalApiKey: "${InternalApiKey:?Set InternalApiKey in .env}"
     depends_on:
-      api:
-        condition: service_started
+      sqlserver:
+        condition: service_healthy
 
 volumes:
   sqlserver-data:

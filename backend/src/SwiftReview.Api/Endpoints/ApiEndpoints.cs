@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.SignalR;
 using DevExtreme.AspNet.Data.ResponseModel;
 using SwiftReview.Api.Authorization;
-using SwiftReview.Api.Hubs;
 using SwiftReview.Api.Infrastructure;
 using SwiftReview.Application.Abstractions;
 using SwiftReview.Application.Assignments.Assign;
@@ -49,7 +47,6 @@ public static class ApiEndpoints
         api.MapGet("/branches", Branches).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
         api.MapGet("/departments", Departments).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
         api.MapGet("/message-types", MessageTypes).Produces<IReadOnlyList<string>>().ProducesProblem(403);
-        endpoints.MapPost("/internal/message-changed", Notify).AllowAnonymous();
         return endpoints;
     }
 
@@ -103,23 +100,6 @@ public static class ApiEndpoints
     private static Task<IReadOnlyList<ReferenceItemDto>> Branches(GetBranchesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<ReferenceItemDto>> Departments(GetDepartmentsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<string>> MessageTypes(GetMessageTypesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-    private static async Task<IResult> Notify(MessageChangedNotification notification, HttpContext context,
-        IConfiguration config, IHubContext<MessagesHub> hub, InternalEventDeduplicator deduplicator)
-    {
-        var expectedKey = config["InternalApiKey"];
-        if (string.IsNullOrWhiteSpace(expectedKey) ||
-            !string.Equals(context.Request.Headers["X-Internal-Key"].ToString(), expectedKey, StringComparison.Ordinal))
-            return Results.Unauthorized();
-        if (!string.Equals(context.Request.Headers["Idempotency-Key"].ToString(), notification.EventId,
-                StringComparison.Ordinal))
-            return Results.BadRequest();
-        if (!deduplicator.TryBegin(notification.EventId)) return Results.Accepted();
-        await Task.WhenAll(
-            hub.Clients.Group($"message:{notification.MessageId}").SendAsync("MessageChanged", notification),
-            hub.Clients.Group($"branch:{notification.BranchId}").SendAsync("MessageChanged", notification),
-            hub.Clients.Group($"department:{notification.DepartmentId}").SendAsync("MessageChanged", notification));
-        return Results.Accepted();
-    }
 
     private static IResult Forbidden() => Results.Problem(statusCode: StatusCodes.Status403Forbidden,
         title: "Forbidden", detail: "The current user is not allowed to perform this action.");

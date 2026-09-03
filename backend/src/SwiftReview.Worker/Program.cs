@@ -12,8 +12,6 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddSingleton<ICorrelationContext, WorkerCorrelationContext>();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddHttpClient<IRealtimeNotifier, ApiRealtimeNotifier>(client => client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5080"))
-    .AddStandardResilienceHandler();
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.AddHostedService<AwhIngestionWorker>();
 builder.Services.AddOpenTelemetry().ConfigureResource(r => r.AddService("SwiftReview.Worker"))

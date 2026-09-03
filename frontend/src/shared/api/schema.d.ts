@@ -4,43 +4,6 @@
  */
 
 export interface paths {
-    "/internal/message-changed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["MessageChangedNotification"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/messages/grid": {
         parameters: {
             query?: never;
@@ -1156,16 +1119,6 @@ export interface components {
              */
             groupCount: number | string;
             summary?: null | unknown[];
-        };
-        MessageChangedNotification: {
-            type: string;
-            /** Format: int64 */
-            messageId: number | string;
-            /** Format: int32 */
-            branchId: number | string;
-            /** Format: int32 */
-            departmentId: number | string;
-            eventId: string;
         };
         MessageDetailsDto: {
             /** Format: int64 */

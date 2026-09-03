@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -56,11 +55,6 @@ public sealed class OpenApiSmokeTests
         using var scalar = await client.GetAsync("/scalar", ct);
         Assert.Equal(HttpStatusCode.OK, scalar.StatusCode);
         Assert.Contains("SwiftReview API", await scalar.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
-        using var negotiate = await client.PostAsync("/hubs/messages/negotiate?negotiateVersion=1", null, ct);
-        Assert.Equal(HttpStatusCode.Unauthorized, negotiate.StatusCode);
-        using var internalCallback = await client.PostAsJsonAsync("/internal/message-changed",
-            new { type = "MessageChanged", messageId = 1, branchId = 1, departmentId = 1, eventId = "test:1" }, ct);
-        Assert.Equal(HttpStatusCode.Unauthorized, internalCallback.StatusCode);
     }
 
     private static readonly string[] RequiredPaths =

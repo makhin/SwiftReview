@@ -12,7 +12,6 @@ using SwiftReview.Api.Authentication;
 using SwiftReview.Api.Authorization;
 using SwiftReview.Api.Endpoints;
 using SwiftReview.Api.Errors;
-using SwiftReview.Api.Hubs;
 using SwiftReview.Api.Infrastructure;
 using SwiftReview.Application;
 using SwiftReview.Application.Abstractions;
@@ -24,12 +23,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddSingleton<InternalEventDeduplicator>();
 builder.Services.AddSingleton<ICorrelationContext, CorrelationContext>();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddSignalR();
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDetailsAuthorizationResultHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, MessageActionAuthorizationHandler>();
@@ -61,7 +58,6 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapOpenApi();
 app.MapScalarApiReference("/scalar", options => options.WithTitle("SwiftReview API"));
-app.MapHub<MessagesHub>("/hubs/messages");
 app.MapApiEndpoints();
 
 if (app.Configuration.GetValue<bool>("UseMockData"))
