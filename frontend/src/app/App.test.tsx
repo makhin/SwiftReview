@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const { meModule } = vi.hoisted(() => {
@@ -10,8 +10,31 @@ const { meModule } = vi.hoisted(() => {
   return { meModule: { loaded, resolve } };
 });
 
-vi.mock('../pages/design-system/DesignSystemPage', () => ({
-  default: () => <main>Design system page</main>,
+vi.mock('devextreme-react/drawer', () => ({
+  default: ({ children, render: renderPanel }: React.PropsWithChildren<{
+    render: () => React.ReactNode;
+  }>) => (
+    <div>
+      {renderPanel()}
+      {children}
+    </div>
+  ),
+}));
+vi.mock('devextreme-react/list', () => ({
+  default: () => <div aria-label="Application pages" />,
+}));
+vi.mock('devextreme-react/button', () => ({
+  default: () => <button type="button">Navigation</button>,
+}));
+
+vi.mock('../pages/current-user/currentUserApi', () => ({
+  getCurrentUser: vi.fn().mockResolvedValue({
+    userId: 42,
+    userName: 'Alex Morgan',
+    permissions: [],
+    branches: [],
+    departments: [],
+  }),
 }));
 vi.mock('../pages/current-user/CurrentUserPage', async () => {
   await meModule.loaded;
@@ -42,8 +65,13 @@ describe('App routing', () => {
     await router.navigate('/messages');
     expect(await screen.findByText('Messages page')).toBeInTheDocument();
 
+    await router.navigate('/design-system');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to open this page',
+    );
+
     await router.navigate('/');
-    expect(await screen.findByText('Design system page')).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/design-system');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/messages'));
+    expect(screen.getByText('Messages page')).toBeInTheDocument();
   });
 });

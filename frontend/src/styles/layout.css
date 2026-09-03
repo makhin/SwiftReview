@@ -5,76 +5,47 @@
   --topbar-height: 56px;
   --content-max-width: 1600px;
 
-  display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: calc(100vh - var(--global-header-height));
   background: var(--color-page-background);
 }
 
 .app-sidebar {
   --focus-ring-color: var(--focus-ring-color-on-dark);
 
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  width: var(--sidebar-width);
+  height: 100%;
+  min-height: calc(100vh - var(--global-header-height));
   overflow-y: auto;
   background: var(--color-navigation-background);
   color: var(--color-text-inverse);
   border-right: var(--border-width-default) solid var(--color-border-inverse-subtle);
 }
 
-.app-sidebar__brand {
-  display: flex;
-  align-items: center;
-  min-height: var(--topbar-height);
-  padding: 0 var(--space-4);
-  border-bottom: var(--border-width-default) solid var(--color-border-inverse-subtle);
-  gap: var(--space-2);
+.app-sidebar nav {
+  padding-block: var(--space-4);
 }
 
-.app-sidebar__brand span {
-  color: var(--color-navigation-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.app-sidebar__section {
-  padding: var(--space-4) 0;
-}
-
-.app-sidebar__section-title {
-  padding: 0 var(--space-4) var(--space-2);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-navigation-text-muted);
-}
-
-.app-sidebar__nav a {
-  display: block;
+.app-sidebar .dx-list-item-content {
   padding: var(--space-2) var(--space-4);
-  border-left: var(--border-width-emphasis) solid transparent;
-  color: var(--color-navigation-text);
-  text-decoration: none;
+  font-size: var(--font-size-lg);
 }
 
-.app-sidebar__nav a:hover {
-  background: var(--color-navigation-hover);
+.app-sidebar .dx-list-item-icon-container {
+  width: var(--space-8);
+  height: var(--space-5);
+}
+
+.app-sidebar .dx-list-item .dx-list-item-icon {
+  width: var(--space-5);
+  height: var(--space-5);
   color: var(--color-text-inverse);
-}
-
-.app-sidebar__nav a.active {
-  border-left-color: var(--color-action-accent);
-  background: var(--color-navigation-active);
-  color: var(--color-text-inverse);
-  font-weight: var(--font-weight-semibold);
-}
-
-.app-sidebar__nav a:focus-visible {
-  outline: var(--outline-width) solid var(--focus-ring-color);
-  outline-offset: var(--outline-offset-inset);
+  font-size: var(--font-size-xl);
+  line-height: var(--space-5);
 }
 
 .app-main {
   min-width: 0;
+  min-height: calc(100vh - var(--global-header-height));
 }
 
 .app-topbar {
@@ -190,14 +161,6 @@
 }
 
 @media (max-width: 760px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .app-sidebar {
-    display: none;
-  }
-
   .app-content {
     padding: var(--space-4);
   }

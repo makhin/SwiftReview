@@ -1,116 +1,111 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createTestQueryClient } from '../../test/createTestQueryClient';
+
+const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
+
+vi.mock('../../pages/current-user/currentUserApi', () => ({ getCurrentUser }));
+vi.mock('devextreme-react/button', () => ({
+  default: ({
+    elementAttr,
+    onClick,
+  }: {
+    elementAttr: Record<string, unknown>;
+    onClick: () => void;
+  }) => <button type="button" {...elementAttr} onClick={onClick} />,
+}));
 
 import GlobalHeader from './GlobalHeader';
 
+const currentUser = {
+  userId: 42,
+  userName: 'Alex Morgan',
+  permissions: ['messages.read'],
+  branches: [10],
+  departments: [],
+};
+
+function renderHeader(
+  props: Partial<React.ComponentProps<typeof GlobalHeader>> = {},
+) {
+  return render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <MemoryRouter>
+        <GlobalHeader
+          navigationOpen={false}
+          showNavigationToggle={false}
+          onNavigationToggle={() => undefined}
+          {...props}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 describe('GlobalHeader', () => {
   beforeEach(() => {
-    Object.defineProperty(window, 'scrollY', {
-      configurable: true,
-      value: 0,
-      writable: true,
-    });
+    getCurrentUser.mockReset();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it('shows the application brand and current user', async () => {
+    getCurrentUser.mockResolvedValue(currentUser);
+
+    renderHeader();
+
+    expect(screen.getByRole('link', { name: 'SMBC home' })).toHaveAttribute(
+      'href',
+      '/',
+    );
+    expect(screen.getByText('Operations Reporting and Processing')).toBeInTheDocument();
+    expect(screen.getByText('Loading user…')).toBeInTheDocument();
+    expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
 
-  it('opens and closes the navigation menu', async () => {
+  it('shows a safe fallback when the current user cannot be loaded', async () => {
+    getCurrentUser.mockRejectedValue(new Error('private authentication details'));
+
+    renderHeader();
+
+    expect(await screen.findByText('User unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('private authentication details')).not.toBeInTheDocument();
+  });
+
+  it('exposes the mobile navigation state and toggles it', async () => {
+    getCurrentUser.mockResolvedValue(currentUser);
+    const onNavigationToggle = vi.fn();
     const user = userEvent.setup();
 
-    render(
-      <MemoryRouter>
-        <GlobalHeader />
-      </MemoryRouter>,
+    const { rerender } = renderHeader({
+      showNavigationToggle: true,
+      onNavigationToggle,
+    });
+
+    const openButton = screen.getByRole('button', { name: 'Open navigation' });
+    expect(openButton).toHaveAttribute('aria-expanded', 'false');
+    expect(openButton).toHaveAttribute('aria-controls', 'application-navigation');
+    await user.click(openButton);
+    expect(onNavigationToggle).toHaveBeenCalledOnce();
+
+    rerender(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter>
+          <GlobalHeader
+            navigationOpen
+            showNavigationToggle
+            onNavigationToggle={onNavigationToggle}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
-
-    const menuButton = screen.getByRole('button', { name: 'Open navigation' });
-
-    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
-
-    await user.click(menuButton);
 
     expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveAttribute(
       'aria-expanded',
       'true',
     );
-
-    await user.click(screen.getByRole('link', { name: 'Messages' }));
-
-    expect(screen.getByRole('button', { name: 'Open navigation' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
-    await user.click(screen.getByRole('link', { name: 'Current user' }));
-    expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
-    await user.click(screen.getByRole('link', { name: 'Design system' }));
-    expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument();
-  });
-
-  it('hides while scrolling down and returns while scrolling up or focused', () => {
-    let frameCallback: FrameRequestCallback | undefined;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-      frameCallback = callback;
-      return 1;
-    });
-
-    const { container } = render(
-      <MemoryRouter>
-        <GlobalHeader />
-      </MemoryRouter>,
-    );
-    const header = container.querySelector('header')!;
-    Object.defineProperty(header, 'offsetHeight', { value: 50 });
-
-    window.scrollY = 100;
-    fireEvent.scroll(window);
-    act(() => frameCallback?.(0));
-    expect(header).toHaveAttribute('data-hidden', 'true');
-
-    window.scrollY = 95;
-    fireEvent.scroll(window);
-    act(() => frameCallback?.(0));
-    expect(header).toHaveAttribute('data-hidden', 'true');
-
-    window.scrollY = 80;
-    fireEvent.scroll(window);
-    act(() => frameCallback?.(0));
-    expect(header).toHaveAttribute('data-hidden', 'false');
-
-    window.scrollY = 100;
-    fireEvent.scroll(window);
-    act(() => frameCallback?.(0));
-    expect(header).toHaveAttribute('data-hidden', 'true');
-
-    fireEvent.focus(header);
-    expect(header).toHaveAttribute('data-hidden', 'false');
-
-    window.scrollY = -10;
-    fireEvent.scroll(window);
-    act(() => frameCallback?.(0));
-    expect(header).toHaveAttribute('data-hidden', 'false');
-  });
-
-  it('cancels a queued animation frame when unmounted', () => {
-    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(7);
-    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame');
-
-    const { unmount } = render(
-      <MemoryRouter>
-        <GlobalHeader />
-      </MemoryRouter>,
-    );
-
-    fireEvent.scroll(window);
-    unmount();
-
-    expect(cancelAnimationFrame).toHaveBeenCalledWith(7);
   });
 });

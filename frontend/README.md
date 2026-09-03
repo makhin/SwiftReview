@@ -1,6 +1,6 @@
-# SMBC Application UI
+# Operations Reporting and Processing
 
-React application shell and design-system reference built with DevExtreme and a custom SMBC ThemeBuilder theme.
+React application shell built with DevExtreme and a custom SMBC ThemeBuilder theme.
 
 The implementation standard and UI rules live in [`DESIGN_GUIDE.md`](docs/DESIGN_GUIDE.md).
 
@@ -40,12 +40,11 @@ Run `theme:build` after changing mapped design tokens or ThemeBuilder settings. 
 
 ## Routes
 
-- `/` — redirects to the design-system reference
-- `/design-system` — component and token reference
+- `/` — redirects to the messages page
 - `/messages` — messages DataGrid backed by `GET /api/messages/grid`
 - `/me` — current user details loaded through the typed OpenAPI client
 
-All routes render inside `RootLayout`, which provides the shared EMEA-style global header. The header uses semantic HTML and React Router links; DevExtreme is reserved for interactive widgets inside the shell rather than the structural navigation itself.
+All routes render inside `RootLayout`, which provides the shared EMEA-style global header and a responsive DevExtreme Drawer/List navigation. The header keeps the SMBC logo, application name, and current-user information; page links live in the left navigation.
 
 During local Vite development, `/api` requests are proxied to `http://localhost:5080` with the backend's `supervisor` debug identity. Start the backend before opening the messages page.
 

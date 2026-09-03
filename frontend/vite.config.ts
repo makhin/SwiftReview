@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => {
         ],
         exclude: [
           'src/**/*.test.{ts,tsx}',
-          'src/pages/design-system/**',
           'src/theme/**',
         ],
         thresholds: {

@@ -7,9 +7,9 @@
 
 ## 1. Purpose
 
-This repository defines a reusable SMBC application theme and a development
-reference page. It translates the restrained SMBC EMEA visual language into a
-compact, accessible interface for operational applications.
+This repository defines a reusable SMBC application theme and operational
+application shell. It translates the restrained SMBC EMEA visual language into
+a compact, accessible interface for operational applications.
 
 The public EMEA site is a visual reference, not a component specification.
 Approved internal SMBC standards take precedence over this guide.
@@ -25,7 +25,7 @@ Use this order when implementation details conflict:
 2. `src/theme/tokens.css` for reusable visual values.
 3. Shared application patterns in `src/styles` and DevExtreme overrides in
    `src/theme/smbc-devextreme-overrides.css`.
-4. `/design-system` for rendered states and regression review.
+4. Production application pages for rendered states and regression review.
 5. Page-specific styles only for local layout constraints.
 
 Rules:
@@ -35,7 +35,7 @@ Rules:
   suitable token already exists.
 - Keep responsive breakpoints and truly one-off dimensions local to the owning
   component.
-- Do not duplicate shared theme corrections in reference-page CSS.
+- Do not duplicate shared theme corrections in page-specific CSS.
 
 ## 3. Current application structure
 
@@ -52,10 +52,6 @@ src/
   features/
   pages/
     current-user/
-    design-system/
-      components/
-      data/
-      sections/
     messages/
   shared/
     api/
@@ -86,15 +82,14 @@ src/
 
 | Path | Owns | Must not own |
 |---|---|---|
-| `src/theme/` | Brand and semantic tokens, ThemeBuilder input/output, global DevExtreme corrections, and the chart palette bridge | Application shell layout, page composition, reference-page demos, or one-off component dimensions |
-| `src/styles/` | Application-level primitives and reusable `.app-*` patterns | Brand palette definitions, generated vendor CSS, or styles used only by `/design-system` |
+| `src/theme/` | Brand and semantic tokens, ThemeBuilder input/output, global DevExtreme corrections, and the chart palette bridge | Application shell layout, page composition, or one-off component dimensions |
+| `src/styles/` | Application-level primitives and reusable `.app-*` patterns | Brand palette definitions, generated vendor CSS, or page-specific styles |
 | `src/app/` | Providers, routing, the root shell, and global navigation | Page-specific behavior or generally reusable components |
 | `src/pages/` | Route-level vertical slices and their page-specific data access | Application bootstrap or cross-page primitives |
 | `src/features/` | Reusable business actions used by multiple pages | One-page-only code or generic UI primitives |
 | `src/shared/api/` | Generated API contracts and common HTTP infrastructure | Page-specific endpoint orchestration |
 | `src/shared/components/` | Reusable React components grouped by responsibility | Route composition or business workflows |
 | `src/shared/hooks/`, `src/shared/lib/`, `src/shared/types/` | Proven cross-page hooks, utilities, and types | Speculative abstractions with only one consumer |
-| `src/pages/design-system/` | The development reference page, demonstrations, regression surface, and demo fixtures | Production business components or the canonical implementation of a shared style |
 | `src/assets/` | Locally bundled fonts and other static brand assets | Remote asset references or component styles |
 
 ### Theme ownership
@@ -106,9 +101,8 @@ belongs here only when changing it should consistently affect multiple
 components or application surfaces.
 
 Layout dimensions owned by one component remain with that component. For
-example, global-header dimensions live in `app/layout/global-header.css`, application
-shell dimensions live in `styles/layout.css`, and reference-page dimensions
-live in `pages/design-system/design-system.css`.
+example, global-header dimensions live in `app/layout/global-header.css`, while
+application-shell dimensions live in `styles/layout.css`.
 
 The remaining theme files have narrow responsibilities:
 
@@ -152,29 +146,6 @@ only to that component. `global-header.css`, for example, owns header structure,
 responsive behaviour, and its private dimensions; it still consumes colours,
 spacing, motion, and focus tokens from the theme.
 
-### Design-system reference ownership
-
-`src/pages/design-system` documents and exercises the implementation; it does not
-replace it. Its parts are divided as follows:
-
-- `DesignSystemPage.tsx` composes navigation, page chrome, and section
-  components;
-- `components/Section.tsx` and its co-located `section.css` provide
-  reference-page-only section framing;
-- `sections/` contains one independently maintainable rendered example per
-  topic, with interactive state kept in the section that owns it; a section may
-  import co-located CSS for a rule private to that example;
-- `data/*.json` contains serialisable demo fixtures and option lists only;
-- `design-system.css` owns `.ds-*` page chrome, demo layouts, visual samples,
-  responsive behaviour, and scoped adjustments needed to present examples.
-
-Do not import `design-system/data` or `.ds-*` classes into production
-application code. Keep mappings, event handlers, component configuration, and
-TypeScript types in `.ts`/`.tsx`; use JSON only for static data that contains no
-behaviour. If a useful pattern first appears in the reference page, implement it
-under `src/styles` or as a production component, then make the reference page
-consume that shared implementation.
-
 ### Placement decision
 
 When adding a style, use this order:
@@ -187,27 +158,25 @@ When adding a style, use this order:
    or ThemeBuilder, add the smallest possible rule to
    `smbc-devextreme-overrides.css`.
 5. Otherwise keep it with the owning application component or page.
-6. Keep reference-only presentation under `design-system/` even when that file
-   is relatively large.
 
 Selector prefixes communicate the same ownership boundary:
 
 - `--color-*`, `--space-*`, and similar semantic custom properties are theme
   tokens;
 - `.app-*` is a reusable application contract;
-- `.ds-*` is private to the design-system reference;
 - component-specific selectors such as `.global-header*` stay with their React
   component;
-- `.dx-*` selectors outside a scoped `.app-*` or `.ds-*` container belong only
-  in the shared DevExtreme override layer.
+- `.dx-*` selectors outside a scoped `.app-*` container belong only in the
+  shared DevExtreme override layer.
 
 Routes:
 
-- `/` redirects to `/design-system`.
-- `/design-system` renders the component and token reference.
+- `/` redirects to `/messages`.
+- `/messages` renders the server-backed messages grid.
+- `/me` renders the current-user profile.
 
-All routes render inside `RootLayout`, which provides the skip link and global
-header. `index.html` must retain:
+All routes render inside `RootLayout`, which provides the skip link, global
+header, and responsive application navigation. `index.html` must retain:
 
 ```html
 <body class="dx-viewport">
@@ -346,20 +315,21 @@ Use DevExtreme for application widgets, not for structural branding.
 Current header behaviour:
 
 - local SMBC logo aligned near the left edge;
+- application name beside the logo on layouts where space permits;
+- current-user information aligned to the right;
 - sticky at the top of the viewport;
-- hides after scrolling down beyond its height;
-- returns on upward scroll, keyboard focus, or near the top of the page;
-- remains visible while the mobile menu is open;
-- collapses to a menu below 760px;
-- disables transitions for reduced-motion users.
+- remains visible while the page scrolls;
+- exposes the navigation toggle below 760px.
 
 The header publishes `--sticky-header-offset` on `#main-content`. Sticky page
 elements consume that custom property instead of coupling header CSS to a page
 class. Hash targets include the visible header height in `scroll-margin-top`.
 
-A dark sidebar is an optional operational pattern, not a corporate requirement.
-Use it only when the information architecture needs persistent module
-navigation.
+The application uses a DevExtreme Drawer below the header for persistent module
+navigation. It stays open in `shrink` mode on desktop and becomes a shaded,
+dismissible `overlap` drawer below 760px. A DevExtreme List owns selection and
+keyboard interaction for the page entries. Drawer animation is disabled when
+the user requests reduced motion.
 
 ## 9. DevExtreme integration
 
@@ -387,8 +357,8 @@ Important editor rules:
 Do not colour `.dx-loadindicator-segment`: DevExtreme builds its spinner from
 transformed segments, and a background override produces a rotating square.
 
-After any DevExtreme upgrade, regenerate the theme and review every section of
-`/design-system`.
+After any DevExtreme upgrade, regenerate the theme and review the application
+shell, forms, grids, overlays, and feedback states in their production pages.
 
 ## 10. Application patterns
 
@@ -481,15 +451,13 @@ defect in the shared theme.
 ## 12. Responsive baseline
 
 Shared application styles currently use 1100px, 980px, and 760px breakpoints
-according to the owning layout. The reference page uses 1200px, 900px, and
-620px for its own layout.
+according to the owning layout.
 
 At narrow widths:
 
 - grids and forms collapse to fewer columns;
 - actions wrap;
-- the global navigation becomes a menu;
-- side navigation becomes non-sticky and horizontally scrollable;
+- the side navigation becomes an overlay Drawer controlled from the header;
 - DataGrid remains inside its horizontal-scroll container.
 
 Breakpoints are layout tools, not minimum accessibility widths.
@@ -498,7 +466,7 @@ Breakpoints are layout tools, not minimum accessibility widths.
 
 Before considering UI work complete, confirm:
 
-- each new style and demo fixture lives in the layer that owns it;
+- each new style and fixture lives in the layer that owns it;
 - semantic tokens are used and no duplicate local theme rule was added;
 - DevExtreme APIs were preferred over internal CSS selectors;
 - default, hover, focus, active, invalid, disabled, and read-only states work;
@@ -507,7 +475,7 @@ Before considering UI work complete, confirm:
 - colour is not the only state cue;
 - loading, empty, no-results, validation, and error states are appropriate;
 - keyboard, zoom, narrow layouts, sticky content, and reduced motion were tested;
-- `/design-system` still represents the shared implementation;
+- production pages still represent the shared implementation;
 - local logo, favicon, and fonts generate no external runtime requests.
 
 Run the repository checks:

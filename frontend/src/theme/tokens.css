@@ -2,8 +2,7 @@
  * SMBC application design tokens
  *
  * Components consume semantic tokens. Palette primitives are kept here as the
- * single source of truth and are only referenced by semantic aliases or the
- * design-system swatch reference.
+ * single source of truth and are referenced through semantic aliases.
  */
 
 :root {

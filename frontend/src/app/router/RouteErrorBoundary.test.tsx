@@ -7,6 +7,23 @@ import { ApiError } from '../../shared/api/errors';
 import RootLayout from '../layout/RootLayout';
 import RouteErrorBoundary from './RouteErrorBoundary';
 
+vi.mock('../layout/GlobalHeader', () => ({
+  default: () => <header>Application header</header>,
+}));
+vi.mock('devextreme-react/drawer', () => ({
+  default: ({ children, render: renderPanel }: React.PropsWithChildren<{
+    render: () => React.ReactNode;
+  }>) => (
+    <div>
+      {renderPanel()}
+      {children}
+    </div>
+  ),
+}));
+vi.mock('../layout/AppNavigation', () => ({
+  default: () => <nav>Application navigation</nav>,
+}));
+
 function renderBrokenRoute(element: ReactNode) {
   const router = createMemoryRouter([
     {

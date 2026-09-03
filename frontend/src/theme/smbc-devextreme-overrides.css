@@ -588,7 +588,9 @@
   border-radius: 0;
 }
 
-.smbc-sidebar .dx-list-item-selected,
+.smbc-sidebar
+  .dx-list:not(.dx-list-select-decorator-enabled)
+  .dx-list-item.dx-list-item-selected,
 .smbc-sidebar .dx-treeview-node.dx-state-selected > .dx-treeview-item {
   background: var(--color-navigation-active);
   box-shadow: inset var(--border-width-emphasis) 0 0 var(--color-action-accent);
