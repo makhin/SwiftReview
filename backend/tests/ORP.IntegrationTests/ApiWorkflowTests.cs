@@ -10,7 +10,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ORP.Application.Abstractions;
+using ORP.Domain.Identity;
 using ORP.Domain.Messages;
+using ORP.Domain.Workflows;
 using ORP.Infrastructure.Persistence;
 using Testcontainers.MsSql;
 using Xunit;
@@ -45,22 +47,31 @@ public sealed class ApiWorkflowTests
                 services.AddDbContext<ORPDbContext>(options => options.UseSqlServer(sql.GetConnectionString()));
             });
         });
+        SqlFixture fixture;
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var seeded = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
             await seeded.Database.MigrateAsync(ct);
-            Assert.Equal(75, await seeded.Messages.CountAsync(ct));
+            Assert.Equal(0, await seeded.Messages.CountAsync(ct));
             Assert.Equal(0, await seeded.SwiftMessageSource.CountAsync(ct));
-            Assert.True(await seeded.Reviews.AnyAsync(ct));
-            Assert.Equal(2, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
+            Assert.Equal(0, await seeded.Users.CountAsync(ct));
+            Assert.Equal(0, await seeded.WorkflowDefinitions.CountAsync(ct));
+            Assert.False(await seeded.Reviews.AnyAsync(ct));
+            Assert.Single(await seeded.Database.GetAppliedMigrationsAsync(ct));
             var historyTableCount = await seeded.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS [Value] FROM sys.tables AS t JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE t.name = N'__EFMigrationsHistory' AND s.name = N'dbo'")
                 .SingleAsync(ct);
             Assert.Equal(1, historyTableCount);
+            fixture = await SeedSqlFixture(seeded, ct);
             await CreateAndSeedSwiftSource(seeded, ct);
             Assert.Equal(76, await seeded.Messages.CountAsync(ct));
             Assert.Equal(76, await seeded.SwiftMessageSource.CountAsync(ct));
             Assert.Equal(8, await seeded.WorkflowDefinitions.CountAsync(ct));
+            Assert.Equal(15, await seeded.WorkflowSteps.CountAsync(ct));
+            var levelThreeMessage = await seeded.Messages.SingleAsync(x => x.Id == 6, ct);
+            var levelThreeWorkflow = await seeded.WorkflowDefinitions.Include(x => x.Steps)
+                .SingleAsync(x => x.Id == levelThreeMessage.WorkflowDefinitionId, ct);
+            Assert.Equal([1, 2, 3], levelThreeWorkflow.RequiredLevels());
             Assert.False(await seeded.Messages.AnyAsync(m => !seeded.WorkflowDefinitions.Any(w => w.Id == m.WorkflowDefinitionId), ct));
             Assert.DoesNotContain(await seeded.Reviews.AsNoTracking().Where(x => x.Status == Domain.Reviews.ReviewStatus.Approved)
                 .GroupBy(x => x.MessageId).Select(g => g.Select(x => x.ReviewerId).Count() != g.Select(x => x.ReviewerId).Distinct().Count()).ToListAsync(ct), x => x);
@@ -85,13 +96,13 @@ public sealed class ApiWorkflowTests
         Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/api/messages/import", null, ct)).StatusCode);
         const long id = 1001;
 
-        var ineligible = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(2), ct);
+        var ineligible = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(fixture.TheoId), ct);
         Assert.Equal(HttpStatusCode.BadRequest, ineligible.StatusCode);
-        var assigned = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(6), ct);
+        var assigned = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(fixture.AdminId), ct);
         Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/reassign", new AssignMessageRequest(1), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/reassign", new AssignMessageRequest(fixture.AmeliaId), ct)).StatusCode);
 
-        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "cs-reviewer");
+        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "amelia.hart");
         var started = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1), ct);
         Assert.Equal(HttpStatusCode.Created, started.StatusCode);
         var approved = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, "confirmed"), ct);
@@ -110,7 +121,7 @@ public sealed class ApiWorkflowTests
             multiSortItems.Select(x => x.Id));
         await VerifyGrid(client, ct);
 
-        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "tfo-reviewer");
+        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/messages/{id}", ct)).StatusCode);
         Assert.Equal([new ReferenceItemDto(2, "Dublin")],
             await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct));
@@ -132,23 +143,84 @@ public sealed class ApiWorkflowTests
         Assert.Contains(audit!, x => x.EventType == "ReviewApproved");
         Assert.Contains(audit!, x => x.EventType == "MessageCompleted");
 
-        await VerifyLevelPermission(client, ct);
+        await VerifyLevelPermission(client, fixture.SupervisorId, ct);
 
     }
 
-    private static async Task VerifyLevelPermission(HttpClient client, CancellationToken ct)
+    private static async Task VerifyLevelPermission(HttpClient client, int supervisorId, CancellationToken ct)
     {
         const long id = 6;
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(5), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(supervisorId), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
         var start = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1), ct);
         Assert.True(start.StatusCode == HttpStatusCode.Created, await start.Content.ReadAsStringAsync(ct));
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, null), ct)).StatusCode);
-        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "dc-reviewer");
+        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "priya.nair");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(2), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
     }
+
+    private static async Task<SqlFixture> SeedSqlFixture(ORPDbContext db, CancellationToken ct)
+    {
+        var branches = new[] { new Branch("London"), new Branch("Dublin"), new Branch("Singapore") };
+        var departments = new[] { new Department("CS"), new Department("TFO"), new Department("DC") };
+        var permissions = Permissions.All.Select(name => new Permission(name)).ToArray();
+        var roles = new[]
+        {
+            new Role("CS Reviewer"), new Role("TFO Reviewer"), new Role("DC Reviewer"),
+            new Role("DC Senior Reviewer"), new Role("Supervisor"), new Role("Administrator")
+        };
+        var users = new[]
+        {
+            new User("amelia.hart", "Amelia Hart"), new User("theo.mercer", "Theo Mercer"),
+            new User("priya.nair", "Priya Nair"), new User("victor.stone", "Victor Stone"),
+            new User("supervisor", "Supervisor"), new User("admin", "Administrator")
+        };
+        db.AddRange(branches); db.AddRange(departments); db.AddRange(permissions); db.AddRange(roles); db.AddRange(users);
+        await db.SaveChangesAsync(ct);
+
+        for (var i = 0; i < users.Length; i++) db.UserRoles.Add(new UserRole { UserId = users[i].Id, RoleId = roles[i].Id });
+        var permissionByName = permissions.ToDictionary(x => x.Name, x => x.Id);
+        Grant(roles[0], Permissions.MessageView, Permissions.ReviewLevel1);
+        Grant(roles[1], Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2);
+        Grant(roles[2], Permissions.MessageView, Permissions.ReviewLevel1);
+        Grant(roles[3], Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewReject, Permissions.ReviewUndo);
+        Grant(roles[4], Permissions.MessageView, Permissions.MessageAssign, Permissions.ReviewLevel1, Permissions.ReviewLevel2,
+            Permissions.ReviewLevel3, Permissions.ReviewReject, Permissions.ReviewUndo, Permissions.AuditView);
+        Grant(roles[5], Permissions.All);
+
+        LinkUser(users[0], [branches[0]], [departments[0]]);
+        LinkUser(users[1], [branches[1]], [departments[1]]);
+        LinkUser(users[2], [branches[2]], [departments[2]]);
+        LinkUser(users[3], branches, departments);
+        LinkUser(users[4], branches, departments);
+        LinkUser(users[5], branches, departments);
+
+        string[] messageTypes = ["MT199", "MT299", "MT671", "MT700", "MT710", "MT760", "MT799", "MT999"];
+        string[] workflowNames = ["Single Review", "Two Reviews", "Three Reviews", "MT700 Single Review",
+            "MT710 Two Reviews", "MT760 Three Reviews", "MT799 Single Review", "MT999 Two Reviews"];
+        for (var i = 0; i < messageTypes.Length; i++)
+        {
+            var workflow = new WorkflowDefinition(workflowNames[i], messageTypes[i], departments[i % 3].Id);
+            var levelCount = ((i + 1) % 3) switch { 1 => 1, 2 => 2, _ => 3 };
+            for (var level = 1; level <= levelCount; level++) workflow.AddStep(level, level);
+            db.WorkflowDefinitions.Add(workflow);
+        }
+        await db.SaveChangesAsync(ct);
+        return new SqlFixture(users[0].Id, users[1].Id, users[4].Id, users[5].Id);
+
+        void Grant(Role role, params string[] names) => db.RolePermissions.AddRange(names.Select(name =>
+            new RolePermission { RoleId = role.Id, PermissionId = permissionByName[name] }));
+        void LinkUser(User user, IReadOnlyCollection<Branch> userBranches, IReadOnlyCollection<Department> userDepartments)
+        {
+            db.UserBranches.AddRange(userBranches.Select(branch => new UserBranch { UserId = user.Id, BranchId = branch.Id }));
+            db.UserDepartments.AddRange(userDepartments.Select(department =>
+                new UserDepartment { UserId = user.Id, DepartmentId = department.Id }));
+        }
+    }
+
+    private sealed record SqlFixture(int AmeliaId, int TheoId, int SupervisorId, int AdminId);
 
     private static async Task VerifyGrid(HttpClient client, CancellationToken ct)
     {

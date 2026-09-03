@@ -12,8 +12,8 @@ using ORP.Infrastructure.Persistence;
 namespace ORP.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ORPDbContext))]
-    [Migration("20260903180506_MoveApplicationTablesToOrp")]
-    partial class MoveApplicationTablesToOrp
+    [Migration("20260903200533_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -126,23 +126,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Branches", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Name = "London"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Name = "Dublin"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Name = "Singapore"
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.Department", b =>
@@ -161,23 +144,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Departments", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Name = "CS"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Name = "TFO"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Name = "DC"
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.Permission", b =>
@@ -199,53 +165,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Permissions", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Name = "message.view"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Name = "message.assign"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Name = "review.level1"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Name = "review.level2"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Name = "review.level3"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Name = "review.reject"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Name = "review.undo"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Name = "audit.view"
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Name = "workflow.manage"
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.Role", b =>
@@ -267,38 +186,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Roles", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Name = "CS Reviewer"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Name = "TFO Reviewer"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Name = "DC Reviewer"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Name = "DC Senior Reviewer"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Name = "Supervisor"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Name = "Administrator"
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.RolePermission", b =>
@@ -314,153 +201,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasIndex("PermissionId");
 
                     b.ToTable("RolePermissions", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 1
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 3
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 1
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 3
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 4
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            PermissionId = 1
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            PermissionId = 3
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 1
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 4
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 5
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 6
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 7
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 1
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 2
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 3
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 4
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 5
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 6
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 7
-                        },
-                        new
-                        {
-                            RoleId = 5,
-                            PermissionId = 8
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 1
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 2
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 3
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 4
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 5
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 6
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 7
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 8
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            PermissionId = 9
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.User", b =>
@@ -487,44 +227,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            DisplayName = "CS Reviewer",
-                            UserName = "cs-reviewer"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            DisplayName = "TFO Reviewer",
-                            UserName = "tfo-reviewer"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            DisplayName = "DC Reviewer",
-                            UserName = "dc-reviewer"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            DisplayName = "DC Senior Reviewer",
-                            UserName = "dc-senior"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            DisplayName = "Supervisor",
-                            UserName = "supervisor"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            DisplayName = "Administrator",
-                            UserName = "admin"
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.UserBranch", b =>
@@ -540,68 +242,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasIndex("BranchId");
 
                     b.ToTable("UserBranches", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            UserId = 1,
-                            BranchId = 1
-                        },
-                        new
-                        {
-                            UserId = 2,
-                            BranchId = 2
-                        },
-                        new
-                        {
-                            UserId = 3,
-                            BranchId = 3
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            BranchId = 1
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            BranchId = 2
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            BranchId = 3
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            BranchId = 1
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            BranchId = 2
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            BranchId = 3
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            BranchId = 1
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            BranchId = 2
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            BranchId = 3
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.UserDepartment", b =>
@@ -617,68 +257,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.ToTable("UserDepartments", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            UserId = 1,
-                            DepartmentId = 1
-                        },
-                        new
-                        {
-                            UserId = 2,
-                            DepartmentId = 2
-                        },
-                        new
-                        {
-                            UserId = 3,
-                            DepartmentId = 3
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            DepartmentId = 1
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            DepartmentId = 2
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            DepartmentId = 3
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            DepartmentId = 1
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            DepartmentId = 2
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            DepartmentId = 3
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            DepartmentId = 1
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            DepartmentId = 2
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            DepartmentId = 3
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.UserRole", b =>
@@ -694,38 +272,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("UserRoles", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            UserId = 1,
-                            RoleId = 1
-                        },
-                        new
-                        {
-                            UserId = 2,
-                            RoleId = 2
-                        },
-                        new
-                        {
-                            UserId = 3,
-                            RoleId = 3
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            RoleId = 4
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            RoleId = 5
-                        },
-                        new
-                        {
-                            UserId = 6,
-                            RoleId = 6
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Messages.Message", b =>
@@ -835,72 +381,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasFilter("[IsActive] = 1");
 
                     b.ToTable("WorkflowDefinitions", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            DepartmentId = 1,
-                            IsActive = true,
-                            MessageType = "MT199",
-                            Name = "Single Review"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            DepartmentId = 2,
-                            IsActive = true,
-                            MessageType = "MT299",
-                            Name = "Two Reviews"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            DepartmentId = 3,
-                            IsActive = true,
-                            MessageType = "MT671",
-                            Name = "Three Reviews"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            DepartmentId = 1,
-                            IsActive = true,
-                            MessageType = "MT700",
-                            Name = "MT700 Single Review"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            DepartmentId = 2,
-                            IsActive = true,
-                            MessageType = "MT710",
-                            Name = "MT710 Two Reviews"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            DepartmentId = 3,
-                            IsActive = true,
-                            MessageType = "MT760",
-                            Name = "MT760 Three Reviews"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            DepartmentId = 1,
-                            IsActive = true,
-                            MessageType = "MT799",
-                            Name = "MT799 Single Review"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            DepartmentId = 2,
-                            IsActive = true,
-                            MessageType = "MT999",
-                            Name = "MT999 Two Reviews"
-                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowStep", b =>
@@ -929,128 +409,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("WorkflowSteps", "ORP");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 1
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 2
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Order = 2,
-                            Required = true,
-                            ReviewLevel = 2,
-                            WorkflowDefinitionId = 2
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 3
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Order = 2,
-                            Required = true,
-                            ReviewLevel = 2,
-                            WorkflowDefinitionId = 3
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Order = 3,
-                            Required = true,
-                            ReviewLevel = 3,
-                            WorkflowDefinitionId = 3
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 4
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 5
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Order = 2,
-                            Required = true,
-                            ReviewLevel = 2,
-                            WorkflowDefinitionId = 5
-                        },
-                        new
-                        {
-                            Id = 10,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 6
-                        },
-                        new
-                        {
-                            Id = 11,
-                            Order = 2,
-                            Required = true,
-                            ReviewLevel = 2,
-                            WorkflowDefinitionId = 6
-                        },
-                        new
-                        {
-                            Id = 12,
-                            Order = 3,
-                            Required = true,
-                            ReviewLevel = 3,
-                            WorkflowDefinitionId = 6
-                        },
-                        new
-                        {
-                            Id = 13,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 7
-                        },
-                        new
-                        {
-                            Id = 14,
-                            Order = 1,
-                            Required = true,
-                            ReviewLevel = 1,
-                            WorkflowDefinitionId = 8
-                        },
-                        new
-                        {
-                            Id = 15,
-                            Order = 2,
-                            Required = true,
-                            ReviewLevel = 2,
-                            WorkflowDefinitionId = 8
-                        });
                 });
 
             modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>

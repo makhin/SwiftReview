@@ -41,17 +41,23 @@ public sealed class MockDataModeTests
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct))!.Count);
         Assert.Equal(8, (await client.GetFromJsonAsync<List<string>>("/api/message-types", ct))!.Count);
-        Assert.Equal(6, (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Count);
+        Assert.Equal(15, (await client.GetFromJsonAsync<List<WorkflowSummaryDto>>("/api/workflows", ct))!
+            .Sum(x => x.Steps.Count));
+        var users = (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!;
+        Assert.Equal(12, users.Count);
+        Assert.Contains(users, x => x.UserName == "amelia.hart" && x.DisplayName == "Amelia Hart");
+        Assert.Contains(users, x => x.UserName == "elena.petrova" && x.DisplayName == "Elena Petrova");
+        Assert.DoesNotContain(users, x => x.DisplayName.Contains("Reviewer", StringComparison.OrdinalIgnoreCase));
 
         client.DefaultRequestHeaders.Remove("X-Debug-User");
-        client.DefaultRequestHeaders.Add("X-Debug-User", "cs-reviewer");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "amelia.hart");
         Assert.Equal([new ReferenceItemDto(1, "London")],
             await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct));
         Assert.Equal([new ReferenceItemDto(1, "CS")],
             await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct));
         Assert.Equal(["MT199", "MT700", "MT799"],
             await client.GetFromJsonAsync<List<string>>("/api/message-types", ct));
-        Assert.Equal([6, 1, 4, 5],
+        Assert.Equal([6, 1, 5, 4],
             (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Select(x => x.Id));
     }
 }
