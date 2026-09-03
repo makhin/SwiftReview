@@ -1,14 +1,25 @@
+import { useQuery } from '@tanstack/react-query';
 import DataGrid, {
   Column,
   FilterRow,
   HeaderFilter,
+  Lookup,
   Pager,
   Paging,
 } from 'devextreme-react/data-grid';
 
+import {
+  branchesQueryOptions,
+  departmentsQueryOptions,
+  usersQueryOptions,
+} from '../../shared/api/referenceDataQueries';
 import { messageDataSource } from './messageDataSource';
 
 export default function MessagesPage() {
+  const { data: users } = useQuery(usersQueryOptions());
+  const { data: branches } = useQuery(branchesQueryOptions());
+  const { data: departments } = useQuery(departmentsQueryOptions());
+
   return (
     <main className="app-content app-page">
       <header className="app-page-header">
@@ -43,13 +54,29 @@ export default function MessagesPage() {
 
           <Column dataField="externalId" caption="External ID" minWidth={140} />
           <Column dataField="messageType" caption="Message type" minWidth={120} />
-          <Column dataField="branchId" caption="Branch" dataType="number" width={90} />
+          {/* Server-side sorting supports lookup IDs, not their displayed labels. */}
+          <Column
+            dataField="branchId"
+            caption="Branch"
+            dataType="number"
+            width={90}
+            allowSorting={false}
+          >
+            {branches && (
+              <Lookup dataSource={branches} valueExpr="id" displayExpr="name" />
+            )}
+          </Column>
           <Column
             dataField="departmentId"
             caption="Department"
             dataType="number"
             width={110}
-          />
+            allowSorting={false}
+          >
+            {departments && (
+              <Lookup dataSource={departments} valueExpr="id" displayExpr="name" />
+            )}
+          </Column>
           <Column dataField="state" caption="State" minWidth={180} />
           <Column
             dataField="receivedAt"
@@ -73,7 +100,12 @@ export default function MessagesPage() {
             caption="Assignee"
             dataType="number"
             width={100}
-          />
+            allowSorting={false}
+          >
+            {users && (
+              <Lookup dataSource={users} valueExpr="id" displayExpr="displayName" />
+            )}
+          </Column>
         </DataGrid>
       </div>
     </main>

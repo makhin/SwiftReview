@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import AppProviders from './AppProviders';
 import queryClient from './queryClient';
+
+vi.mock('./ReferenceDataPreloader', () => ({ default: () => null }));
 
 function QueryClientProbe() {
   const providedClient = useQueryClient();

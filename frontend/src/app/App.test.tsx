@@ -26,6 +26,7 @@ vi.mock('devextreme-react/list', () => ({
 vi.mock('devextreme-react/button', () => ({
   default: () => <button type="button">Navigation</button>,
 }));
+vi.mock('./providers/ReferenceDataPreloader', () => ({ default: () => null }));
 
 vi.mock('../pages/current-user/currentUserApi', () => ({
   getCurrentUser: vi.fn().mockResolvedValue({
