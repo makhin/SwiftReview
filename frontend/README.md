@@ -2,7 +2,7 @@
 
 React application shell and design-system reference built with DevExtreme and a custom SMBC ThemeBuilder theme.
 
-The implementation standard and UI rules live in [`DESIGN_GUIDE.md`](DESIGN_GUIDE.md).
+The implementation standard and UI rules live in [`DESIGN_GUIDE.md`](docs/DESIGN_GUIDE.md).
 
 ## Source structure
 
