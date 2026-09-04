@@ -38,12 +38,13 @@ The in-memory data is recreated whenever the process restarts.
 
 ## Development authentication
 
-The API uses the `X-Debug-User` request header in Development. Seeded identities include:
+The API uses the `X-Debug-User` request header in Development. It accepts either the numeric
+user ID or username. Seeded identities include:
 
-- `cs-reviewer`
-- `tfo-reviewer`
-- `dc-reviewer`
-- `dc-senior`
+- `1` / `amelia.hart`
+- `2` / `theo.mercer`
+- `3` / `priya.nair`
+- `4` / `victor.stone`
 - `supervisor`
 - `admin`
 
@@ -51,10 +52,13 @@ For example:
 
 ```bash
 curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/me
+curl -H 'X-Debug-User: 6' http://localhost:5080/api/me
 curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/dashboard/summary
 ```
 
-The frontend development server adds this header through its proxy. The debug authentication scheme is a development facility and must be replaced by the deployment environment's authentication integration.
+The frontend adds this header to API requests; use `?user=6` or `?user=admin` in its URL to
+switch users. The debug authentication scheme is a development facility and must be replaced
+by the deployment environment's authentication integration.
 
 ## Persistent SQL Server storage
 

@@ -13,7 +13,10 @@ public sealed class DebugAuthenticationHandler(IOptionsMonitor<AuthenticationSch
     {
         if (!environment.IsDevelopment()) return AuthenticateResult.Fail("Debug authentication is disabled outside Development.");
         if (!Context.Request.Headers.TryGetValue("X-Debug-User", out var value)) return AuthenticateResult.NoResult();
-        var access = await users.GetByUserNameAsync(value.ToString(), Context.RequestAborted);
+        var requestedUser = value.ToString().Trim();
+        var access = int.TryParse(requestedUser, out var userId)
+            ? await users.GetByIdAsync(userId, Context.RequestAborted)
+            : await users.GetByUserNameAsync(requestedUser, Context.RequestAborted);
         if (access is null) return AuthenticateResult.Fail("Unknown development user.");
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, access.UserId.ToString()), new(ClaimTypes.Name, access.UserName) };
         claims.AddRange(access.Permissions.Select(x => new Claim("permission", x)));

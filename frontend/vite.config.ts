@@ -40,9 +40,6 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: env.VITE_API_PROXY_TARGET || 'http://localhost:5080',
-          headers: {
-            'X-Debug-User': env.VITE_DEBUG_USER || 'supervisor',
-          },
         },
       },
     },

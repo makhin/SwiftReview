@@ -1,5 +1,6 @@
 import type { LoadOptions, LoadResultObject } from 'devextreme/common/data';
 
+import { apiFetch } from '../../shared/api/client';
 import { ApiError } from '../../shared/api/errors';
 import type { MessageListItemDto } from '../../shared/api/generated/contracts.generated';
 
@@ -41,7 +42,7 @@ export async function getMessageGrid(
   loadOptions: LoadOptions<MessageRow>,
 ): Promise<LoadResultObject<MessageRow>> {
   try {
-    const response = await fetch(`/api/messages/grid?${buildQuery(loadOptions)}`);
+    const response = await apiFetch(`/api/messages/grid?${buildQuery(loadOptions)}`);
 
     if (!response.ok) {
       throw new ApiError(`Unable to load messages (${response.status}).`, response.status);

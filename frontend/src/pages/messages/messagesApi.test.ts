@@ -5,6 +5,8 @@ import { getMessageGrid } from './messagesApi';
 
 describe('getMessageGrid', () => {
   afterEach(() => {
+    window.history.replaceState(null, '', '/');
+    window.sessionStorage.clear();
     vi.unstubAllGlobals();
   });
 
@@ -48,7 +50,9 @@ describe('getMessageGrid', () => {
 
     await getMessageGrid({});
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/messages/grid?skip=0&take=20');
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/messages/grid?skip=0&take=20');
+    expect(new Headers(init.headers).get('X-Debug-User')).toBe('supervisor');
   });
 
   it('normalizes unsuccessful responses into ApiError', async () => {

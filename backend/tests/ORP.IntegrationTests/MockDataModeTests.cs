@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using ORP.Application.Abstractions;
 using Xunit;
 
@@ -12,18 +11,34 @@ namespace ORP.IntegrationTests;
 public sealed class MockDataModeTests
 {
     [Fact]
+    public async Task DebugAuthentication_RejectsMissingAndUnknownUsers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = CreateFactory("Development");
+        using var client = factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/me", ct)).StatusCode);
+
+        client.DefaultRequestHeaders.Add("X-Debug-User", "unknown-user");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/me", ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task DebugAuthentication_IsDisabledOutsideDevelopment()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = CreateFactory("Production");
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/me", ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Api_StartsWithoutSqlServer_AndServesSeededGridData()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(web =>
-        {
-            web.UseEnvironment("Development");
-            web.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["UseMockData"] = "true",
-                ["ConnectionStrings:ORP"] = "not-a-sql-server-connection"
-            }));
-        });
+        await using var factory = CreateFactory("Development");
 
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
@@ -62,5 +77,22 @@ public sealed class MockDataModeTests
             await client.GetFromJsonAsync<List<string>>("/api/message-types", ct));
         Assert.Equal([6, 1, 5, 4],
             (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Select(x => x.Id));
+
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "6");
+        var currentUser = await client.GetFromJsonAsync<CurrentUserResponse>("/api/me", ct);
+        Assert.Equal(6, currentUser!.UserId);
+        Assert.Equal("admin", currentUser.UserName);
+    }
+
+    private static WebApplicationFactory<Program> CreateFactory(string environment)
+    {
+        var factory = new WebApplicationFactory<Program>();
+        return factory.WithWebHostBuilder(web =>
+        {
+            web.UseEnvironment(environment);
+            web.UseSetting("UseMockData", "true");
+            web.UseSetting("ConnectionStrings:ORP", "not-a-sql-server-connection");
+        });
     }
 }

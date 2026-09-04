@@ -29,7 +29,17 @@ VITE_API_PROXY_TARGET=http://localhost:5080
 VITE_DEBUG_USER=supervisor
 ```
 
-The development server proxies `/api` requests to `VITE_API_PROXY_TARGET` and sends `VITE_DEBUG_USER` in the backend's `X-Debug-User` header.
+The development server proxies `/api` requests to `VITE_API_PROXY_TARGET`. In Development,
+the frontend sends the current debug user in the backend's `X-Debug-User` header. Select a
+user by ID or username in the browser URL, for example:
+
+```text
+http://localhost:5173/messages?user=6
+http://localhost:5173/messages?user=admin
+```
+
+The selection is kept for navigation in the current browser tab. Without a URL selection,
+the frontend uses `VITE_DEBUG_USER`, falling back to `supervisor`.
 
 ## Available commands
 

@@ -4,6 +4,8 @@ import { apiClient } from './client';
 
 describe('apiClient', () => {
   afterEach(() => {
+    window.history.replaceState(null, '', '/');
+    window.sessionStorage.clear();
     vi.unstubAllGlobals();
   });
 
@@ -16,9 +18,24 @@ describe('apiClient', () => {
     await expect(
       apiClient.GET<{ id: number }>('/api/me', { signal: controller.signal }),
     ).resolves.toEqual({ data: { id: 42 }, response });
-    expect(fetchMock).toHaveBeenCalledWith('/api/me', {
-      signal: controller.signal,
-    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBe(controller.signal);
+    expect(new Headers(init.headers).get('X-Debug-User')).toBe('supervisor');
+  });
+
+  it('uses the URL user for API requests and keeps it for navigation in the same tab', async () => {
+    window.history.replaceState(null, '', '/messages?user=6');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiClient.GET('/api/me');
+    window.history.replaceState(null, '', '/me');
+    await apiClient.GET('/api/me');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [, init] of fetchMock.mock.calls as [string, RequestInit][]) {
+      expect(new Headers(init.headers).get('X-Debug-User')).toBe('6');
+    }
   });
 
   it('returns the response without parsing an unsuccessful body', async () => {
