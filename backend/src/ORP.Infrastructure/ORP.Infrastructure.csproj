@@ -4,7 +4,6 @@
     <ProjectReference Include="../ORP.Domain/ORP.Domain.csproj" />
     <PackageReference Include="Bogus" />
     <PackageReference Include="DevExtreme.AspNet.Data" />
-    <PackageReference Include="DotNetEnv" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">

@@ -18,7 +18,6 @@ using ORP.Application.Abstractions;
 using ORP.Infrastructure;
 using ORP.Infrastructure.Persistence;
 
-DotNetEnv.Env.NoClobber().TraversePath().Load();
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

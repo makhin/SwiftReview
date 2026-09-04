@@ -7,7 +7,6 @@ public sealed class ORPDbContextFactory : IDesignTimeDbContextFactory<ORPDbConte
 {
     public ORPDbContext CreateDbContext(string[] args)
     {
-        DotNetEnv.Env.NoClobber().TraversePath().Load();
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ORP")
             ?? throw new InvalidOperationException("Connection string 'ORP' is required.");
         var options = new DbContextOptionsBuilder<ORPDbContext>()

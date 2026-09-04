@@ -3,7 +3,6 @@
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Infrastructure/ORP.Infrastructure.csproj" />
     <PackageReference Include="DevExtreme.AspNet.Data" />
-    <PackageReference Include="DotNetEnv" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
