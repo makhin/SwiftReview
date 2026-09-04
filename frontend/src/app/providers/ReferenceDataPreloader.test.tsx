@@ -5,6 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 const referenceDataApi = vi.hoisted(() => ({
   getBranches: vi.fn().mockResolvedValue([]),
   getDepartments: vi.fn().mockResolvedValue([]),
+  getMessageStates: vi
+    .fn()
+    .mockResolvedValue([{ code: 'New', label: 'New' }]),
   getMessageTypes: vi.fn().mockResolvedValue([]),
   getUsers: vi.fn().mockResolvedValue([]),
   getWorkflows: vi.fn().mockResolvedValue([]),
@@ -13,6 +16,7 @@ const referenceDataApi = vi.hoisted(() => ({
 vi.mock('../../shared/api/referenceDataApi', () => referenceDataApi);
 
 import { createTestQueryClient } from '../../test/createTestQueryClient';
+import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import ReferenceDataPreloader from './ReferenceDataPreloader';
 
 describe('ReferenceDataPreloader', () => {
@@ -31,9 +35,13 @@ describe('ReferenceDataPreloader', () => {
       expect(referenceDataApi.getUsers).toHaveBeenCalledOnce();
       expect(referenceDataApi.getBranches).toHaveBeenCalledOnce();
       expect(referenceDataApi.getDepartments).toHaveBeenCalledOnce();
+      expect(referenceDataApi.getMessageStates).toHaveBeenCalledOnce();
       expect(referenceDataApi.getMessageTypes).toHaveBeenCalledOnce();
       expect(referenceDataApi.getWorkflows).toHaveBeenCalledOnce();
     });
+    expect(queryClient.getQueryData(referenceDataKeys.messageStates)).toEqual([
+      { code: 'New', label: 'New' },
+    ]);
 
     view.unmount();
     render(
@@ -42,6 +50,9 @@ describe('ReferenceDataPreloader', () => {
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(referenceDataApi.getUsers).toHaveBeenCalledOnce());
+    await waitFor(() => {
+      expect(referenceDataApi.getUsers).toHaveBeenCalledOnce();
+      expect(referenceDataApi.getMessageStates).toHaveBeenCalledOnce();
+    });
   });
 });

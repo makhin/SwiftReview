@@ -8,6 +8,7 @@ import { ApiError } from './errors';
 import {
   getBranches,
   getDepartments,
+  getMessageStates,
   getMessageTypes,
   getUsers,
   getWorkflows,
@@ -22,6 +23,7 @@ describe('reference data API', () => {
     ['/api/users', getUsers],
     ['/api/branches', getBranches],
     ['/api/departments', getDepartments],
+    ['/api/message-states', getMessageStates],
     ['/api/message-types', getMessageTypes],
     ['/api/workflows', getWorkflows],
   ] as const)('loads %s and forwards the abort signal', async (path, load) => {

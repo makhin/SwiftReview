@@ -3,6 +3,7 @@ import { ApiError } from './errors';
 import type { components } from './schema';
 
 type ReferenceItem = components['schemas']['ReferenceItemDto'];
+type MessageStateReference = components['schemas']['MessageStateReferenceDto'];
 type UserSummary = components['schemas']['UserSummaryDto'];
 type WorkflowSummary = components['schemas']['WorkflowSummaryDto'];
 
@@ -52,6 +53,14 @@ export function getMessageTypes(signal?: AbortSignal): Promise<string[]> {
   return getReferenceData(
     'message types',
     () => apiClient.GET('/api/message-types', { signal }),
+    signal,
+  );
+}
+
+export function getMessageStates(signal?: AbortSignal): Promise<MessageStateReference[]> {
+  return getReferenceData(
+    'message states',
+    () => apiClient.GET('/api/message-states', { signal }),
     signal,
   );
 }

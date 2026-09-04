@@ -3,6 +3,7 @@ import { queryOptions } from '@tanstack/react-query';
 import {
   getBranches,
   getDepartments,
+  getMessageStates,
   getMessageTypes,
   getUsers,
   getWorkflows,
@@ -14,6 +15,7 @@ export const referenceDataKeys = {
   all: ['reference-data'] as const,
   branches: ['reference-data', 'branches'] as const,
   departments: ['reference-data', 'departments'] as const,
+  messageStates: ['reference-data', 'message-states'] as const,
   messageTypes: ['reference-data', 'message-types'] as const,
   users: ['reference-data', 'users'] as const,
   workflows: ['reference-data', 'workflows'] as const,
@@ -39,6 +41,14 @@ export function messageTypesQueryOptions() {
   return queryOptions({
     queryKey: referenceDataKeys.messageTypes,
     queryFn: ({ signal }) => getMessageTypes(signal),
+    staleTime: THIRTY_MINUTES,
+  });
+}
+
+export function messageStatesQueryOptions() {
+  return queryOptions({
+    queryKey: referenceDataKeys.messageStates,
+    queryFn: ({ signal }) => getMessageStates(signal),
     staleTime: THIRTY_MINUTES,
   });
 }

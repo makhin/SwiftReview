@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
+  messageStatesQueryOptions,
   messageTypesQueryOptions,
   referenceDataKeys,
   usersQueryOptions,
@@ -13,6 +14,7 @@ describe('reference data query options', () => {
   it.each([
     [branchesQueryOptions, referenceDataKeys.branches],
     [departmentsQueryOptions, referenceDataKeys.departments],
+    [messageStatesQueryOptions, referenceDataKeys.messageStates],
     [messageTypesQueryOptions, referenceDataKeys.messageTypes],
     [usersQueryOptions, referenceDataKeys.users],
     [workflowsQueryOptions, referenceDataKeys.workflows],

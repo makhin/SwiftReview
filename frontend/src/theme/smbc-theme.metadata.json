@@ -236,6 +236,6 @@
   "baseTheme": "fluent.blue.light.compact",
   "outputColorScheme": "smbc",
   "makeSwatch": false,
-  "version": "25.1.13",
+  "version": "26.1.4",
   "assetsBasePath": "../../node_modules/devextreme/dist/css/"
 }

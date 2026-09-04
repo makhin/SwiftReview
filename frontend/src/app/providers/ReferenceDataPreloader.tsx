@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
+  messageStatesQueryOptions,
   messageTypesQueryOptions,
   usersQueryOptions,
   workflowsQueryOptions,
@@ -14,6 +15,7 @@ export default function ReferenceDataPreloader() {
       usersQueryOptions(),
       branchesQueryOptions(),
       departmentsQueryOptions(),
+      messageStatesQueryOptions(),
       messageTypesQueryOptions(),
       workflowsQueryOptions(),
     ],
