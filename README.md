@@ -1,194 +1,89 @@
-# SwiftReview
+# Operations Reporting and Processing
 
-Рабочий backend-прототип обработки и многоуровневого review SWIFT-сообщений. Это modular monolith на .NET 10 и SQL Server: UI не требуется, полный workflow доступен через REST, OpenAPI/Scalar и SignalR.
+Operations Reporting and Processing is a full-stack application for registering, assigning, reviewing, and auditing SWIFT messages. The repository contains an ASP.NET Core backend and a React frontend, with configurable one-, two-, and three-stage review workflows and permission-based data access.
 
-## Архитектура
+## Repository structure
 
-```mermaid
-flowchart TD
-    UI[Future React client] -->|REST + SignalR| API[ASP.NET Core API]
-    API --> APP[Application handlers]
-    APP --> DOMAIN[Domain + Stateless]
-    APP --> EF[EF Core]
-    EF --> SQL[(SQL Server)]
-    SQL --> OUTBOX[Outbox]
-    OUTBOX --> WORKER[Background Worker]
-    WORKER --> HUB[SignalR notification callback]
-    WORKER --> AWH[Fake AWH]
-    WORKER --> DOC[Fake document storage]
-    WORKER --> NOTIFY[Fake notifications]
+- [`backend`](backend/README.md) — .NET solution, REST API, domain and application layers, SQL Server persistence, database migrations, and tests.
+- [`frontend`](frontend/README.md) — React and TypeScript client built with Vite and DevExtreme.
+- [`skills`](skills) — repository-local instructions used by coding agents.
+
+## Main capabilities
+
+- SWIFT message registration and server-side grid loading.
+- Assignment and reassignment with branch and department access rules.
+- Configurable multi-stage review, approval, rejection, and undo operations.
+- Four-eyes controls and protection against invalid workflow transitions.
+- Audit history, dashboard summaries, and reference-data endpoints.
+- OpenAPI documentation, Problem Details responses, health checks, and OpenTelemetry instrumentation.
+
+## Prerequisites
+
+- .NET SDK 10.0.302, as pinned in `backend/global.json`.
+- Node.js 20.19 or any supported newer LTS release (22.12+ or 24+).
+- npm.
+
+SQL Server is only required when the backend is run with persistent storage. The default Development configuration uses an in-memory database populated with deterministic sample data.
+
+## Run locally
+
+Start the backend from the repository root:
+
+```bash
+dotnet run --project backend/src/ORP.Api
 ```
 
-Зависимости направлены внутрь: `Domain` не зависит от persistence/API, `Application` зависит только от domain contracts, а SQL Server и внешние adapters находятся в `Infrastructure`. Stateless валидирует transitions, но не выполняет persistence. Business data, audit и outbox сохраняются одним EF Core `SaveChanges`/transaction.
+The API is available at <http://localhost:5080>. In another terminal, start the frontend:
 
-Основные возможности:
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-- configurable 1/2/3-step workflows и состояния `New` → reviews → `Completed`/`Rejected`;
-- four-eyes, запрет self-assignment, повторного approve и invalid transitions;
-- atomic permissions, branch/department scope и resource-based authorization;
-- SQL-side filtering, sorting, pagination и permission-scoped dashboard counts;
-- append-only audit trail и retryable outbox с atomic SQL claim, lease owner и idempotency key;
-- SignalR groups `branch:{id}`, `department:{id}`, `message:{id}` с server-side membership checks;
-- OpenAPI, Scalar, ProblemDetails, correlation IDs, logs и OpenTelemetry instrumentation;
-- fake AWH ingestion, document storage и notifications.
+Open the URL printed by Vite, normally <http://localhost:5173>. During local development, Vite proxies `/api` requests to the backend and sends the `supervisor` debug identity by default.
 
-## Требования
+Useful backend endpoints:
 
-- Для запуска API с mock data достаточно .NET SDK 10.0.100 и свободного порта `5080`.
-- Для полного запуска с постоянным хранилищем нужны Docker Engine / Docker Desktop с Compose и свободные порты `1433` и `5080`.
+- Scalar API reference: <http://localhost:5080/scalar>
+- OpenAPI document: <http://localhost:5080/openapi/v1.json>
+- Health check: <http://localhost:5080/health>
 
-## Конфигурация
+## Configuration
 
-Скопируйте корневой `.env.example` в `.env` и при необходимости измените локальные значения:
+Frontend development settings are read from the repository-root `.env` file. Start from the provided example if custom values are needed:
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` не попадает в Git. API и Worker загружают его при локальном запуске, а Vite использует значения с префиксом `VITE_`. Переменные, уже заданные в окружении процесса, имеют приоритет над файлом. Для production передавайте секреты через окружение платформы, не через `.env`.
+The most relevant frontend variables are:
 
-## Запуск API без базы данных
+- `VITE_API_PROXY_TARGET` — backend address used by the Vite proxy.
+- `VITE_DEBUG_USER` — Development user sent in the `X-Debug-User` header.
 
-Development-конфигурация по умолчанию использует EF Core InMemory и загружает 75 воспроизводимых mock-сообщений, сгенерированных через Bogus:
+Backend configuration follows standard ASP.NET Core configuration rules. See the [backend documentation](backend/README.md) for database and migration settings.
 
-```bash
-dotnet run --project backend/src/SwiftReview.Api
-```
+## Verification
 
-API будет доступен на <http://localhost:5080>. Данные существуют только в памяти процесса и сбрасываются после перезапуска. Чтобы из CLI использовать SQL Server, задайте `UseMockData=false`.
-
-## Запуск одной командой
-
-```bash
-docker compose --env-file .env -f backend/docker-compose.yml up --build
-```
-
-Compose запускает SQL Server, дожидается health check, применяет initial migration только в Development bootstrap, затем запускает API и Worker.
-
-- API: <http://localhost:5080>
-- Scalar: <http://localhost:5080/scalar>
-- OpenAPI: <http://localhost:5080/openapi/v1.json>
-- SignalR hub: `http://localhost:5080/hubs/messages`
-- Health: <http://localhost:5080/health>
-
-Остановка:
-
-```bash
-docker compose --env-file .env -f backend/docker-compose.yml down
-```
-
-Добавьте `-v` только если нужно намеренно удалить локальный SQL volume.
-
-## Запуск из IDE / CLI
-
-Поднять только SQL Server:
+Run the backend checks:
 
 ```bash
 cd backend
-docker compose --env-file ../.env up -d sqlserver
-dotnet tool restore
-dotnet ef database update --project src/SwiftReview.Infrastructure --startup-project src/SwiftReview.Api
-UseMockData=false dotnet run --project src/SwiftReview.Api
-dotnet run --project src/SwiftReview.Worker
+dotnet restore ORP.sln --configfile NuGet.Config
+dotnet build ORP.sln --no-restore
+dotnet test ORP.sln --no-build --no-restore
 ```
 
-Connection string задаётся в корневом `.env` через `ConnectionStrings__SwiftReview`. `UseMockData=false` переключает Development API с InMemory на SQL Server. Production startup автоматически migrations не применяет. Development bootstrap включается параметром `BootstrapDatabase=true`.
-
-Создание новой migration:
+Run the frontend checks:
 
 ```bash
-cd backend
-dotnet ef migrations add MigrationName \
-  --project src/SwiftReview.Infrastructure \
-  --startup-project src/SwiftReview.Api \
-  --output-dir Persistence/Migrations
+cd frontend
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-## Development authentication
-
-Header `X-Debug-User` работает только в `Development`:
-
-- `cs-reviewer`
-- `tfo-reviewer`
-- `dc-reviewer`
-- `dc-senior`
-- `supervisor`
-- `admin`
-
-Публичный import endpoint требует отдельный `message.import`, который в seed назначен только `admin`; штатный AWH ingestion вызывает application handler непосредственно из Worker.
-
-Пример:
-
-```bash
-curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/me
-curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/dashboard/summary
-curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/workflows
-curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/users
-```
-
-В production вместо debug handler подключается реальный authentication adapter (например, Entra ID); application/domain от конкретного identity provider не зависят.
-
-## API examples
-
-Server-side grid:
-
-```bash
-curl -X POST http://localhost:5080/api/messages/search \
-  -H 'Content-Type: application/json' \
-  -H 'X-Debug-User: supervisor' \
-  -d '{
-    "skip": 0,
-    "take": 25,
-    "sort": [{"field":"receivedAt","direction":"desc"}],
-    "filter": {"states":[],"branches":[],"messageTypes":[],"departments":[],"dateFrom":null,"dateTo":null,"account":null,"currency":"EUR"}
-  }'
-```
-
-Пример mutating endpoint:
-
-```bash
-curl -X POST http://localhost:5080/api/messages/1/assign \
-  -H 'Content-Type: application/json' \
-  -H 'X-Debug-User: supervisor' \
-  -d '{"assignedTo":1}'
-```
-
-Полный контракт requests/responses, enums, nullable fields, ProblemDetails, 403/409 и pagination опубликован в OpenAPI и пригоден как input для Orval. Для DevExtreme DataGrid endpoint `GET /api/messages/grid` поддерживает remote paging, filtering, sorting, grouping и summaries в стандартном формате `DevExtreme.AspNet.Data`; одна страница ограничена 500 строками.
-
-## Fake integrations и worker
-
-- `FakeAwhClient` генерирует сообщения; `ExternalId` обеспечивает idempotent import, а internal workflow resolver выбирает конфигурацию по type/department/branch.
-- `FakeDocumentStorage` логирует сохранение confirmation.
-- `FakeNotificationSender` логирует recipient/message/event.
-- Worker атомарно забирает outbox records через SQL Server `UPDLOCK/READPAST`, использует lease owner, exponential retry и передаёт стабильный idempotency key всем side effects.
-- Worker передаёт API только `{ type, messageId, branchId, departmentId, eventId }`; клиенты перечитывают REST/SQL source of truth.
-
-Production HTTP adapter slot зарегистрирован через `HttpClientFactory` с timeout, retry и circuit breaker; реальные AWH/SharePoint/SMTP/Teams implementations сознательно не входят в прототип.
-
-OpenTelemetry instrumentation включён в API и Worker. Для отправки traces/metrics через OTLP задайте `OTEL_EXPORTER_OTLP_ENDPOINT`.
-
-## Тесты
-
-```bash
-cd backend
-dotnet restore SwiftReview.sln --configfile NuGet.Config
-dotnet build SwiftReview.sln --no-restore
-dotnet test SwiftReview.sln --no-build --no-restore
-```
-
-Domain/application tests и host-level проверки OpenAPI, Scalar, SignalR mapping и authorization выполняются всегда. SQL Server integration suite использует Testcontainers и не использует EF InMemory. Для явного запуска при доступном Docker:
-
-```bash
-cd backend
-RUN_INTEGRATION_TESTS=1 dotnet test tests/SwiftReview.IntegrationTests
-```
-
-Integration suite проверяет migration/seed, import и duplicate import, assignment, review/complete, audit, permissions и branch scope, SQL filtering/pagination, outbox и конфликт двух конкурентных EF contexts.
-
-## Seed data
-
-Initial migration создаёт London/Dublin/Singapore, CS/TFO/DC, шесть roles/users, atomic permissions и восемь type-specific workflows. В них входят обязательные варианты `Single Review`, `Two Reviews`, `Three Reviews`. Все 75 сообщений имеют согласованные state/workflow/assignment/review/audit данные с разными type/date/branch/department; raw SWIFT payload хранится отдельно в `MessageRawData`.
-
-## Ограничения прототипа
-
-Нет реальных Entra ID/AWH/SharePoint/notification adapters, message broker, distributed SignalR backplane или production secrets management. Internal Worker → API notification callback выбран для запуска API и Worker отдельными процессами без добавления запрещённого broker. При масштабировании Worker/API этот transport следует заменить production adapter/backplane, не меняя domain workflow.
+More detailed setup and development notes are available in the backend and frontend README files linked above.

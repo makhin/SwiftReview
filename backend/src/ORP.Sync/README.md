@@ -1,4 +1,4 @@
-# SWIFT synchronization host
+# Operations Reporting and Processing — SWIFT synchronization host
 
 `ORP.Sync.exe` is a one-shot .NET Framework 4.7.2 process intended for Windows Task Scheduler.
 It must finish the legacy SWIFT synchronization before it calls `ORP.RegisterNewMessages`.
