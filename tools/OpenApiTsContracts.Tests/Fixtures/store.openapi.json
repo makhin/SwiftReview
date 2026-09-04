@@ -1,0 +1,58 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Store API",
+    "version": "1.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "UserDto": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "integer", "format": "int32" },
+          "name": { "type": "string" },
+          "email": { "type": ["string", "null"], "format": "email" }
+        }
+      },
+      "OrderDto": {
+        "type": "object",
+        "required": ["id", "user", "items", "status"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "user": { "$ref": "#/components/schemas/UserDto" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/OrderItemDto" }
+          },
+          "status": { "$ref": "#/components/schemas/OrderStatus" }
+        }
+      },
+      "OrderItemDto": {
+        "type": "object",
+        "required": ["productId", "quantity", "price"],
+        "properties": {
+          "productId": { "type": "integer" },
+          "quantity": { "type": "integer" },
+          "price": { "type": "number", "format": "decimal" }
+        }
+      },
+      "OrderStatus": {
+        "type": "string",
+        "enum": ["Created", "Processing", "Completed"]
+      },
+      "PagedResultDto": {
+        "type": "object",
+        "required": ["items", "totalCount"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/OrderDto" }
+          },
+          "totalCount": { "type": "integer", "format": "int32" }
+        }
+      }
+    }
+  }
+}

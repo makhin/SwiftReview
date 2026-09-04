@@ -6,6 +6,7 @@ Operations Reporting and Processing is a full-stack application for registering,
 
 - [`backend`](backend/README.md) — .NET solution, REST API, domain and application layers, SQL Server persistence, database migrations, and tests.
 - [`frontend`](frontend/README.md) — React and TypeScript client built with Vite and DevExtreme.
+- [`tools/OpenApiTsContracts`](tools/OpenApiTsContracts/README.md) — deterministic OpenAPI-to-TypeScript data-contract generator.
 - [`skills`](skills) — repository-local instructions used by coding agents.
 
 ## Main capabilities

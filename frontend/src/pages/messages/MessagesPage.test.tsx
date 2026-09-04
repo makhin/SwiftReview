@@ -10,6 +10,7 @@ const { componentProps } = vi.hoisted(() => ({
 vi.mock('../../shared/api/referenceDataApi', () => ({
   getBranches: vi.fn(() => new Promise(() => undefined)),
   getDepartments: vi.fn(() => new Promise(() => undefined)),
+  getMessageStates: vi.fn(() => new Promise(() => undefined)),
   getMessageTypes: vi.fn(() => new Promise(() => undefined)),
   getUsers: vi.fn(() => new Promise(() => undefined)),
   getWorkflows: vi.fn(() => new Promise(() => undefined)),
@@ -55,6 +56,9 @@ function renderPage(withReferenceData = true) {
     queryClient.setQueryData(referenceDataKeys.branches, [{ id: 10, name: 'Warsaw' }]);
     queryClient.setQueryData(referenceDataKeys.departments, [
       { id: 20, name: 'Operations' },
+    ]);
+    queryClient.setQueryData(referenceDataKeys.messageStates, [
+      { code: 'WaitingForSecondReview', label: 'Waiting for second review' },
     ]);
   }
 
@@ -107,14 +111,17 @@ describe('MessagesPage', () => {
       .filter(
         ([name, props]) =>
           name === 'Column' &&
-          ['branchId', 'departmentId', 'currentAssigneeId'].includes(props.dataField),
+          ['branchId', 'departmentId', 'state', 'currentAssigneeId'].includes(
+            props.dataField,
+          ),
       )
       .map(([, props]) => props);
-    expect(lookupColumns).toHaveLength(3);
+    expect(lookupColumns).toHaveLength(4);
     expect(lookupColumns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ dataField: 'branchId', allowSorting: false }),
         expect.objectContaining({ dataField: 'departmentId', allowSorting: false }),
+        expect.objectContaining({ dataField: 'state' }),
         expect.objectContaining({ dataField: 'currentAssigneeId', allowSorting: false }),
       ]),
     );
@@ -132,6 +139,13 @@ describe('MessagesPage', () => {
         dataSource: [{ id: 20, name: 'Operations' }],
         valueExpr: 'id',
         displayExpr: 'name',
+      },
+      {
+        dataSource: [
+          { code: 'WaitingForSecondReview', label: 'Waiting for second review' },
+        ],
+        valueExpr: 'code',
+        displayExpr: 'label',
       },
       {
         dataSource: [{ id: 1, displayName: 'Alex Morgan' }],

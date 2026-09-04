@@ -11,6 +11,7 @@ import DataGrid, {
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
+  messageStatesQueryOptions,
   usersQueryOptions,
 } from '../../shared/api/referenceDataQueries';
 import { messageDataSource } from './messageDataSource';
@@ -19,6 +20,7 @@ export default function MessagesPage() {
   const { data: users } = useQuery(usersQueryOptions());
   const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
+  const { data: messageStates } = useQuery(messageStatesQueryOptions());
 
   return (
     <main className="app-content app-page">
@@ -77,7 +79,11 @@ export default function MessagesPage() {
               <Lookup dataSource={departments} valueExpr="id" displayExpr="name" />
             )}
           </Column>
-          <Column dataField="state" caption="State" minWidth={180} />
+          <Column dataField="state" caption="State" minWidth={180}>
+            {messageStates && (
+              <Lookup dataSource={messageStates} valueExpr="code" displayExpr="label" />
+            )}
+          </Column>
           <Column
             dataField="receivedAt"
             caption="Received"
