@@ -33,10 +33,26 @@ public sealed class ReferenceDataHandlerTests
             new GetDepartmentsHandler(queries, users, current).HandleAsync(ct));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             new GetMessageTypesHandler(queries, users, current).HandleAsync(ct));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            new GetMessageStatesHandler(users, current).HandleAsync(ct));
 
         await queries.DidNotReceive().GetBranchesAsync(Arg.Any<UserAccess>(), Arg.Any<CancellationToken>());
         await queries.DidNotReceive().GetDepartmentsAsync(Arg.Any<UserAccess>(), Arg.Any<CancellationToken>());
         await queries.DidNotReceive().GetMessageTypesAsync(Arg.Any<UserAccess>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MessageStates_ReturnStableCodesAndLabels()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (_, users, current) = Dependencies(new HashSet<string> { Permissions.MessageView });
+
+        var states = await new GetMessageStatesHandler(users, current).HandleAsync(ct);
+
+        Assert.Equal(9, states.Count);
+        Assert.Equal(new MessageStateReferenceDto("New", "New"), states[0]);
+        Assert.Contains(new MessageStateReferenceDto("WaitingForSecondReview", "Waiting for second review"), states);
+        Assert.Equal(new MessageStateReferenceDto("Rejected", "Rejected"), states[^1]);
     }
 
     private static (IReferenceDataQueries Queries, IUserAccessService Users, ICurrentUser Current) Dependencies(

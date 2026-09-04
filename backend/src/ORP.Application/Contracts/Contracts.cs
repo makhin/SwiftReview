@@ -38,3 +38,4 @@ public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType,
 public sealed record UserSummaryDto(int Id, string UserName, string DisplayName, IReadOnlyList<int> BranchIds,
     IReadOnlyList<int> DepartmentIds);
 public sealed record ReferenceItemDto(int Id, string Name);
+public sealed record MessageStateReferenceDto(string Code, string Label);

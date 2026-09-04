@@ -42,6 +42,7 @@ public static class ApiEndpoints
         api.MapGet("/branches", Branches).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
         api.MapGet("/departments", Departments).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
         api.MapGet("/message-types", MessageTypes).Produces<IReadOnlyList<string>>().ProducesProblem(403);
+        api.MapGet("/message-states", MessageStates).Produces<IReadOnlyList<MessageStateReferenceDto>>().ProducesProblem(403);
         return endpoints;
     }
 
@@ -87,6 +88,7 @@ public static class ApiEndpoints
     private static Task<IReadOnlyList<ReferenceItemDto>> Branches(GetBranchesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<ReferenceItemDto>> Departments(GetDepartmentsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<string>> MessageTypes(GetMessageTypesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
+    private static Task<IReadOnlyList<MessageStateReferenceDto>> MessageStates(GetMessageStatesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
 
     private static async Task<MessageAuthorizationResource> AuthorizationResource(long id, IORPStore store, CancellationToken ct)
     {

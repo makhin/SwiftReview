@@ -44,6 +44,8 @@ public sealed class OpenApiSmokeTests
             .EnumerateArray().Select(x => x.GetString()));
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("id", out _));
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("name", out _));
+        Assert.True(schemas.GetProperty("MessageStateReferenceDto").GetProperty("properties").TryGetProperty("code", out _));
+        Assert.True(schemas.GetProperty("MessageStateReferenceDto").GetProperty("properties").TryGetProperty("label", out _));
 
         Assert.False(paths.TryGetProperty("/api/messages/import", out _));
         Assert.True(paths.GetProperty("/api/messages/{id}/reviews/start").GetProperty("post").GetProperty("responses")
@@ -61,6 +63,6 @@ public sealed class OpenApiSmokeTests
         "/api/messages/{id}", "/api/messages/grid", "/api/messages/search", "/api/messages/{id}/assign", "/api/messages/{id}/reassign",
         "/api/messages/{id}/reviews/start", "/api/messages/{id}/reviews/approve", "/api/messages/{id}/reviews/reject",
         "/api/messages/{id}/undo", "/api/messages/{id}/audit", "/api/dashboard/summary", "/api/me", "/api/workflows", "/api/users",
-        "/api/branches", "/api/departments", "/api/message-types"
+        "/api/branches", "/api/departments", "/api/message-types", "/api/message-states"
     ];
 }

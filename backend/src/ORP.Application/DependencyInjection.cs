@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<GetBranchesHandler>();
         services.AddScoped<GetDepartmentsHandler>();
         services.AddScoped<GetMessageTypesHandler>();
+        services.AddScoped<GetMessageStatesHandler>();
         return services;
     }
 }

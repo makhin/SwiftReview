@@ -41,6 +41,9 @@ public sealed class MockDataModeTests
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct))!.Count);
         Assert.Equal(8, (await client.GetFromJsonAsync<List<string>>("/api/message-types", ct))!.Count);
+        var states = (await client.GetFromJsonAsync<List<MessageStateReferenceDto>>("/api/message-states", ct))!;
+        Assert.Equal(9, states.Count);
+        Assert.Contains(new MessageStateReferenceDto("WaitingForSecondReview", "Waiting for second review"), states);
         Assert.Equal(15, (await client.GetFromJsonAsync<List<WorkflowSummaryDto>>("/api/workflows", ct))!
             .Sum(x => x.Steps.Count));
         var users = (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!;
