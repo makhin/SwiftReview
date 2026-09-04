@@ -1,11 +1,16 @@
 import { apiClient } from './client';
 import { ApiError } from './errors';
-import type { components } from './schema';
+import type {
+  MessageStateReferenceDto,
+  ReferenceItemDto,
+  UserSummaryDto,
+  WorkflowSummaryDto,
+} from './generated/contracts.generated';
 
-type ReferenceItem = components['schemas']['ReferenceItemDto'];
-type MessageStateReference = components['schemas']['MessageStateReferenceDto'];
-type UserSummary = components['schemas']['UserSummaryDto'];
-type WorkflowSummary = components['schemas']['WorkflowSummaryDto'];
+type ReferenceItem = ReferenceItemDto;
+type MessageStateReference = MessageStateReferenceDto;
+type UserSummary = UserSummaryDto;
+type WorkflowSummary = WorkflowSummaryDto;
 
 async function getReferenceData<T>(
   name: string,
@@ -30,13 +35,17 @@ async function getReferenceData<T>(
 }
 
 export function getUsers(signal?: AbortSignal): Promise<UserSummary[]> {
-  return getReferenceData('users', () => apiClient.GET('/api/users', { signal }), signal);
+  return getReferenceData(
+    'users',
+    () => apiClient.GET<UserSummary[]>('/api/users', { signal }),
+    signal,
+  );
 }
 
 export function getBranches(signal?: AbortSignal): Promise<ReferenceItem[]> {
   return getReferenceData(
     'branches',
-    () => apiClient.GET('/api/branches', { signal }),
+    () => apiClient.GET<ReferenceItem[]>('/api/branches', { signal }),
     signal,
   );
 }
@@ -44,7 +53,7 @@ export function getBranches(signal?: AbortSignal): Promise<ReferenceItem[]> {
 export function getDepartments(signal?: AbortSignal): Promise<ReferenceItem[]> {
   return getReferenceData(
     'departments',
-    () => apiClient.GET('/api/departments', { signal }),
+    () => apiClient.GET<ReferenceItem[]>('/api/departments', { signal }),
     signal,
   );
 }
@@ -52,7 +61,7 @@ export function getDepartments(signal?: AbortSignal): Promise<ReferenceItem[]> {
 export function getMessageTypes(signal?: AbortSignal): Promise<string[]> {
   return getReferenceData(
     'message types',
-    () => apiClient.GET('/api/message-types', { signal }),
+    () => apiClient.GET<string[]>('/api/message-types', { signal }),
     signal,
   );
 }
@@ -60,7 +69,7 @@ export function getMessageTypes(signal?: AbortSignal): Promise<string[]> {
 export function getMessageStates(signal?: AbortSignal): Promise<MessageStateReference[]> {
   return getReferenceData(
     'message states',
-    () => apiClient.GET('/api/message-states', { signal }),
+    () => apiClient.GET<MessageStateReference[]>('/api/message-states', { signal }),
     signal,
   );
 }
@@ -68,7 +77,7 @@ export function getMessageStates(signal?: AbortSignal): Promise<MessageStateRefe
 export function getWorkflows(signal?: AbortSignal): Promise<WorkflowSummary[]> {
   return getReferenceData(
     'workflows',
-    () => apiClient.GET('/api/workflows', { signal }),
+    () => apiClient.GET<WorkflowSummary[]>('/api/workflows', { signal }),
     signal,
   );
 }

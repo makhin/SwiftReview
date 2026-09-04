@@ -40,7 +40,8 @@ public sealed record OpenApiSchema(
     OpenApiSchema? Items = null,
     OpenApiSchema? AdditionalProperties = null,
     IReadOnlyList<OpenApiLiteral>? EnumValues = null,
-    IReadOnlyList<OpenApiSchema>? Variants = null)
+    IReadOnlyList<OpenApiSchema>? Variants = null,
+    bool RequiresNonNullableReferenceTarget = false)
 {
     public IReadOnlyList<OpenApiProperty> ObjectProperties { get; } =
         Properties ?? Array.Empty<OpenApiProperty>();

@@ -1,9 +1,9 @@
 import type { LoadOptions, LoadResultObject } from 'devextreme/common/data';
 
 import { ApiError } from '../../shared/api/errors';
-import type { components } from '../../shared/api/schema';
+import type { MessageListItemDto } from '../../shared/api/generated/contracts.generated';
 
-export type MessageRow = components['schemas']['MessageListItemDto'];
+export type MessageRow = MessageListItemDto;
 
 const loadOptionNames = [
   'skip',

@@ -149,6 +149,25 @@ public sealed class TypeScriptGeneratorTests
     }
 
     [Fact]
+    public void InfersHomogeneousTypeLessEnumFromLiteralValues()
+    {
+        var output = GeneratorTestHelper.Generate(
+            """{ "Status": { "enum": ["Pending", "Approved"] } }""");
+
+        Assert.Contains("export type Status =\n  | \"Pending\"\n  | \"Approved\";", output);
+    }
+
+    [Fact]
+    public void RejectsMixedTypeLessEnumValues()
+    {
+        var exception = Assert.Throws<OpenApiDocumentException>(() =>
+            GeneratorTestHelper.Generate(
+                """{ "Status": { "enum": ["Pending", 1] } }"""));
+
+        Assert.Contains("must all have the same JSON primitive type", exception.Message);
+    }
+
+    [Fact]
     public void GeneratesInlineStringAndNumericEnums()
     {
         var output = GeneratorTestHelper.Generate("""
@@ -286,6 +305,87 @@ public sealed class TypeScriptGeneratorTests
                 """{ "Order": { "$ref": "other.json#/components/schemas/Order" } }"""));
 
         Assert.Contains("external $ref", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("{ \"type\": \"null\" }, { \"$ref\": \"#/components/schemas/MessageFilter\" }")]
+    [InlineData("{ \"$ref\": \"#/components/schemas/MessageFilter\" }, { \"type\": \"null\" }")]
+    public void GeneratesNullableLocalReferenceFromExactOneOf(string variants)
+    {
+        var output = GeneratorTestHelper.Generate($$"""
+            {
+              "MessageFilter": { "type": "object", "properties": {} },
+              "Request": {
+                "type": "object",
+                "required": ["filter"],
+                "properties": {
+                  "filter": { "oneOf": [{{variants}}] }
+                }
+              }
+            }
+            """);
+
+        Assert.Contains("filter: MessageFilter | null;", output);
+    }
+
+    [Fact]
+    public void RejectsNullableReferenceOneOfWhenTargetAlreadyAcceptsNull()
+    {
+        var exception = Assert.Throws<UnsupportedSchemaException>(() =>
+            GeneratorTestHelper.Generate("""
+                {
+                  "Maybe": {
+                    "type": ["object", "null"],
+                    "properties": {}
+                  },
+                  "Value": {
+                    "oneOf": [
+                      { "type": "null" },
+                      { "$ref": "#/components/schemas/Maybe" }
+                    ]
+                  }
+                }
+                """));
+
+        Assert.Contains("reference target that accepts null", exception.Message);
+        Assert.Contains("Path: components.schemas.Value.oneOf[1].$ref", exception.Message);
+    }
+
+    [Fact]
+    public void PreservesReferencePathForMissingNullableOneOfTarget()
+    {
+        var exception = Assert.Throws<OpenApiDocumentException>(() =>
+            GeneratorTestHelper.Generate("""
+                {
+                  "Value": {
+                    "oneOf": [
+                      { "type": "null" },
+                      { "$ref": "#/components/schemas/Missing" }
+                    ]
+                  }
+                }
+                """));
+
+        Assert.Contains("Path: components.schemas.Value.oneOf[1].$ref", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("{ \"type\": \"null\" }, { \"type\": \"string\" }")]
+    [InlineData("{ \"$ref\": \"#/components/schemas/First\" }, { \"$ref\": \"#/components/schemas/Second\" }")]
+    [InlineData("{ \"type\": \"null\" }")]
+    public void RejectsOtherOneOfShapes(string variants)
+    {
+        var exception = Assert.Throws<UnsupportedSchemaException>(() =>
+            GeneratorTestHelper.Generate($$"""
+                {
+                  "First": { "type": "string" },
+                  "Second": { "type": "string" },
+                  "Value": { "oneOf": [{{variants}}] }
+                }
+                """));
+
+        Assert.Contains("Unsupported OpenAPI construct: oneOf", exception.Message);
+        Assert.Contains("Path: components.schemas.Value.oneOf", exception.Message);
     }
 
     [Theory]

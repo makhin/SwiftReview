@@ -1,12 +1,12 @@
 import { apiClient } from '../../shared/api/client';
 import { ApiError } from '../../shared/api/errors';
-import type { components } from '../../shared/api/schema';
+import type { CurrentUserResponse } from '../../shared/api/generated/contracts.generated';
 
-type CurrentUser = components['schemas']['CurrentUserResponse'];
+type CurrentUser = CurrentUserResponse;
 
 export async function getCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
   try {
-    const { data, response } = await apiClient.GET('/api/me', { signal });
+    const { data, response } = await apiClient.GET<CurrentUser>('/api/me', { signal });
 
     if (!data) {
       throw new ApiError(

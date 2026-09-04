@@ -1,7 +1,19 @@
-import createClient from 'openapi-fetch';
+interface GetOptions {
+  signal?: AbortSignal;
+}
 
-import type { paths } from './schema';
+interface ApiResponse<T> {
+  data?: T;
+  response: Response;
+}
 
-type ApiPaths = Omit<paths, '/api/messages/grid'>;
+async function get<T>(path: string, options: GetOptions = {}): Promise<ApiResponse<T>> {
+  const response = await fetch(path, { signal: options.signal });
+  const data = response.ok && response.status !== 204
+    ? (await response.json()) as T
+    : undefined;
 
-export const apiClient = createClient<ApiPaths>();
+  return { data, response };
+}
+
+export const apiClient = { GET: get };

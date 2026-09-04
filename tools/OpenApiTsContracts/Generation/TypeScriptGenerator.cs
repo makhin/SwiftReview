@@ -17,10 +17,12 @@ public sealed class TypeScriptGenerator(string? namespacePrefix = null)
         writer.WriteLine("//");
         writer.WriteLine();
 
-        foreach (var (sourceName, outputName) in names.Entries.OrderBy(
-                     entry => entry.OutputName,
-                     StringComparer.Ordinal))
+        var entries = names.Entries
+            .OrderBy(entry => entry.OutputName, StringComparer.Ordinal)
+            .ToArray();
+        for (var index = 0; index < entries.Length; index++)
         {
+            var (sourceName, outputName) = entries[index];
             var schema = document.Schemas[sourceName];
             if (schema.EnumValues is not null)
             {
@@ -35,7 +37,10 @@ public sealed class TypeScriptGenerator(string? namespacePrefix = null)
                 writer.WriteLine($"export type {outputName} = {resolver.Resolve(schema)};");
             }
 
-            writer.WriteLine();
+            if (index < entries.Length - 1)
+            {
+                writer.WriteLine();
+            }
         }
 
         return writer.ToString();

@@ -8,6 +8,7 @@ The implementation and UI conventions are documented in [`docs/DESIGN_GUIDE.md`]
 
 - Node.js 20.19 or any supported newer LTS release (22.12+ or 24+).
 - npm.
+- .NET SDK 10.0.302 for contract generation.
 - The backend running at <http://localhost:5080> for live API data and OpenAPI generation.
 
 ## Run locally
@@ -41,7 +42,8 @@ npm run typecheck      # Run the TypeScript compiler
 npm test               # Run the test suite once
 npm run test:coverage  # Run tests with coverage thresholds
 npm run test:watch     # Run tests in watch mode
-npm run api:generate   # Regenerate types from the backend OpenAPI document
+npm run api:generate   # Regenerate DTO contracts from the backend OpenAPI document
+npm run api:check      # Check that generated DTO contracts are current
 npm run theme:build    # Regenerate the DevExtreme theme
 ```
 
@@ -57,7 +59,7 @@ All routes render inside `RootLayout`, which provides the global header and resp
 
 - `src/app` — application composition, providers, routing, and the root layout.
 - `src/pages` — route-level slices and their page-specific API code.
-- `src/shared/api` — generated OpenAPI types, the shared HTTP client, and reference-data access.
+- `src/shared/api` — generated DTO contracts, the shared HTTP client, and reference-data access.
 - `src/shared/hooks`, `src/shared/lib`, and `src/shared/types` — proven cross-page abstractions.
 - `src/theme` and `src/styles` — design tokens, generated DevExtreme theme files, and application styles.
 
@@ -65,13 +67,17 @@ Dependencies flow from `app` to `pages` to `shared`; page code must not import f
 
 ## API access
 
-Run the backend before regenerating the OpenAPI types:
+Run the backend before regenerating the OpenAPI contracts:
 
 ```bash
 npm run api:generate
 ```
 
-This command reads <http://localhost:5080/openapi/v1.json> and updates `src/shared/api/schema.d.ts`. Use the typed client in `src/shared/api/client.ts` for ordinary API requests.
+This command reads <http://localhost:5080/openapi/v1.json>, runs the repository's .NET 10
+`OpenApiTsContracts` tool, and updates
+`src/shared/api/generated/contracts.generated.ts`. The generated file contains data contracts
+only; `src/shared/api/client.ts` is the handwritten HTTP wrapper. Use `npm run api:check` in CI
+to verify the checked-in contracts without modifying them.
 
 The messages grid is intentionally different: it uses a DevExtreme `CustomStore` backed by the server's `DevExtreme.AspNet.Data` endpoint. Do not route grid load operations through TanStack Query.
 

@@ -94,12 +94,23 @@ public static class OpenApiDocumentReader
         OpenApiSchema schema,
         IReadOnlyDictionary<string, OpenApiSchema> schemas)
     {
-        if (schema.Kind == OpenApiSchemaKind.Reference &&
-            !schemas.ContainsKey(schema.ReferenceName!))
+        if (schema.Kind == OpenApiSchemaKind.Reference)
         {
-            throw new OpenApiDocumentException(
-                $"Invalid local $ref '#/components/schemas/{schema.ReferenceName}'. " +
-                $"Target schema was not found. Path: {schema.Path}.$ref");
+            if (!schemas.TryGetValue(schema.ReferenceName!, out var referenceTarget))
+            {
+                throw new OpenApiDocumentException(
+                    $"Invalid local $ref '#/components/schemas/{schema.ReferenceName}'. " +
+                    $"Target schema was not found. Path: {schema.Path}.$ref");
+            }
+
+            if (schema.RequiresNonNullableReferenceTarget &&
+                AcceptsNull(referenceTarget, schemas, new HashSet<string>(StringComparer.Ordinal)))
+            {
+                throw new UnsupportedSchemaException(
+                    "oneOf with a reference target that accepts null",
+                    schema.SchemaName,
+                    $"{schema.Path}.$ref");
+            }
         }
 
         foreach (var property in schema.ObjectProperties)
@@ -121,5 +132,27 @@ public static class OpenApiDocumentReader
         {
             ValidateReferences(variant, schemas);
         }
+    }
+
+    private static bool AcceptsNull(
+        OpenApiSchema schema,
+        IReadOnlyDictionary<string, OpenApiSchema> schemas,
+        HashSet<string> visitedReferences)
+    {
+        if (schema.IsNullable || schema.Kind == OpenApiSchemaKind.Any)
+        {
+            return true;
+        }
+
+        if (schema.Kind == OpenApiSchemaKind.Reference &&
+            schemas.TryGetValue(schema.ReferenceName!, out var referenceTarget) &&
+            visitedReferences.Add(schema.ReferenceName!))
+        {
+            return AcceptsNull(referenceTarget, schemas, visitedReferences);
+        }
+
+        return schema.Kind == OpenApiSchemaKind.Union &&
+               schema.UnionVariants.Any(variant =>
+                   AcceptsNull(variant, schemas, visitedReferences));
     }
 }

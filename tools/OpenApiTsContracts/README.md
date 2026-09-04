@@ -14,7 +14,7 @@ From the repository root:
 ```bash
 dotnet run --project tools/OpenApiTsContracts -- \
   --input artifacts/openapi.json \
-  --output frontend/src/api/generated/contracts.generated.ts
+  --output frontend/src/shared/api/generated/contracts.generated.ts
 ```
 
 After publishing, the generated app host accepts the same arguments:
@@ -23,7 +23,7 @@ After publishing, the generated app host accepts the same arguments:
 dotnet publish tools/OpenApiTsContracts -c Release -o artifacts/OpenApiTsContracts
 artifacts/OpenApiTsContracts/OpenApiTsContracts \
   --input artifacts/openapi.json \
-  --output frontend/src/api/generated/contracts.generated.ts
+  --output frontend/src/shared/api/generated/contracts.generated.ts
 ```
 
 Both `--input` and `--output` are required. `--verbose` prints progress. `--check` compares
@@ -32,7 +32,7 @@ the in-memory result with the output file without modifying it:
 ```bash
 dotnet run --project tools/OpenApiTsContracts -- \
   --input artifacts/openapi.json \
-  --output frontend/src/api/generated/contracts.generated.ts \
+  --output frontend/src/shared/api/generated/contracts.generated.ts \
   --check
 ```
 
@@ -52,9 +52,12 @@ schemas outside the prefix still fail the run.
 - Arrays and dictionaries expressed with schema-valued `additionalProperties`. An array with
   no `items` is emitted as `unknown[]`; an empty schema is emitted as `unknown`.
 - String, integer, numeric, and boolean enums as literal unions, including inline and nullable
-  enums.
+  enums. A type-less enum is supported when its non-null values all have the same JSON
+  primitive type.
 - Primitive OpenAPI 3.1 type unions, such as `["integer", "string"]`, as TypeScript unions.
   Unions containing objects or arrays are rejected.
+- The exact nullable-reference form `oneOf: [{ "type": "null" }, { "$ref": "..." }]`,
+  in either order, provided the referenced schema does not already accept `null`.
 
 Top-level declarations are sorted by generated name; property and enum value order follows
 OpenAPI. Output is UTF-8 without BOM, uses LF and two-space indentation, and contains no
@@ -67,10 +70,11 @@ generation fails.
 
 ## Unsupported constructs
 
-The tool rejects `oneOf`, `anyOf`, `allOf`, `not`, `discriminator`, external `$ref` values,
-object/array type unions, tuple and conditional schemas, and objects that explicitly combine
-declared properties with `additionalProperties`. It never falls back to `any`. Unsupported or
-ambiguous schemas fail with the schema name and JSON path.
+The tool rejects every `oneOf` shape except the exact nullable local-reference form above. It
+also rejects `anyOf`, `allOf`, `not`, `discriminator`, external `$ref` values, object/array type
+unions, tuple and conditional schemas, and objects that explicitly combine declared properties
+with `additionalProperties`. It never falls back to `any`. Unsupported or ambiguous schemas
+fail with the schema name and JSON path.
 
 To add a construct, extend the internal model in `OpenApi/`, parse and validate it in
 `OpenApiSchemaParser`, resolve its TypeScript representation in `Generation/`, and add both a
@@ -95,11 +99,11 @@ With the ASP.NET Core backend running, explicitly capture its HTTP contract and 
 frontend-only data contracts:
 
 ```bash
-mkdir -p artifacts frontend/src/api/generated
+mkdir -p artifacts frontend/src/shared/api/generated
 curl --fail http://localhost:5080/openapi/v1.json --output artifacts/openapi.json
 dotnet run --project tools/OpenApiTsContracts -- \
   --input artifacts/openapi.json \
-  --output frontend/src/api/generated/contracts.generated.ts
+  --output frontend/src/shared/api/generated/contracts.generated.ts
 ```
 
 Handwritten frontend APIs can then use type-only imports:
@@ -108,16 +112,12 @@ Handwritten frontend APIs can then use type-only imports:
 import type { MessageDetailsDto } from "./generated/contracts.generated";
 ```
 
-The current backend contract contains `oneOf`; by design, generation stops with exit code 3
-until that unsupported construct is removed from the published contract or explicitly added
-to this tool with tests. The tool does not guess at its meaning.
-
 For CI, first produce `artifacts/openapi.json` from the backend, then run:
 
 ```bash
 dotnet run --project tools/OpenApiTsContracts -- \
   --input artifacts/openapi.json \
-  --output frontend/src/api/generated/contracts.generated.ts \
+  --output frontend/src/shared/api/generated/contracts.generated.ts \
   --check
 ```
 

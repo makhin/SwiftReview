@@ -7,7 +7,6 @@ public static class OpenApiSchemaParser
 {
     private static readonly string[] UnsupportedKeywords =
     [
-        "oneOf",
         "anyOf",
         "allOf",
         "not",
@@ -30,6 +29,11 @@ public static class OpenApiSchemaParser
             throw new UnsupportedSchemaException("boolean or non-object schema", schemaName, path);
         }
 
+        if (element.TryGetProperty("oneOf", out var oneOfElement))
+        {
+            return ParseNullableReferenceOneOf(element, oneOfElement, schemaName, path);
+        }
+
         RejectUnsupportedKeywords(element, schemaName, path);
         var nullable = ReadNullable(element, schemaName, path);
 
@@ -43,9 +47,23 @@ public static class OpenApiSchemaParser
 
         if (typeNames is null)
         {
-            if (element.TryGetProperty("enum", out _))
+            if (element.TryGetProperty("enum", out var untypedEnum))
             {
-                throw Invalid(schemaName, path, "schemas with 'enum' must declare a type");
+                var (inferredKind, enumNullable) = InferEnumType(
+                    untypedEnum,
+                    schemaName,
+                    path);
+                return new(
+                    inferredKind,
+                    enumNullable,
+                    path,
+                    schemaName,
+                    EnumValues: ParseEnum(
+                        element,
+                        inferredKind,
+                        enumNullable,
+                        schemaName,
+                        path));
             }
 
             if (HasAnyProperty(element, "properties", "required", "items", "additionalProperties"))
@@ -95,6 +113,146 @@ public static class OpenApiSchemaParser
             _ => ParsePrimitive(element, kind, nullable, enumValues, schemaName, path)
         };
     }
+
+    private static (OpenApiSchemaKind Kind, bool Nullable) InferEnumType(
+        JsonElement enumElement,
+        string schemaName,
+        string path)
+    {
+        if (enumElement.ValueKind != JsonValueKind.Array)
+        {
+            throw Invalid(schemaName, $"{path}.enum", "enum must be an array");
+        }
+
+        OpenApiSchemaKind? inferredKind = null;
+        var nullable = false;
+        foreach (var value in enumElement.EnumerateArray())
+        {
+            if (value.ValueKind == JsonValueKind.Null)
+            {
+                nullable = true;
+                continue;
+            }
+
+            var valueKind = value.ValueKind switch
+            {
+                JsonValueKind.String => OpenApiSchemaKind.String,
+                JsonValueKind.Number => IsInteger(value)
+                    ? OpenApiSchemaKind.Integer
+                    : OpenApiSchemaKind.Number,
+                JsonValueKind.True or JsonValueKind.False => OpenApiSchemaKind.Boolean,
+                _ => throw Invalid(
+                    schemaName,
+                    $"{path}.enum",
+                    $"unsupported enum value of type '{JsonTypeName(value.ValueKind)}'")
+            };
+
+            if (inferredKind is OpenApiSchemaKind.Integer && valueKind == OpenApiSchemaKind.Number)
+            {
+                inferredKind = OpenApiSchemaKind.Number;
+            }
+            else if (inferredKind == OpenApiSchemaKind.Number && valueKind == OpenApiSchemaKind.Integer)
+            {
+                continue;
+            }
+            else if (inferredKind is not null && inferredKind != valueKind)
+            {
+                throw Invalid(
+                    schemaName,
+                    $"{path}.enum",
+                    "type-less enum values must all have the same JSON primitive type");
+            }
+            else
+            {
+                inferredKind = valueKind;
+            }
+        }
+
+        if (inferredKind is null)
+        {
+            throw Invalid(
+                schemaName,
+                $"{path}.enum",
+                "enum must contain at least one non-null primitive value");
+        }
+
+        return (inferredKind.Value, nullable);
+    }
+
+    private static OpenApiSchema ParseNullableReferenceOneOf(
+        JsonElement schema,
+        JsonElement oneOfElement,
+        string schemaName,
+        string path)
+    {
+        if (oneOfElement.ValueKind != JsonValueKind.Array ||
+            oneOfElement.GetArrayLength() != 2 ||
+            schema.EnumerateObject().Any(property =>
+                property.Name is not (
+                    "oneOf" or
+                    "description" or
+                    "title" or
+                    "deprecated" or
+                    "readOnly" or
+                    "writeOnly" or
+                    "example" or
+                    "examples")))
+        {
+            throw new UnsupportedSchemaException("oneOf", schemaName, $"{path}.oneOf");
+        }
+
+        JsonElement? referenceElement = null;
+        var referenceIndex = -1;
+        var hasNull = false;
+        var index = 0;
+        foreach (var variant in oneOfElement.EnumerateArray())
+        {
+            if (IsNullSchema(variant))
+            {
+                hasNull = true;
+            }
+            else if (variant.ValueKind == JsonValueKind.Object &&
+                     variant.EnumerateObject().Count() == 1 &&
+                     variant.TryGetProperty("$ref", out _))
+            {
+                referenceElement = variant;
+                referenceIndex = index;
+            }
+            else
+            {
+                throw new UnsupportedSchemaException("oneOf", schemaName, $"{path}.oneOf");
+            }
+
+            index++;
+        }
+
+        if (!hasNull || referenceElement is null)
+        {
+            throw new UnsupportedSchemaException("oneOf", schemaName, $"{path}.oneOf");
+        }
+
+        var reference = Parse(
+            referenceElement.Value,
+            schemaName,
+            $"{path}.oneOf[{referenceIndex}]");
+        if (reference.Kind != OpenApiSchemaKind.Reference)
+        {
+            throw new UnsupportedSchemaException("oneOf", schemaName, $"{path}.oneOf");
+        }
+
+        return reference with
+        {
+            IsNullable = true,
+            RequiresNonNullableReferenceTarget = true
+        };
+    }
+
+    private static bool IsNullSchema(JsonElement element) =>
+        element.ValueKind == JsonValueKind.Object &&
+        element.TryGetProperty("type", out var typeElement) &&
+        element.EnumerateObject().Count() == 1 &&
+        typeElement.ValueKind == JsonValueKind.String &&
+        typeElement.GetString() == "null";
 
     private static OpenApiSchemaKind ParseKind(string typeName, string schemaName, string path) =>
         typeName switch
