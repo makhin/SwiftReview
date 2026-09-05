@@ -55,6 +55,11 @@ public static class MockDataSeeder
         }).ToList();
         db.Messages.AddRange(messages);
         db.SwiftMessageSource.AddRange(source);
+        db.SwiftMessageBodies.AddRange(messages.Select(message => new SwiftMessageBodyRecord
+        {
+            MessageId = message.Id,
+            Body = $"{{1:F01MOCK{message.Id:0000000000}}}\n{{2:I{MessageTypes[((int)message.Id - 1) % MessageTypes.Length][2..]}MOCK}}"
+        }));
         var registeredAt = DateTimeOffset.UtcNow;
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         db.AuditEvents.AddRange(messages.Select(message => new AuditEvent(message,

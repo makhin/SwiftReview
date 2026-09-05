@@ -12,6 +12,7 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
 {
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<SwiftMessageRecord> SwiftMessageSource => Set<SwiftMessageRecord>();
+    public DbSet<SwiftMessageBodyRecord> SwiftMessageBodies => Set<SwiftMessageBodyRecord>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
@@ -49,6 +50,8 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
     {
         if (Database.IsRelational() && ChangeTracker.Entries<SwiftMessageRecord>().Any(x => x.State != EntityState.Unchanged))
             throw new InvalidOperationException("The SWIFT message source is read-only.");
+        if (Database.IsRelational() && ChangeTracker.Entries<SwiftMessageBodyRecord>().Any(x => x.State != EntityState.Unchanged))
+            throw new InvalidOperationException("The SWIFT message body source is read-only.");
         if (ChangeTracker.Entries<AuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Audit events are append-only.");
     }

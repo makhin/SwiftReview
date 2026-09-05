@@ -30,6 +30,7 @@ public sealed class OpenApiSmokeTests
         var schemas = root.GetProperty("components").GetProperty("schemas");
         Assert.Equal(500, schemas.GetProperty("MessageSearchRequest").GetProperty("properties").GetProperty("take").GetProperty("maximum").GetInt32());
         Assert.False(schemas.GetProperty("MessageDetailsDto").GetProperty("properties").TryGetProperty("rowVersion", out _));
+        Assert.True(schemas.GetProperty("MessageDetailsDto").GetProperty("properties").TryGetProperty("body", out _));
         Assert.False(schemas.GetProperty("AssignMessageRequest").GetProperty("properties").TryGetProperty("rowVersion", out _));
         Assert.Equal(3, schemas.GetProperty("StartReviewRequest").GetProperty("properties").GetProperty("level").GetProperty("maximum").GetInt32());
         Assert.Contains("Completed", schemas.GetProperty("MessageState").GetProperty("enum").EnumerateArray().Select(x => x.GetString()));

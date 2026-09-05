@@ -59,6 +59,11 @@ public sealed class MockDataModeTests
         Assert.Equal(75, json.RootElement.GetProperty("totalCount").GetInt32());
         Assert.All(json.RootElement.GetProperty("data").EnumerateArray(), row =>
             Assert.StartsWith("MSG-", row.GetProperty("externalId").GetString()));
+        Assert.All(json.RootElement.GetProperty("data").EnumerateArray(), row =>
+            Assert.False(row.TryGetProperty("body", out _)));
+
+        var details = await client.GetFromJsonAsync<MessageDetailsDto>("/api/messages/1", ResponseJson, ct);
+        Assert.StartsWith("{1:F01MOCK", details!.Body);
 
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct))!.Count);

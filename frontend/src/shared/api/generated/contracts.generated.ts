@@ -88,6 +88,7 @@ export interface MessageDetailsDto {
   currency: string | null;
   amount: number | string | null;
   reference: string | null;
+  body: string | null;
 }
 
 export interface MessageFilter {

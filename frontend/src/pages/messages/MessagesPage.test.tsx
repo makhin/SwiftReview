@@ -97,6 +97,14 @@ vi.mock('./AuditTrailDrawer', () => ({
     </aside>
   ),
 }));
+vi.mock('./RawMessagePopup', () => ({
+  default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
+    <aside aria-label="Raw message">
+      {message.externalId}
+      <button type="button" onClick={onClose}>Close raw</button>
+    </aside>
+  ),
+}));
 
 import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
@@ -175,7 +183,7 @@ describe('MessagesPage', () => {
 
     expect(screen.getByRole('heading', { name: 'All messages' })).toBeInTheDocument();
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
-    expect(screen.getAllByTestId('Column')).toHaveLength(10);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
 
     const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
     expect(dataGridProps).toMatchObject({
@@ -201,6 +209,7 @@ describe('MessagesPage', () => {
       'CCY',
       'Amount',
       'Assignee',
+      'Actions',
     ]);
 
     const lookupColumns = componentProps.mock.calls
@@ -282,8 +291,18 @@ describe('MessagesPage', () => {
   it('keeps numeric columns available while reference data is unavailable', () => {
     renderPage(false);
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(10);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
+  });
+
+  it('opens raw message from the shared actions column', () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Raw' }));
+
+    expect(screen.getByLabelText('Raw message')).toHaveTextContent('MSG-0042');
+    fireEvent.click(screen.getByRole('button', { name: 'Close raw' }));
+    expect(screen.queryByLabelText('Raw message')).not.toBeInTheDocument();
   });
 
   it('shows the audit action only with permission and opens the right-side drawer', () => {
@@ -291,6 +310,7 @@ describe('MessagesPage', () => {
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getByRole('button', { name: 'Raw' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Audit' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Audit' }));

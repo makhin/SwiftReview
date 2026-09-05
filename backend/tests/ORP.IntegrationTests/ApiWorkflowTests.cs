@@ -91,6 +91,10 @@ public sealed class ApiWorkflowTests
             seeded.SwiftMessageSource.Add(forbiddenSourceWrite);
             await Assert.ThrowsAsync<InvalidOperationException>(() => seeded.SaveChangesAsync(ct));
             seeded.Entry(forbiddenSourceWrite).State = EntityState.Detached;
+            var forbiddenBodyWrite = new SwiftMessageBodyRecord { MessageId = 2000, Body = "FORBIDDEN" };
+            seeded.SwiftMessageBodies.Add(forbiddenBodyWrite);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => seeded.SaveChangesAsync(ct));
+            seeded.Entry(forbiddenBodyWrite).State = EntityState.Detached;
         }
 
         using var client = factory.CreateClient();
@@ -119,7 +123,9 @@ public sealed class ApiWorkflowTests
         var reviewId = (await started.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
         var approved = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, "confirmed"), ct);
         Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
-        Assert.Equal(MessageState.Completed, (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!.State);
+        var details = await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct);
+        Assert.Equal(MessageState.Completed, details!.State);
+        Assert.Equal("RAW-1001", details.Body);
 
         var search = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 10,
             [new SortClause("receivedAt", "desc")], new MessageFilter([MessageState.Completed], [1], ["MT199"], [1], null, null, "IT", "EUR")), ct);
@@ -253,6 +259,7 @@ public sealed class ApiWorkflowTests
         Assert.True(page.IsSuccessStatusCode, pageBody);
         using var pageJson = JsonDocument.Parse(pageBody);
         Assert.True(pageJson.RootElement.GetProperty("data").GetArrayLength() >= 1);
+        Assert.False(pageJson.RootElement.GetProperty("data")[0].TryGetProperty("body", out _));
         Assert.True(pageJson.RootElement.GetProperty("totalCount").GetInt32() >= 1);
         Assert.Equal(1, pageJson.RootElement.GetProperty("summary").GetArrayLength());
 
@@ -270,6 +277,14 @@ public sealed class ApiWorkflowTests
     }
     private static async Task CreateAndSeedSwiftSource(ORPDbContext db, CancellationToken ct)
     {
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS [dbo].[Messages];", ct);
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE [dbo].[Messages]
+            (
+                [MessageID] bigint NOT NULL PRIMARY KEY,
+                [Body] nvarchar(max) NULL
+            );
+            """, ct);
         await db.Database.ExecuteSqlRawAsync("DROP VIEW IF EXISTS [ORP].[SwiftMessageSource];", ct);
         await db.Database.ExecuteSqlRawAsync("""
             CREATE TABLE [ORP].[SwiftMessageSource]
@@ -306,6 +321,7 @@ public sealed class ApiWorkflowTests
     private static Task<int> InsertSwiftMessage(ORPDbContext db, long id, string externalId,
         string messageType, int branchId, int departmentId, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO [dbo].[Messages] ([MessageID], [Body]) VALUES ({id}, {$"RAW-{id}"});
             INSERT INTO [ORP].[SwiftMessageSource]
                 ([MessageID], [ExternalId], [MessageType], [BranchId], [DepartmentId], [ReceivedAt], [Sender], [Receiver], [Account], [Currency], [Amount], [Reference])
             VALUES

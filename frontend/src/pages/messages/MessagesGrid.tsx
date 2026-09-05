@@ -23,6 +23,7 @@ import {
 } from '../../shared/api/referenceDataQueries';
 import AuditTrailDrawer from './AuditTrailDrawer';
 import type { MessageRow } from './messagesApi';
+import RawMessagePopup from './RawMessagePopup';
 
 type MessagesGridProps = {
   dataSource: CustomStore<MessageRow, MessageRow['id']>;
@@ -57,8 +58,10 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
   const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
-  const [selectedMessage, setSelectedMessage] = useState<MessageRow | null>(null);
+  const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
+  const [selectedRawMessage, setSelectedRawMessage] = useState<MessageRow | null>(null);
   const auditTriggerRef = useRef<HTMLElement | null>(null);
+  const rawTriggerRef = useRef<HTMLElement | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const showAudit = currentUser ? canViewAudit(currentUser.permissions) : false;
   const assigneeUsers = users?.map((user) => {
@@ -73,12 +76,17 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
   });
 
   function closeAudit() {
-    setSelectedMessage(null);
+    setSelectedAuditMessage(null);
     requestAnimationFrame(() => auditTriggerRef.current?.focus());
   }
 
+  function closeRawMessage() {
+    setSelectedRawMessage(null);
+    requestAnimationFrame(() => rawTriggerRef.current?.focus());
+  }
+
   useEffect(() => {
-    if (!selectedMessage) {
+    if (!selectedAuditMessage) {
       return undefined;
     }
 
@@ -90,17 +98,17 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
 
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [selectedMessage]);
+  }, [selectedAuditMessage]);
 
   useEffect(() => {
-    if (!selectedMessage) {
+    if (!selectedAuditMessage) {
       return undefined;
     }
 
     const appRoot = document.getElementById('root');
     appRoot?.setAttribute('inert', '');
     return () => appRoot?.removeAttribute('inert');
-  }, [selectedMessage]);
+  }, [selectedAuditMessage]);
 
   return (
     <>
@@ -183,14 +191,29 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
               <Lookup dataSource={assigneeUsers} valueExpr="id" displayExpr="displayLabel" />
             )}
           </Column>
-          {showAudit && (
-            <Column
-              type="buttons"
-              caption="Actions"
-              width={90}
-              allowFiltering={false}
-              allowSorting={false}
-            >
+          <Column
+            type="buttons"
+            caption="Actions"
+            width={showAudit ? 130 : 90}
+            allowFiltering={false}
+            allowSorting={false}
+          >
+            <GridButton
+              text="Raw"
+              hint="View raw message"
+              onClick={(event) => {
+                const message = event.row?.data as MessageRow | undefined;
+
+                if (message) {
+                  rawTriggerRef.current =
+                    document.activeElement instanceof HTMLElement
+                      ? document.activeElement
+                      : null;
+                  setSelectedRawMessage(message);
+                }
+              }}
+            />
+            {showAudit && (
               <GridButton
                 text="Audit"
                 hint="View audit trail"
@@ -202,15 +225,18 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
                       document.activeElement instanceof HTMLElement
                         ? document.activeElement
                         : null;
-                    setSelectedMessage(message);
+                    setSelectedAuditMessage(message);
                   }
                 }}
               />
-            </Column>
-          )}
+            )}
+          </Column>
         </DataGrid>
       </div>
-      {selectedMessage &&
+      {selectedRawMessage && (
+        <RawMessagePopup message={selectedRawMessage} onClose={closeRawMessage} />
+      )}
+      {selectedAuditMessage &&
         createPortal(
           <Drawer
             className="audit-drawer"
@@ -230,7 +256,7 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
             }}
             render={() => (
               <AuditTrailDrawer
-                message={selectedMessage}
+                message={selectedAuditMessage}
                 users={users}
                 messageStates={messageStates}
                 onClose={closeAudit}

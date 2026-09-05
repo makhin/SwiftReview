@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../shared/api/errors';
-import { getMessageGrid } from './messagesApi';
+import { getMessage, getMessageGrid } from './messagesApi';
 
 describe('getMessageGrid', () => {
   afterEach(() => {
@@ -75,5 +75,36 @@ describe('getMessageGrid', () => {
       message: 'Unable to load messages.',
       cause: networkError,
     });
+  });
+});
+
+describe('getMessage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('loads message details with the request signal', async () => {
+    const details = { id: 42, externalId: 'MSG-0042', body: '{1:F01RAW}' };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(details),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await expect(getMessage(42, controller.signal)).resolves.toEqual(details);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/messages/42',
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('normalizes unsuccessful responses into ApiError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getMessage(42)).rejects.toEqual(
+      new ApiError('Unable to load message (404).', 404),
+    );
   });
 });

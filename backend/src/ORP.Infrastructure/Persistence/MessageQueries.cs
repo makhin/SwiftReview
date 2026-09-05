@@ -16,8 +16,14 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     {
         if (!access.Permissions.Contains(Permissions.MessageView)) return null;
         var x = await Accessible(access).SingleOrDefaultAsync(x => x.Id == id, ct);
-        return x is null ? null : new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
-            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount, x.Reference);
+        if (x is null) return null;
+        var body = await db.SwiftMessageBodies.AsNoTracking()
+            .Where(message => message.MessageId == id)
+            .Select(message => message.Body)
+            .SingleOrDefaultAsync(ct);
+        return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
+            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount,
+            x.Reference, body);
     }
 
     public async Task<PagedResult<MessageListItemDto>> SearchAsync(MessageSearchRequest request, UserAccess access, CancellationToken ct)

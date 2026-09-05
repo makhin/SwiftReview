@@ -18,7 +18,7 @@ public sealed record CurrentUserResponse(int UserId, string UserName, IReadOnlyL
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
-    string? Account, string? Currency, decimal? Amount, string? Reference);
+    string? Account, string? Currency, decimal? Amount, string? Reference, string? Body);
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string? Account, string? Currency, decimal? Amount);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);

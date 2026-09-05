@@ -38,6 +38,17 @@ public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<S
     }
 }
 
+public sealed class SwiftMessageBodyRecordConfiguration : IEntityTypeConfiguration<SwiftMessageBodyRecord>
+{
+    public void Configure(EntityTypeBuilder<SwiftMessageBodyRecord> builder)
+    {
+        builder.ToTable("Messages", "dbo", table => table.ExcludeFromMigrations());
+        builder.HasKey(x => x.MessageId);
+        builder.Property(x => x.MessageId).HasColumnName("MessageID").ValueGeneratedNever();
+        builder.Property(x => x.Body).HasColumnName("Body");
+    }
+}
+
 public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
 {
     public void Configure(EntityTypeBuilder<Review> builder)
