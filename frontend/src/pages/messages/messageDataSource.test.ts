@@ -4,7 +4,7 @@ const { getMessageGrid } = vi.hoisted(() => ({ getMessageGrid: vi.fn() }));
 
 vi.mock('./messagesApi', () => ({ getMessageGrid }));
 
-import { messageDataSource } from './messageDataSource';
+import { createMessageDataSource, messageDataSource } from './messageDataSource';
 
 describe('messageDataSource', () => {
   it('delegates grid loading to the messages API function', async () => {
@@ -14,5 +14,14 @@ describe('messageDataSource', () => {
 
     await expect(messageDataSource.load(loadOptions)).resolves.toEqual(result);
     expect(getMessageGrid).toHaveBeenCalledWith(loadOptions);
+  });
+
+  it('passes the assignment scope separately from grid load options', async () => {
+    getMessageGrid.mockResolvedValue({ data: [], totalCount: 0 });
+    const dataSource = createMessageDataSource('mine');
+
+    await dataSource.load({ skip: 0, take: 20 });
+
+    expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, 'mine');
   });
 });

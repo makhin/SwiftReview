@@ -40,7 +40,7 @@ public sealed class OpenApiSmokeTests
         foreach (var status in new[] { "204", "400", "403", "404", "409" }) Assert.True(approveResponses.TryGetProperty(status, out _));
         var gridParameters = paths.GetProperty("/api/messages/grid").GetProperty("get").GetProperty("parameters")
             .EnumerateArray().Select(x => x.GetProperty("name").GetString()).ToHashSet();
-        foreach (var parameter in new[] { "skip", "take", "sort", "filter", "group", "totalSummary", "groupSummary", "requireTotalCount", "requireGroupCount" })
+        foreach (var parameter in new[] { "skip", "take", "sort", "filter", "group", "totalSummary", "groupSummary", "requireTotalCount", "requireGroupCount", "assignmentScope" })
             Assert.Contains(parameter, gridParameters);
         Assert.Contains("null", schemas.GetProperty("ApproveReviewRequest").GetProperty("properties").GetProperty("comment").GetProperty("type")
             .EnumerateArray().Select(x => x.GetString()));

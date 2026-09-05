@@ -17,7 +17,8 @@ public sealed record DevExtremeGridRequest(
     [property: FromQuery(Name = "select")] string? Select = null,
     [property: FromQuery(Name = "requireTotalCount")] bool RequireTotalCount = false,
     [property: FromQuery(Name = "requireGroupCount")] bool RequireGroupCount = false,
-    [property: FromQuery(Name = "isCountQuery")] bool IsCountQuery = false);
+    [property: FromQuery(Name = "isCountQuery")] bool IsCountQuery = false,
+    [property: FromQuery(Name = "assignmentScope")] string? AssignmentScope = null);
 
 public static class DevExtremeLoadOptions
 {

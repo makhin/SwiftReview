@@ -24,13 +24,25 @@ public sealed class MessageGridRowDto
 
 public sealed class MessageGridQueries(ORPDbContext db)
 {
-    public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access, CancellationToken ct)
+    public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access,
+        string? assignmentScope, CancellationToken ct)
     {
         var allDepartments = access.HasAllDepartmentAccess;
         var query = db.ReadMessages()
             .Where(x => access.Permissions.Contains(Permissions.MessageView) &&
                 access.BranchIds.Contains(x.BranchId) &&
-                (allDepartments || access.DepartmentIds.Contains(x.DepartmentId)))
+                (allDepartments || access.DepartmentIds.Contains(x.DepartmentId)));
+        query = assignmentScope switch
+        {
+            null => query,
+            MessageAssignmentScopes.Mine => query.Where(x => x.CurrentAssigneeId == access.UserId),
+            MessageAssignmentScopes.Departments => query.Where(x => x.CurrentAssigneeId != null &&
+                db.UserDepartments.Any(userDepartment =>
+                    userDepartment.UserId == x.CurrentAssigneeId.Value &&
+                    access.DepartmentIds.Contains(userDepartment.DepartmentId))),
+            _ => throw new FormatException("Unsupported message assignment scope.")
+        };
+        var rows = query
             .Select(x => new MessageGridRowDto
             {
                 Id = x.Id,
@@ -45,6 +57,12 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 Currency = x.Currency,
                 Amount = x.Amount
             });
-        return DataSourceLoader.LoadAsync(query, options, ct);
+        return DataSourceLoader.LoadAsync(rows, options, ct);
     }
+}
+
+public static class MessageAssignmentScopes
+{
+    public const string Mine = "mine";
+    public const string Departments = "departments";
 }

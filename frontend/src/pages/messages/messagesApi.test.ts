@@ -19,13 +19,16 @@ describe('getMessageGrid', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      getMessageGrid({
-        skip: 20,
-        take: 10,
-        sort: [{ selector: 'receivedAt', desc: true }],
-        filter: ['state', '=', 'New'],
-        requireTotalCount: true,
-      }),
+      getMessageGrid(
+        {
+          skip: 20,
+          take: 10,
+          sort: [{ selector: 'receivedAt', desc: true }],
+          filter: ['state', '=', 'New'],
+          requireTotalCount: true,
+        },
+        'departments',
+      ),
     ).resolves.toEqual(result);
 
     const requestUrl = new URL(fetchMock.mock.calls[0][0], 'https://example.test');
@@ -39,6 +42,7 @@ describe('getMessageGrid', () => {
       JSON.stringify(['state', '=', 'New']),
     );
     expect(requestUrl.searchParams.get('requireTotalCount')).toBe('true');
+    expect(requestUrl.searchParams.get('assignmentScope')).toBe('departments');
   });
 
   it('uses default paging values', async () => {

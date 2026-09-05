@@ -5,6 +5,7 @@ import { ApiError } from '../../shared/api/errors';
 import type { MessageListItemDto } from '../../shared/api/generated/contracts.generated';
 
 export type MessageRow = MessageListItemDto;
+export type MessageAssignmentScope = 'mine' | 'departments';
 
 const loadOptionNames = [
   'skip',
@@ -19,11 +20,18 @@ const loadOptionNames = [
   'requireGroupCount',
 ] as const;
 
-function buildQuery(loadOptions: LoadOptions<MessageRow>) {
+function buildQuery(
+  loadOptions: LoadOptions<MessageRow>,
+  assignmentScope?: MessageAssignmentScope,
+) {
   const query = new URLSearchParams({
     skip: String(loadOptions.skip ?? 0),
     take: String(loadOptions.take ?? 20),
   });
+
+  if (assignmentScope) {
+    query.set('assignmentScope', assignmentScope);
+  }
 
   for (const name of loadOptionNames) {
     const value = loadOptions[name];
@@ -40,9 +48,12 @@ function buildQuery(loadOptions: LoadOptions<MessageRow>) {
 
 export async function getMessageGrid(
   loadOptions: LoadOptions<MessageRow>,
+  assignmentScope?: MessageAssignmentScope,
 ): Promise<LoadResultObject<MessageRow>> {
   try {
-    const response = await apiFetch(`/api/messages/grid?${buildQuery(loadOptions)}`);
+    const response = await apiFetch(
+      `/api/messages/grid?${buildQuery(loadOptions, assignmentScope)}`,
+    );
 
     if (!response.ok) {
       throw new ApiError(`Unable to load messages (${response.status}).`, response.status);

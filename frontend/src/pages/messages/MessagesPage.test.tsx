@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { componentProps } = vi.hoisted(() => ({
@@ -14,6 +15,9 @@ vi.mock('../../shared/api/referenceDataApi', () => ({
   getMessageTypes: vi.fn(() => new Promise(() => undefined)),
   getUsers: vi.fn(() => new Promise(() => undefined)),
   getWorkflows: vi.fn(() => new Promise(() => undefined)),
+}));
+vi.mock('../current-user/currentUserApi', () => ({
+  getCurrentUser: vi.fn(() => new Promise(() => undefined)),
 }));
 
 vi.mock('devextreme-react/data-grid', () => {
@@ -46,8 +50,18 @@ import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 import MessagesPage from './MessagesPage';
 
-function renderPage(withReferenceData = true) {
+function renderPage(
+  withReferenceData = true,
+  permissions = ['message.access.all-departments'],
+) {
   const queryClient = createTestQueryClient();
+  queryClient.setQueryData(['current-user'], {
+    userId: 1,
+    userName: 'alex.morgan',
+    permissions,
+    branches: [10],
+    departments: [20],
+  });
 
   if (withReferenceData) {
     queryClient.setQueryData(referenceDataKeys.users, [
@@ -85,7 +99,12 @@ function renderPage(withReferenceData = true) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MessagesPage />
+      <MemoryRouter initialEntries={['/messages']}>
+        <Routes>
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/messages/assigned" element={<main>Assigned messages page</main>} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -98,7 +117,7 @@ describe('MessagesPage', () => {
   it('configures the remote messages grid', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: 'Messages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'All messages' })).toBeInTheDocument();
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
     expect(screen.getAllByTestId('Column')).toHaveLength(10);
 
@@ -211,8 +230,22 @@ describe('MessagesPage', () => {
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
   });
 
+  it('redirects users without all-departments access to assigned messages', () => {
+    renderPage(true, ['message.view']);
+
+    expect(screen.getByText('Assigned messages page')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
+  });
+
   it('uses department IDs until department metadata is available', () => {
     const queryClient = createTestQueryClient();
+    queryClient.setQueryData(['current-user'], {
+      userId: 1,
+      userName: 'alex.morgan',
+      permissions: ['message.access.all-departments'],
+      branches: [10],
+      departments: [20],
+    });
     queryClient.setQueryData(referenceDataKeys.users, [
       {
         id: 1,
@@ -225,7 +258,9 @@ describe('MessagesPage', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MessagesPage />
+        <MemoryRouter initialEntries={['/messages']}>
+          <MessagesPage />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
 

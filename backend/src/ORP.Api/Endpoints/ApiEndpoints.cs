@@ -52,7 +52,7 @@ public static class ApiEndpoints
         IUserAccessService accessService, CancellationToken ct)
     {
         var access = await accessService.GetByIdAsync(currentUser.UserId, ct) ?? throw new UnauthorizedAccessException();
-        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(request), access, ct);
+        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(request), access, request.AssignmentScope, ct);
     }
     private static Task<PagedResult<MessageListItemDto>> Search(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);
     private static async Task<IResult> Assign(long id, AssignMessageRequest request, AssignMessageHandler handler, IORPStore store, IAuthorizationService authorization, HttpContext context, CancellationToken ct)

@@ -45,6 +45,9 @@ vi.mock('../pages/current-user/CurrentUserPage', async () => {
 vi.mock('../pages/messages/MessagesPage', () => ({
   default: () => <main>Messages page</main>,
 }));
+vi.mock('../pages/messages/AssignedMessagesPage', () => ({
+  default: () => <main>Assigned messages page</main>,
+}));
 
 import App from './App';
 import router from './router/router';
@@ -65,6 +68,9 @@ describe('App routing', () => {
 
     await router.navigate('/messages');
     expect(await screen.findByText('Messages page')).toBeInTheDocument();
+
+    await router.navigate('/messages/assigned?scope=mine');
+    expect(await screen.findByText('Assigned messages page')).toBeInTheDocument();
 
     await router.navigate('/design-system');
     expect(await screen.findByRole('alert')).toHaveTextContent(
