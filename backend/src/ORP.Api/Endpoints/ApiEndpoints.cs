@@ -34,7 +34,8 @@ public static class ApiEndpoints
         messages.MapPost("/{id:long}/reviews/approve", Approve).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/reject", Reject).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/undo", Undo).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapGet("/{id:long}/audit", Audit).Produces<IReadOnlyList<AuditEventDto>>().ProducesProblem(403);
+        messages.MapGet("/{id:long}/audit", Audit).Produces<PagedResult<AuditEventDto>>()
+            .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404);
         api.MapGet("/dashboard/summary", Dashboard).Produces<DashboardSummaryDto>();
         api.MapGet("/me", Me).Produces<CurrentUserResponse>();
         api.MapGet("/workflows", Workflows).Produces<IReadOnlyList<WorkflowSummaryDto>>().ProducesProblem(403);
@@ -76,7 +77,9 @@ public static class ApiEndpoints
     { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(permission ?? ReviewPermissions.ForLevel(level), level)); return ok.Succeeded ? await action() : Forbidden(); }
     private static async Task<IResult> Undo(long id, UndoReviewRequest request, UndoReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct)
     { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.ReviewUndo)); if (!ok.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent(); }
-    private static async Task<IReadOnlyList<AuditEventDto>> Audit(long id, GetAuditTrailHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
+    private static Task<PagedResult<AuditEventDto>> Audit(long id, GetAuditTrailHandler handler,
+        CancellationToken ct, int skip = 0, int take = 100) =>
+        handler.HandleAsync(id, new AuditTrailRequest(skip, take), ct);
     private static async Task<DashboardSummaryDto> Dashboard(GetDashboardSummaryHandler handler, CancellationToken ct) => await handler.HandleAsync(ct);
     private static Ok<CurrentUserResponse> Me(ICurrentUser current, HttpContext context) => TypedResults.Ok(new CurrentUserResponse(
         current.UserId, current.UserName,

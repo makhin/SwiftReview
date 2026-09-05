@@ -33,12 +33,23 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ORPDbContext).Assembly);
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        EnsureWriteRules();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        EnsureWriteRules();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void EnsureWriteRules()
     {
         if (Database.IsRelational() && ChangeTracker.Entries<SwiftMessageRecord>().Any(x => x.State != EntityState.Unchanged))
             throw new InvalidOperationException("The SWIFT message source is read-only.");
         if (ChangeTracker.Entries<AuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Audit events are append-only.");
-        return base.SaveChangesAsync(cancellationToken);
     }
 }

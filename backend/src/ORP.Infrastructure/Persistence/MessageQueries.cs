@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using System.Text.Json;
 using ORP.Application.Abstractions;
+using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 
@@ -8,6 +10,8 @@ namespace ORP.Infrastructure.Persistence;
 
 public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
 {
+    private static readonly JsonSerializerOptions AuditJsonOptions = new(JsonSerializerDefaults.Web);
+
     public async Task<MessageDetailsDto?> GetAsync(long id, UserAccess access, CancellationToken ct)
     {
         if (!access.Permissions.Contains(Permissions.MessageView)) return null;
@@ -48,11 +52,31 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             await q.CountAsync(x => x.State == MessageState.Completed, ct));
     }
 
-    public async Task<IReadOnlyList<AuditEventDto>> AuditAsync(long messageId, UserAccess access, CancellationToken ct)
+    public async Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request,
+        UserAccess access, CancellationToken ct)
     {
-        if (!access.Permissions.Contains(Permissions.AuditView) || !await Accessible(access).AnyAsync(x => x.Id == messageId, ct)) return [];
-        return await db.AuditEvents.Where(x => x.MessageId == messageId).OrderBy(x => x.Timestamp).ThenBy(x => x.Id)
-            .Select(x => new AuditEventDto(x.Id, x.EventType, x.UserId, x.Timestamp, x.OldState, x.NewState, x.DetailsJson, x.CorrelationId)).ToListAsync(ct);
+        if (!await Accessible(access).AnyAsync(x => x.Id == messageId, ct)) return null;
+        var query = db.AuditEvents.AsNoTracking().Where(x => x.MessageId == messageId);
+        var count = await query.CountAsync(ct);
+        var rows = await query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.Id)
+            .Skip(request.Skip).Take(request.Take)
+            .Select(x => new AuditRow(x.Id, x.EventType, x.Timestamp, x.OldState, x.NewState,
+                x.UserId, x.User == null ? null : x.User.UserName, x.User == null ? null : x.User.DisplayName,
+                x.ReviewId, x.DetailsJson, x.CorrelationId))
+            .ToListAsync(ct);
+        return new(rows.Select(MapAudit).ToList(), count);
+    }
+
+    private static AuditEventDto MapAudit(AuditRow row)
+    {
+        var stored = JsonSerializer.Deserialize<StoredAuditDetails>(row.DetailsJson, AuditJsonOptions)
+            ?? new StoredAuditDetails();
+        var actor = row.UserId is null ? null : new AuditActorDto(row.UserId.Value,
+            row.UserName ?? string.Empty, row.DisplayName ?? string.Empty);
+        var details = new AuditEventDetailsDto(stored.WorkflowDefinitionId, stored.PreviousAssigneeId,
+            stored.AssigneeId ?? stored.AssignedTo, row.ReviewId, stored.ReviewLevel ?? stored.Level, stored.Comment);
+        return new AuditEventDto(row.Id, row.EventType, row.Timestamp, row.OldState?.ToString(), row.NewState?.ToString(),
+            actor, details, row.CorrelationId);
     }
 
     private IQueryable<MessageReadRow> Accessible(UserAccess access) => db.ReadMessages()
@@ -82,4 +106,12 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         ordered is null
             ? descending ? query.OrderByDescending(key) : query.OrderBy(key)
             : descending ? ordered.ThenByDescending(key) : ordered.ThenBy(key);
+
+    private sealed record AuditRow(long Id, AuditEventType EventType, DateTimeOffset Timestamp,
+        MessageState? OldState, MessageState? NewState, int? UserId, string? UserName, string? DisplayName,
+        long? ReviewId, string DetailsJson, string CorrelationId);
+
+    private sealed record StoredAuditDetails(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
+        int? AssigneeId = null, int? AssignedTo = null, int? ReviewLevel = null, int? Level = null,
+        string? Comment = null);
 }

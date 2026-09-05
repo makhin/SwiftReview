@@ -14,7 +14,10 @@ public sealed class CorrelationMiddleware(RequestDelegate next, ILogger<Correlat
 {
     public async Task InvokeAsync(HttpContext context)
     {
-        var id = context.Request.Headers["X-Correlation-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString("N");
+        var supplied = context.Request.Headers["X-Correlation-ID"].FirstOrDefault();
+        if (supplied?.Length > 100)
+            throw new BadHttpRequestException("X-Correlation-ID cannot exceed 100 characters.");
+        var id = string.IsNullOrWhiteSpace(supplied) ? Guid.NewGuid().ToString("N") : supplied;
         CorrelationContext.Set(id); context.Response.Headers["X-Correlation-ID"] = id;
         System.Diagnostics.Activity.Current?.SetTag("correlation.id", id);
         using var scope = logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = id });

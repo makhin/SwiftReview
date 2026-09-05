@@ -33,7 +33,8 @@ public interface IMessageQueries
     Task<MessageDetailsDto?> GetAsync(long id, UserAccess access, CancellationToken cancellationToken);
     Task<PagedResult<MessageListItemDto>> SearchAsync(MessageSearchRequest request, UserAccess access, CancellationToken cancellationToken);
     Task<DashboardSummaryDto> DashboardAsync(UserAccess access, CancellationToken cancellationToken);
-    Task<IReadOnlyList<AuditEventDto>> AuditAsync(long messageId, UserAccess access, CancellationToken cancellationToken);
+    Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request, UserAccess access,
+        CancellationToken cancellationToken);
 }
 
 public interface IUserAccessService

@@ -34,6 +34,7 @@ internal static class Program
             CommandType = CommandType.StoredProcedure,
             CommandTimeout = 300
         };
+        command.Parameters.Add("@CorrelationId", SqlDbType.NVarChar, 100).Value = $"sync-{Guid.NewGuid():N}";
         connection.Open();
         command.ExecuteNonQuery();
     }

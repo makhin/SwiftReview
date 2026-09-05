@@ -1,6 +1,10 @@
 using Bogus;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using ORP.Application.Abstractions;
+using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
+using ORP.Domain.Messages;
 using ORP.Domain.Workflows;
 
 namespace ORP.Infrastructure.Persistence;
@@ -48,9 +52,15 @@ public static class MockDataSeeder
                 Amount = fake.Amount,
                 Reference = fake.Reference
             };
-        });
+        }).ToList();
         db.Messages.AddRange(messages);
         db.SwiftMessageSource.AddRange(source);
+        var registeredAt = DateTimeOffset.UtcNow;
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        db.AuditEvents.AddRange(messages.Select(message => new AuditEvent(message,
+            AuditEventType.MessageRegistered, null, registeredAt, null, MessageState.New,
+            JsonSerializer.Serialize(new AuditEventDetailsDto(WorkflowDefinitionId: message.WorkflowDefinitionId), jsonOptions),
+            "mock-seed")));
 
         await db.SaveChangesAsync(ct);
     }

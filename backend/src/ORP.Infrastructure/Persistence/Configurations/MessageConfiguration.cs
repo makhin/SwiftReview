@@ -66,11 +66,12 @@ public sealed class AuditConfiguration : IEntityTypeConfiguration<AuditEvent>
 {
     public void Configure(EntityTypeBuilder<AuditEvent> builder)
     {
-        builder.ToTable("AuditEvents"); builder.HasKey(x => x.Id); builder.Property(x => x.EventType).HasMaxLength(80);
-        builder.Property(x => x.OldState).HasMaxLength(40); builder.Property(x => x.NewState).HasMaxLength(40);
+        builder.ToTable("AuditEvents"); builder.HasKey(x => x.Id); builder.Property(x => x.EventType).HasConversion<string>().HasMaxLength(80);
+        builder.Property(x => x.OldState).HasConversion<string>().HasMaxLength(40); builder.Property(x => x.NewState).HasConversion<string>().HasMaxLength(40);
         builder.Property(x => x.DetailsJson).HasColumnType("nvarchar(max)"); builder.Property(x => x.CorrelationId).HasMaxLength(100);
         builder.HasOne(x => x.Message).WithMany().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.Review).WithMany().HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.MessageId, x.Timestamp });
     }
 }

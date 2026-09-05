@@ -33,6 +33,8 @@ public sealed class OpenApiSmokeTests
         Assert.False(schemas.GetProperty("AssignMessageRequest").GetProperty("properties").TryGetProperty("rowVersion", out _));
         Assert.Equal(3, schemas.GetProperty("StartReviewRequest").GetProperty("properties").GetProperty("level").GetProperty("maximum").GetInt32());
         Assert.Contains("Completed", schemas.GetProperty("MessageState").GetProperty("enum").EnumerateArray().Select(x => x.GetString()));
+        Assert.DoesNotContain(schemas.GetProperty("MessageState").GetProperty("enum").EnumerateArray(),
+            value => value.ValueKind == JsonValueKind.Null);
 
         var approveResponses = paths.GetProperty("/api/messages/{id}/reviews/approve").GetProperty("post").GetProperty("responses");
         foreach (var status in new[] { "204", "400", "403", "404", "409" }) Assert.True(approveResponses.TryGetProperty(status, out _));
@@ -46,6 +48,21 @@ public sealed class OpenApiSmokeTests
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("name", out _));
         Assert.True(schemas.GetProperty("MessageStateReferenceDto").GetProperty("properties").TryGetProperty("code", out _));
         Assert.True(schemas.GetProperty("MessageStateReferenceDto").GetProperty("properties").TryGetProperty("label", out _));
+        var auditOperation = paths.GetProperty("/api/messages/{id}/audit").GetProperty("get");
+        var auditParameters = auditOperation.GetProperty("parameters").EnumerateArray()
+            .Select(x => x.GetProperty("name").GetString()).ToHashSet();
+        Assert.Contains("skip", auditParameters);
+        Assert.Contains("take", auditParameters);
+        foreach (var status in new[] { "200", "400", "403", "404" })
+            Assert.True(auditOperation.GetProperty("responses").TryGetProperty(status, out _));
+        var auditProperties = schemas.GetProperty("AuditEventDto").GetProperty("properties");
+        Assert.True(auditProperties.TryGetProperty("actor", out _));
+        Assert.True(auditProperties.TryGetProperty("details", out _));
+        Assert.False(auditProperties.TryGetProperty("detailsJson", out _));
+        Assert.False(auditProperties.GetProperty("oldState").TryGetProperty("oneOf", out _));
+        Assert.False(auditProperties.GetProperty("newState").TryGetProperty("oneOf", out _));
+        Assert.Contains("MessageRegistered", schemas.GetProperty("AuditEventType").GetProperty("enum")
+            .EnumerateArray().Select(x => x.GetString()));
 
         Assert.False(paths.TryGetProperty("/api/messages/import", out _));
         Assert.True(paths.GetProperty("/api/messages/{id}/reviews/start").GetProperty("post").GetProperty("responses")

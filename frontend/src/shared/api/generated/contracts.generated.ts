@@ -13,16 +13,41 @@ export interface AssignMessageRequest {
   assignedTo: number | string;
 }
 
+export interface AuditActorDto {
+  userId: number | string;
+  userName: string;
+  displayName: string;
+}
+
+export interface AuditEventDetailsDto {
+  workflowDefinitionId?: number | string | null;
+  previousAssigneeId?: number | string | null;
+  assigneeId?: number | string | null;
+  reviewId?: number | string | null;
+  reviewLevel?: number | string | null;
+  comment?: string | null;
+}
+
 export interface AuditEventDto {
   id: number | string;
-  eventType: string;
-  userId: number | string | null;
+  eventType: AuditEventType;
   timestamp: string;
   oldState: string | null;
   newState: string | null;
-  detailsJson: string;
+  actor: AuditActorDto | null;
+  details: AuditEventDetailsDto;
   correlationId: string;
 }
+
+export type AuditEventType =
+  | "MessageRegistered"
+  | "MessageAssigned"
+  | "MessageReassigned"
+  | "ReviewStarted"
+  | "ReviewApproved"
+  | "MessageCompleted"
+  | "ReviewRejected"
+  | "ConfirmationUndone";
 
 export interface CurrentUserResponse {
   userId: number | string;
@@ -111,6 +136,11 @@ export type MessageState =
 export interface MessageStateReferenceDto {
   code: string;
   label: string;
+}
+
+export interface PagedResultOfAuditEventDto {
+  items: AuditEventDto[];
+  totalCount: number | string;
 }
 
 export interface PagedResultOfMessageListItemDto {

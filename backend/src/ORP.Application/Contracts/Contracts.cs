@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ORP.Domain.Auditing;
 using ORP.Domain.Messages;
 
 namespace ORP.Application.Abstractions;
@@ -21,6 +22,7 @@ public sealed record MessageDetailsDto(long Id, string ExternalId, string Messag
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string? Account, string? Currency, decimal? Amount);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
+public sealed record AuditTrailRequest(int Skip = 0, int Take = 100);
 public sealed record SortClause([property: Required] string Field,
     [property: Required, RegularExpression("^(?i:asc|desc)$")] string Direction);
 public sealed record MessageFilter(IReadOnlyList<MessageState>? States, IReadOnlyList<int>? Branches,
@@ -30,8 +32,12 @@ public sealed record MessageSearchRequest([property: Range(0, int.MaxValue)] int
     [property: Range(1, 500)] int Take, IReadOnlyList<SortClause>? Sort, MessageFilter? Filter);
 public sealed record DashboardSummaryDto(int Total, int Pending, int WaitingForFirstReview,
     int WaitingForSecondReview, int WaitingForThirdReview, int Completed);
-public sealed record AuditEventDto(long Id, string EventType, int? UserId, DateTimeOffset Timestamp,
-    string? OldState, string? NewState, string DetailsJson, string CorrelationId);
+public sealed record AuditActorDto(int UserId, string UserName, string DisplayName);
+public sealed record AuditEventDetailsDto(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
+    int? AssigneeId = null, long? ReviewId = null, int? ReviewLevel = null, string? Comment = null);
+public sealed record AuditEventDto(long Id, AuditEventType EventType, DateTimeOffset Timestamp,
+    string? OldState, string? NewState, AuditActorDto? Actor,
+    AuditEventDetailsDto Details, string CorrelationId);
 public sealed record WorkflowStepDto(int Order, int ReviewLevel, bool Required);
 public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType, int DepartmentId, int? BranchId,
     bool IsActive, IReadOnlyList<WorkflowStepDto> Steps);

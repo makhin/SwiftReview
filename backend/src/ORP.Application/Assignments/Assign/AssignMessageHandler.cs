@@ -1,6 +1,6 @@
-using System.Text.Json;
 using FluentValidation;
 using ORP.Application.Abstractions;
+using ORP.Application.Audit;
 using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
@@ -29,13 +29,15 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAccessService acc
             throw new ValidationException("The assignee cannot access or process the message in its current workflow state.");
         var oldState = message.State;
         var previous = await store.GetActiveAssignmentAsync(messageId, cancellationToken);
-        previous?.End(clock.UtcNow);
-        var assignment = new Assignment(messageId, user.UserId, request.AssignedTo, clock.UtcNow);
+        var now = clock.UtcNow;
+        previous?.End(now);
+        var assignment = new Assignment(messageId, user.UserId, request.AssignedTo, now);
         message.Assign(request.AssignedTo);
         store.AddAssignment(assignment);
-        var eventType = previous is null ? "MessageAssigned" : "MessageReassigned";
-        store.AddAudit(new AuditEvent(messageId, eventType, user.UserId, clock.UtcNow, oldState.ToString(), message.State.ToString(),
-            JsonSerializer.Serialize(new { request.AssignedTo }), correlation.CorrelationId));
+        var eventType = previous is null ? AuditEventType.MessageAssigned : AuditEventType.MessageReassigned;
+        store.AddAudit(AuditEventFactory.Create(messageId, eventType, user.UserId, now, oldState, message.State,
+            new AuditEventDetailsDto(PreviousAssigneeId: previous?.AssignedTo, AssigneeId: request.AssignedTo),
+            correlation.CorrelationId));
         await store.SaveChangesAsync(cancellationToken);
     }
 

@@ -1,6 +1,6 @@
-using System.Text.Json;
 using FluentValidation;
 using ORP.Application.Abstractions;
+using ORP.Application.Audit;
 using ORP.Domain.Auditing;
 using ORP.Domain.Reviews;
 
@@ -31,9 +31,11 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var (message, workflow, reviews) = await LoadAsync(store, messageId, cancellationToken);
         var oldState = message.State;
-        var review = message.StartReview(request.Level, user.UserId, workflow, reviews, clock.UtcNow);
+        var now = clock.UtcNow;
+        var review = message.StartReview(request.Level, user.UserId, workflow, reviews, now);
         store.AddReview(review);
-        AddEvent(store, messageId, "ReviewStarted", user.UserId, oldState.ToString(), message.State.ToString(), request.Level, clock.UtcNow, correlation.CorrelationId);
+        AddEvent(store, messageId, AuditEventType.ReviewStarted, user.UserId, oldState, message.State,
+            review, now, correlation.CorrelationId);
         await store.SaveChangesAsync(cancellationToken);
         return review.Id;
     }
@@ -47,16 +49,11 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
         return (message, workflow, reviews);
     }
 
-    internal static void AddEvent(IORPStore store, long messageId, string type, int userId, string oldState,
-        string newState, int level, DateTimeOffset now, string correlationId)
-    {
-        AddAudit(store, messageId, type, userId, oldState, newState, level, now, correlationId);
-    }
-
-    internal static void AddAudit(IORPStore store, long messageId, string type, int userId, string oldState,
-        string newState, int level, DateTimeOffset now, string correlationId) =>
-        store.AddAudit(new AuditEvent(messageId, type, userId, now, oldState, newState,
-            JsonSerializer.Serialize(new { level }), correlationId));
+    internal static void AddEvent(IORPStore store, long messageId, AuditEventType type, int userId,
+        Domain.Messages.MessageState oldState, Domain.Messages.MessageState newState, Review review,
+        DateTimeOffset now, string correlationId, string? comment = null) =>
+        store.AddAudit(AuditEventFactory.Create(messageId, type, userId, now, oldState, newState,
+            new AuditEventDetailsDto(ReviewLevel: review.Level, Comment: comment), correlationId, review));
 }
 
 public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveReviewRequest> validator,
@@ -70,13 +67,13 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             ?? throw new ResourceNotFoundException("Active review was not found.");
         if (review.ReviewerId != user.UserId) throw new Domain.Common.DomainRuleViolationException("Only the reviewer who started the review can approve it.");
         var oldState = message.State;
-        message.Approve(review, workflow, reviews, request.Comment, clock.UtcNow);
         var now = clock.UtcNow;
-        StartReviewHandler.AddEvent(store, messageId, "ReviewApproved", user.UserId, oldState.ToString(),
-            message.State.ToString(), request.Level, now, correlation.CorrelationId);
+        message.Approve(review, workflow, reviews, request.Comment, now);
+        StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
+            message.State, review, now, correlation.CorrelationId, request.Comment);
         if (message.State == Domain.Messages.MessageState.Completed)
-            StartReviewHandler.AddAudit(store, messageId, "MessageCompleted", user.UserId, oldState.ToString(),
-                message.State.ToString(), request.Level, now, correlation.CorrelationId);
+            StartReviewHandler.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId, oldState,
+                message.State, review, now, correlation.CorrelationId, request.Comment);
         await store.SaveChangesAsync(cancellationToken);
     }
 }
@@ -91,8 +88,10 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
         var review = reviews.SingleOrDefault(x => x.Level == request.Level && x.Status == ReviewStatus.InProgress)
             ?? throw new ResourceNotFoundException("Active review was not found.");
         var oldState = message.State;
-        message.Reject(review, request.Comment!, clock.UtcNow);
-        StartReviewHandler.AddEvent(store, messageId, "ReviewRejected", user.UserId, oldState.ToString(), message.State.ToString(), request.Level, clock.UtcNow, correlation.CorrelationId);
+        var now = clock.UtcNow;
+        message.Reject(review, request.Comment!, now);
+        StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
+            message.State, review, now, correlation.CorrelationId, request.Comment);
         await store.SaveChangesAsync(cancellationToken);
     }
 }
@@ -109,8 +108,10 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
             ?? throw new ResourceNotFoundException("Workflow was not found.");
         var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId) ?? throw new ResourceNotFoundException("Review was not found.");
         var oldState = message.State;
-        message.UndoLastApproval(review, workflow, reviews, user.UserId, clock.UtcNow);
-        StartReviewHandler.AddEvent(store, messageId, "ConfirmationUndone", user.UserId, oldState.ToString(), message.State.ToString(), review.Level, clock.UtcNow, correlation.CorrelationId);
+        var now = clock.UtcNow;
+        message.UndoLastApproval(review, workflow, reviews, user.UserId, now);
+        StartReviewHandler.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
+            message.State, review, now, correlation.CorrelationId, review.Comment);
         await store.SaveChangesAsync(cancellationToken);
     }
 }

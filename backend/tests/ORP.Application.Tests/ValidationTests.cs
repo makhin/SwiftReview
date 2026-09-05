@@ -1,4 +1,5 @@
 using ORP.Application.Abstractions;
+using ORP.Application.Audit.GetAuditTrail;
 using ORP.Application.Messages.Search;
 using ORP.Application.Reviews;
 using Xunit;
@@ -16,6 +17,17 @@ public sealed class ValidationTests
         Assert.Contains(result.Errors, x => x.PropertyName == "Take");
         Assert.Contains(result.Errors, x => x.PropertyName.EndsWith("Field", StringComparison.Ordinal));
         Assert.Contains(result.Errors, x => x.PropertyName.EndsWith("Direction", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AuditRequest_RejectsInvalidPageBounds()
+    {
+        var validator = new AuditTrailValidator();
+        var ct = TestContext.Current.CancellationToken;
+        Assert.False((await validator.ValidateAsync(new AuditTrailRequest(-1, 100), ct)).IsValid);
+        Assert.False((await validator.ValidateAsync(new AuditTrailRequest(0, 0), ct)).IsValid);
+        Assert.False((await validator.ValidateAsync(new AuditTrailRequest(0, 501), ct)).IsValid);
+        Assert.True((await validator.ValidateAsync(new AuditTrailRequest(), ct)).IsValid);
     }
 
     [Fact]

@@ -1,15 +1,22 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using ORP.Application.Abstractions;
+using ORP.Domain.Auditing;
 using Xunit;
 
 namespace ORP.IntegrationTests;
 
 public sealed class MockDataModeTests
 {
+    private static readonly JsonSerializerOptions ResponseJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     [Fact]
     public async Task DebugAuthentication_RejectsMissingAndUnknownUsers()
     {
@@ -83,6 +90,137 @@ public sealed class MockDataModeTests
         var currentUser = await client.GetFromJsonAsync<CurrentUserResponse>("/api/me", ct);
         Assert.Equal(6, currentUser!.UserId);
         Assert.Equal("admin", currentUser.UserName);
+    }
+
+    [Fact]
+    public async Task AuditTrail_IsPagedTypedAndPermissionScoped()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = CreateFactory("Development");
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+
+        var registered = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            "/api/messages/1/audit?skip=0&take=1", ResponseJson, ct);
+        Assert.Equal(1, registered!.TotalCount);
+        var registration = Assert.Single(registered.Items);
+        Assert.Equal(AuditEventType.MessageRegistered, registration.EventType);
+        Assert.Null(registration.Actor);
+        Assert.Equal(1, registration.Details.WorkflowDefinitionId);
+
+        using (var assign = new HttpRequestMessage(HttpMethod.Post, "/api/messages/1/assign")
+        {
+            Content = JsonContent.Create(new AssignMessageRequest(1))
+        })
+        {
+            assign.Headers.Add("X-Correlation-ID", "assign-1");
+            Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(assign, ct)).StatusCode);
+        }
+
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "amelia.hart");
+        var start = await client.PostAsJsonAsync("/api/messages/1/reviews/start", new StartReviewRequest(1), ct);
+        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+        var reviewId = (await start.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
+        using (var approve = new HttpRequestMessage(HttpMethod.Post, "/api/messages/1/reviews/approve")
+        {
+            Content = JsonContent.Create(new ApproveReviewRequest(1, "confirmed"))
+        })
+        {
+            approve.Headers.Add("X-Correlation-ID", "approve-1");
+            Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(approve, ct)).StatusCode);
+        }
+
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+        var latest = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            "/api/messages/1/audit?skip=0&take=2", ResponseJson, ct);
+        Assert.Equal(5, latest!.TotalCount);
+        Assert.Equal([AuditEventType.MessageCompleted, AuditEventType.ReviewApproved],
+            latest.Items.Select(x => x.EventType));
+        Assert.All(latest.Items, item =>
+        {
+            Assert.Equal(reviewId, item.Details.ReviewId);
+            Assert.Equal(1, item.Details.ReviewLevel);
+            Assert.Equal("confirmed", item.Details.Comment);
+            Assert.Equal("amelia.hart", item.Actor!.UserName);
+            Assert.Equal("approve-1", item.CorrelationId);
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.GetAsync("/api/messages/1/audit?take=0", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync("/api/messages/999999/audit", ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "amelia.hart");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.GetAsync("/api/messages/1/audit", ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task CorrelationId_RejectsValuesThatCannotBePersisted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = CreateFactory("Development");
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
+        request.Headers.TryAddWithoutValidation("X-Correlation-ID", new string('x', 101));
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(request, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AuditTrail_RecordsRejectAndUndoWithReviewContext()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = CreateFactory("Development");
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/2/assign", new AssignMessageRequest(5), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
+        var startedForUndo = await client.PostAsJsonAsync(
+            "/api/messages/2/reviews/start", new StartReviewRequest(1), ct);
+        var undoReviewId = (await startedForUndo.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/2/reviews/approve", new ApproveReviewRequest(1, "undo this"), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/2/undo", new UndoReviewRequest(undoReviewId), ct)).StatusCode);
+        var undoAudit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            "/api/messages/2/audit", ResponseJson, ct);
+        var undone = Assert.Single(undoAudit!.Items,
+            x => x.EventType == AuditEventType.ConfirmationUndone);
+        Assert.Equal(undoReviewId, undone.Details.ReviewId);
+        Assert.Equal(1, undone.Details.ReviewLevel);
+        Assert.Equal("undo this", undone.Details.Comment);
+
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/3/assign", new AssignMessageRequest(5), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
+        var startedForReject = await client.PostAsJsonAsync(
+            "/api/messages/3/reviews/start", new StartReviewRequest(1), ct);
+        var rejectReviewId = (await startedForReject.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
+        var beforeFailedReject = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            "/api/messages/3/audit", ResponseJson, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(
+            "/api/messages/3/reviews/reject", new RejectReviewRequest(1, ""), ct)).StatusCode);
+        var afterFailedReject = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            "/api/messages/3/audit", ResponseJson, ct);
+        Assert.Equal(beforeFailedReject!.TotalCount, afterFailedReject!.TotalCount);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/3/reviews/reject", new RejectReviewRequest(1, "invalid data"), ct)).StatusCode);
+        var rejectAudit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            "/api/messages/3/audit", ResponseJson, ct);
+        var rejected = Assert.Single(rejectAudit!.Items,
+            x => x.EventType == AuditEventType.ReviewRejected);
+        Assert.Equal(rejectReviewId, rejected.Details.ReviewId);
+        Assert.Equal(1, rejected.Details.ReviewLevel);
+        Assert.Equal("invalid data", rejected.Details.Comment);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(string environment)

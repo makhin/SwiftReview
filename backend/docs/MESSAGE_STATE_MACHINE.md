@@ -177,6 +177,7 @@ stateDiagram-v2
 
 | Action | Audit event |
 |---|---|
+| Register a new message | `MessageRegistered` |
 | First assignment | `MessageAssigned` |
 | Reassignment | `MessageReassigned` |
 | Start review | `ReviewStarted` |
@@ -184,3 +185,6 @@ stateDiagram-v2
 | Approve final required level | `ReviewApproved` and `MessageCompleted` |
 | Reject review | `ReviewRejected` |
 | Undo approval | `ConfirmationUndone` |
+
+Audit history is append-only through the EF persistence boundary. Events include the actor, correlation ID,
+state transition, and typed assignment or review context. Registration events have no user actor.

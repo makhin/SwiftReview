@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ORP.Application.Abstractions;
+using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Workflows;
@@ -57,7 +58,7 @@ public sealed class ApiWorkflowTests
             Assert.Equal(0, await seeded.Users.CountAsync(ct));
             Assert.Equal(0, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.False(await seeded.Reviews.AnyAsync(ct));
-            Assert.Single(await seeded.Database.GetAppliedMigrationsAsync(ct));
+            Assert.Equal(2, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
             var historyTableCount = await seeded.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS [Value] FROM sys.tables AS t JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE t.name = N'__EFMigrationsHistory' AND s.name = N'dbo'")
                 .SingleAsync(ct);
@@ -105,6 +106,7 @@ public sealed class ApiWorkflowTests
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "amelia.hart");
         var started = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(1), ct);
         Assert.Equal(HttpStatusCode.Created, started.StatusCode);
+        var reviewId = (await started.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
         var approved = await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, "confirmed"), ct);
         Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
         Assert.Equal(MessageState.Completed, (await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct))!.State);
@@ -123,6 +125,7 @@ public sealed class ApiWorkflowTests
 
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/messages/{id}", ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/messages/{id}/audit", ct)).StatusCode);
         Assert.Equal([new ReferenceItemDto(2, "Dublin")],
             await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct));
         Assert.Equal([new ReferenceItemDto(2, "TFO")],
@@ -138,10 +141,17 @@ public sealed class ApiWorkflowTests
             Assert.All(rows, row => { Assert.Equal(2, row.GetProperty("branchId").GetInt32()); Assert.Equal(2, row.GetProperty("departmentId").GetInt32()); });
         }
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
-        var audit = await client.GetFromJsonAsync<List<AuditEventDto>>($"/api/messages/{id}/audit", ct);
-        Assert.Contains(audit!, x => x.EventType == "MessageReassigned");
-        Assert.Contains(audit!, x => x.EventType == "ReviewApproved");
-        Assert.Contains(audit!, x => x.EventType == "MessageCompleted");
+        var audit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
+            $"/api/messages/{id}/audit", ResponseJson, ct);
+        Assert.Equal(6, audit!.TotalCount);
+        Assert.Contains(audit!.Items, x => x.EventType == AuditEventType.MessageRegistered);
+        var reassignedAudit = Assert.Single(audit.Items, x => x.EventType == AuditEventType.MessageReassigned);
+        Assert.Equal(fixture.AdminId, reassignedAudit.Details.PreviousAssigneeId);
+        Assert.Equal(fixture.AmeliaId, reassignedAudit.Details.AssigneeId);
+        var approvedAudit = Assert.Single(audit.Items, x => x.EventType == AuditEventType.ReviewApproved);
+        Assert.Equal(reviewId, approvedAudit.Details.ReviewId);
+        Assert.Equal("confirmed", approvedAudit.Details.Comment);
+        Assert.Contains(audit.Items, x => x.EventType == AuditEventType.MessageCompleted);
 
         await VerifyLevelPermission(client, fixture.SupervisorId, ct);
 
@@ -183,7 +193,7 @@ public sealed class ApiWorkflowTests
         for (var i = 0; i < users.Length; i++) db.UserRoles.Add(new UserRole { UserId = users[i].Id, RoleId = roles[i].Id });
         var permissionByName = permissions.ToDictionary(x => x.Name, x => x.Id);
         Grant(roles[0], Permissions.MessageView, Permissions.ReviewLevel1);
-        Grant(roles[1], Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2);
+        Grant(roles[1], Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2, Permissions.AuditView);
         Grant(roles[2], Permissions.MessageView, Permissions.ReviewLevel1);
         Grant(roles[3], Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewReject, Permissions.ReviewUndo);
         Grant(roles[4], Permissions.MessageView, Permissions.MessageAssign, Permissions.ReviewLevel1, Permissions.ReviewLevel2,
@@ -280,6 +290,8 @@ public sealed class ApiWorkflowTests
         await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
         await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
         Assert.Equal(1, await db.Messages.CountAsync(x => x.Id == 1001, ct));
+        Assert.Equal(1, await db.AuditEvents.CountAsync(x => x.MessageId == 1001 &&
+            x.EventType == AuditEventType.MessageRegistered, ct));
     }
 
     private static Task<int> InsertSwiftMessage(ORPDbContext db, long id, string externalId,

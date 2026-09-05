@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ORP.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using ORP.Infrastructure.Persistence;
 namespace ORP.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ORPDbContext))]
-    partial class ORPDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904205838_AuditTrailHardening")]
+    partial class AuditTrailHardening
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

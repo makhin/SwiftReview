@@ -38,7 +38,7 @@ flowchart LR
 | SWIFT NuGet adapter | Connect to AWH and materialize SWIFT messages locally | Reads AWH; writes `[swift].[messages]` |
 | `[swift].[messages]` | Durable local copy of the imported SWIFT message data | Written only by the importer; read by ORP integration and API paths |
 | `[ORP].[SwiftMessageSource]` | Normalize SWIFT columns and derive `MessageType`, `BranchId`, and `DepartmentId` for ORP | Read-only view over `[swift].[messages]` and, if needed, routing reference data |
-| `[ORP].[RegisterNewMessages]` | Register messages that have a matching active workflow and are not registered yet | Reads the source view and workflow configuration; inserts into `[ORP].[Messages]` |
+| `[ORP].[RegisterNewMessages]` | Register messages that have a matching active workflow and are not registered yet | Reads the source view and workflow configuration; atomically inserts `[ORP].[Messages]` and `MessageRegistered` audit events |
 | `[ORP]` tables | Store only ORP-specific workflow data | Owned and updated by ORP |
 
 `[swift].[messages]` is read-only from the ORP application's perspective. The dedicated import identity is the only component that requires write permission to it.
@@ -167,6 +167,7 @@ Registration then inserts this minimal row:
 ```
 
 Existing ORP rows are never updated or re-created by synchronization. In particular, rerunning the job must not reset state, assignment, reviews, or audit history.
+Each newly inserted row receives exactly one system-authored `MessageRegistered` event; repeated registration runs do not add another event.
 
 ```mermaid
 flowchart TD
@@ -273,7 +274,7 @@ The repository already implements the core shape of this design:
 | Only the `ORP` connection string is currently read from `App.config` | Add the package-specific AWH and operational settings |
 | `[ORP].[SwiftMessageSource]` is currently an empty bootstrap view | Replace it with a projection over `[swift].[messages]` and implement the agreed routing rules |
 | Existing comments/documentation refer to `[dbo].[Messages]` | Update them to the confirmed `[swift].[messages]` source |
-| `[ORP].[RegisterNewMessages]` inserts only absent keys and initializes `State = New` | Aligned with idempotent ORP registration |
+| `[ORP].[RegisterNewMessages]` inserts only absent keys, initializes `State = New`, and writes `MessageRegistered` in the same transaction | Aligned with idempotent ORP registration and auditability |
 | Workflow resolution prefers an exact branch and falls back to `BranchId IS NULL` | Aligned; confirm that this is the desired business rule |
 | ORP queries join `[ORP].[Messages]` to the source view instead of copying payload fields | Aligned with the no-copy requirement; requires durable source retention |
 | EF Core blocks writes to `SwiftMessageRecord` through the ORP context | Aligned with the read-only boundary |

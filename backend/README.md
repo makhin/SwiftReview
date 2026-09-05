@@ -95,6 +95,10 @@ dotnet ef migrations add MigrationName \
 
 All application endpoints are under `/api` and require authentication. The API exposes message search and detail operations, a DevExtreme grid endpoint, assignment and review actions, audit history, dashboard summaries, and reference data.
 
+`GET /api/messages/{id}/audit` returns a newest-first paged history. It accepts `skip` (default `0`) and
+`take` (default `100`, maximum `500`) and requires the `audit.view` permission plus access to the message's
+branch and department.
+
 `GET /api/messages/grid` accepts DevExtreme remote load options. Data loading remains server-side through `DevExtreme.AspNet.Data`; the frontend consumes it through a DevExtreme `CustomStore`.
 
 Request and response schemas, status codes, and Problem Details payloads are documented in OpenAPI. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export the configured traces and metrics through OTLP.
