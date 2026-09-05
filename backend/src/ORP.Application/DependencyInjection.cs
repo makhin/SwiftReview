@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Assignments.Assign;
+using ORP.Application.Assignments.Automatic;
 using ORP.Application.Assignments.Reassign;
 using ORP.Application.Audit.GetAuditTrail;
 using ORP.Application.Dashboard.GetSummary;
@@ -21,6 +22,9 @@ public static class DependencyInjection
         services.AddScoped<GetDashboardSummaryHandler>();
         services.AddScoped<AssignMessageHandler>();
         services.AddScoped<ReassignMessageHandler>();
+        services.AddScoped<AssignmentCoordinator>();
+        services.AddScoped<AutomaticAssignmentService>();
+        services.AddScoped<AssignNewMessageHandler>();
         services.AddScoped<StartReviewHandler>();
         services.AddScoped<ApproveReviewHandler>();
         services.AddScoped<RejectReviewHandler>();

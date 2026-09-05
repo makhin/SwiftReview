@@ -109,11 +109,15 @@ At any `*ReviewInProgress` state, `Reject` moves the message directly to `Reject
 ### Assign and reassign
 
 - `Assign` is valid only in `New` and changes the state to `Assigned`.
+- A background worker assigns `New` messages to the least-loaded eligible reviewer for the first required level.
 - `Reassign` preserves the current state.
 - Reassignment is allowed in `Assigned`, all waiting and in-progress review states, and `Rejected`.
 - Reassignment is not allowed in `New` or `Completed`.
 - The new assignee must be able to access the message branch and department and must have the permission required for the current review level.
 - Reassigning during an active review does not replace the active `Review` record or its reviewer.
+- After a non-final approval, the message is automatically reassigned to the least-loaded eligible reviewer for the next required level.
+- Automatic selection requires message access, the permission for the target review level, branch and department access, and excludes users with an earlier approved review for the message. Ties are resolved by user ID.
+- If no next reviewer is eligible, the approval is rejected atomically and can be retried after access or staffing is corrected.
 
 ### Start review
 
@@ -149,6 +153,7 @@ At any `*ReviewInProgress` state, `Reject` moves the message directly to `Reject
 - Only the latest approved workflow level can be undone.
 - The user needs `review.undo` permission and access to the message scope.
 - The review status becomes `Undone`; the record remains in history.
+- Undo automatically selects an assignee for the reopened level and is rejected atomically if no reviewer is eligible.
 - The message returns to the state immediately before that level:
 
 | Undone level | Resulting message state |

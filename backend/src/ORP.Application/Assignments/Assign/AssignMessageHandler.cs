@@ -1,8 +1,6 @@
 using FluentValidation;
 using ORP.Application.Abstractions;
-using ORP.Application.Audit;
-using ORP.Domain.Assignments;
-using ORP.Domain.Auditing;
+using ORP.Application.Assignments.Automatic;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 
@@ -14,7 +12,8 @@ public sealed class AssignMessageValidator : AbstractValidator<AssignMessageRequ
 }
 
 public sealed class AssignMessageHandler(IORPStore store, IUserAccessService accessService,
-    IValidator<AssignMessageRequest> validator, ICurrentUser user, IClock clock, ICorrelationContext correlation)
+    IValidator<AssignMessageRequest> validator, ICurrentUser user, ICorrelationContext correlation,
+    AssignmentCoordinator assignments)
 {
     public async Task HandleAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
     {
@@ -27,17 +26,8 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAccessService acc
             !target.CanAccess(source.BranchId, source.DepartmentId) ||
             RequiredReviewPermission(message.State) is { } permission && !target.Permissions.Contains(permission))
             throw new ValidationException("The assignee cannot access or process the message in its current workflow state.");
-        var oldState = message.State;
-        var previous = await store.GetActiveAssignmentAsync(messageId, cancellationToken);
-        var now = clock.UtcNow;
-        previous?.End(now);
-        var assignment = new Assignment(messageId, user.UserId, request.AssignedTo, now);
-        message.Assign(request.AssignedTo);
-        store.AddAssignment(assignment);
-        var eventType = previous is null ? AuditEventType.MessageAssigned : AuditEventType.MessageReassigned;
-        store.AddAudit(AuditEventFactory.Create(messageId, eventType, user.UserId, now, oldState, message.State,
-            new AuditEventDetailsDto(PreviousAssigneeId: previous?.AssignedTo, AssigneeId: request.AssignedTo),
-            correlation.CorrelationId));
+        await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
+            cancellationToken);
         await store.SaveChangesAsync(cancellationToken);
     }
 

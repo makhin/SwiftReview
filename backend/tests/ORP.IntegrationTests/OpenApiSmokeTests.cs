@@ -16,6 +16,7 @@ public sealed class OpenApiSmokeTests
         {
             web.UseEnvironment("Production");
             web.UseSetting("UseMockData", "true");
+            web.UseSetting("AutoAssignment:Enabled", "false");
         });
         using var client = factory.CreateClient();
         using var response = await client.GetAsync("/openapi/v1.json", ct);

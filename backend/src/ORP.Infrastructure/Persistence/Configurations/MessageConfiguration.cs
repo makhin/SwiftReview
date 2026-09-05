@@ -15,6 +15,7 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
     {
         builder.ToTable("Messages"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).HasColumnName("MessageId").ValueGeneratedNever();
         builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
+        builder.Property<byte[]>("RowVersion").IsRowVersion();
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -68,7 +69,7 @@ public sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignmen
         builder.ToTable("Assignments"); builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.MessageId).HasFilter("[EndedAt] IS NULL").IsUnique();
         builder.HasOne<Message>().WithMany().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<User>().WithMany().HasForeignKey(x => x.AssignedBy).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.AssignedBy).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.AssignedTo).OnDelete(DeleteBehavior.Restrict);
     }
 }

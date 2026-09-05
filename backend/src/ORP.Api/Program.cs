@@ -26,6 +26,13 @@ builder.Services.AddSingleton<ICorrelationContext, CorrelationContext>();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddOptions<AutomaticAssignmentOptions>()
+    .Bind(builder.Configuration.GetSection(AutomaticAssignmentOptions.SectionName))
+    .Validate(options => options.IntervalSeconds > 0 && options.BatchSize > 0,
+        "Auto-assignment interval and batch size must be positive.")
+    .ValidateOnStart();
+if (builder.Configuration.GetValue("AutoAssignment:Enabled", true))
+    builder.Services.AddHostedService<AutomaticAssignmentWorker>();
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDetailsAuthorizationResultHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, MessageActionAuthorizationHandler>();

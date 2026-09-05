@@ -3,6 +3,7 @@ using FluentValidation;
 using NSubstitute;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments.Assign;
+using ORP.Application.Assignments.Automatic;
 using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -30,7 +31,8 @@ public sealed class AssignmentHandlerTests
             new HashSet<int> { 2 }, new HashSet<int> { 2 }));
         user.UserId.Returns(5);
 
-        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, clock, correlation);
+        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
+            new AssignmentCoordinator(store, clock));
         await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1,
             new AssignMessageRequest(2), CancellationToken.None));
         store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
@@ -59,7 +61,8 @@ public sealed class AssignmentHandlerTests
         correlation.CorrelationId.Returns("assign-correlation");
         store.When(x => x.AddAudit(Arg.Any<AuditEvent>())).Do(x => audit = x.Arg<AuditEvent>());
 
-        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, clock, correlation);
+        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
+            new AssignmentCoordinator(store, clock));
         await handler.HandleAsync(1, new AssignMessageRequest(2), TestContext.Current.CancellationToken);
 
         Assert.NotNull(audit);

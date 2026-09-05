@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IMessageQueries, MessageQueries>();
         services.AddScoped<MessageGridQueries>();
         services.AddScoped<IUserAccessService, UserAccessService>();
+        services.AddScoped<IAutomaticAssignmentQueries, AutomaticAssignmentQueries>();
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();
         services.AddSingleton<IClock, SystemClock>();

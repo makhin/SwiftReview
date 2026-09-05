@@ -3,6 +3,7 @@ import Popup from 'devextreme-react/popup';
 import TextArea from 'devextreme-react/text-area';
 import { useState } from 'react';
 
+import { ApiError } from '../../shared/api/errors';
 import { approveReview, rejectReview, startReview } from './messagesApi';
 import type { MessageRow } from './messagesApi';
 import { getReviewStep, type ReviewDecision } from './reviewDecision';
@@ -54,8 +55,10 @@ export default function ReviewDecisionPopup({
       completed = true;
       onChanged();
       onClose();
-    } catch {
-      setError(`Unable to ${decision} the message. Check your access and try again.`);
+    } catch (caught) {
+      setError(caught instanceof ApiError && caught.status === 409
+        ? caught.message
+        : `Unable to ${decision} the message. Check your access and try again.`);
       if (startedDuringSubmit) {
         onChanged();
       }

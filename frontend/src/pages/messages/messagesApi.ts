@@ -109,8 +109,19 @@ async function postReviewAction(
     });
 
     if (!response.ok) {
+      let detail: string | undefined;
+      if (response.status === 409) {
+        try {
+          const problem = (await response.json()) as { detail?: unknown };
+          if (typeof problem.detail === 'string' && problem.detail.trim()) {
+            detail = problem.detail;
+          }
+        } catch {
+          // Fall back to the stable action error when the response is not Problem Details.
+        }
+      }
       throw new ApiError(
-        `Unable to ${action} review (${response.status}).`,
+        detail ?? `Unable to ${action} review (${response.status}).`,
         response.status,
       );
     }

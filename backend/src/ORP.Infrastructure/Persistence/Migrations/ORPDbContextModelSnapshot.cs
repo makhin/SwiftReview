@@ -31,7 +31,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<int>("AssignedBy")
+                    b.Property<int?>("AssignedBy")
                         .HasColumnType("int");
 
                     b.Property<int>("AssignedTo")
@@ -282,6 +282,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("MessageId");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<int?>("CurrentAssigneeId")
                         .HasColumnType("int");
 
@@ -476,8 +481,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasOne("ORP.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("AssignedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ORP.Domain.Identity.User", null)
                         .WithMany()

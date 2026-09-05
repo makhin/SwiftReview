@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using ORP.Application.Abstractions;
 using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
@@ -22,5 +23,26 @@ public sealed class ORPStore(ORPDbContext db) : IORPStore
     public void AddReview(Review x) => db.Reviews.Add(x);
     public void AddAssignment(Assignment x) => db.Assignments.Add(x);
     public void AddAudit(AuditEvent x) => db.AuditEvents.Add(x);
-    public Task<int> SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
+    public async Task<int> SaveChangesAsync(CancellationToken ct)
+    {
+        try
+        {
+            return await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw Conflict(exception);
+        }
+        catch (DbUpdateException exception) when (IsActiveAssignmentConflict(exception))
+        {
+            throw Conflict(exception);
+        }
+    }
+
+    private static bool IsActiveAssignmentConflict(DbUpdateException exception) =>
+        exception.InnerException is SqlException { Number: 2601 or 2627 } sqlException &&
+        sqlException.Message.Contains("IX_Assignments_MessageId", StringComparison.Ordinal);
+
+    private static ConcurrentUpdateException Conflict(Exception exception) =>
+        new("The message was changed by another operation. Refresh and try again.", exception);
 }

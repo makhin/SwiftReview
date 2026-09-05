@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ORP.Application.Abstractions;
+using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -28,7 +29,7 @@ public sealed class ApiWorkflowTests
     };
 
     [Fact]
-    public void AllDepartmentPermissionMigration_IsDiscoverable()
+    public void LatestMigrations_AreDiscoverable()
     {
         var options = new DbContextOptionsBuilder<ORPDbContext>()
             .UseSqlServer("Server=localhost;Database=MigrationDiscovery;Trusted_Connection=True;TrustServerCertificate=True")
@@ -36,6 +37,7 @@ public sealed class ApiWorkflowTests
         using var db = new ORPDbContext(options);
 
         Assert.Contains("20260905120000_AddAllDepartmentsPermission", db.Database.GetMigrations());
+        Assert.Contains("20260905170000_AutomaticAssignment", db.Database.GetMigrations());
     }
 
     [Fact]
@@ -50,7 +52,12 @@ public sealed class ApiWorkflowTests
         {
             web.UseEnvironment("Development");
             web.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            { ["ConnectionStrings:ORP"] = sql.GetConnectionString(), ["BootstrapDatabase"] = "false", ["UseMockData"] = "false" }));
+            {
+                ["ConnectionStrings:ORP"] = sql.GetConnectionString(),
+                ["BootstrapDatabase"] = "false",
+                ["UseMockData"] = "false",
+                ["AutoAssignment:Enabled"] = "false"
+            }));
             web.ConfigureServices(services =>
             {
                 services.RemoveAll<ORPDbContext>();
@@ -69,7 +76,7 @@ public sealed class ApiWorkflowTests
             Assert.Equal(0, await seeded.Users.CountAsync(ct));
             Assert.Equal(0, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.False(await seeded.Reviews.AnyAsync(ct));
-            Assert.Equal(3, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
+            Assert.Equal(4, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
             var historyTableCount = await seeded.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS [Value] FROM sys.tables AS t JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE t.name = N'__EFMigrationsHistory' AND s.name = N'dbo'")
                 .SingleAsync(ct);
@@ -78,6 +85,11 @@ public sealed class ApiWorkflowTests
             await CreateAndSeedSwiftSource(seeded, ct);
             Assert.Equal(76, await seeded.Messages.CountAsync(ct));
             Assert.Equal(76, await seeded.SwiftMessageSource.CountAsync(ct));
+            var assignmentQueries = scope.ServiceProvider.GetRequiredService<IAutomaticAssignmentQueries>();
+            var firstQueuePage = await assignmentQueries.GetUnassignedMessagesAsync(null, 2, ct);
+            Assert.Equal([1, 2], firstQueuePage.Select(item => item.MessageId));
+            Assert.Equal([3, 4], (await assignmentQueries.GetUnassignedMessagesAsync(firstQueuePage[^1], 2, ct))
+                .Select(item => item.MessageId));
             Assert.Equal(8, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.Equal(15, await seeded.WorkflowSteps.CountAsync(ct));
             var levelThreeMessage = await seeded.Messages.SingleAsync(x => x.Id == 6, ct);
@@ -96,6 +108,7 @@ public sealed class ApiWorkflowTests
             await Assert.ThrowsAsync<InvalidOperationException>(() => seeded.SaveChangesAsync(ct));
             seeded.Entry(forbiddenBodyWrite).State = EntityState.Detached;
         }
+        await VerifyConcurrentAssignmentReturnsControlledConflict(factory, fixture, ct);
 
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
@@ -246,6 +259,27 @@ public sealed class ApiWorkflowTests
     }
 
     private sealed record SqlFixture(int AmeliaId, int TheoId, int PriyaId);
+
+    private static async Task VerifyConcurrentAssignmentReturnsControlledConflict(
+        WebApplicationFactory<Program> factory, SqlFixture fixture, CancellationToken ct)
+    {
+        const long id = 75;
+        await using var firstScope = factory.Services.CreateAsyncScope();
+        await using var secondScope = factory.Services.CreateAsyncScope();
+        var firstStore = firstScope.ServiceProvider.GetRequiredService<IORPStore>();
+        var secondStore = secondScope.ServiceProvider.GetRequiredService<IORPStore>();
+        var firstMessage = (await firstStore.FindMessageAsync(id, ct))!;
+        var secondMessage = (await secondStore.FindMessageAsync(id, ct))!;
+
+        firstMessage.Assign(fixture.AmeliaId);
+        firstStore.AddAssignment(new Assignment(id, null, fixture.AmeliaId, DateTimeOffset.UtcNow));
+        secondMessage.Assign(fixture.TheoId);
+        secondStore.AddAssignment(new Assignment(id, null, fixture.TheoId, DateTimeOffset.UtcNow));
+
+        await firstStore.SaveChangesAsync(ct);
+        var conflict = await Assert.ThrowsAsync<ConcurrentUpdateException>(() => secondStore.SaveChangesAsync(ct));
+        Assert.Equal("The message was changed by another operation. Refresh and try again.", conflict.Message);
+    }
 
     private static async Task VerifyGrid(HttpClient client, CancellationToken ct)
     {

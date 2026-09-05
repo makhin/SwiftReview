@@ -150,4 +150,14 @@ describe('review actions', () => {
       new ApiError('Unable to approve review (409).', 409),
     );
   });
+
+  it('uses the Problem Details message for a review conflict', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      detail: 'No eligible reviewer is available for review level 2.',
+    }), { status: 409, headers: { 'Content-Type': 'application/problem+json' } })));
+
+    await expect(approveReview(42, 1, null)).rejects.toEqual(
+      new ApiError('No eligible reviewer is available for review level 2.', 409),
+    );
+  });
 });

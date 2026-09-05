@@ -16,6 +16,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             ResourceNotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
             UnauthorizedAccessException => (StatusCodes.Status403Forbidden, "Forbidden"),
             DomainRuleViolationException => (StatusCodes.Status409Conflict, "Domain rule violation"),
+            ConcurrentUpdateException => (StatusCodes.Status409Conflict, "Concurrent update"),
             _ => (StatusCodes.Status500InternalServerError, "Unexpected error")
         };
         if (status == 500) logger.LogError(exception, "Unhandled request exception"); else logger.LogWarning(exception, "Request failed with status {Status}", status);

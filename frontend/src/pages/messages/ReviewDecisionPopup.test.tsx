@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '../../shared/api/errors';
+
 const { approveReview, rejectReview, startReview } = vi.hoisted(() => ({
   approveReview: vi.fn(),
   rejectReview: vi.fn(),
@@ -125,6 +127,45 @@ describe('ReviewDecisionPopup', () => {
     expect(startReview).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledOnce();
     expect(onChanged).toHaveBeenCalledOnce();
+  });
+
+  it('starts and approves the third review level', async () => {
+    render(
+      <ReviewDecisionPopup
+        decision="approve"
+        message={{ ...baseMessage, state: 'WaitingForThirdReview' }}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => expect(approveReview).toHaveBeenCalledWith(42, 3, null));
+    expect(startReview).toHaveBeenCalledWith(42, 3);
+  });
+
+  it('shows an automatic-assignment conflict and keeps the dialog open', async () => {
+    approveReview.mockRejectedValue(new ApiError(
+      'No eligible reviewer is available for review level 2.',
+      409,
+    ));
+    const onClose = vi.fn();
+    render(
+      <ReviewDecisionPopup
+        decision="approve"
+        message={{ ...baseMessage, state: 'FirstReviewInProgress' }}
+        onClose={onClose}
+        onChanged={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No eligible reviewer is available for review level 2.',
+    );
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('keeps the dialog open and refreshes after a started review fails to approve', async () => {

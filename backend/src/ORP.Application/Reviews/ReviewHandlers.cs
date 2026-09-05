@@ -1,5 +1,6 @@
 using FluentValidation;
 using ORP.Application.Abstractions;
+using ORP.Application.Assignments.Automatic;
 using ORP.Application.Audit;
 using ORP.Domain.Auditing;
 using ORP.Domain.Reviews;
@@ -57,7 +58,8 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
 }
 
 public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveReviewRequest> validator,
-    ICurrentUser user, IClock clock, ICorrelationContext correlation)
+    ICurrentUser user, IClock clock, ICorrelationContext correlation,
+    AutomaticAssignmentService automaticAssignments)
 {
     public async Task HandleAsync(long messageId, ApproveReviewRequest request, CancellationToken cancellationToken)
     {
@@ -71,6 +73,14 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
         message.Approve(review, workflow, reviews, request.Comment, now);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, request.Comment);
+        if (AutomaticAssignmentService.ReviewLevelForState(message.State) is { } nextLevel)
+        {
+            var source = await store.FindMessageSourceAsync(messageId, cancellationToken)
+                ?? throw new ResourceNotFoundException("SWIFT message was not found.");
+            if (!await automaticAssignments.TryAssignAsync(message, source, nextLevel, reviews,
+                    correlation.CorrelationId, cancellationToken))
+                throw AutomaticAssignmentService.NoCandidate(nextLevel);
+        }
         if (message.State == Domain.Messages.MessageState.Completed)
             StartReviewHandler.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
@@ -97,7 +107,8 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
 }
 
 public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequest> validator,
-    ICurrentUser user, IClock clock, ICorrelationContext correlation)
+    ICurrentUser user, IClock clock, ICorrelationContext correlation,
+    AutomaticAssignmentService automaticAssignments)
 {
     public async Task HandleAsync(long messageId, UndoReviewRequest request, CancellationToken cancellationToken)
     {
@@ -112,6 +123,13 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
         message.UndoLastApproval(review, workflow, reviews, user.UserId, now);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, review.Comment);
+        var level = AutomaticAssignmentService.ReviewLevelForState(message.State)
+            ?? throw new InvalidOperationException("Undo did not reopen a review level.");
+        var source = await store.FindMessageSourceAsync(messageId, cancellationToken)
+            ?? throw new ResourceNotFoundException("SWIFT message was not found.");
+        if (!await automaticAssignments.TryAssignAsync(message, source, level, reviews,
+                correlation.CorrelationId, cancellationToken))
+            throw AutomaticAssignmentService.NoCandidate(level);
         await store.SaveChangesAsync(cancellationToken);
     }
 }

@@ -227,6 +227,7 @@ public sealed class MockDataModeTests
         {
             web.UseEnvironment(environment);
             web.UseSetting("UseMockData", "true");
+            web.UseSetting("AutoAssignment:Enabled", "false");
             web.UseSetting("ConnectionStrings:ORP", "not-a-sql-server-connection");
         });
     }
