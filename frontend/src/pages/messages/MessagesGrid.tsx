@@ -7,6 +7,7 @@ import DataGrid, {
   Pager,
   Paging,
 } from 'devextreme-react/data-grid';
+import type { DataGridRef } from 'devextreme-react/data-grid';
 import Drawer from 'devextreme-react/drawer';
 import type CustomStore from 'devextreme/data/custom_store';
 import { useQuery } from '@tanstack/react-query';
@@ -24,9 +25,17 @@ import {
 import AuditTrailDrawer from './AuditTrailDrawer';
 import type { MessageRow } from './messagesApi';
 import RawMessagePopup from './RawMessagePopup';
+import ReviewDecisionPopup from './ReviewDecisionPopup';
+import { canReviewMessage, type ReviewDecision } from './reviewDecision';
 
 type MessagesGridProps = {
   dataSource: CustomStore<MessageRow, MessageRow['id']>;
+  enableReviewActions?: boolean;
+};
+
+type SelectedReviewAction = {
+  decision: ReviewDecision;
+  message: MessageRow;
 };
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
@@ -52,7 +61,10 @@ function usePrefersReducedMotion() {
   return matches;
 }
 
-export default function MessagesGrid({ dataSource }: MessagesGridProps) {
+export default function MessagesGrid({
+  dataSource,
+  enableReviewActions = false,
+}: MessagesGridProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const { data: users } = useQuery(usersQueryOptions());
   const { data: branches } = useQuery(branchesQueryOptions());
@@ -60,8 +72,12 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
   const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
   const [selectedRawMessage, setSelectedRawMessage] = useState<MessageRow | null>(null);
+  const [selectedReviewAction, setSelectedReviewAction] =
+    useState<SelectedReviewAction | null>(null);
   const auditTriggerRef = useRef<HTMLElement | null>(null);
   const rawTriggerRef = useRef<HTMLElement | null>(null);
+  const reviewTriggerRef = useRef<HTMLElement | null>(null);
+  const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const showAudit = currentUser ? canViewAudit(currentUser.permissions) : false;
   const assigneeUsers = users?.map((user) => {
@@ -83,6 +99,25 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
   function closeRawMessage() {
     setSelectedRawMessage(null);
     requestAnimationFrame(() => rawTriggerRef.current?.focus());
+  }
+
+  function closeReviewAction() {
+    setSelectedReviewAction(null);
+    requestAnimationFrame(() => reviewTriggerRef.current?.focus());
+  }
+
+  function openReviewAction(message: MessageRow, decision: ReviewDecision) {
+    reviewTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedReviewAction({ decision, message });
+  }
+
+  function canShowReviewAction(message: MessageRow | undefined, decision: ReviewDecision) {
+    if (!currentUser || !message) {
+      return false;
+    }
+
+    return canReviewMessage(message.state, decision, currentUser.permissions);
   }
 
   useEffect(() => {
@@ -114,6 +149,7 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
     <>
       <div className="app-table-shell">
         <DataGrid
+          ref={dataGridRef}
           dataSource={dataSource}
           remoteOperations
           showBorders={false}
@@ -194,10 +230,40 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
           <Column
             type="buttons"
             caption="Actions"
-            width={showAudit ? 130 : 90}
+            width={enableReviewActions ? (showAudit ? 290 : 250) : showAudit ? 130 : 90}
             allowFiltering={false}
             allowSorting={false}
           >
+            {enableReviewActions && (
+              <GridButton
+                text="Approve"
+                hint="Approve message"
+                visible={(event) =>
+                  canShowReviewAction(event.row?.data as MessageRow | undefined, 'approve')
+                }
+                onClick={(event) => {
+                  const message = event.row?.data as MessageRow | undefined;
+                  if (message) {
+                    openReviewAction(message, 'approve');
+                  }
+                }}
+              />
+            )}
+            {enableReviewActions && (
+              <GridButton
+                text="Reject"
+                hint="Reject message"
+                visible={(event) =>
+                  canShowReviewAction(event.row?.data as MessageRow | undefined, 'reject')
+                }
+                onClick={(event) => {
+                  const message = event.row?.data as MessageRow | undefined;
+                  if (message) {
+                    openReviewAction(message, 'reject');
+                  }
+                }}
+              />
+            )}
             <GridButton
               text="Raw"
               hint="View raw message"
@@ -235,6 +301,14 @@ export default function MessagesGrid({ dataSource }: MessagesGridProps) {
       </div>
       {selectedRawMessage && (
         <RawMessagePopup message={selectedRawMessage} onClose={closeRawMessage} />
+      )}
+      {selectedReviewAction && (
+        <ReviewDecisionPopup
+          decision={selectedReviewAction.decision}
+          message={selectedReviewAction.message}
+          onClose={closeReviewAction}
+          onChanged={() => void dataGridRef.current?.instance().refresh()}
+        />
       )}
       {selectedAuditMessage &&
         createPortal(

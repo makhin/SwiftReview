@@ -35,10 +35,9 @@ public sealed class Review
         CompletedAt = now;
     }
 
-    public void Reject(string comment, DateTimeOffset now)
+    public void Reject(string? comment, DateTimeOffset now)
     {
         EnsureInProgress();
-        if (string.IsNullOrWhiteSpace(comment)) throw new DomainRuleViolationException("A rejection comment is required.");
         Status = ReviewStatus.Rejected;
         Comment = comment;
         CompletedAt = now;

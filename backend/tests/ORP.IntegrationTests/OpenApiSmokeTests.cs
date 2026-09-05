@@ -45,6 +45,8 @@ public sealed class OpenApiSmokeTests
             Assert.Contains(parameter, gridParameters);
         Assert.Contains("null", schemas.GetProperty("ApproveReviewRequest").GetProperty("properties").GetProperty("comment").GetProperty("type")
             .EnumerateArray().Select(x => x.GetString()));
+        Assert.Contains("null", schemas.GetProperty("RejectReviewRequest").GetProperty("properties").GetProperty("comment").GetProperty("type")
+            .EnumerateArray().Select(x => x.GetString()));
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("id", out _));
         Assert.True(schemas.GetProperty("ReferenceItemDto").GetProperty("properties").TryGetProperty("name", out _));
         Assert.True(schemas.GetProperty("MessageStateReferenceDto").GetProperty("properties").TryGetProperty("code", out _));

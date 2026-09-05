@@ -209,22 +209,15 @@ public sealed class MockDataModeTests
         var startedForReject = await client.PostAsJsonAsync(
             "/api/messages/3/reviews/start", new StartReviewRequest(1), ct);
         var rejectReviewId = (await startedForReject.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
-        var beforeFailedReject = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
-            "/api/messages/3/audit", ResponseJson, ct);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(
-            "/api/messages/3/reviews/reject", new RejectReviewRequest(1, ""), ct)).StatusCode);
-        var afterFailedReject = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
-            "/api/messages/3/audit", ResponseJson, ct);
-        Assert.Equal(beforeFailedReject!.TotalCount, afterFailedReject!.TotalCount);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
-            "/api/messages/3/reviews/reject", new RejectReviewRequest(1, "invalid data"), ct)).StatusCode);
+            "/api/messages/3/reviews/reject", new RejectReviewRequest(1, null), ct)).StatusCode);
         var rejectAudit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
             "/api/messages/3/audit", ResponseJson, ct);
         var rejected = Assert.Single(rejectAudit!.Items,
             x => x.EventType == AuditEventType.ReviewRejected);
         Assert.Equal(rejectReviewId, rejected.Details.ReviewId);
         Assert.Equal(1, rejected.Details.ReviewLevel);
-        Assert.Equal("invalid data", rejected.Details.Comment);
+        Assert.Null(rejected.Details.Comment);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(string environment)

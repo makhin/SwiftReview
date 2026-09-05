@@ -72,6 +72,7 @@ describe('AssignedMessagesPage', () => {
     );
 
     const dataSource = gridProps.mock.calls.at(-1)?.[0].dataSource;
+    expect(gridProps.mock.calls.at(-1)?.[0].enableReviewActions).toBe(true);
     await act(() => dataSource.load({ skip: 0, take: 20 }));
 
     expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, 'mine');
@@ -81,6 +82,7 @@ describe('AssignedMessagesPage', () => {
     renderPage('/messages/assigned?scope=departments');
 
     const dataSource = gridProps.mock.calls.at(-1)?.[0].dataSource;
+    expect(gridProps.mock.calls.at(-1)?.[0].enableReviewActions).toBe(false);
     await act(() => dataSource.load({ filter: ['state', '=', 'Assigned'] }));
 
     expect(getMessageGrid).toHaveBeenCalledWith(

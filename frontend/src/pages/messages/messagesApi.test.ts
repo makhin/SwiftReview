@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../shared/api/errors';
-import { getMessage, getMessageGrid } from './messagesApi';
+import {
+  approveReview,
+  getMessage,
+  getMessageGrid,
+  rejectReview,
+  startReview,
+} from './messagesApi';
 
 describe('getMessageGrid', () => {
   afterEach(() => {
@@ -105,6 +111,43 @@ describe('getMessage', () => {
 
     await expect(getMessage(42)).rejects.toEqual(
       new ApiError('Unable to load message (404).', 404),
+    );
+  });
+});
+
+describe('review actions', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ['start', startReview, { level: 2 }],
+    ['approve', approveReview, { level: 2, comment: 'confirmed' }],
+    ['reject', rejectReview, { level: 2, comment: null }],
+  ] as const)('posts the %s review action', async (action, request, body) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    if (action === 'start') {
+      await request(42, 2);
+    } else {
+      await request(42, 2, body.comment);
+    }
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/messages/42/reviews/${action}`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    );
+  });
+
+  it('normalizes an unsuccessful review response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(approveReview(42, 1, null)).rejects.toEqual(
+      new ApiError('Unable to approve review (409).', 409),
     );
   });
 });

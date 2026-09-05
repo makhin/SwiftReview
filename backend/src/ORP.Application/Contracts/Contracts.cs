@@ -9,7 +9,7 @@ public sealed record StartReviewRequest([property: Range(1, 3)] int Level);
 public sealed record ApproveReviewRequest([property: Range(1, 3)] int Level,
     [property: StringLength(2000)] string? Comment);
 public sealed record RejectReviewRequest([property: Range(1, 3)] int Level,
-    [property: Required, StringLength(2000)] string Comment);
+    [property: StringLength(2000)] string? Comment);
 public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long ReviewId);
 
 public sealed record StartReviewResponse(long ReviewId);

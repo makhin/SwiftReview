@@ -59,7 +59,7 @@ public sealed class Message
         machine.Fire(MessageTrigger.Approve);
     }
 
-    public void Reject(Review review, string comment, DateTimeOffset now)
+    public void Reject(Review review, string? comment, DateTimeOffset now)
     {
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
         var machine = CreateMachine();

@@ -16,7 +16,7 @@ public sealed class ApproveReviewValidator : AbstractValidator<ApproveReviewRequ
 }
 public sealed class RejectReviewValidator : AbstractValidator<RejectReviewRequest>
 {
-    public RejectReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.Comment).NotEmpty().MaximumLength(2000); }
+    public RejectReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.Comment).MaximumLength(2000); }
 }
 public sealed class UndoReviewValidator : AbstractValidator<UndoReviewRequest>
 {
@@ -89,7 +89,7 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             ?? throw new ResourceNotFoundException("Active review was not found.");
         var oldState = message.State;
         var now = clock.UtcNow;
-        message.Reject(review, request.Comment!, now);
+        message.Reject(review, request.Comment, now);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, request.Comment);
         await store.SaveChangesAsync(cancellationToken);

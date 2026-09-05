@@ -79,6 +79,21 @@ public sealed class MessageWorkflowTests
     }
 
     [Fact]
+    public void Reject_AllowsNoComment()
+    {
+        var (message, workflow, reviews) = Create(1);
+        message.Assign(2);
+        var review = message.StartReview(1, 10, workflow, reviews, Now);
+        reviews.Add(review);
+
+        message.Reject(review, null, Now);
+
+        Assert.Equal(MessageState.Rejected, message.State);
+        Assert.Equal(ReviewStatus.Rejected, review.Status);
+        Assert.Null(review.Comment);
+    }
+
+    [Fact]
     public void AssignmentToSelf_IsRejected() => Assert.Throws<DomainRuleViolationException>(() => new Assignment(1, 7, 7, Now));
 
     [Fact]

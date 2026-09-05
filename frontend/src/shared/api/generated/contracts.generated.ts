@@ -164,7 +164,7 @@ export interface ReferenceItemDto {
 
 export interface RejectReviewRequest {
   level: number | string;
-  comment: string;
+  comment: string | null;
 }
 
 export interface SortClause {

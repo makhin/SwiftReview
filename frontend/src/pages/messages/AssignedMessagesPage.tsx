@@ -65,7 +65,7 @@ export default function AssignedMessagesPage() {
         />
       </div>
 
-      <MessagesGrid dataSource={dataSource} />
+      <MessagesGrid dataSource={dataSource} enableReviewActions={scope === 'mine'} />
     </main>
   );
 }

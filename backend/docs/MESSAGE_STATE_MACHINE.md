@@ -70,12 +70,12 @@ There is no separate `WaitingForFirstReview` state. `Assigned` represents that c
 | `Reassign` | Transfer responsibility to another eligible person without restarting the workflow | Changes the assignee but preserves the message state and completed review history |
 | `StartReview` | Begin the next required review level and identify the reviewer responsible for it | Creates an `InProgress` review and moves the message into the corresponding review-in-progress state |
 | `Approve` | Confirm that the message has passed the active review level | Marks the review `Approved` and moves to the next required level or to `Completed` |
-| `Reject` | Record a negative review decision because the message must not continue through the approval workflow | Requires a reason, marks the active review `Rejected`, and moves the whole message to `Rejected` |
+| `Reject` | Record a negative review decision because the message must not continue through the approval workflow | Marks the active review `Rejected` and moves the whole message to `Rejected`; a comment is optional |
 | `Undo` | Withdraw the reviewer's own most recent approval when it was given by mistake or must be reconsidered | Marks that approval `Undone` and reopens the same review level without deleting its history |
 
 ### Undo compared with Reject
 
-`Reject` is a decision made while a review is currently in progress. It means that the reviewer does not approve the message and stops the normal approval flow. A rejection comment is mandatory, and the message enters `Rejected`.
+`Reject` is a decision made while a review is currently in progress. It means that the reviewer does not approve the message and stops the normal approval flow. A rejection comment is optional, and the message enters `Rejected`.
 
 `Undo` is a correction made after an approval has already been recorded. It does not reject the message. It withdraws only the latest approval, returns the message to the point immediately before that review, and allows the level to be reviewed again. Only the person who made that approval can undo it.
 
@@ -137,7 +137,7 @@ At any `*ReviewInProgress` state, `Reject` moves the message directly to `Reject
 - Rejection is valid only while a review is in progress.
 - An active `InProgress` review must exist for the requested level.
 - The user needs `review.reject` permission and access to the message scope.
-- A non-empty rejection comment is mandatory.
+- A rejection comment is optional.
 - Rejection changes the review status to `Rejected` and the message state to `Rejected`.
 - In the current implementation, the rejecting user is not required to be the reviewer who started the active review.
 - `Rejected` currently has no transition back into review processing; reassignment changes the assignee but leaves the message rejected.
