@@ -111,6 +111,9 @@ export interface MessageListItemDto {
   state: MessageState;
   receivedAt: string;
   currentAssigneeId: number | string | null;
+  activeReviewId: number | string | null;
+  activeReviewLevel: number | string | null;
+  activeReviewerId: number | string | null;
   account: string | null;
   currency: string | null;
   amount: number | string | null;

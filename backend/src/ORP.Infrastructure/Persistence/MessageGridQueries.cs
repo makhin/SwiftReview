@@ -17,6 +17,9 @@ public sealed class MessageGridRowDto
     public MessageState State { get; init; }
     public DateTimeOffset ReceivedAt { get; init; }
     public int? CurrentAssigneeId { get; init; }
+    public long? ActiveReviewId { get; init; }
+    public int? ActiveReviewLevel { get; init; }
+    public int? ActiveReviewerId { get; init; }
     public string? Account { get; init; }
     public string? Currency { get; init; }
     public decimal? Amount { get; init; }
@@ -35,7 +38,8 @@ public sealed class MessageGridQueries(ORPDbContext db)
         query = assignmentScope switch
         {
             null => query,
-            MessageAssignmentScopes.Mine => query.Where(x => x.CurrentAssigneeId == access.UserId),
+            MessageAssignmentScopes.Mine => query.Where(x =>
+                x.CurrentAssigneeId == access.UserId || x.ActiveReviewerId == access.UserId),
             MessageAssignmentScopes.Departments => query.Where(x => x.CurrentAssigneeId != null &&
                 db.UserDepartments.Any(userDepartment =>
                     userDepartment.UserId == x.CurrentAssigneeId.Value &&
@@ -53,6 +57,9 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 State = x.State,
                 ReceivedAt = x.ReceivedAt,
                 CurrentAssigneeId = x.CurrentAssigneeId,
+                ActiveReviewId = x.ActiveReviewId,
+                ActiveReviewLevel = x.ActiveReviewLevel,
+                ActiveReviewerId = x.ActiveReviewerId,
                 Account = x.Account,
                 Currency = x.Currency,
                 Amount = x.Amount

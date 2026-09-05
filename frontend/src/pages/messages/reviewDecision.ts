@@ -27,17 +27,20 @@ export function getReviewStep(state: MessageRow['state']): ReviewStep | null {
 }
 
 export function canReviewMessage(
-  state: MessageRow['state'],
+  message: Pick<MessageRow, 'state' | 'activeReviewerId'>,
   decision: ReviewDecision,
+  currentUserId: number | string,
   permissions: string[],
 ) {
-  const step = getReviewStep(state);
+  const step = getReviewStep(message.state);
   if (!step) {
     return false;
   }
 
   const canReviewLevel = permissions.includes(`review.level${step.level}`);
   return decision === 'approve'
-    ? canReviewLevel
+    ? canReviewLevel && (
+      step.needsStart || String(message.activeReviewerId) === String(currentUserId)
+    )
     : permissions.includes('review.reject') && (!step.needsStart || canReviewLevel);
 }

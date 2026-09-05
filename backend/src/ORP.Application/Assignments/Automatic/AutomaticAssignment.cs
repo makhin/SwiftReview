@@ -1,4 +1,5 @@
 using ORP.Application.Abstractions;
+using ORP.Application.Assignments;
 using ORP.Application.Audit;
 using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
@@ -35,8 +36,7 @@ public sealed class AutomaticAssignmentService(IAutomaticAssignmentQueries queri
     public async Task<bool> TryAssignAsync(Message message, MessageSourceDto source, int reviewLevel,
         IReadOnlyCollection<Review> reviews, string correlationId, CancellationToken cancellationToken)
     {
-        var excluded = reviews.Where(x => x.Status == ReviewStatus.Approved)
-            .Select(x => x.ReviewerId).Distinct().ToArray();
+        var excluded = ReviewAssignmentRules.ApprovedReviewerIds(reviews);
         var assigneeId = await queries.SelectAssigneeAsync(message.Id, source.BranchId,
             source.DepartmentId, reviewLevel, excluded, cancellationToken);
         if (assigneeId is null) return false;
@@ -44,14 +44,6 @@ public sealed class AutomaticAssignmentService(IAutomaticAssignmentQueries queri
             await assignments.AssignAsync(message, assigneeId.Value, null, correlationId, cancellationToken);
         return true;
     }
-
-    public static int? ReviewLevelForState(MessageState state) => state switch
-    {
-        MessageState.Assigned or MessageState.FirstReviewInProgress => 1,
-        MessageState.WaitingForSecondReview or MessageState.SecondReviewInProgress => 2,
-        MessageState.WaitingForThirdReview or MessageState.ThirdReviewInProgress => 3,
-        _ => null
-    };
 
     public static DomainRuleViolationException NoCandidate(int level) =>
         new($"No eligible reviewer is available for review level {level}.");
@@ -69,8 +61,8 @@ public sealed class AssignNewMessageHandler(IORPStore store, AutomaticAssignment
             ?? throw new ResourceNotFoundException("SWIFT message was not found.");
         var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, cancellationToken)
             ?? throw new ResourceNotFoundException("Workflow was not found.");
-        var level = workflow.RequiredLevels().FirstOrDefault();
-        if (level == 0 || !workflow.IsActive) return false;
+        if (!workflow.IsActive) return false;
+        var level = workflow.RequiredLevels()[0];
         var reviews = await store.GetReviewsAsync(messageId, cancellationToken);
         if (!await automaticAssignments.TryAssignAsync(message, source, level, reviews, correlationId,
                 cancellationToken))

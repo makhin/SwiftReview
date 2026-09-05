@@ -8,7 +8,7 @@ import MessagesGrid from './MessagesGrid';
 type AssignmentScope = 'mine' | 'departments';
 
 const scopeItems: Array<{ id: AssignmentScope; text: string }> = [
-  { id: 'mine', text: 'Assigned to me' },
+  { id: 'mine', text: 'My work' },
   { id: 'departments', text: 'My departments' },
 ];
 
@@ -45,7 +45,7 @@ export default function AssignedMessagesPage() {
         <div className="app-page-header__main">
           <h1 className="app-page-title">Assigned messages</h1>
           <p className="app-page-subtitle">
-            Messages assigned to you or users in your departments.
+            Messages assigned to you, reviews you own, or work in your departments.
           </p>
         </div>
       </header>

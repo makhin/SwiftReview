@@ -117,7 +117,7 @@ export default function MessagesGrid({
       return false;
     }
 
-    return canReviewMessage(message.state, decision, currentUser.permissions);
+    return canReviewMessage(message, decision, currentUser.userId, currentUser.permissions);
   }
 
   useEffect(() => {
@@ -219,6 +219,17 @@ export default function MessagesGrid({
           <Column
             dataField="currentAssigneeId"
             caption="Assignee"
+            dataType="number"
+            width={100}
+            allowSorting={false}
+          >
+            {assigneeUsers && (
+              <Lookup dataSource={assigneeUsers} valueExpr="id" displayExpr="displayLabel" />
+            )}
+          </Column>
+          <Column
+            dataField="activeReviewerId"
+            caption="Active reviewer"
             dataType="number"
             width={100}
             allowSorting={false}

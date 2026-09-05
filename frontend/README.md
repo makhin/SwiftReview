@@ -63,7 +63,7 @@ npm run theme:build    # Regenerate the DevExtreme theme
 - `/messages` — administrator-only grid of all accessible SWIFT messages, backed by
   `GET /api/messages/grid`.
 - `/messages/assigned?scope=mine|departments` — messages assigned to the current
-  user or users in the current user's departments.
+  user, active reviews owned by that user, or messages assigned within the current user's departments.
 - `/me` — current debug-user details loaded through the typed API client.
 
 All routes render inside `RootLayout`, which provides the global header and responsive DevExtreme navigation.

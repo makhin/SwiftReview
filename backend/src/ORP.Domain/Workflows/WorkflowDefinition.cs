@@ -34,8 +34,28 @@ public sealed class WorkflowDefinition
         return this;
     }
 
-    public IReadOnlyList<int> RequiredLevels() => _steps.Where(x => x.Required).OrderBy(x => x.Order).Select(x => x.ReviewLevel).ToList();
-    public void Activate() => IsActive = true;
+    public IReadOnlyList<int> RequiredLevels()
+    {
+        if (_steps.Any(x => x.ReviewLevel is < 1 or > 3))
+            throw new DomainRuleViolationException("Review level must be between 1 and 3.");
+        if (_steps.Select(x => x.ReviewLevel).Distinct().Count() != _steps.Count)
+            throw new DomainRuleViolationException("Workflow step order and review level must be unique.");
+        var levels = _steps.Where(x => x.Required).OrderBy(x => x.Order)
+            .Select(x => x.ReviewLevel).ToList();
+        if (levels.Count == 0)
+            throw new DomainRuleViolationException("A workflow must contain at least one required review level.");
+        if (levels[0] != 1)
+            throw new DomainRuleViolationException("The first required review level must be level 1.");
+        if (!levels.SequenceEqual(levels.Distinct().Order()))
+            throw new DomainRuleViolationException("Required review levels must be in ascending order.");
+        return levels;
+    }
+
+    public void Activate()
+    {
+        _ = RequiredLevels();
+        IsActive = true;
+    }
     public void Deactivate() => IsActive = false;
 
     private static string Required(string value, string name) =>

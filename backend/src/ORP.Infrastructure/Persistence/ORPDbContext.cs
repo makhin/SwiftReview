@@ -48,6 +48,14 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
 
     private void EnsureWriteRules()
     {
+        var changedWorkflowIds = ChangeTracker.Entries<WorkflowStep>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(x => x.Entity.WorkflowDefinitionId)
+            .ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<WorkflowDefinition>().Where(x =>
+                     x.State != EntityState.Deleted && x.Entity.IsActive &&
+                     (x.State == EntityState.Added || changedWorkflowIds.Contains(x.Entity.Id))))
+            _ = entry.Entity.RequiredLevels();
         if (Database.IsRelational() && ChangeTracker.Entries<SwiftMessageRecord>().Any(x => x.State != EntityState.Unchanged))
             throw new InvalidOperationException("The SWIFT message source is read-only.");
         if (Database.IsRelational() && ChangeTracker.Entries<SwiftMessageBodyRecord>().Any(x => x.State != EntityState.Unchanged))

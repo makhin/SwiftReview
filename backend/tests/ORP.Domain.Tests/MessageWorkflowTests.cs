@@ -142,6 +142,62 @@ public sealed class MessageWorkflowTests
     }
 
     [Fact]
+    public void WorkflowWithoutRequiredLevel_IsRejectedBeforeUse()
+    {
+        var workflow = new WorkflowDefinition("Optional", "MT199", 1).AddStep(1, 1, false);
+
+        var exception = Assert.Throws<DomainRuleViolationException>(() => workflow.RequiredLevels());
+
+        Assert.Equal("A workflow must contain at least one required review level.", exception.Message);
+    }
+
+    [Fact]
+    public void InvalidInactiveWorkflow_CannotBeActivated()
+    {
+        var workflow = new WorkflowDefinition("Draft", "MT199", 1).AddStep(1, 1, false);
+        workflow.Deactivate();
+
+        Assert.Throws<DomainRuleViolationException>(() => workflow.Activate());
+        Assert.False(workflow.IsActive);
+    }
+
+    [Fact]
+    public void WorkflowWhoseFirstRequiredLevelIsNotOne_CannotStartReview()
+    {
+        var workflow = new WorkflowDefinition("Invalid", "MT199", 1)
+            .AddStep(1, 1, false)
+            .AddStep(2, 2);
+        var message = new Message(1, workflow.Id);
+        message.Assign(2);
+
+        Assert.Throws<DomainRuleViolationException>(() =>
+            message.StartReview(2, 10, workflow, [], Now));
+        Assert.Equal(MessageState.Assigned, message.State);
+    }
+
+    [Fact]
+    public void RequiredLevels_MustFollowAscendingWorkflowOrder()
+    {
+        var workflow = new WorkflowDefinition("Invalid order", "MT199", 1)
+            .AddStep(1, 1)
+            .AddStep(2, 3)
+            .AddStep(3, 2);
+
+        Assert.Throws<DomainRuleViolationException>(() => workflow.RequiredLevels());
+    }
+
+    [Fact]
+    public void OptionalMiddleLevel_CanBeSkipped()
+    {
+        var workflow = new WorkflowDefinition("Optional middle", "MT199", 1)
+            .AddStep(1, 1)
+            .AddStep(2, 2, false)
+            .AddStep(3, 3);
+
+        Assert.Equal([1, 3], workflow.RequiredLevels());
+    }
+
+    [Fact]
     public void Reassign_PreservesCurrentWorkflowState()
     {
         var (message, _, _) = Create(1); message.Assign(2); message.Assign(3);

@@ -62,11 +62,11 @@ describe('AssignedMessagesPage', () => {
     gridProps.mockClear();
   });
 
-  it('loads messages assigned to the current user by default', async () => {
+  it('loads messages assigned to or actively reviewed by the current user by default', async () => {
     renderPage('/messages/assigned?scope=mine');
 
     expect(screen.getByRole('heading', { name: 'Assigned messages' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Assigned to me' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'My work' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );

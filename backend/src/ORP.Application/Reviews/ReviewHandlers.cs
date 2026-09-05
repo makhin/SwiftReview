@@ -1,5 +1,6 @@
 using FluentValidation;
 using ORP.Application.Abstractions;
+using ORP.Application.Assignments;
 using ORP.Application.Assignments.Automatic;
 using ORP.Application.Audit;
 using ORP.Domain.Auditing;
@@ -73,7 +74,7 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
         message.Approve(review, workflow, reviews, request.Comment, now);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, request.Comment);
-        if (AutomaticAssignmentService.ReviewLevelForState(message.State) is { } nextLevel)
+        if (ReviewAssignmentRules.ReviewLevelForState(message.State) is { } nextLevel)
         {
             var source = await store.FindMessageSourceAsync(messageId, cancellationToken)
                 ?? throw new ResourceNotFoundException("SWIFT message was not found.");
@@ -123,7 +124,7 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
         message.UndoLastApproval(review, workflow, reviews, user.UserId, now);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, review.Comment);
-        var level = AutomaticAssignmentService.ReviewLevelForState(message.State)
+        var level = ReviewAssignmentRules.ReviewLevelForState(message.State)
             ?? throw new InvalidOperationException("Undo did not reopen a review level.");
         var source = await store.FindMessageSourceAsync(messageId, cancellationToken)
             ?? throw new ResourceNotFoundException("SWIFT message was not found.");

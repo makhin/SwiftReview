@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ORP.Domain.Reviews;
 
 namespace ORP.Infrastructure.Persistence;
 
@@ -12,6 +13,9 @@ internal sealed class MessageReadRow
     public Domain.Messages.MessageState State { get; init; }
     public DateTimeOffset ReceivedAt { get; init; }
     public int? CurrentAssigneeId { get; init; }
+    public long? ActiveReviewId { get; init; }
+    public int? ActiveReviewLevel { get; init; }
+    public int? ActiveReviewerId { get; init; }
     public string Sender { get; init; } = null!;
     public string Receiver { get; init; } = null!;
     public string? Account { get; init; }
@@ -25,6 +29,9 @@ internal static class MessageReadModels
     public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db) =>
         from message in db.Messages.AsNoTracking()
         join source in db.SwiftMessageSource.AsNoTracking() on message.Id equals source.MessageId
+        join activeReview in db.Reviews.AsNoTracking().Where(review => review.Status == ReviewStatus.InProgress)
+            on message.Id equals activeReview.MessageId into activeReviews
+        from activeReview in activeReviews.DefaultIfEmpty()
         select new MessageReadRow
         {
             Id = message.Id,
@@ -35,6 +42,9 @@ internal static class MessageReadModels
             State = message.State,
             ReceivedAt = source.ReceivedAt,
             CurrentAssigneeId = message.CurrentAssigneeId,
+            ActiveReviewId = activeReview == null ? null : activeReview.Id,
+            ActiveReviewLevel = activeReview == null ? null : activeReview.Level,
+            ActiveReviewerId = activeReview == null ? null : activeReview.ReviewerId,
             Sender = source.Sender,
             Receiver = source.Receiver,
             Account = source.Account,

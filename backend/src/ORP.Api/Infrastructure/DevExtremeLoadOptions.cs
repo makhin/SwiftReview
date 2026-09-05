@@ -34,6 +34,9 @@ public static class DevExtremeLoadOptions
         ["state"] = "State",
         ["receivedAt"] = "ReceivedAt",
         ["currentAssigneeId"] = "CurrentAssigneeId",
+        ["activeReviewId"] = "ActiveReviewId",
+        ["activeReviewLevel"] = "ActiveReviewLevel",
+        ["activeReviewerId"] = "ActiveReviewerId",
         ["account"] = "Account",
         ["currency"] = "Currency",
         ["amount"] = "Amount"

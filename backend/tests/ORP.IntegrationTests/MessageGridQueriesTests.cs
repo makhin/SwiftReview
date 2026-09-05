@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using ORP.Application.Abstractions;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
+using ORP.Domain.Reviews;
+using ORP.Domain.Workflows;
 using ORP.Infrastructure.Persistence;
 using Xunit;
 
@@ -79,4 +81,59 @@ public sealed class MessageGridQueriesTests
         await Assert.ThrowsAsync<FormatException>(() => new MessageGridQueries(db).LoadAsync(
             new DataSourceLoadOptionsBase { Take = 20 }, access, "unknown", CancellationToken.None));
     }
+
+    [Fact]
+    public async Task MineScope_IncludesCurrentAssigneeAndOwnerOfActiveReview()
+    {
+        var options = new DbContextOptionsBuilder<ORPDbContext>()
+            .UseInMemoryDatabase($"message-grid-active-review-{Guid.NewGuid():N}")
+            .Options;
+        await using var db = new ORPDbContext(options);
+        var ct = TestContext.Current.CancellationToken;
+        var reviewer = new User("reviewer", "Reviewer");
+        var assignee = new User("assignee", "Assignee");
+        db.Users.AddRange(reviewer, assignee);
+        await db.SaveChangesAsync(ct);
+
+        var workflow = new WorkflowDefinition("Review", "MT199", 1).AddStep(1, 1);
+        var message = new Message(1, workflow.Id);
+        var reviews = new List<Review>();
+        message.Assign(reviewer.Id);
+        var activeReview = message.StartReview(1, reviewer.Id, workflow, reviews, DateTimeOffset.UtcNow);
+        reviews.Add(activeReview);
+        message.Assign(assignee.Id);
+        db.Messages.Add(message);
+        db.Reviews.Add(activeReview);
+        db.SwiftMessageSource.Add(new SwiftMessageRecord
+        {
+            MessageId = message.Id,
+            ExternalId = "MSG-ACTIVE",
+            MessageType = "MT199",
+            BranchId = 1,
+            DepartmentId = 1,
+            ReceivedAt = DateTimeOffset.UtcNow,
+            Sender = "A",
+            Receiver = "B"
+        });
+        await db.SaveChangesAsync(ct);
+
+        var reviewerResult = await LoadMine(reviewer);
+        var assigneeResult = await LoadMine(assignee);
+        var row = Assert.IsType<MessageGridRowDto>(Assert.Single(reviewerResult.data.Cast<object>()));
+
+        Assert.Single(assigneeResult.data.Cast<object>());
+        Assert.Equal(assignee.Id, row.CurrentAssigneeId);
+        Assert.Equal(activeReview.Id, row.ActiveReviewId);
+        Assert.Equal(activeReview.Level, row.ActiveReviewLevel);
+        Assert.Equal(reviewer.Id, row.ActiveReviewerId);
+
+        Task<DevExtreme.AspNet.Data.ResponseModel.LoadResult> LoadMine(User user) =>
+            new MessageGridQueries(db).LoadAsync(
+                new DataSourceLoadOptionsBase { Take = 20 },
+                new UserAccess(user.Id, user.UserName, new HashSet<string> { Permissions.MessageView },
+                    new HashSet<int> { 1 }, new HashSet<int> { 1 }),
+                MessageAssignmentScopes.Mine,
+                ct);
+    }
+
 }

@@ -38,6 +38,7 @@ public sealed class ApiWorkflowTests
 
         Assert.Contains("20260905120000_AddAllDepartmentsPermission", db.Database.GetMigrations());
         Assert.Contains("20260905170000_AutomaticAssignment", db.Database.GetMigrations());
+        Assert.Contains("20260905210000_ValidateWorkflowConfiguration", db.Database.GetMigrations());
     }
 
     [Fact]
@@ -76,7 +77,7 @@ public sealed class ApiWorkflowTests
             Assert.Equal(0, await seeded.Users.CountAsync(ct));
             Assert.Equal(0, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.False(await seeded.Reviews.AnyAsync(ct));
-            Assert.Equal(4, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
+            Assert.Equal(5, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
             var historyTableCount = await seeded.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS [Value] FROM sys.tables AS t JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE t.name = N'__EFMigrationsHistory' AND s.name = N'dbo'")
                 .SingleAsync(ct);
@@ -92,6 +93,7 @@ public sealed class ApiWorkflowTests
                 .Select(item => item.MessageId));
             Assert.Equal(8, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.Equal(15, await seeded.WorkflowSteps.CountAsync(ct));
+            await VerifyInvalidWorkflowIsNotRegistered(seeded, ct);
             var levelThreeMessage = await seeded.Messages.SingleAsync(x => x.Id == 6, ct);
             var levelThreeWorkflow = await seeded.WorkflowDefinitions.Include(x => x.Steps)
                 .SingleAsync(x => x.Id == levelThreeMessage.WorkflowDefinitionId, ct);
@@ -350,6 +352,39 @@ public sealed class ApiWorkflowTests
         Assert.Equal(1, await db.Messages.CountAsync(x => x.Id == 1001, ct));
         Assert.Equal(1, await db.AuditEvents.CountAsync(x => x.MessageId == 1001 &&
             x.EventType == AuditEventType.MessageRegistered, ct));
+    }
+
+    private static async Task VerifyInvalidWorkflowIsNotRegistered(ORPDbContext db,
+        CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            DECLARE @WorkflowId int;
+            INSERT INTO [ORP].[WorkflowDefinitions]
+                ([Name], [MessageType], [DepartmentId], [BranchId], [IsActive])
+            VALUES (N'Invalid workflow', N'MTBAD', 1, NULL, 1);
+            SET @WorkflowId = SCOPE_IDENTITY();
+            INSERT INTO [ORP].[WorkflowSteps]
+                ([WorkflowDefinitionId], [Order], [ReviewLevel], [Required])
+            VALUES
+                (@WorkflowId, 1, 1, 0),
+                (@WorkflowId, 2, 2, 1);
+            """, ct);
+        await InsertSwiftMessage(db, 2001, "INVALID-WORKFLOW", "MTBAD", 1, 1, ct);
+
+        await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
+
+        Assert.False(await db.Messages.AnyAsync(message => message.Id == 2001, ct));
+        Assert.False(await db.AuditEvents.AnyAsync(audit => audit.MessageId == 2001, ct));
+        await db.Database.ExecuteSqlRawAsync("""
+            DELETE FROM [ORP].[SwiftMessageSource] WHERE [MessageID] = 2001;
+            DELETE FROM [dbo].[Messages] WHERE [MessageID] = 2001;
+            DELETE step
+            FROM [ORP].[WorkflowSteps] AS step
+            INNER JOIN [ORP].[WorkflowDefinitions] AS workflow
+                ON workflow.[Id] = step.[WorkflowDefinitionId]
+            WHERE workflow.[MessageType] = N'MTBAD';
+            DELETE FROM [ORP].[WorkflowDefinitions] WHERE [MessageType] = N'MTBAD';
+            """, ct);
     }
 
     private static Task<int> InsertSwiftMessage(ORPDbContext db, long id, string externalId,

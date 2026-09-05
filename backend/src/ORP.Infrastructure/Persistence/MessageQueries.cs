@@ -43,7 +43,8 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         query = ApplySort(query, request.Sort);
         var rows = await query.Skip(request.Skip).Take(request.Take).ToListAsync(ct);
         var items = rows.Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
-            x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Account, x.Currency, x.Amount)).ToList();
+            x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
+            x.ActiveReviewerId, x.Account, x.Currency, x.Amount)).ToList();
         return new(items, count);
     }
 

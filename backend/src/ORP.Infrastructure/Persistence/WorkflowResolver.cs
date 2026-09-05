@@ -23,6 +23,7 @@ public sealed class WorkflowResolver(ORPDbContext db) : IWorkflowResolver
         if (candidates.Count(x => x.BranchId == selectedScope) != 1)
             throw new ValidationException("More than one active workflow matches the same message scope.");
 
+        _ = candidates[0].RequiredLevels();
         return candidates[0];
     }
 }

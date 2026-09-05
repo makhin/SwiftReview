@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ORP.Application.Abstractions;
+using ORP.Application.Assignments;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 
@@ -20,13 +21,7 @@ public sealed class AutomaticAssignmentQueries(ORPDbContext db) : IAutomaticAssi
     public async Task<int?> SelectAssigneeAsync(long messageId, int branchId, int departmentId,
         int reviewLevel, IReadOnlyCollection<int> excludedUserIds, CancellationToken cancellationToken)
     {
-        var reviewPermission = reviewLevel switch
-        {
-            1 => Permissions.ReviewLevel1,
-            2 => Permissions.ReviewLevel2,
-            3 => Permissions.ReviewLevel3,
-            _ => throw new ArgumentOutOfRangeException(nameof(reviewLevel))
-        };
+        var reviewPermission = ReviewAssignmentRules.PermissionForLevel(reviewLevel);
         var excluded = excludedUserIds.ToArray();
         return await db.Users.AsNoTracking()
             .Where(user => !excluded.Contains(user.Id) &&

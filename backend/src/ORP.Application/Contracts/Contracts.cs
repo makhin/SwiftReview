@@ -20,7 +20,8 @@ public sealed record MessageDetailsDto(long Id, string ExternalId, string Messag
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
     string? Account, string? Currency, decimal? Amount, string? Reference, string? Body);
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
-    MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string? Account, string? Currency, decimal? Amount);
+    MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
+    int? ActiveReviewLevel, int? ActiveReviewerId, string? Account, string? Currency, decimal? Amount);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
 public sealed record AuditTrailRequest(int Skip = 0, int Take = 100);
 public sealed record SortClause([property: Required] string Field,

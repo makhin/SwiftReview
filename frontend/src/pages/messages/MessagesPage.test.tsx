@@ -55,6 +55,9 @@ vi.mock('devextreme-react/data-grid', () => {
                   state: 'New',
                   receivedAt: '2026-09-05T08:00:00Z',
                   currentAssigneeId: null,
+                  activeReviewId: null,
+                  activeReviewLevel: null,
+                  activeReviewerId: null,
                   account: null,
                   currency: null,
                   amount: null,
@@ -183,7 +186,7 @@ describe('MessagesPage', () => {
 
     expect(screen.getByRole('heading', { name: 'All messages' })).toBeInTheDocument();
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getAllByTestId('Column')).toHaveLength(12);
 
     const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
     expect(dataGridProps).toMatchObject({
@@ -209,6 +212,7 @@ describe('MessagesPage', () => {
       'CCY',
       'Amount',
       'Assignee',
+      'Active reviewer',
       'Actions',
     ]);
 
@@ -216,18 +220,19 @@ describe('MessagesPage', () => {
       .filter(
         ([name, props]) =>
           name === 'Column' &&
-          ['branchId', 'departmentId', 'state', 'currentAssigneeId'].includes(
+          ['branchId', 'departmentId', 'state', 'currentAssigneeId', 'activeReviewerId'].includes(
             props.dataField,
           ),
       )
       .map(([, props]) => props);
-    expect(lookupColumns).toHaveLength(4);
+    expect(lookupColumns).toHaveLength(5);
     expect(lookupColumns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ dataField: 'branchId', allowSorting: false }),
         expect.objectContaining({ dataField: 'departmentId', allowSorting: false }),
         expect.objectContaining({ dataField: 'state' }),
         expect.objectContaining({ dataField: 'currentAssigneeId', allowSorting: false }),
+        expect.objectContaining({ dataField: 'activeReviewerId', allowSorting: false }),
       ]),
     );
 
@@ -285,13 +290,43 @@ describe('MessagesPage', () => {
         valueExpr: 'id',
         displayExpr: 'displayLabel',
       },
+      {
+        dataSource: [
+          {
+            id: 1,
+            userName: 'alex.morgan',
+            displayName: 'Alex Morgan',
+            displayLabel: 'Alex Morgan — Operations',
+            branchIds: [10],
+            departmentIds: [20],
+          },
+          {
+            id: 2,
+            userName: 'sam.lee',
+            displayName: 'Sam Lee',
+            displayLabel: 'Sam Lee — Operations, Compliance',
+            branchIds: [10],
+            departmentIds: [20, 30],
+          },
+          {
+            id: 3,
+            userName: 'pat.taylor',
+            displayName: 'Pat Taylor',
+            displayLabel: 'Pat Taylor — No departments',
+            branchIds: [10],
+            departmentIds: [],
+          },
+        ],
+        valueExpr: 'id',
+        displayExpr: 'displayLabel',
+      },
     ]);
   });
 
   it('keeps numeric columns available while reference data is unavailable', () => {
     renderPage(false);
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getAllByTestId('Column')).toHaveLength(12);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
   });
 
@@ -309,7 +344,7 @@ describe('MessagesPage', () => {
     const view = renderPage(true, ['message.access.all-departments', 'audit.view']);
     view.container.id = 'root';
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getAllByTestId('Column')).toHaveLength(12);
     expect(screen.getByRole('button', { name: 'Raw' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Audit' })).toBeInTheDocument();
 

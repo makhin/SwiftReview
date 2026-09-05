@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments.Automatic;
+using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -194,6 +195,43 @@ public sealed class AutomaticAssignmentTests
         Assert.Equal(3, message.CurrentAssigneeId);
     }
 
+    [Fact]
+    public async Task ReassigningActiveReview_PreservesOwnerAndKeepsTheWorkDiscoverable()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
+            var message = await db.Messages.SingleAsync(item => item.Id == 1, ct);
+            message.Assign(5);
+            db.Assignments.Add(new Assignment(message.Id, null, 5, DateTimeOffset.UtcNow));
+            await db.SaveChangesAsync(ct);
+        }
+
+        SetUser(client, "admin");
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync(
+            "/api/messages/1/reviews/start", new StartReviewRequest(1), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/1/reassign", new AssignMessageRequest(1), ct)).StatusCode);
+
+        var reviewerRow = await FindMineRow(client, 1, ct);
+        Assert.Equal(1, reviewerRow.GetProperty("currentAssigneeId").GetInt32());
+        Assert.Equal(1, reviewerRow.GetProperty("activeReviewLevel").GetInt32());
+        Assert.Equal(5, reviewerRow.GetProperty("activeReviewerId").GetInt32());
+
+        SetUser(client, "amelia.hart");
+        var assigneeRow = await FindMineRow(client, 1, ct);
+        Assert.Equal(5, assigneeRow.GetProperty("activeReviewerId").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(
+            "/api/messages/1/reviews/approve", new ApproveReviewRequest(1, null), ct)).StatusCode);
+
+        SetUser(client, "admin");
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            "/api/messages/1/reviews/approve", new ApproveReviewRequest(1, null), ct)).StatusCode);
+    }
+
     private static async Task CompleteLevel(HttpClient client, string userName, long messageId,
         int level, CancellationToken ct)
     {
@@ -214,6 +252,18 @@ public sealed class AutomaticAssignmentTests
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         Assert.Contains(json.RootElement.GetProperty("data").EnumerateArray(),
             row => row.GetProperty("id").GetInt64() == messageId);
+    }
+
+    private static async Task<JsonElement> FindMineRow(HttpClient client, long messageId,
+        CancellationToken ct)
+    {
+        using var response = await client.GetAsync(
+            "/api/messages/grid?assignmentScope=mine&skip=0&take=100", ct);
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        return json.RootElement.GetProperty("data").EnumerateArray()
+            .Single(row => row.GetProperty("id").GetInt64() == messageId)
+            .Clone();
     }
 
     private static void SetUser(HttpClient client, string userName)
