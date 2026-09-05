@@ -45,18 +45,17 @@ user ID or username. Seeded identities include:
 - `2` / `theo.mercer`
 - `3` / `priya.nair`
 - `4` / `victor.stone`
-- `supervisor`
 - `admin`
 
 For example:
 
 ```bash
-curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/me
-curl -H 'X-Debug-User: 6' http://localhost:5080/api/me
-curl -H 'X-Debug-User: supervisor' http://localhost:5080/api/dashboard/summary
+curl -H 'X-Debug-User: admin' http://localhost:5080/api/me
+curl -H 'X-Debug-User: 5' http://localhost:5080/api/me
+curl -H 'X-Debug-User: admin' http://localhost:5080/api/dashboard/summary
 ```
 
-The frontend adds this header to API requests; use `?user=6` or `?user=admin` in its URL to
+The frontend adds this header to API requests; use `?user=5` or `?user=admin` in its URL to
 switch users. The debug authentication scheme is a development facility and must be replaced
 by the deployment environment's authentication integration.
 

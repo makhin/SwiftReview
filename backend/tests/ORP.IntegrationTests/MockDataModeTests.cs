@@ -48,7 +48,7 @@ public sealed class MockDataModeTests
         await using var factory = CreateFactory("Development");
 
         using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
 
         using var response = await client.GetAsync("/api/messages/grid?skip=0&take=10&requireTotalCount=true", ct);
         var body = await response.Content.ReadAsStringAsync(ct);
@@ -69,7 +69,7 @@ public sealed class MockDataModeTests
         Assert.Equal(15, (await client.GetFromJsonAsync<List<WorkflowSummaryDto>>("/api/workflows", ct))!
             .Sum(x => x.Steps.Count));
         var users = (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!;
-        Assert.Equal(12, users.Count);
+        Assert.Equal(11, users.Count);
         Assert.Contains(users, x => x.UserName == "amelia.hart" && x.DisplayName == "Amelia Hart");
         Assert.Contains(users, x => x.UserName == "elena.petrova" && x.DisplayName == "Elena Petrova");
         Assert.DoesNotContain(users, x => x.DisplayName.Contains("Reviewer", StringComparison.OrdinalIgnoreCase));
@@ -82,13 +82,16 @@ public sealed class MockDataModeTests
             await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct));
         Assert.Equal(["MT199", "MT700", "MT799"],
             await client.GetFromJsonAsync<List<string>>("/api/message-types", ct));
-        Assert.Equal([6, 1, 5, 4],
+        Assert.Equal([5, 1],
             (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!.Select(x => x.Id));
+        Assert.Contains(
+            (await client.GetFromJsonAsync<List<UserSummaryDto>>("/api/users", ct))!,
+            x => x.UserName == "admin" && x.DepartmentIds.SequenceEqual([2]));
 
         client.DefaultRequestHeaders.Remove("X-Debug-User");
-        client.DefaultRequestHeaders.Add("X-Debug-User", "6");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "5");
         var currentUser = await client.GetFromJsonAsync<CurrentUserResponse>("/api/me", ct);
-        Assert.Equal(6, currentUser!.UserId);
+        Assert.Equal(5, currentUser!.UserId);
         Assert.Equal("admin", currentUser.UserName);
     }
 
@@ -178,9 +181,7 @@ public sealed class MockDataModeTests
         client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
-            "/api/messages/2/assign", new AssignMessageRequest(5), ct)).StatusCode);
-        client.DefaultRequestHeaders.Remove("X-Debug-User");
-        client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
+            "/api/messages/2/assign", new AssignMessageRequest(2), ct)).StatusCode);
         var startedForUndo = await client.PostAsJsonAsync(
             "/api/messages/2/reviews/start", new StartReviewRequest(1), ct);
         var undoReviewId = (await startedForUndo.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
@@ -199,9 +200,7 @@ public sealed class MockDataModeTests
         client.DefaultRequestHeaders.Remove("X-Debug-User");
         client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
-            "/api/messages/3/assign", new AssignMessageRequest(5), ct)).StatusCode);
-        client.DefaultRequestHeaders.Remove("X-Debug-User");
-        client.DefaultRequestHeaders.Add("X-Debug-User", "supervisor");
+            "/api/messages/3/assign", new AssignMessageRequest(3), ct)).StatusCode);
         var startedForReject = await client.PostAsJsonAsync(
             "/api/messages/3/reviews/start", new StartReviewRequest(1), ct);
         var rejectReviewId = (await startedForReject.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;

@@ -26,9 +26,11 @@ public sealed class MessageGridQueries(ORPDbContext db)
 {
     public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access, CancellationToken ct)
     {
+        var allDepartments = access.HasAllDepartmentAccess;
         var query = db.ReadMessages()
             .Where(x => access.Permissions.Contains(Permissions.MessageView) &&
-                access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.DepartmentId))
+                access.BranchIds.Contains(x.BranchId) &&
+                (allDepartments || access.DepartmentIds.Contains(x.DepartmentId)))
             .Select(x => new MessageGridRowDto
             {
                 Id = x.Id,

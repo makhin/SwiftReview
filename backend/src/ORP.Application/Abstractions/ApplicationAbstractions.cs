@@ -61,7 +61,9 @@ public interface IReferenceDataQueries
 public sealed record UserAccess(int UserId, string UserName, IReadOnlySet<string> Permissions,
     IReadOnlySet<int> BranchIds, IReadOnlySet<int> DepartmentIds)
 {
-    public bool CanAccess(int branchId, int departmentId) => BranchIds.Contains(branchId) && DepartmentIds.Contains(departmentId);
+    public bool HasAllDepartmentAccess => Permissions.Contains(Domain.Identity.Permissions.MessageAccessAllDepartments);
+    public bool CanAccess(int branchId, int departmentId) =>
+        BranchIds.Contains(branchId) && (HasAllDepartmentAccess || DepartmentIds.Contains(departmentId));
 }
 
 public sealed class ResourceNotFoundException(string message) : Exception(message);

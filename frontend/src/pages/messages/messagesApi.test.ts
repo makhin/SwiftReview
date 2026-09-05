@@ -52,7 +52,7 @@ describe('getMessageGrid', () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/messages/grid?skip=0&take=20');
-    expect(new Headers(init.headers).get('X-Debug-User')).toBe('supervisor');
+    expect(new Headers(init.headers).get('X-Debug-User')).toBe('admin');
   });
 
   it('normalizes unsuccessful responses into ApiError', async () => {

@@ -79,8 +79,12 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             actor, details, row.CorrelationId);
     }
 
-    private IQueryable<MessageReadRow> Accessible(UserAccess access) => db.ReadMessages()
-        .Where(x => access.BranchIds.Contains(x.BranchId) && access.DepartmentIds.Contains(x.DepartmentId));
+    private IQueryable<MessageReadRow> Accessible(UserAccess access)
+    {
+        var allDepartments = access.HasAllDepartmentAccess;
+        return db.ReadMessages().Where(x => access.BranchIds.Contains(x.BranchId) &&
+            (allDepartments || access.DepartmentIds.Contains(x.DepartmentId)));
+    }
 
     private static IQueryable<MessageReadRow> ApplySort(IQueryable<MessageReadRow> query, IReadOnlyList<SortClause>? sort)
     {

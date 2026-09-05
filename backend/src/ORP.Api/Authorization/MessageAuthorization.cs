@@ -15,7 +15,8 @@ public sealed class MessageActionAuthorizationHandler : AuthorizationHandler<Mes
     {
         var permission = context.User.HasClaim("permission", requirement.Permission);
         var branch = context.User.HasClaim("branch", resource.BranchId.ToString());
-        var department = context.User.HasClaim("department", resource.DepartmentId.ToString());
+        var department = context.User.HasClaim("department", resource.DepartmentId.ToString()) ||
+            context.User.HasClaim("permission", Permissions.MessageAccessAllDepartments);
         var stateOk = requirement.ReviewLevel switch
         {
             1 => resource.Message.State is MessageState.Assigned or MessageState.FirstReviewInProgress,

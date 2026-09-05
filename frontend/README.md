@@ -26,7 +26,7 @@ Vite reads environment settings from the repository root. These optional variabl
 
 ```dotenv
 VITE_API_PROXY_TARGET=http://localhost:5080
-VITE_DEBUG_USER=supervisor
+VITE_DEBUG_USER=admin
 ```
 
 The development server proxies `/api` requests to `VITE_API_PROXY_TARGET`. In Development,
@@ -34,12 +34,12 @@ the frontend sends the current debug user in the backend's `X-Debug-User` header
 user by ID or username in the browser URL, for example:
 
 ```text
-http://localhost:5173/messages?user=6
+http://localhost:5173/messages?user=5
 http://localhost:5173/messages?user=admin
 ```
 
 The selection is kept for navigation in the current browser tab. Without a URL selection,
-the frontend uses `VITE_DEBUG_USER`, falling back to `supervisor`.
+the frontend uses `VITE_DEBUG_USER`, falling back to `admin`.
 
 ## Available commands
 

@@ -28,6 +28,16 @@ public sealed class MessageAuthorizationTests
         Assert.False(await IsAuthorized(User(6, branch, department + 1, Permissions.ReviewLevel2), resource, Permissions.ReviewLevel2, 2));
     }
 
+    [Fact]
+    public async Task AllDepartmentPermission_BypassesDepartmentButNotBranchScope()
+    {
+        var (resource, branch, department) = WaitingForLevelTwo();
+        var permissions = new[] { Permissions.ReviewLevel2, Permissions.MessageAccessAllDepartments };
+
+        Assert.True(await IsAuthorized(User(6, branch, department + 1, permissions), resource, Permissions.ReviewLevel2, 2));
+        Assert.False(await IsAuthorized(User(6, branch + 1, department, permissions), resource, Permissions.ReviewLevel2, 2));
+    }
+
     private static async Task<bool> IsAuthorized(ClaimsPrincipal user, MessageAuthorizationResource resource, string permission, int level)
     {
         var requirement = new MessageActionRequirement(permission, level);

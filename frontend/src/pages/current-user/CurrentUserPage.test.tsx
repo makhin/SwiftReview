@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../shared/api/errors';
+import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 
 const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
@@ -17,10 +18,14 @@ const currentUser = {
   userName: 'Alex Morgan',
   permissions: ['messages.read', 'messages.assign'],
   branches: [10, 20],
-  departments: [],
+  departments: [30, 40],
 };
 
 function renderPage(queryClient = createTestQueryClient()) {
+  queryClient.setQueryData(referenceDataKeys.departments, [
+    { id: 30, name: 'Operations' },
+    { id: 40, name: 'Compliance' },
+  ]);
   return render(
     <QueryClientProvider client={queryClient}>
       <CurrentUserPage />
@@ -50,6 +55,7 @@ describe('CurrentUserPage', () => {
     expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
     expect(screen.getByText('messages.read, messages.assign')).toBeInTheDocument();
     expect(screen.getByText('10, 20')).toBeInTheDocument();
+    expect(screen.getByText('Operations, Compliance')).toBeInTheDocument();
   });
 
   it('shows None for empty access lists', async () => {
@@ -63,7 +69,8 @@ describe('CurrentUserPage', () => {
     renderPage();
 
     expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
-    expect(screen.getAllByText('None')).toHaveLength(3);
+    expect(screen.getAllByText('None')).toHaveLength(2);
+    expect(screen.getByText('No departments')).toBeInTheDocument();
   });
 
   it.each([

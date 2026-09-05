@@ -82,8 +82,7 @@ public static class MockDataSeeder
         AddWithId(db, new Role("TFO Reviewer"), 2);
         AddWithId(db, new Role("DC Reviewer"), 3);
         AddWithId(db, new Role("DC Senior Reviewer"), 4);
-        AddWithId(db, new Role("Supervisor"), 5);
-        AddWithId(db, new Role("Administrator"), 6);
+        AddWithId(db, new Role("Administrator"), 5);
 
         (int Id, string UserName, string DisplayName, int RoleId)[] users =
         [
@@ -91,14 +90,13 @@ public static class MockDataSeeder
             (2, "theo.mercer", "Theo Mercer", 2),
             (3, "priya.nair", "Priya Nair", 3),
             (4, "victor.stone", "Victor Stone", 4),
-            (5, "supervisor", "Supervisor", 5),
-            (6, "admin", "Administrator", 6),
-            (7, "lucas.bennett", "Lucas Bennett", 1),
-            (8, "sofia.lindberg", "Sofia Lindberg", 1),
-            (9, "kenji.mori", "Kenji Mori", 2),
-            (10, "nadia.kowalska", "Nadia Kowalska", 2),
-            (11, "mateo.silva", "Mateo Silva", 3),
-            (12, "elena.petrova", "Elena Petrova", 3)
+            (5, "admin", "Administrator", 5),
+            (6, "lucas.bennett", "Lucas Bennett", 1),
+            (7, "sofia.lindberg", "Sofia Lindberg", 1),
+            (8, "kenji.mori", "Kenji Mori", 2),
+            (9, "nadia.kowalska", "Nadia Kowalska", 2),
+            (10, "mateo.silva", "Mateo Silva", 3),
+            (11, "elena.petrova", "Elena Petrova", 3)
         ];
         foreach (var user in users)
         {
@@ -111,22 +109,20 @@ public static class MockDataSeeder
         Grant(2, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2);
         Grant(3, Permissions.MessageView, Permissions.ReviewLevel1);
         Grant(4, Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewReject, Permissions.ReviewUndo);
-        Grant(5, Permissions.MessageView, Permissions.MessageAssign, Permissions.ReviewLevel1, Permissions.ReviewLevel2,
-            Permissions.ReviewLevel3, Permissions.ReviewReject, Permissions.ReviewUndo, Permissions.AuditView);
-        Grant(6, Permissions.All);
+        Grant(5, Permissions.All);
         db.RolePermissions.AddRange(grants);
 
         db.UserBranches.AddRange(new[]
         {
             LinkBranches(1, 1), LinkBranches(2, 2), LinkBranches(3, 3), LinkBranches(4, 1, 2, 3),
-            LinkBranches(5, 1, 2, 3), LinkBranches(6, 1, 2, 3), LinkBranches(7, 2), LinkBranches(8, 3),
-            LinkBranches(9, 1), LinkBranches(10, 3), LinkBranches(11, 1), LinkBranches(12, 2)
+            LinkBranches(5, 1, 2, 3), LinkBranches(6, 2), LinkBranches(7, 3),
+            LinkBranches(8, 1), LinkBranches(9, 3), LinkBranches(10, 1), LinkBranches(11, 2)
         }.SelectMany(x => x));
         db.UserDepartments.AddRange(new[]
         {
-            LinkDepartments(1, 1), LinkDepartments(2, 2), LinkDepartments(3, 3), LinkDepartments(4, 1, 2, 3),
-            LinkDepartments(5, 1, 2, 3), LinkDepartments(6, 1, 2, 3), LinkDepartments(7, 1), LinkDepartments(8, 1),
-            LinkDepartments(9, 2), LinkDepartments(10, 2), LinkDepartments(11, 3), LinkDepartments(12, 3)
+            LinkDepartments(1, 1), LinkDepartments(2, 2), LinkDepartments(3, 3), LinkDepartments(4, 3),
+            LinkDepartments(5, 2), LinkDepartments(6, 1), LinkDepartments(7, 1),
+            LinkDepartments(8, 2), LinkDepartments(9, 2), LinkDepartments(10, 3), LinkDepartments(11, 3)
         }.SelectMany(x => x));
 
         string[] workflowNames = ["Single Review", "Two Reviews", "Three Reviews", "MT700 Single Review",

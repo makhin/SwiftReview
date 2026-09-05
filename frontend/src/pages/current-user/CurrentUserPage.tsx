@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '../../shared/api/errors';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
+import { departmentsQueryOptions } from '../../shared/api/referenceDataQueries';
 import { currentUserQueryOptions } from './currentUserQueries';
 
 function getErrorContent(error: Error) {
@@ -35,7 +36,11 @@ function getErrorContent(error: Error) {
 
 export default function CurrentUserPage() {
   const { data: user, error, isPending, refetch } = useQuery(currentUserQueryOptions());
+  const { data: departments } = useQuery(departmentsQueryOptions());
   const errorContent = error ? getErrorContent(error) : undefined;
+  const departmentNames = user?.departments.map(
+    (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
+  );
 
   return (
     <main className="app-content app-page">
@@ -71,7 +76,7 @@ export default function CurrentUserPage() {
               <dt>Branches</dt>
               <dd>{user.branches.join(', ') || 'None'}</dd>
               <dt>Departments</dt>
-              <dd>{user.departments.join(', ') || 'None'}</dd>
+              <dd>{departmentNames?.join(', ') || 'No departments'}</dd>
             </dl>
           ) : (
             <PageLoading message="Loading current user…" />

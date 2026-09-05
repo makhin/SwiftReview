@@ -23,7 +23,7 @@ function getDebugUser() {
 
   const storedUser = window.sessionStorage.getItem(debugUserStorageKey)?.trim();
   const configuredUser = import.meta.env.VITE_DEBUG_USER?.trim();
-  return storedUser || configuredUser || 'supervisor';
+  return storedUser || configuredUser || 'admin';
 }
 
 export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {

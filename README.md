@@ -42,7 +42,7 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite, normally <http://localhost:5173>. During local development, Vite proxies `/api` requests to the backend and sends the `supervisor` debug identity by default.
+Open the URL printed by Vite, normally <http://localhost:5173>. During local development, Vite proxies `/api` requests to the backend and sends the `admin` debug identity by default.
 
 Useful backend endpoints:
 

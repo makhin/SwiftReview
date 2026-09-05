@@ -21,6 +21,16 @@ export default function MessagesPage() {
   const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
+  const assigneeUsers = users?.map((user) => {
+    const names = user.departmentIds.map(
+      (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
+    );
+
+    return {
+      ...user,
+      displayLabel: `${user.displayName} — ${names.length > 0 ? names.join(', ') : 'No departments'}`,
+    };
+  });
 
   return (
     <main className="app-content app-page">
@@ -108,8 +118,8 @@ export default function MessagesPage() {
             width={100}
             allowSorting={false}
           >
-            {users && (
-              <Lookup dataSource={users} valueExpr="id" displayExpr="displayName" />
+            {assigneeUsers && (
+              <Lookup dataSource={assigneeUsers} valueExpr="id" displayExpr="displayLabel" />
             )}
           </Column>
         </DataGrid>

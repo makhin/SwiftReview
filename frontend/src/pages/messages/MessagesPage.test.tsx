@@ -51,11 +51,32 @@ function renderPage(withReferenceData = true) {
 
   if (withReferenceData) {
     queryClient.setQueryData(referenceDataKeys.users, [
-      { id: 1, displayName: 'Alex Morgan' },
+      {
+        id: 1,
+        userName: 'alex.morgan',
+        displayName: 'Alex Morgan',
+        branchIds: [10],
+        departmentIds: [20],
+      },
+      {
+        id: 2,
+        userName: 'sam.lee',
+        displayName: 'Sam Lee',
+        branchIds: [10],
+        departmentIds: [20, 30],
+      },
+      {
+        id: 3,
+        userName: 'pat.taylor',
+        displayName: 'Pat Taylor',
+        branchIds: [10],
+        departmentIds: [],
+      },
     ]);
     queryClient.setQueryData(referenceDataKeys.branches, [{ id: 10, name: 'Warsaw' }]);
     queryClient.setQueryData(referenceDataKeys.departments, [
       { id: 20, name: 'Operations' },
+      { id: 30, name: 'Compliance' },
     ]);
     queryClient.setQueryData(referenceDataKeys.messageStates, [
       { code: 'WaitingForSecondReview', label: 'Waiting for second review' },
@@ -136,7 +157,10 @@ describe('MessagesPage', () => {
         displayExpr: 'name',
       },
       {
-        dataSource: [{ id: 20, name: 'Operations' }],
+        dataSource: [
+          { id: 20, name: 'Operations' },
+          { id: 30, name: 'Compliance' },
+        ],
         valueExpr: 'id',
         displayExpr: 'name',
       },
@@ -148,9 +172,34 @@ describe('MessagesPage', () => {
         displayExpr: 'label',
       },
       {
-        dataSource: [{ id: 1, displayName: 'Alex Morgan' }],
+        dataSource: [
+          {
+            id: 1,
+            userName: 'alex.morgan',
+            displayName: 'Alex Morgan',
+            displayLabel: 'Alex Morgan — Operations',
+            branchIds: [10],
+            departmentIds: [20],
+          },
+          {
+            id: 2,
+            userName: 'sam.lee',
+            displayName: 'Sam Lee',
+            displayLabel: 'Sam Lee — Operations, Compliance',
+            branchIds: [10],
+            departmentIds: [20, 30],
+          },
+          {
+            id: 3,
+            userName: 'pat.taylor',
+            displayName: 'Pat Taylor',
+            displayLabel: 'Pat Taylor — No departments',
+            branchIds: [10],
+            departmentIds: [],
+          },
+        ],
         valueExpr: 'id',
-        displayExpr: 'displayName',
+        displayExpr: 'displayLabel',
       },
     ]);
   });
@@ -160,5 +209,32 @@ describe('MessagesPage', () => {
 
     expect(screen.getAllByTestId('Column')).toHaveLength(10);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
+  });
+
+  it('uses department IDs until department metadata is available', () => {
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(referenceDataKeys.users, [
+      {
+        id: 1,
+        userName: 'alex.morgan',
+        displayName: 'Alex Morgan',
+        branchIds: [10],
+        departmentIds: [20],
+      },
+    ]);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MessagesPage />
+      </QueryClientProvider>,
+    );
+
+    const assigneeLookup = componentProps.mock.calls
+      .filter(([name]) => name === 'Lookup')
+      .map(([, props]) => props)
+      .find((props) => props.displayExpr === 'displayLabel');
+    expect(assigneeLookup?.dataSource).toEqual([
+      expect.objectContaining({ displayLabel: 'Alex Morgan — 20' }),
+    ]);
   });
 });
