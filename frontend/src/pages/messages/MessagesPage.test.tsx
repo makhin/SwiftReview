@@ -1,8 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { componentProps } = vi.hoisted(() => ({
   componentProps: vi.fn(),
@@ -38,6 +38,35 @@ vi.mock('devextreme-react/data-grid', () => {
       return <div aria-label="Messages">{children}</div>;
     },
     Column: childComponent('Column'),
+    Button: ({ onClick, text, ...props }: Record<string, unknown>) => {
+      componentProps('GridButton', { onClick, text, ...props });
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            (onClick as (event: Record<string, unknown>) => void)({
+              row: {
+                data: {
+                  id: 42,
+                  externalId: 'MSG-0042',
+                  messageType: 'MT103',
+                  branchId: 10,
+                  departmentId: 20,
+                  state: 'New',
+                  receivedAt: '2026-09-05T08:00:00Z',
+                  currentAssigneeId: null,
+                  account: null,
+                  currency: null,
+                  amount: null,
+                },
+              },
+            })
+          }
+        >
+          {String(text)}
+        </button>
+      );
+    },
     FilterRow: childComponent('FilterRow'),
     HeaderFilter: childComponent('HeaderFilter'),
     Pager: childComponent('Pager'),
@@ -45,6 +74,29 @@ vi.mock('devextreme-react/data-grid', () => {
     Lookup: childComponent('Lookup'),
   };
 });
+vi.mock('devextreme-react/drawer', () => ({
+  default: ({
+    children,
+    render: renderPanel,
+    ...props
+  }: PropsWithChildren<Record<string, unknown>>) => {
+    componentProps('Drawer', props);
+    return (
+      <div>
+        {children}
+        {props.opened && (renderPanel as () => React.ReactNode)()}
+      </div>
+    );
+  },
+}));
+vi.mock('./AuditTrailDrawer', () => ({
+  default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
+    <aside aria-label="Audit trail">
+      {message.externalId}
+      <button type="button" onClick={onClose}>Close</button>
+    </aside>
+  ),
+}));
 
 import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
@@ -112,6 +164,10 @@ function renderPage(
 describe('MessagesPage', () => {
   beforeEach(() => {
     componentProps.mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('configures the remote messages grid', () => {
@@ -228,6 +284,50 @@ describe('MessagesPage', () => {
 
     expect(screen.getAllByTestId('Column')).toHaveLength(10);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
+  });
+
+  it('shows the audit action only with permission and opens the right-side drawer', () => {
+    const view = renderPage(true, ['message.access.all-departments', 'audit.view']);
+    view.container.id = 'root';
+
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getByRole('button', { name: 'Audit' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Audit' }));
+
+    expect(screen.getByLabelText('Audit trail')).toHaveTextContent('MSG-0042');
+    expect(view.container).toHaveAttribute('inert');
+    const drawerProps = componentProps.mock.calls
+      .filter(([name]) => name === 'Drawer')
+      .at(-1)?.[1];
+    expect(drawerProps).toMatchObject({
+      opened: true,
+      openedStateMode: 'overlap',
+      position: 'right',
+      animationEnabled: true,
+      shading: true,
+      closeOnOutsideClick: true,
+    });
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByLabelText('Audit trail')).not.toBeInTheDocument();
+    expect(view.container).not.toHaveAttribute('inert');
+  });
+
+  it('disables audit drawer animation when reduced motion is requested', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    renderPage(true, ['message.access.all-departments', 'audit.view']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Audit' }));
+
+    const drawerProps = componentProps.mock.calls
+      .filter(([name]) => name === 'Drawer')
+      .at(-1)?.[1];
+    expect(drawerProps).toMatchObject({ animationEnabled: false });
   });
 
   it('redirects users without all-departments access to assigned messages', () => {
