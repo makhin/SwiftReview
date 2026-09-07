@@ -38,20 +38,15 @@ internal sealed class TypeScriptTypeResolver(SchemaNameMap names)
     {
         var items = schema.Items!;
         var itemType = Resolve(items, indentLevel);
-        var canUseSuffix = !items.IsNullable &&
-            items.EnumValues is null &&
-            items.Kind is OpenApiSchemaKind.Any or
-                OpenApiSchemaKind.String or
-                OpenApiSchemaKind.Integer or
-                OpenApiSchemaKind.Number or
-                OpenApiSchemaKind.Boolean or
-                OpenApiSchemaKind.Reference;
+        var needsParentheses = items.IsNullable ||
+            items.EnumValues is not null ||
+            items.Kind == OpenApiSchemaKind.Union;
 
-        return canUseSuffix ? $"{itemType}[]" : $"Array<{itemType}>";
+        return needsParentheses ? $"({itemType})[]" : $"{itemType}[]";
     }
 
     private string ResolveDictionary(OpenApiSchema schema, int indentLevel) =>
-        $"Record<string, {Resolve(schema.AdditionalProperties!, indentLevel)}>";
+        $"{{ [key: string]: {Resolve(schema.AdditionalProperties!, indentLevel)} }}";
 
     private string ResolveObject(OpenApiSchema schema, int indentLevel)
     {

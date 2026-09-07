@@ -63,6 +63,10 @@ Top-level declarations are sorted by generated name; property and enum value ord
 OpenAPI. Output is UTF-8 without BOM, uses LF and two-space indentation, and contains no
 timestamp.
 
+Arrays use `T[]` (with parentheses around union element types), and dictionaries use
+`{ [key: string]: T }`. These forms support recursive dictionaries and do not conflict
+with schemas named `Array` or `Record`.
+
 Property names are never renamed. ASCII TypeScript identifiers are emitted directly;
 reserved words and other names are emitted as quoted properties. Schema names must be safe,
 non-reserved ASCII TypeScript identifiers after optional namespace-prefix removal, otherwise

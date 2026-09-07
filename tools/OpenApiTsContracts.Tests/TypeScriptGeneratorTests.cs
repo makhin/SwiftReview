@@ -257,8 +257,74 @@ public sealed class TypeScriptGeneratorTests
             }
             """);
 
-        Assert.Contains("export type StringMap = Record<string, string>;", output);
-        Assert.Contains("export type UserMap = Record<string, UserDto>;", output);
+        Assert.Contains("export type StringMap = { [key: string]: string };", output);
+        Assert.Contains("export type UserMap = { [key: string]: UserDto };", output);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Contracts.")]
+    public void CollectionTypesDoNotDependOnShadowedBuiltinNames(string? prefix)
+    {
+        var document = GeneratorTestHelper.Parse($$"""
+            {
+              "{{prefix}}Array": { "type": "object" },
+              "{{prefix}}Record": { "type": "object" },
+              "{{prefix}}Items": {
+                "type": "array",
+                "items": { "type": ["string", "null"] }
+              },
+              "{{prefix}}Lookup": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#/components/schemas/{{prefix}}Record" }
+              }
+            }
+            """);
+
+        var output = new TypeScriptGenerator(prefix).Generate(document);
+
+        Assert.Contains("export interface Array", output);
+        Assert.Contains("export interface Record", output);
+        Assert.Contains("export type Items = (string | null)[];", output);
+        Assert.Contains("export type Lookup = { [key: string]: Record };", output);
+    }
+
+    [Theory]
+    [InlineData("{ \"type\": [\"integer\", \"string\"] }", "(number | string)[]")]
+    [InlineData("{ \"type\": \"string\", \"enum\": [\"A\", \"B\"] }", "(\"A\" | \"B\")[]")]
+    [InlineData("{ \"type\": \"array\", \"items\": { \"type\": \"string\" } }", "string[][]")]
+    [InlineData("{ \"type\": \"array\", \"nullable\": true, \"items\": { \"type\": \"string\" } }", "(string[] | null)[]")]
+    public void ArraySuffixPreservesItemTypeGrouping(string items, string expectedType)
+    {
+        var output = GeneratorTestHelper.Generate(
+            $$"""{ "Items": { "type": "array", "items": {{items}} } }""");
+
+        Assert.Contains($"export type Items = {expectedType};", output);
+    }
+
+    [Fact]
+    public void RecursiveDictionariesUseIndexSignatures()
+    {
+        var output = GeneratorTestHelper.Generate("""
+            {
+              "Tree": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#/components/schemas/Tree" }
+              },
+              "Left": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#/components/schemas/Right" }
+              },
+              "Right": {
+                "type": ["object", "null"],
+                "additionalProperties": { "$ref": "#/components/schemas/Left" }
+              }
+            }
+            """);
+
+        Assert.Contains("export type Tree = { [key: string]: Tree };", output);
+        Assert.Contains("export type Left = { [key: string]: Right };", output);
+        Assert.Contains("export type Right = { [key: string]: Left } | null;", output);
     }
 
     [Fact]

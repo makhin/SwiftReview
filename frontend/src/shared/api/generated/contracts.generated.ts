@@ -53,8 +53,8 @@ export interface CurrentUserResponse {
   userId: number | string;
   userName: string;
   permissions: string[];
-  branches: Array<number | string>;
-  departments: Array<number | string>;
+  branches: (number | string)[];
+  departments: (number | string)[];
 }
 
 export interface DashboardSummaryDto {
@@ -93,9 +93,9 @@ export interface MessageDetailsDto {
 
 export interface MessageFilter {
   states: MessageState[] | null;
-  branches: Array<number | string> | null;
+  branches: (number | string)[] | null;
   messageTypes: string[] | null;
-  departments: Array<number | string> | null;
+  departments: (number | string)[] | null;
   dateFrom: string | null;
   dateTo: string | null;
   account: string | null;
@@ -191,8 +191,8 @@ export interface UserSummaryDto {
   id: number | string;
   userName: string;
   displayName: string;
-  branchIds: Array<number | string>;
-  departmentIds: Array<number | string>;
+  branchIds: (number | string)[];
+  departmentIds: (number | string)[];
 }
 
 export interface WorkflowStepDto {
