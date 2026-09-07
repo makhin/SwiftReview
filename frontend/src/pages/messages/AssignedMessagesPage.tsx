@@ -56,9 +56,9 @@ export default function AssignedMessagesPage() {
           keyExpr="id"
           selectedItemKeys={[scope]}
           selectionMode="single"
-          onSelectedItemKeysChange={(keys) => {
-            if (isAssignmentScope(keys[0])) {
-              selectScope(keys[0]);
+          onItemClick={({ itemData }) => {
+            if (isAssignmentScope(itemData.id)) {
+              selectScope(itemData.id);
             }
           }}
           elementAttr={{ 'aria-label': 'Message assignment scope' }}

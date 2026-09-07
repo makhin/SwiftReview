@@ -18,12 +18,12 @@ vi.mock('devextreme-react/tabs', () => ({
   default: ({
     items,
     selectedItemKeys,
-    onSelectedItemKeysChange,
+    onItemClick,
     elementAttr,
   }: {
     items: Array<{ id: string; text: string }>;
     selectedItemKeys: string[];
-    onSelectedItemKeysChange: (keys: string[]) => void;
+    onItemClick: (event: { itemData: { id: string; text: string } }) => void;
     elementAttr: { 'aria-label': string };
   }) => (
     <div aria-label={elementAttr['aria-label']}>
@@ -32,7 +32,7 @@ vi.mock('devextreme-react/tabs', () => ({
           key={item.id}
           type="button"
           aria-pressed={selectedItemKeys.includes(item.id)}
-          onClick={() => onSelectedItemKeysChange([item.id])}
+          onClick={() => onItemClick({ itemData: item })}
         >
           {item.text}
         </button>
