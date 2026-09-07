@@ -28,28 +28,31 @@ internal static class MessageReadModels
 {
     public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db) =>
         from message in db.Messages.AsNoTracking()
-        join source in db.SwiftMessageSource.AsNoTracking() on message.Id equals source.MessageId
+        join source in db.SwiftMessages.AsNoTracking() on message.Id equals source.MessageId
+        let firstEntry = db.SwiftMessageEntries.AsNoTracking()
+            .Where(entry => entry.MessageId == source.MessageId && entry.Position == 0)
+            .FirstOrDefault()
         join activeReview in db.Reviews.AsNoTracking().Where(review => review.Status == ReviewStatus.InProgress)
             on message.Id equals activeReview.MessageId into activeReviews
         from activeReview in activeReviews.DefaultIfEmpty()
         select new MessageReadRow
         {
             Id = message.Id,
-            ExternalId = source.ExternalId,
+            ExternalId = source.WarehouseId,
             MessageType = source.MessageType,
-            BranchId = source.BranchId,
-            DepartmentId = source.DepartmentId,
+            BranchId = source.BranchId!.Value,
+            DepartmentId = source.DepartmentId!.Value,
             State = message.State,
-            ReceivedAt = source.ReceivedAt,
+            ReceivedAt = source.MessageDate ?? source.LoadedAtUtc,
             CurrentAssigneeId = message.CurrentAssigneeId,
             ActiveReviewId = activeReview == null ? null : activeReview.Id,
             ActiveReviewLevel = activeReview == null ? null : activeReview.Level,
             ActiveReviewerId = activeReview == null ? null : activeReview.ReviewerId,
-            Sender = source.Sender,
-            Receiver = source.Receiver,
-            Account = source.Account,
-            Currency = source.Currency,
-            Amount = source.Amount,
-            Reference = source.Reference
+            Sender = source.SenderRequestor ?? string.Empty,
+            Receiver = source.ReceiverResponder ?? string.Empty,
+            Account = firstEntry == null ? null : firstEntry.Account,
+            Currency = firstEntry == null ? null : firstEntry.Currency,
+            Amount = firstEntry == null ? null : firstEntry.Amount,
+            Reference = firstEntry == null ? null : firstEntry.SenderMessageReference
         };
 }

@@ -37,16 +37,19 @@ public sealed class MessageGridQueriesTests
             var message = new Message(id, 1);
             message.Assign(users[index].Id);
             db.Messages.Add(message);
-            db.SwiftMessageSource.Add(new SwiftMessageRecord
+            db.SwiftMessages.Add(new SwiftMessageRecord
             {
                 MessageId = id,
-                ExternalId = $"MSG-{id}",
+                WarehouseId = $"MSG-{id}",
                 MessageType = "MT199",
                 BranchId = 1,
                 DepartmentId = 1,
-                ReceivedAt = DateTimeOffset.UtcNow.AddMinutes(index),
-                Sender = "A",
-                Receiver = "B"
+                MessageDate = DateTimeOffset.UtcNow.AddMinutes(index),
+                SenderRequestor = "A",
+                ReceiverResponder = "B",
+                RoutingStatus = SwiftMessageRoutingStatus.Routed,
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                LastSynchronizedAtUtc = DateTimeOffset.UtcNow
             });
         }
         await db.SaveChangesAsync(ct);
@@ -104,16 +107,19 @@ public sealed class MessageGridQueriesTests
         message.Assign(assignee.Id);
         db.Messages.Add(message);
         db.Reviews.Add(activeReview);
-        db.SwiftMessageSource.Add(new SwiftMessageRecord
+        db.SwiftMessages.Add(new SwiftMessageRecord
         {
             MessageId = message.Id,
-            ExternalId = "MSG-ACTIVE",
+            WarehouseId = "MSG-ACTIVE",
             MessageType = "MT199",
             BranchId = 1,
             DepartmentId = 1,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Sender = "A",
-            Receiver = "B"
+            MessageDate = DateTimeOffset.UtcNow,
+            SenderRequestor = "A",
+            ReceiverResponder = "B",
+            RoutingStatus = SwiftMessageRoutingStatus.Routed,
+            LoadedAtUtc = DateTimeOffset.UtcNow,
+            LastSynchronizedAtUtc = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync(ct);
 

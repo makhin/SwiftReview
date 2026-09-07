@@ -17,13 +17,31 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         if (!access.Permissions.Contains(Permissions.MessageView)) return null;
         var x = await Accessible(access).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (x is null) return null;
-        var body = await db.SwiftMessageBodies.AsNoTracking()
+        var body = await db.SwiftMessages.AsNoTracking()
             .Where(message => message.MessageId == id)
             .Select(message => message.Body)
             .SingleOrDefaultAsync(ct);
+        var entries = await db.SwiftMessageEntries.AsNoTracking()
+            .Where(entry => entry.MessageId == id)
+            .OrderBy(entry => entry.Position)
+            .ToListAsync(ct);
         return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount,
-            x.Reference, body);
+            x.Reference, body,
+            entries.Select(entry => entry.Account).ToList(),
+            entries.Select(entry => entry.Currency).ToList(),
+            entries.Select(entry => entry.Amount).ToList(),
+            entries.Select(entry => entry.BeneficiaryCustomerAccount).ToList(),
+            entries.Select(entry => entry.BeneficiaryCustomerBank).ToList(),
+            entries.Select(entry => entry.BeneficiaryCustomerName).ToList(),
+            entries.Select(entry => entry.OrderingCustomerAccount).ToList(),
+            entries.Select(entry => entry.OrderingCustomerBank).ToList(),
+            entries.Select(entry => entry.OrderingCustomerName).ToList(),
+            entries.Select(entry => entry.SenderMessageReference).ToList(),
+            entries.Select(entry => entry.SettlementDate).ToList(),
+            entries.Select(entry => entry.TradeDealDate).ToList(),
+            entries.Select(entry => entry.UnitDataOwner).ToList(),
+            entries.Select(entry => entry.ValueDate).ToList());
     }
 
     public async Task<PagedResult<MessageListItemDto>> SearchAsync(MessageSearchRequest request, UserAccess access, CancellationToken ct)
@@ -37,8 +55,10 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         if (f?.MessageTypes is { Count: > 0 }) query = query.Where(x => f.MessageTypes.Contains(x.MessageType));
         if (f?.DateFrom is not null) query = query.Where(x => x.ReceivedAt >= f.DateFrom);
         if (f?.DateTo is not null) query = query.Where(x => x.ReceivedAt <= f.DateTo);
-        if (!string.IsNullOrWhiteSpace(f?.Account)) query = query.Where(x => x.Account != null && x.Account.Contains(f.Account));
-        if (!string.IsNullOrWhiteSpace(f?.Currency)) query = query.Where(x => x.Currency == f.Currency);
+        if (!string.IsNullOrWhiteSpace(f?.Account)) query = query.Where(x => db.SwiftMessageEntries
+            .Any(entry => entry.MessageId == x.Id && entry.Account != null && entry.Account.Contains(f.Account)));
+        if (!string.IsNullOrWhiteSpace(f?.Currency)) query = query.Where(x => db.SwiftMessageEntries
+            .Any(entry => entry.MessageId == x.Id && entry.Currency == f.Currency));
         var count = await query.CountAsync(ct);
         query = ApplySort(query, request.Sort);
         var rows = await query.Skip(request.Skip).Take(request.Take).ToListAsync(ct);
@@ -81,7 +101,9 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         var actor = row.UserId is null ? null : new AuditActorDto(row.UserId.Value,
             row.UserName ?? string.Empty, row.DisplayName ?? string.Empty);
         var details = new AuditEventDetailsDto(stored.WorkflowDefinitionId, stored.PreviousAssigneeId,
-            stored.AssigneeId ?? stored.AssignedTo, row.ReviewId, stored.ReviewLevel ?? stored.Level, stored.Comment);
+            stored.AssigneeId ?? stored.AssignedTo, row.ReviewId, stored.ReviewLevel ?? stored.Level, stored.Comment,
+            stored.PreviousBranchId, stored.BranchId, stored.PreviousDepartmentId, stored.DepartmentId,
+            stored.PreviousWorkflowDefinitionId);
         return new AuditEventDto(row.Id, row.EventType, row.Timestamp, row.OldState?.ToString(), row.NewState?.ToString(),
             actor, details, row.CorrelationId);
     }
@@ -124,5 +146,6 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
 
     private sealed record StoredAuditDetails(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
         int? AssigneeId = null, int? AssignedTo = null, int? ReviewLevel = null, int? Level = null,
-        string? Comment = null);
+        string? Comment = null, int? PreviousBranchId = null, int? BranchId = null,
+        int? PreviousDepartmentId = null, int? DepartmentId = null, int? PreviousWorkflowDefinitionId = null);
 }

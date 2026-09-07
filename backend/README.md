@@ -124,4 +124,7 @@ They cover migrations and seed data, idempotent message registration, workflow a
 
 ## Legacy synchronization host
 
-`ORP.Sync` is intended to run once per schedule: it completes the legacy synchronization and then calls `[ORP].[RegisterNewMessages]`. Registration is idempotent and does not reset workflow state for existing messages. Deployment prerequisites and scheduling notes are documented in [`src/ORP.Sync/README.md`](src/ORP.Sync/README.md).
+`ORP.Sync` is intended to run once per schedule. It reads `SwiftMessage` objects through the approved
+legacy library, routes and inserts new `WarehouseId` values into `[orp]`, then calls `[orp].[RegisterNewMessages]`.
+Registration is idempotent and does not reset workflow state for existing messages. Deployment
+prerequisites and routing configuration are documented in [`src/ORP.Sync/README.md`](src/ORP.Sync/README.md).

@@ -24,13 +24,16 @@ public sealed class AuditPersistenceTests
         var source = new SwiftMessageRecord
         {
             MessageId = 1,
-            ExternalId = "LEGACY",
+            WarehouseId = "LEGACY",
             MessageType = "MT199",
             BranchId = 1,
             DepartmentId = 1,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Sender = "A",
-            Receiver = "B"
+            MessageDate = DateTimeOffset.UtcNow,
+            SenderRequestor = "A",
+            ReceiverResponder = "B",
+            RoutingStatus = SwiftMessageRoutingStatus.Routed,
+            LoadedAtUtc = DateTimeOffset.UtcNow,
+            LastSynchronizedAtUtc = DateTimeOffset.UtcNow
         };
         db.AddRange(message, audit, source);
         await db.SaveChangesAsync(ct);

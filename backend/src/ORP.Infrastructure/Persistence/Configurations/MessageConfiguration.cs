@@ -16,6 +16,7 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.ToTable("Messages"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).HasColumnName("MessageId").ValueGeneratedNever();
         builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
         builder.Property<byte[]>("RowVersion").IsRowVersion();
+        builder.HasOne<SwiftMessageRecord>().WithOne().HasForeignKey<Message>(x => x.Id).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -25,28 +26,67 @@ public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<S
 {
     public void Configure(EntityTypeBuilder<SwiftMessageRecord> builder)
     {
-        builder.ToView("SwiftMessageSource", "ORP");
+        builder.ToTable("SwiftMessages", "orp");
         builder.HasKey(x => x.MessageId);
-        builder.Property(x => x.MessageId).HasColumnName("MessageID").ValueGeneratedNever();
-        builder.Property(x => x.ExternalId).HasMaxLength(100);
+        builder.Property(x => x.MessageId).ValueGeneratedOnAdd();
+        builder.Property(x => x.WarehouseId).HasMaxLength(30);
+        builder.HasIndex(x => x.WarehouseId).IsUnique();
         builder.Property(x => x.MessageType).HasMaxLength(20);
-        builder.Property(x => x.Sender).HasMaxLength(100);
-        builder.Property(x => x.Receiver).HasMaxLength(100);
-        builder.Property(x => x.Account).HasMaxLength(100);
-        builder.Property(x => x.Currency).HasMaxLength(3);
-        builder.Property(x => x.Amount).HasPrecision(19, 4);
-        builder.Property(x => x.Reference).HasMaxLength(200);
+        builder.Property(x => x.MessageTypeShort).HasMaxLength(10);
+        builder.Property(x => x.BackendDirection).HasMaxLength(100);
+        builder.Property(x => x.CounterParty).HasMaxLength(100);
+        builder.Property(x => x.CounterPartyCountry).HasMaxLength(100);
+        builder.Property(x => x.Direction).HasMaxLength(8);
+        builder.Property(x => x.MessageFormatVersion).HasMaxLength(20);
+        builder.Property(x => x.MessageInputReference).HasMaxLength(100);
+        builder.Property(x => x.ModifiedBy).HasMaxLength(20);
+        builder.Property(x => x.NetworkInterfaceMessageReference).HasMaxLength(16);
+        builder.Property(x => x.NetworkPriority).HasMaxLength(100);
+        builder.Property(x => x.NetworkProtocol).HasMaxLength(50);
+        builder.Property(x => x.OriginalStatus).HasMaxLength(20);
+        builder.Property(x => x.OwnBic).HasMaxLength(16);
+        builder.Property(x => x.ReceiverResponder).HasMaxLength(100);
+        builder.Property(x => x.ReceiverResponderBic8).HasMaxLength(8);
+        builder.Property(x => x.SenderRequestor).HasMaxLength(100);
+        builder.Property(x => x.SenderRequestorBic8).HasMaxLength(8);
+        builder.Property(x => x.SequenceNumber).HasMaxLength(20);
+        builder.Property(x => x.SessionNumber).HasMaxLength(20);
+        builder.Property(x => x.Service).HasMaxLength(20);
+        builder.Property(x => x.SourceInterface).HasMaxLength(20);
+        builder.Property(x => x.Status).HasMaxLength(20);
+        builder.Property(x => x.Uetr).HasMaxLength(38);
+        builder.Property(x => x.RoutingStatus).HasConversion<string>().HasMaxLength(20);
+        builder.Property(x => x.RoutingError).HasMaxLength(1000);
+        builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
-public sealed class SwiftMessageBodyRecordConfiguration : IEntityTypeConfiguration<SwiftMessageBodyRecord>
+public sealed class SwiftMessageEntryRecordConfiguration : IEntityTypeConfiguration<SwiftMessageEntryRecord>
 {
-    public void Configure(EntityTypeBuilder<SwiftMessageBodyRecord> builder)
+    public void Configure(EntityTypeBuilder<SwiftMessageEntryRecord> builder)
     {
-        builder.ToTable("Messages", "dbo", table => table.ExcludeFromMigrations());
-        builder.HasKey(x => x.MessageId);
-        builder.Property(x => x.MessageId).HasColumnName("MessageID").ValueGeneratedNever();
-        builder.Property(x => x.Body).HasColumnName("Body");
+        builder.ToTable("SwiftMessageEntries", "orp");
+        builder.HasKey(x => new { x.MessageId, x.Position });
+        builder.Property(x => x.Amount).HasPrecision(19, 4);
+        builder.Property(x => x.Currency).HasMaxLength(3);
+        builder.Property(x => x.Account).HasMaxLength(100);
+        builder.Property(x => x.BeneficiaryCustomerAccount).HasMaxLength(255);
+        builder.Property(x => x.BeneficiaryCustomerBank).HasMaxLength(255);
+        builder.Property(x => x.BeneficiaryCustomerName).HasMaxLength(255);
+        builder.Property(x => x.OrderingCustomerAccount).HasMaxLength(255);
+        builder.Property(x => x.OrderingCustomerBank).HasMaxLength(255);
+        builder.Property(x => x.OrderingCustomerName).HasMaxLength(255);
+        builder.Property(x => x.SenderMessageReference).HasMaxLength(255);
+        builder.Property(x => x.UnitDataOwner).HasMaxLength(255);
+        builder.Property(x => x.SettlementDate).HasColumnType("date");
+        builder.Property(x => x.TradeDealDate).HasColumnType("date");
+        builder.Property(x => x.ValueDate).HasColumnType("date");
+        builder.HasIndex(x => x.Account);
+        builder.HasIndex(x => x.Currency);
+        builder.HasIndex(x => x.Amount);
+        builder.HasOne(x => x.Message).WithMany(x => x.Entries).HasForeignKey(x => x.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

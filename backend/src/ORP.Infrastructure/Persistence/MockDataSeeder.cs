@@ -40,26 +40,32 @@ public static class MockDataSeeder
             return new SwiftMessageRecord
             {
                 MessageId = message.Id,
-                ExternalId = $"MSG-{message.Id:00000}-{fake.IdSuffix}",
+                WarehouseId = $"MSG-{message.Id:00000}-{fake.IdSuffix}",
                 MessageType = MessageTypes[typeIndex],
                 BranchId = ((int)message.Id - 1) % 3 + 1,
                 DepartmentId = typeIndex % 3 + 1,
-                ReceivedAt = new DateTimeOffset(2026, 8, 1, 8, 0, 0, TimeSpan.Zero).AddHours(message.Id),
-                Sender = fake.Sender,
-                Receiver = fake.Receiver,
-                Account = fake.Account,
-                Currency = fake.Currency,
-                Amount = fake.Amount,
-                Reference = fake.Reference
+                MessageDate = new DateTimeOffset(2026, 8, 1, 8, 0, 0, TimeSpan.Zero).AddHours(message.Id),
+                SenderRequestor = fake.Sender,
+                ReceiverResponder = fake.Receiver,
+                Body = $"{{1:F01MOCK{message.Id:0000000000}}}\n{{2:I{MessageTypes[typeIndex][2..]}MOCK}}",
+                RoutingStatus = SwiftMessageRoutingStatus.Routed,
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                LastSynchronizedAtUtc = DateTimeOffset.UtcNow,
+                Entries =
+                [
+                    new SwiftMessageEntryRecord
+                    {
+                        Position = 0,
+                        Account = fake.Account,
+                        Currency = fake.Currency,
+                        Amount = fake.Amount,
+                        SenderMessageReference = fake.Reference
+                    }
+                ]
             };
         }).ToList();
         db.Messages.AddRange(messages);
-        db.SwiftMessageSource.AddRange(source);
-        db.SwiftMessageBodies.AddRange(messages.Select(message => new SwiftMessageBodyRecord
-        {
-            MessageId = message.Id,
-            Body = $"{{1:F01MOCK{message.Id:0000000000}}}\n{{2:I{MessageTypes[((int)message.Id - 1) % MessageTypes.Length][2..]}MOCK}}"
-        }));
+        db.SwiftMessages.AddRange(source);
         var registeredAt = DateTimeOffset.UtcNow;
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         db.AuditEvents.AddRange(messages.Select(message => new AuditEvent(message,

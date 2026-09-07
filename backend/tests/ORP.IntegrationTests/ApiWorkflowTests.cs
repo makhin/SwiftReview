@@ -36,9 +36,7 @@ public sealed class ApiWorkflowTests
             .Options;
         using var db = new ORPDbContext(options);
 
-        Assert.Contains("20260905120000_AddAllDepartmentsPermission", db.Database.GetMigrations());
-        Assert.Contains("20260905170000_AutomaticAssignment", db.Database.GetMigrations());
-        Assert.Contains("20260905210000_ValidateWorkflowConfiguration", db.Database.GetMigrations());
+        Assert.Equal(["20260907160000_InitialCreate"], db.Database.GetMigrations());
     }
 
     [Fact]
@@ -73,19 +71,23 @@ public sealed class ApiWorkflowTests
             var seeded = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
             await seeded.Database.MigrateAsync(ct);
             Assert.Equal(0, await seeded.Messages.CountAsync(ct));
-            Assert.Equal(0, await seeded.SwiftMessageSource.CountAsync(ct));
+            Assert.Equal(0, await seeded.SwiftMessages.CountAsync(ct));
             Assert.Equal(0, await seeded.Users.CountAsync(ct));
             Assert.Equal(0, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.False(await seeded.Reviews.AnyAsync(ct));
-            Assert.Equal(5, (await seeded.Database.GetAppliedMigrationsAsync(ct)).Count());
+            Assert.Single(await seeded.Database.GetAppliedMigrationsAsync(ct));
             var historyTableCount = await seeded.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS [Value] FROM sys.tables AS t JOIN sys.schemas AS s ON s.schema_id = t.schema_id WHERE t.name = N'__EFMigrationsHistory' AND s.name = N'dbo'")
                 .SingleAsync(ct);
             Assert.Equal(1, historyTableCount);
+            var ownedSourceTableCount = await seeded.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS [Value] FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name=N'orp' AND t.name IN (N'SwiftMessages',N'SwiftMessageEntries',N'SyncState')")
+                .SingleAsync(ct);
+            Assert.Equal(3, ownedSourceTableCount);
             fixture = await SeedSqlFixture(seeded, ct);
             await CreateAndSeedSwiftSource(seeded, ct);
             Assert.Equal(76, await seeded.Messages.CountAsync(ct));
-            Assert.Equal(76, await seeded.SwiftMessageSource.CountAsync(ct));
+            Assert.Equal(76, await seeded.SwiftMessages.CountAsync(ct));
             var assignmentQueries = scope.ServiceProvider.GetRequiredService<IAutomaticAssignmentQueries>();
             var firstQueuePage = await assignmentQueries.GetUnassignedMessagesAsync(null, 2, ct);
             Assert.Equal([1, 2], firstQueuePage.Select(item => item.MessageId));
@@ -101,14 +103,20 @@ public sealed class ApiWorkflowTests
             Assert.False(await seeded.Messages.AnyAsync(m => !seeded.WorkflowDefinitions.Any(w => w.Id == m.WorkflowDefinitionId), ct));
             Assert.DoesNotContain(await seeded.Reviews.AsNoTracking().Where(x => x.Status == Domain.Reviews.ReviewStatus.Approved)
                 .GroupBy(x => x.MessageId).Select(g => g.Select(x => x.ReviewerId).Count() != g.Select(x => x.ReviewerId).Distinct().Count()).ToListAsync(ct), x => x);
-            var forbiddenSourceWrite = new SwiftMessageRecord { MessageId = 2000, ExternalId = "FORBIDDEN", MessageType = "MT199", BranchId = 1, DepartmentId = 1, ReceivedAt = DateTimeOffset.UtcNow, Sender = "A", Receiver = "B" };
-            seeded.SwiftMessageSource.Add(forbiddenSourceWrite);
+            var forbiddenSourceWrite = new SwiftMessageRecord
+            {
+                MessageId = 2000, WarehouseId = "FORBIDDEN", MessageType = "MT199", BranchId = 1,
+                DepartmentId = 1, MessageDate = DateTimeOffset.UtcNow, SenderRequestor = "A",
+                ReceiverResponder = "B", RoutingStatus = SwiftMessageRoutingStatus.Routed,
+                LoadedAtUtc = DateTimeOffset.UtcNow, LastSynchronizedAtUtc = DateTimeOffset.UtcNow
+            };
+            seeded.SwiftMessages.Add(forbiddenSourceWrite);
             await Assert.ThrowsAsync<InvalidOperationException>(() => seeded.SaveChangesAsync(ct));
             seeded.Entry(forbiddenSourceWrite).State = EntityState.Detached;
-            var forbiddenBodyWrite = new SwiftMessageBodyRecord { MessageId = 2000, Body = "FORBIDDEN" };
-            seeded.SwiftMessageBodies.Add(forbiddenBodyWrite);
+            var forbiddenEntryWrite = new SwiftMessageEntryRecord { MessageId = 2000, Position = 0 };
+            seeded.SwiftMessageEntries.Add(forbiddenEntryWrite);
             await Assert.ThrowsAsync<InvalidOperationException>(() => seeded.SaveChangesAsync(ct));
-            seeded.Entry(forbiddenBodyWrite).State = EntityState.Detached;
+            seeded.Entry(forbiddenEntryWrite).State = EntityState.Detached;
         }
         await VerifyConcurrentAssignmentReturnsControlledConflict(factory, fixture, ct);
 
@@ -141,10 +149,18 @@ public sealed class ApiWorkflowTests
         var details = await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct);
         Assert.Equal(MessageState.Completed, details!.State);
         Assert.Equal("RAW-1001", details.Body);
+        Assert.Equal(["IT-ACCOUNT", "SECONDARY"], details.Accounts);
+        Assert.Equal(["EUR", "CHF"], details.Currencies);
+        Assert.Equal([1200m, null], details.Amounts);
 
         var search = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 10,
             [new SortClause("receivedAt", "desc")], new MessageFilter([MessageState.Completed], [1], ["MT199"], [1], null, null, "IT", "EUR")), ct);
         search.EnsureSuccessStatusCode(); Assert.True((await search.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ResponseJson, ct))!.TotalCount >= 1);
+        var secondaryEntrySearch = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 10,
+            null, new MessageFilter(null, null, null, null, null, null, "SECONDARY", "CHF")), ct);
+        secondaryEntrySearch.EnsureSuccessStatusCode();
+        Assert.Contains((await secondaryEntrySearch.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ResponseJson, ct))!.Items,
+            item => item.Id == id);
         var page = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 1, null, null), ct);
         Assert.Single((await page.Content.ReadFromJsonAsync<PagedResult<MessageListItemDto>>(ResponseJson, ct))!.Items);
         var multiSort = await client.PostAsJsonAsync("/api/messages/search", new MessageSearchRequest(0, 20,
@@ -313,32 +329,6 @@ public sealed class ApiWorkflowTests
     }
     private static async Task CreateAndSeedSwiftSource(ORPDbContext db, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS [dbo].[Messages];", ct);
-        await db.Database.ExecuteSqlRawAsync("""
-            CREATE TABLE [dbo].[Messages]
-            (
-                [MessageID] bigint NOT NULL PRIMARY KEY,
-                [Body] nvarchar(max) NULL
-            );
-            """, ct);
-        await db.Database.ExecuteSqlRawAsync("DROP VIEW IF EXISTS [ORP].[SwiftMessageSource];", ct);
-        await db.Database.ExecuteSqlRawAsync("""
-            CREATE TABLE [ORP].[SwiftMessageSource]
-            (
-                [MessageID] bigint NOT NULL PRIMARY KEY,
-                [ExternalId] nvarchar(100) NOT NULL,
-                [MessageType] nvarchar(20) NOT NULL,
-                [BranchId] int NOT NULL,
-                [DepartmentId] int NOT NULL,
-                [ReceivedAt] datetimeoffset NOT NULL,
-                [Sender] nvarchar(100) NOT NULL,
-                [Receiver] nvarchar(100) NOT NULL,
-                [Account] nvarchar(100) NULL,
-                [Currency] nvarchar(3) NULL,
-                [Amount] decimal(19,4) NULL,
-                [Reference] nvarchar(200) NULL
-            );
-            """, ct);
         for (var i = 1; i <= 75; i++)
         {
             string[] messageTypes = ["MT199", "MT299", "MT671", "MT700", "MT710", "MT760", "MT799", "MT999"];
@@ -347,8 +337,12 @@ public sealed class ApiWorkflowTests
                 (i - 1) % 3 + 1, typeIndex % 3 + 1, ct);
         }
         await InsertSwiftMessage(db, 1001, "IT-0001", "MT199", 1, 1, ct);
-        await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
-        await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO [orp].[SwiftMessageEntries] ([MessageId],[Position],[Account],[Currency])
+            VALUES (1001,1,N'SECONDARY',N'CHF');
+            """, ct);
+        await db.Database.ExecuteSqlRawAsync("EXEC [orp].[RegisterNewMessages];", ct);
+        await db.Database.ExecuteSqlRawAsync("EXEC [orp].[RegisterNewMessages];", ct);
         Assert.Equal(1, await db.Messages.CountAsync(x => x.Id == 1001, ct));
         Assert.Equal(1, await db.AuditEvents.CountAsync(x => x.MessageId == 1001 &&
             x.EventType == AuditEventType.MessageRegistered, ct));
@@ -359,11 +353,11 @@ public sealed class ApiWorkflowTests
     {
         await db.Database.ExecuteSqlRawAsync("""
             DECLARE @WorkflowId int;
-            INSERT INTO [ORP].[WorkflowDefinitions]
+            INSERT INTO [orp].[WorkflowDefinitions]
                 ([Name], [MessageType], [DepartmentId], [BranchId], [IsActive])
             VALUES (N'Invalid workflow', N'MTBAD', 1, NULL, 1);
             SET @WorkflowId = SCOPE_IDENTITY();
-            INSERT INTO [ORP].[WorkflowSteps]
+            INSERT INTO [orp].[WorkflowSteps]
                 ([WorkflowDefinitionId], [Order], [ReviewLevel], [Required])
             VALUES
                 (@WorkflowId, 1, 1, 0),
@@ -371,29 +365,36 @@ public sealed class ApiWorkflowTests
             """, ct);
         await InsertSwiftMessage(db, 2001, "INVALID-WORKFLOW", "MTBAD", 1, 1, ct);
 
-        await db.Database.ExecuteSqlRawAsync("EXEC [ORP].[RegisterNewMessages];", ct);
+        await db.Database.ExecuteSqlRawAsync("EXEC [orp].[RegisterNewMessages];", ct);
 
         Assert.False(await db.Messages.AnyAsync(message => message.Id == 2001, ct));
         Assert.False(await db.AuditEvents.AnyAsync(audit => audit.MessageId == 2001, ct));
         await db.Database.ExecuteSqlRawAsync("""
-            DELETE FROM [ORP].[SwiftMessageSource] WHERE [MessageID] = 2001;
-            DELETE FROM [dbo].[Messages] WHERE [MessageID] = 2001;
+            DELETE FROM [orp].[SwiftMessages] WHERE [MessageId] = 2001;
             DELETE step
-            FROM [ORP].[WorkflowSteps] AS step
-            INNER JOIN [ORP].[WorkflowDefinitions] AS workflow
+            FROM [orp].[WorkflowSteps] AS step
+            INNER JOIN [orp].[WorkflowDefinitions] AS workflow
                 ON workflow.[Id] = step.[WorkflowDefinitionId]
             WHERE workflow.[MessageType] = N'MTBAD';
-            DELETE FROM [ORP].[WorkflowDefinitions] WHERE [MessageType] = N'MTBAD';
+            DELETE FROM [orp].[WorkflowDefinitions] WHERE [MessageType] = N'MTBAD';
             """, ct);
     }
 
     private static Task<int> InsertSwiftMessage(ORPDbContext db, long id, string externalId,
         string messageType, int branchId, int departmentId, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO [dbo].[Messages] ([MessageID], [Body]) VALUES ({id}, {$"RAW-{id}"});
-            INSERT INTO [ORP].[SwiftMessageSource]
-                ([MessageID], [ExternalId], [MessageType], [BranchId], [DepartmentId], [ReceivedAt], [Sender], [Receiver], [Account], [Currency], [Amount], [Reference])
+            SET IDENTITY_INSERT [orp].[SwiftMessages] ON;
+            INSERT INTO [orp].[SwiftMessages]
+                ([MessageId], [WarehouseId], [MessageType], [BranchId], [DepartmentId], [MessageDate],
+                 [SenderRequestor], [ReceiverResponder], [Body], [RoutingStatus], [LoadedAtUtc], [LastSynchronizedAtUtc],
+                 [BodyContainsMx], [BodyContainsMt], [MessageLength], [PossibleDuplicate], [TouchedByHuman])
             VALUES
-                ({id}, {externalId}, {messageType}, {branchId}, {departmentId}, {new DateTimeOffset(2026, 8, 22, 8, 0, 0, TimeSpan.Zero)}, {"A"}, {"B"}, {"IT-ACCOUNT"}, {"EUR"}, {1200m}, {"IT-REF"});
+                ({id}, {externalId}, {messageType}, {branchId}, {departmentId},
+                 {new DateTimeOffset(2026, 8, 22, 8, 0, 0, TimeSpan.Zero)}, {"A"}, {"B"}, {$"RAW-{id}"},
+                 {"Routed"}, {DateTimeOffset.UtcNow}, {DateTimeOffset.UtcNow}, {false}, {false}, {0}, {false}, {false});
+            SET IDENTITY_INSERT [orp].[SwiftMessages] OFF;
+            INSERT INTO [orp].[SwiftMessageEntries]
+                ([MessageId], [Position], [Account], [Currency], [Amount], [SenderMessageReference])
+            VALUES ({id}, {0}, {"IT-ACCOUNT"}, {"EUR"}, {1200m}, {"IT-REF"});
             """, ct);
 }

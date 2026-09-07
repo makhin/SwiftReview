@@ -1,19 +1,57 @@
 namespace ORP.Infrastructure.Persistence;
 
-// Normalized read-only projection over the SWIFT-owned dbo.Messages table. Its SQL
-// definition will be added when the Body-to-ORP mapping rules are known.
+public enum SwiftMessageRoutingStatus
+{
+    Routed,
+    Unroutable,
+    Conflict
+}
+
 public sealed class SwiftMessageRecord
 {
     public long MessageId { get; init; }
-    public string ExternalId { get; init; } = null!;
+    public string WarehouseId { get; init; } = null!;
+    public DateTimeOffset? LoadedDateTime { get; init; }
+    public bool BodyContainsMx { get; init; }
+    public bool BodyContainsMt { get; init; }
+    public string? Json { get; init; }
+    public string? Body { get; init; }
+    public string? BackendDirection { get; init; }
+    public string? CounterParty { get; init; }
+    public string? CounterPartyCountry { get; init; }
+    public DateTimeOffset? CreationDate { get; init; }
+    public string? Direction { get; init; }
+    public DateTimeOffset? LastModificationDate { get; init; }
+    public DateTimeOffset? MessageDate { get; init; }
+    public int MessageLength { get; init; }
+    public string? MessageFormatVersion { get; init; }
+    public string? MessageInputReference { get; init; }
     public string MessageType { get; init; } = null!;
-    public int BranchId { get; init; }
-    public int DepartmentId { get; init; }
-    public DateTimeOffset ReceivedAt { get; init; }
-    public string Sender { get; init; } = null!;
-    public string Receiver { get; init; } = null!;
-    public string? Account { get; init; }
-    public string? Currency { get; init; }
-    public decimal? Amount { get; init; }
-    public string? Reference { get; init; }
+    public string? MessageTypeShort { get; init; }
+    public string? ModifiedBy { get; init; }
+    public string? NetworkInterfaceMessageReference { get; init; }
+    public string? NetworkPriority { get; init; }
+    public string? NetworkProtocol { get; init; }
+    public string? OriginalStatus { get; init; }
+    public string? OwnBic { get; init; }
+    public bool PossibleDuplicate { get; init; }
+    public string? ReceiverResponder { get; init; }
+    public string? ReceiverResponderBic8 { get; init; }
+    public string? SenderRequestor { get; init; }
+    public string? SenderRequestorBic8 { get; init; }
+    public string? SequenceNumber { get; init; }
+    public string? SessionNumber { get; init; }
+    public string? Service { get; init; }
+    public string? SourceInterface { get; init; }
+    public string? Status { get; init; }
+    public DateTimeOffset? StatusDate { get; init; }
+    public bool TouchedByHuman { get; init; }
+    public string? Uetr { get; init; }
+    public int? BranchId { get; init; }
+    public int? DepartmentId { get; init; }
+    public SwiftMessageRoutingStatus RoutingStatus { get; init; }
+    public string? RoutingError { get; init; }
+    public DateTimeOffset LoadedAtUtc { get; init; }
+    public DateTimeOffset LastSynchronizedAtUtc { get; init; }
+    public ICollection<SwiftMessageEntryRecord> Entries { get; init; } = [];
 }

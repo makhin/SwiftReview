@@ -48,12 +48,13 @@ public sealed class AutomaticAssignmentQueries(ORPDbContext db) : IAutomaticAssi
     public async Task<IReadOnlyList<UnassignedMessageCursor>> GetUnassignedMessagesAsync(
         UnassignedMessageCursor? after, int take, CancellationToken cancellationToken) =>
         await (from message in db.Messages.AsNoTracking()
-               join source in db.SwiftMessageSource.AsNoTracking() on message.Id equals source.MessageId
+               join source in db.SwiftMessages.AsNoTracking() on message.Id equals source.MessageId
+               let receivedAt = source.MessageDate ?? source.LoadedAtUtc
                where message.State == MessageState.New && message.CurrentAssigneeId == null &&
-                   (after == null || source.ReceivedAt > after.ReceivedAt ||
-                       source.ReceivedAt == after.ReceivedAt && message.Id > after.MessageId)
-               orderby source.ReceivedAt, message.Id
-               select new UnassignedMessageCursor(source.ReceivedAt, message.Id))
+                   (after == null || receivedAt > after.ReceivedAt ||
+                       receivedAt == after.ReceivedAt && message.Id > after.MessageId)
+               orderby receivedAt, message.Id
+               select new UnassignedMessageCursor(receivedAt, message.Id))
             .Take(take)
             .ToListAsync(cancellationToken);
 }

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Exercise the unchanged net472 sources on the cross-platform test runtime. -->
+    <Compile Include="../../src/ORP.Sync/SwiftMessageData.cs" Link="Sync/SwiftMessageData.cs" />
+    <Compile Include="../../src/ORP.Sync/SwiftQueryClient.cs" Link="Sync/SwiftQueryClient.cs" />
+    <Compile Include="../../src/ORP.Sync/MockSwiftQuery.cs" Link="Sync/MockSwiftQuery.cs" />
+    <Compile Include="../../src/ORP.Sync/RoutingRules.cs" Link="Sync/RoutingRules.cs" />
+    <Compile Include="../../src/ORP.Sync/SwiftMessageRepository.cs" Link="Sync/SwiftMessageRepository.cs" />
+    <ProjectReference Include="../../src/ORP.Infrastructure/ORP.Infrastructure.csproj" />
+    <PackageReference Include="System.Data.SqlClient" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

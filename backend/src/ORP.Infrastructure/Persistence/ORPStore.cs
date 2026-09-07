@@ -12,9 +12,9 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class ORPStore(ORPDbContext db) : IORPStore
 {
     public Task<Message?> FindMessageAsync(long id, CancellationToken ct) => db.Messages.SingleOrDefaultAsync(x => x.Id == id, ct);
-    public Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken ct) => db.SwiftMessageSource.AsNoTracking()
-        .Where(x => x.MessageId == id)
-        .Select(x => new MessageSourceDto(x.MessageId, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
+    public Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken ct) => db.ReadMessages()
+        .Where(x => x.Id == id)
+        .Select(x => new MessageSourceDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
             x.ReceivedAt, x.Sender, x.Receiver, x.Account, x.Currency, x.Amount, x.Reference))
         .SingleOrDefaultAsync(ct);
     public Task<WorkflowDefinition?> FindWorkflowAsync(int id, CancellationToken ct) => db.WorkflowDefinitions.Include(x => x.Steps).SingleOrDefaultAsync(x => x.Id == id, ct);

@@ -18,7 +18,14 @@ public sealed record CurrentUserResponse(int UserId, string UserName, IReadOnlyL
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
-    string? Account, string? Currency, decimal? Amount, string? Reference, string? Body);
+    string? Account, string? Currency, decimal? Amount, string? Reference, string? Body,
+    IReadOnlyList<string?> Accounts, IReadOnlyList<string?> Currencies, IReadOnlyList<decimal?> Amounts,
+    IReadOnlyList<string?> BeneficiaryCustomerAccounts, IReadOnlyList<string?> BeneficiaryCustomerBanks,
+    IReadOnlyList<string?> BeneficiaryCustomerNames, IReadOnlyList<string?> OrderingCustomerAccounts,
+    IReadOnlyList<string?> OrderingCustomerBanks, IReadOnlyList<string?> OrderingCustomerNames,
+    IReadOnlyList<string?> SenderMessageReferences, IReadOnlyList<DateTime?> SettlementDates,
+    IReadOnlyList<DateTime?> TradeDealDates, IReadOnlyList<string?> UnitDataOwners,
+    IReadOnlyList<DateTime?> ValueDates);
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
     int? ActiveReviewLevel, int? ActiveReviewerId, string? Account, string? Currency, decimal? Amount);
@@ -35,7 +42,9 @@ public sealed record DashboardSummaryDto(int Total, int Pending, int WaitingForF
     int WaitingForSecondReview, int WaitingForThirdReview, int Completed);
 public sealed record AuditActorDto(int UserId, string UserName, string DisplayName);
 public sealed record AuditEventDetailsDto(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
-    int? AssigneeId = null, long? ReviewId = null, int? ReviewLevel = null, string? Comment = null);
+    int? AssigneeId = null, long? ReviewId = null, int? ReviewLevel = null, string? Comment = null,
+    int? PreviousBranchId = null, int? BranchId = null, int? PreviousDepartmentId = null,
+    int? DepartmentId = null, int? PreviousWorkflowDefinitionId = null);
 public sealed record AuditEventDto(long Id, AuditEventType EventType, DateTimeOffset Timestamp,
     string? OldState, string? NewState, AuditActorDto? Actor,
     AuditEventDetailsDto Details, string CorrelationId);

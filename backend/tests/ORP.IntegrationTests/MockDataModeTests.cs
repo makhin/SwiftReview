@@ -64,6 +64,10 @@ public sealed class MockDataModeTests
 
         var details = await client.GetFromJsonAsync<MessageDetailsDto>("/api/messages/1", ResponseJson, ct);
         Assert.StartsWith("{1:F01MOCK", details!.Body);
+        Assert.Single(details.Accounts);
+        Assert.Equal(details.Account, details.Accounts[0]);
+        Assert.Equal(details.Currency, details.Currencies[0]);
+        Assert.Equal(details.Amount, details.Amounts[0]);
 
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/branches", ct))!.Count);
         Assert.Equal(3, (await client.GetFromJsonAsync<List<ReferenceItemDto>>("/api/departments", ct))!.Count);

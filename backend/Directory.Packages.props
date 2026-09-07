@@ -4,6 +4,10 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="System.Data.SqlClient" Version="4.8.6" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="9.0.4" />
+    <PackageVersion Include="$(SwiftPackageId)" Version="$(SwiftPackageVersion)"
+                    Condition="'$(SwiftPackageId)' != '' and '$(SwiftPackageVersion)' != ''" />
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <PackageVersion Include="FluentValidation" Version="12.1.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.0" />
