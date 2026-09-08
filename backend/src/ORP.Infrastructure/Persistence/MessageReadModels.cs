@@ -11,6 +11,7 @@ internal sealed class MessageReadRow
     public int BranchId { get; init; }
     public int DepartmentId { get; init; }
     public Domain.Messages.MessageState State { get; init; }
+    public int WorkflowDefinitionId { get; init; }
     public DateTimeOffset ReceivedAt { get; init; }
     public int? CurrentAssigneeId { get; init; }
     public long? ActiveReviewId { get; init; }
@@ -43,6 +44,7 @@ internal static class MessageReadModels
             BranchId = source.BranchId!.Value,
             DepartmentId = source.DepartmentId!.Value,
             State = message.State,
+            WorkflowDefinitionId = message.WorkflowDefinitionId,
             ReceivedAt = source.MessageDate ?? source.LoadedAtUtc,
             CurrentAssigneeId = message.CurrentAssigneeId,
             ActiveReviewId = activeReview == null ? null : activeReview.Id,

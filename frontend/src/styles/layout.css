@@ -73,6 +73,10 @@
   gap: var(--space-6);
 }
 
+.app-page--wide {
+  width: 100%;
+}
+
 .app-page-header {
   display: flex;
   align-items: flex-start;

@@ -11,7 +11,7 @@ import type {
   StartReviewRequest,
 } from '../../shared/api/generated/contracts.generated';
 
-export type MessageRow = MessageListItemDto;
+export type MessageRow = MessageListItemDto & { requiredReviewLevels?: number[] };
 export type MessageAssignmentScope = 'mine' | 'departments' | 'assignable';
 
 export async function getMessage(

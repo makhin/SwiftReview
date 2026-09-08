@@ -89,7 +89,7 @@ public static class DevExtremeLoadOptions
         options.RemoteSelect = true;
         options.RemoteGrouping = true;
         options.StringToLower = false;
-        options.PreSelect = Fields.Values.ToArray();
+        options.PreSelect = [.. Fields.Values, "RequiredReviewLevels"];
         if (options.Sort is not { Length: > 0 } && options.Group is not { Length: > 0 })
             options.Sort = [new SortingInfo { Selector = "ReceivedAt", Desc = true }];
         return options;

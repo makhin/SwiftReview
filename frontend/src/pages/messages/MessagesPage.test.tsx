@@ -21,6 +21,22 @@ vi.mock('../current-user/currentUserApi', () => ({
 }));
 
 vi.mock('devextreme-react/data-grid', () => {
+  const rowData = {
+    id: 42,
+    externalId: 'MSG-0042',
+    messageType: 'MT103',
+    branchId: 10,
+    departmentId: 20,
+    state: 'New',
+    receivedAt: '2026-09-05T08:00:00Z',
+    currentAssigneeId: null,
+    activeReviewId: null,
+    activeReviewLevel: null,
+    activeReviewerId: null,
+    account: null,
+    currency: null,
+    amount: null,
+  };
   const childComponent = (name: string) =>
     (props: PropsWithChildren<Record<string, unknown>>) => {
       componentProps(name, props);
@@ -28,6 +44,10 @@ vi.mock('devextreme-react/data-grid', () => {
         <span data-testid={name}>
           {String(props.caption ?? name)}
           {props.children}
+          {name === 'Column' && props.caption === 'Actions' &&
+            (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
+              data: rowData,
+            })}
         </span>
       );
     };
@@ -38,40 +58,6 @@ vi.mock('devextreme-react/data-grid', () => {
       return <div aria-label="Messages">{children}</div>;
     },
     Column: childComponent('Column'),
-    Button: ({ onClick, text, visible, ...props }: Record<string, unknown>) => {
-      const event = {
-        row: {
-          data: {
-            id: 42,
-            externalId: 'MSG-0042',
-            messageType: 'MT103',
-            branchId: 10,
-            departmentId: 20,
-            state: 'New',
-            receivedAt: '2026-09-05T08:00:00Z',
-            currentAssigneeId: null,
-            activeReviewId: null,
-            activeReviewLevel: null,
-            activeReviewerId: null,
-            account: null,
-            currency: null,
-            amount: null,
-          },
-        },
-      };
-      componentProps('GridButton', { onClick, text, visible, ...props });
-      if (typeof visible === 'function' && !(visible as (value: typeof event) => boolean)(event)) {
-        return null;
-      }
-      return (
-        <button
-          type="button"
-          onClick={() => (onClick as (value: typeof event) => void)(event)}
-        >
-          {String(text)}
-        </button>
-      );
-    },
     FilterRow: childComponent('FilterRow'),
     HeaderFilter: childComponent('HeaderFilter'),
     Pager: childComponent('Pager'),
@@ -79,6 +65,12 @@ vi.mock('devextreme-react/data-grid', () => {
     Lookup: childComponent('Lookup'),
   };
 });
+vi.mock('devextreme-react/button', () => ({
+  default: ({ text, onClick, ...props }: Record<string, unknown>) => {
+    componentProps('Button', { text, onClick, ...props });
+    return <button type="button" onClick={() => (onClick as () => void)()}>{String(text)}</button>;
+  },
+}));
 vi.mock('devextreme-react/drawer', () => ({
   default: ({
     children,
@@ -195,14 +187,16 @@ describe('MessagesPage', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'All messages' })).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
-    expect(screen.getAllByTestId('Column')).toHaveLength(12);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
 
     const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
     expect(dataGridProps).toMatchObject({
       remoteOperations: true,
       rowAlternationEnabled: true,
       noDataText: 'No messages found',
+      width: '100%',
     });
 
     const pagingProps = componentProps.mock.calls.find(([name]) => name === 'Paging')?.[1];
@@ -216,13 +210,12 @@ describe('MessagesPage', () => {
       'Message type',
       'Branch',
       'Department',
-      'State',
+      'Stage',
       'Received',
       'Account',
       'CCY',
       'Amount',
       'Assignee',
-      'Active reviewer',
       'Actions',
     ]);
 
@@ -230,19 +223,18 @@ describe('MessagesPage', () => {
       .filter(
         ([name, props]) =>
           name === 'Column' &&
-          ['branchId', 'departmentId', 'state', 'currentAssigneeId', 'activeReviewerId'].includes(
+          ['branchId', 'departmentId', 'state', 'currentAssigneeId'].includes(
             props.dataField,
           ),
       )
       .map(([, props]) => props);
-    expect(lookupColumns).toHaveLength(5);
+    expect(lookupColumns).toHaveLength(4);
     expect(lookupColumns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ dataField: 'branchId', allowSorting: false }),
         expect.objectContaining({ dataField: 'departmentId', allowSorting: false }),
         expect.objectContaining({ dataField: 'state' }),
         expect.objectContaining({ dataField: 'currentAssigneeId', allowSorting: false }),
-        expect.objectContaining({ dataField: 'activeReviewerId', allowSorting: false }),
       ]),
     );
 
@@ -300,48 +292,24 @@ describe('MessagesPage', () => {
         valueExpr: 'id',
         displayExpr: 'displayLabel',
       },
-      {
-        dataSource: [
-          {
-            id: 1,
-            userName: 'alex.morgan',
-            displayName: 'Alex Morgan',
-            displayLabel: 'Alex Morgan — Operations',
-            branchIds: [10],
-            departmentIds: [20],
-          },
-          {
-            id: 2,
-            userName: 'sam.lee',
-            displayName: 'Sam Lee',
-            displayLabel: 'Sam Lee — Operations, Compliance',
-            branchIds: [10],
-            departmentIds: [20, 30],
-          },
-          {
-            id: 3,
-            userName: 'pat.taylor',
-            displayName: 'Pat Taylor',
-            displayLabel: 'Pat Taylor — No departments',
-            branchIds: [10],
-            departmentIds: [],
-          },
-        ],
-        valueExpr: 'id',
-        displayExpr: 'displayLabel',
-      },
     ]);
   });
 
   it('keeps numeric columns available while reference data is unavailable', () => {
     renderPage(false);
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(12);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
   });
 
   it('opens raw message from the shared actions column', () => {
     renderPage();
+
+    const rawButton = componentProps.mock.calls
+      .filter(([name]) => name === 'Button')
+      .map(([, props]) => props)
+      .find((props) => props.text === 'Raw');
+    expect(rawButton).toMatchObject({ icon: 'doc', stylingMode: 'outlined' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Raw' }));
 
@@ -365,7 +333,7 @@ describe('MessagesPage', () => {
     const view = renderPage(true, ['message.access.all-departments', 'audit.view']);
     view.container.id = 'root';
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(12);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
     expect(screen.getByRole('button', { name: 'Raw' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Audit' })).toBeInTheDocument();
 

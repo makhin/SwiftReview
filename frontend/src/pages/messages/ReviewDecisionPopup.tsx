@@ -78,7 +78,8 @@ export default function ReviewDecisionPopup({
       showCloseButton={!isSubmitting}
       hideOnOutsideClick={!isSubmitting}
       dragEnabled={false}
-      width="min(90vw, 520px)"
+      width="90vw"
+      maxWidth={520}
       height="auto"
       onHiding={() => {
         if (!isSubmitting) {
@@ -92,16 +93,18 @@ export default function ReviewDecisionPopup({
           Confirm that you want to {decision} message <strong>{message.externalId}</strong>.
         </p>
 
-        <TextArea
-          value={comment}
-          onValueChanged={(event) => setComment(event.value)}
-          label="Comment (optional)"
-          labelMode="floating"
-          maxLength={2000}
-          minHeight={112}
-          disabled={isSubmitting}
-          inputAttr={{ 'aria-label': 'Comment (optional)' }}
-        />
+        <div>
+          <label className="app-label" htmlFor="review-comment">Comment (optional)</label>
+          <TextArea
+            value={comment}
+            onValueChanged={(event) => setComment(event.value)}
+            placeholder=""
+            maxLength={2000}
+            minHeight={112}
+            disabled={isSubmitting}
+            inputAttr={{ id: 'review-comment', 'aria-label': 'Comment (optional)' }}
+          />
+        </div>
 
         {error && (
           <div className="app-callout app-callout--danger" role="alert">

@@ -58,7 +58,8 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
       showCloseButton={!isSubmitting}
       hideOnOutsideClick={!isSubmitting}
       dragEnabled={false}
-      width="min(90vw, 520px)"
+      width="90vw"
+      maxWidth={520}
       height="auto"
       onHiding={() => {
         if (!isSubmitting) onClose();
@@ -72,18 +73,20 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
           <div className="app-callout app-callout--warning">No eligible reviewers are available.</div>
         )}
         {candidates && candidates.length > 0 && (
-          <SelectBox
-            items={candidates}
-            value={selectedId}
-            valueExpr="id"
-            displayExpr="displayName"
-            label="Reviewer"
-            labelMode="floating"
-            searchEnabled
-            disabled={isSubmitting}
-            onValueChanged={(event) => setSelectedId(event.value as number | string | null)}
-            inputAttr={{ 'aria-label': 'Reviewer' }}
-          />
+          <div>
+            <label className="app-label" htmlFor="assignment-reviewer">Reviewer</label>
+            <SelectBox
+              items={candidates}
+              value={selectedId}
+              valueExpr="id"
+              displayExpr="displayName"
+              placeholder=""
+              searchEnabled
+              disabled={isSubmitting}
+              onValueChanged={(event) => setSelectedId(event.value as number | string | null)}
+              inputAttr={{ id: 'assignment-reviewer', 'aria-label': 'Reviewer' }}
+            />
+          </div>
         )}
         {error && <div className="app-callout app-callout--danger" role="alert">{error}</div>}
         <div className="review-decision-popup__actions">

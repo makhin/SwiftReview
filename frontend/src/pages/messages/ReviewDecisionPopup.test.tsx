@@ -12,8 +12,12 @@ const { approveReview, rejectReview, startReview } = vi.hoisted(() => ({
 
 vi.mock('./messagesApi', () => ({ approveReview, rejectReview, startReview }));
 vi.mock('devextreme-react/popup', () => ({
-  default: ({ children, title }: PropsWithChildren<{ title: string }>) => (
-    <section role="dialog" aria-label={title}>{children}</section>
+  default: ({ children, title, width, maxWidth }: PropsWithChildren<{
+    title: string;
+    width: string;
+    maxWidth: number;
+  }>) => (
+    <section role="dialog" aria-label={title} data-width={width} data-max-width={maxWidth}>{children}</section>
   ),
 }));
 vi.mock('devextreme-react/button', () => ({
@@ -26,15 +30,18 @@ vi.mock('devextreme-react/button', () => ({
   ),
 }));
 vi.mock('devextreme-react/text-area', () => ({
-  default: ({ value, onValueChanged, maxLength, disabled, inputAttr }: {
+  default: ({ value, onValueChanged, maxLength, disabled, inputAttr, placeholder }: {
     value: string;
     onValueChanged: (event: { value: string }) => void;
     maxLength: number;
     disabled?: boolean;
-    inputAttr: { 'aria-label': string };
+    inputAttr: { id: string; 'aria-label': string };
+    placeholder: string;
   }) => (
     <textarea
       aria-label={inputAttr['aria-label']}
+      id={inputAttr.id}
+      placeholder={placeholder}
       value={value}
       maxLength={maxLength}
       disabled={disabled}
@@ -66,6 +73,21 @@ describe('ReviewDecisionPopup', () => {
     approveReview.mockReset().mockResolvedValue(undefined);
     rejectReview.mockReset().mockResolvedValue(undefined);
     startReview.mockReset().mockResolvedValue(undefined);
+  });
+
+  it.each(['approve', 'reject'] as const)('suppresses the default comment placeholder for %s', (decision) => {
+    render(
+      <ReviewDecisionPopup
+        decision={decision}
+        message={{ ...baseMessage, state: 'Assigned' }}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Comment (optional)')).toHaveAttribute('placeholder', '');
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '90vw');
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '520');
   });
 
   it('cancels without changing the review', () => {

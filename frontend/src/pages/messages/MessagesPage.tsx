@@ -37,7 +37,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <main className="app-content app-page">
+    <main className="app-content app-page app-page--wide">
       <header className="app-page-header">
         <div className="app-page-header__main">
           <h1 className="app-page-title">All messages</h1>

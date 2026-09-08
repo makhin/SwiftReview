@@ -20,6 +20,7 @@ public sealed class MessageGridRowDto
     public long? ActiveReviewId { get; init; }
     public int? ActiveReviewLevel { get; init; }
     public int? ActiveReviewerId { get; init; }
+    public int[] RequiredReviewLevels { get; init; } = [];
     public string? Account { get; init; }
     public string? Currency { get; init; }
     public decimal? Amount { get; init; }
@@ -64,6 +65,10 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 ActiveReviewId = x.ActiveReviewId,
                 ActiveReviewLevel = x.ActiveReviewLevel,
                 ActiveReviewerId = x.ActiveReviewerId,
+                RequiredReviewLevels = db.WorkflowSteps
+                    .Where(step => step.WorkflowDefinitionId == x.WorkflowDefinitionId && step.Required)
+                    .OrderBy(step => step.Order)
+                    .Select(step => step.ReviewLevel).ToArray(),
                 Account = x.Account,
                 Currency = x.Currency,
                 Amount = x.Amount

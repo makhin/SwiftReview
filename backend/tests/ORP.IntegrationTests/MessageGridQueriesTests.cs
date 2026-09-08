@@ -85,8 +85,10 @@ public sealed class MessageGridQueriesTests
             new DataSourceLoadOptionsBase { Take = 20 }, access, "unknown", CancellationToken.None));
     }
 
-    [Fact]
-    public async Task MineScope_IncludesOwnerOfActiveReview()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MineScope_IncludesOwnerOfActiveReview(bool skipMiddleLevel)
     {
         var options = new DbContextOptionsBuilder<ORPDbContext>()
             .UseInMemoryDatabase($"message-grid-active-review-{Guid.NewGuid():N}")
@@ -98,6 +100,10 @@ public sealed class MessageGridQueriesTests
         await db.SaveChangesAsync(ct);
 
         var workflow = new WorkflowDefinition("Review", "MT199", 1).AddStep(1, 1);
+        if (skipMiddleLevel)
+            workflow.AddStep(2, 2, required: false).AddStep(3, 3);
+        db.WorkflowDefinitions.Add(workflow);
+        await db.SaveChangesAsync(ct);
         var message = new Message(1, workflow.Id);
         var reviews = new List<Review>();
         message.Assign(reviewer.Id);
@@ -128,6 +134,18 @@ public sealed class MessageGridQueriesTests
         Assert.Equal(activeReview.Id, row.ActiveReviewId);
         Assert.Equal(activeReview.Level, row.ActiveReviewLevel);
         Assert.Equal(reviewer.Id, row.ActiveReviewerId);
+        Assert.Equal(skipMiddleLevel ? [1, 3] : new[] { 1 }, row.RequiredReviewLevels);
+
+        var apiResult = await new MessageGridQueries(db).LoadAsync(
+            ORP.Api.Infrastructure.DevExtremeLoadOptions.Parse(
+                new ORP.Api.Infrastructure.DevExtremeGridRequest(0, 20)),
+            new UserAccess(reviewer.Id, reviewer.UserName, new HashSet<string> { Permissions.MessageView },
+                new HashSet<int> { 1 }, new HashSet<int> { 1 }),
+            MessageAssignmentScopes.Mine, ct);
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(apiResult));
+        Assert.Equal(row.RequiredReviewLevels,
+            json.RootElement.GetProperty("data")[0].GetProperty("RequiredReviewLevels")
+                .EnumerateArray().Select(level => level.GetInt32()).ToArray());
 
         Task<DevExtreme.AspNet.Data.ResponseModel.LoadResult> LoadMine(User user) =>
             new MessageGridQueries(db).LoadAsync(

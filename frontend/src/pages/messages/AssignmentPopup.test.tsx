@@ -9,20 +9,25 @@ const { assignMessage, getAssignmentCandidates } = vi.hoisted(() => ({
 
 vi.mock('./messagesApi', () => ({ assignMessage, getAssignmentCandidates }));
 vi.mock('devextreme-react/popup', () => ({
-  default: ({ children, title }: PropsWithChildren<{ title: string }>) =>
-    <section role="dialog" aria-label={title}>{children}</section>,
+  default: ({ children, title, width, maxWidth }: PropsWithChildren<{
+    title: string;
+    width: string;
+    maxWidth: number;
+  }>) =>
+    <section role="dialog" aria-label={title} data-width={width} data-max-width={maxWidth}>{children}</section>,
 }));
 vi.mock('devextreme-react/button', () => ({
   default: ({ text, onClick, disabled }: { text: string; onClick: () => void; disabled?: boolean }) =>
     <button type="button" disabled={disabled} onClick={onClick}>{text}</button>,
 }));
 vi.mock('devextreme-react/select-box', () => ({
-  default: ({ items, onValueChanged, inputAttr }: {
+  default: ({ items, onValueChanged, inputAttr, placeholder }: {
     items: Array<{ id: number; displayName: string }>;
     onValueChanged: (event: { value: number }) => void;
-    inputAttr: { 'aria-label': string };
+    inputAttr: { id: string; 'aria-label': string };
+    placeholder: string;
   }) => (
-    <select aria-label={inputAttr['aria-label']} onChange={(event) =>
+    <select id={inputAttr.id} aria-label={inputAttr['aria-label']} data-placeholder={placeholder} onChange={(event) =>
       onValueChanged({ value: Number(event.target.value) })}>
       <option value="">Select</option>
       {items.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
@@ -62,7 +67,11 @@ describe('AssignmentPopup', () => {
     const onChanged = vi.fn();
     render(<AssignmentPopup message={message} onClose={onClose} onChanged={onChanged} />);
 
-    fireEvent.change(await screen.findByLabelText('Reviewer'), { target: { value: '2' } });
+    const reviewer = await screen.findByLabelText('Reviewer');
+    expect(reviewer).toHaveAttribute('data-placeholder', '');
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '90vw');
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '520');
+    fireEvent.change(reviewer, { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
 
     await waitFor(() => expect(assignMessage).toHaveBeenCalledWith(42, 2, false));

@@ -78,6 +78,7 @@ describe('AssignedMessagesPage', () => {
     renderPage('/messages/assigned?scope=mine');
 
     expect(screen.getByRole('heading', { name: 'Assigned messages' })).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByRole('button', { name: 'My work' })).toHaveAttribute(
       'aria-pressed',
       'true',

@@ -1,5 +1,4 @@
 import DataGrid, {
-  Button as GridButton,
   Column,
   FilterRow,
   HeaderFilter,
@@ -8,6 +7,7 @@ import DataGrid, {
   Paging,
 } from 'devextreme-react/data-grid';
 import type { DataGridRef } from 'devextreme-react/data-grid';
+import Button from 'devextreme-react/button';
 import Drawer from 'devextreme-react/drawer';
 import type CustomStore from 'devextreme/data/custom_store';
 import { useQuery } from '@tanstack/react-query';
@@ -24,6 +24,7 @@ import {
 } from '../../shared/api/referenceDataQueries';
 import AuditTrailDrawer from './AuditTrailDrawer';
 import AssignmentPopup from './AssignmentPopup';
+import MessageStage from './MessageStage';
 import type { MessageRow } from './messagesApi';
 import RawMessagePopup from './RawMessagePopup';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
@@ -121,6 +122,18 @@ export default function MessagesGrid({
     setSelectedAssignmentMessage(message);
   }
 
+  function openRawMessage(message: MessageRow) {
+    rawTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedRawMessage(message);
+  }
+
+  function openAudit(message: MessageRow) {
+    auditTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedAuditMessage(message);
+  }
+
   function canShowAssignment(message: MessageRow | undefined, assigned: boolean) {
     if (!showAssignment || !message) return false;
     const assignableState = message.state === 'New' || message.state === 'Assigned' ||
@@ -173,6 +186,7 @@ export default function MessagesGrid({
         <DataGrid
           ref={dataGridRef}
           dataSource={dataSource}
+          width="100%"
           remoteOperations
           showBorders={false}
           rowAlternationEnabled
@@ -216,7 +230,24 @@ export default function MessagesGrid({
               <Lookup dataSource={departments} valueExpr="id" displayExpr="name" />
             )}
           </Column>
-          <Column dataField="state" caption="State" minWidth={180}>
+          <Column
+            dataField="state"
+            caption="Stage"
+            minWidth={180}
+            cellRender={(cell) => {
+              const message = cell.data as MessageRow;
+              const label = messageStates?.find((item) => item.code === message.state)?.label ??
+                message.state;
+              return (
+                <MessageStage
+                  state={message.state}
+                  label={label}
+                  requiredLevels={message.requiredReviewLevels ?? []}
+                  hasAssignee={message.currentAssigneeId != null}
+                />
+              );
+            }}
+          >
             {messageStates && (
               <Lookup dataSource={messageStates} valueExpr="code" displayExpr="label" />
             )}
@@ -250,109 +281,73 @@ export default function MessagesGrid({
             )}
           </Column>
           <Column
-            dataField="activeReviewerId"
-            caption="Active reviewer"
-            dataType="number"
-            width={100}
-            allowSorting={false}
-          >
-            {assigneeUsers && (
-              <Lookup dataSource={assigneeUsers} valueExpr="id" displayExpr="displayLabel" />
-            )}
-          </Column>
-          <Column
-            type="buttons"
             caption="Actions"
-            width={(enableReviewActions ? 250 : 90) + (showAudit ? 40 : 0) +
-              (showAssignment ? 90 : 0)}
+            width={(enableReviewActions ? 170 : 0) + (showAudit ? 70 : 0) +
+              (showAssignment ? 100 : 0) + 70}
             allowFiltering={false}
             allowSorting={false}
-          >
-            <GridButton
-              text="Assign"
-              hint="Assign message"
-              visible={(event) =>
-                canShowAssignment(event.row?.data as MessageRow | undefined, false)
-              }
-              onClick={(event) => {
-                const message = event.row?.data as MessageRow | undefined;
-                if (message) openAssignment(message);
-              }}
-            />
-            <GridButton
-              text="Reassign"
-              hint="Reassign message"
-              visible={(event) =>
-                canShowAssignment(event.row?.data as MessageRow | undefined, true)
-              }
-              onClick={(event) => {
-                const message = event.row?.data as MessageRow | undefined;
-                if (message) openAssignment(message);
-              }}
-            />
-            {enableReviewActions && (
-              <GridButton
-                text="Approve"
-                hint="Approve message"
-                visible={(event) =>
-                  canShowReviewAction(event.row?.data as MessageRow | undefined, 'approve')
-                }
-                onClick={(event) => {
-                  const message = event.row?.data as MessageRow | undefined;
-                  if (message) {
-                    openReviewAction(message, 'approve');
-                  }
-                }}
-              />
-            )}
-            {enableReviewActions && (
-              <GridButton
-                text="Reject"
-                hint="Reject message"
-                visible={(event) =>
-                  canShowReviewAction(event.row?.data as MessageRow | undefined, 'reject')
-                }
-                onClick={(event) => {
-                  const message = event.row?.data as MessageRow | undefined;
-                  if (message) {
-                    openReviewAction(message, 'reject');
-                  }
-                }}
-              />
-            )}
-            <GridButton
-              text="Raw"
-              hint="View raw message"
-              onClick={(event) => {
-                const message = event.row?.data as MessageRow | undefined;
-
-                if (message) {
-                  rawTriggerRef.current =
-                    document.activeElement instanceof HTMLElement
-                      ? document.activeElement
-                      : null;
-                  setSelectedRawMessage(message);
-                }
-              }}
-            />
-            {showAudit && (
-              <GridButton
-                text="Audit"
-                hint="View audit trail"
-                onClick={(event) => {
-                  const message = event.row?.data as MessageRow | undefined;
-
-                  if (message) {
-                    auditTriggerRef.current =
-                      document.activeElement instanceof HTMLElement
-                        ? document.activeElement
-                        : null;
-                    setSelectedAuditMessage(message);
-                  }
-                }}
-              />
-            )}
-          </Column>
+            cellRender={(cell) => {
+              const message = cell.data as MessageRow;
+              return (
+                <div className="message-actions">
+                  {canShowAssignment(message, false) && (
+                    <Button
+                      text="Assign"
+                      icon="user"
+                      hint="Assign message"
+                      stylingMode="outlined"
+                      onClick={() => openAssignment(message)}
+                    />
+                  )}
+                  {canShowAssignment(message, true) && (
+                    <Button
+                      text="Reassign"
+                      icon="edit"
+                      hint="Reassign message"
+                      stylingMode="outlined"
+                      onClick={() => openAssignment(message)}
+                    />
+                  )}
+                  {enableReviewActions && canShowReviewAction(message, 'approve') && (
+                    <Button
+                      text="Approve"
+                      icon="check"
+                      hint="Approve message"
+                      type="success"
+                      stylingMode="outlined"
+                      onClick={() => openReviewAction(message, 'approve')}
+                    />
+                  )}
+                  {enableReviewActions && canShowReviewAction(message, 'reject') && (
+                    <Button
+                      text="Reject"
+                      icon="close"
+                      hint="Reject message"
+                      type="danger"
+                      stylingMode="outlined"
+                      onClick={() => openReviewAction(message, 'reject')}
+                    />
+                  )}
+                  <Button
+                    text="Raw"
+                    icon="doc"
+                    hint="View raw message"
+                    stylingMode="outlined"
+                    onClick={() => openRawMessage(message)}
+                  />
+                  {showAudit && (
+                    <Button
+                      text="Audit"
+                      icon="search"
+                      hint="View audit trail"
+                      stylingMode="outlined"
+                      onClick={() => openAudit(message)}
+                    />
+                  )}
+                </div>
+              );
+            }}
+          />
         </DataGrid>
       </div>
       {selectedRawMessage && (
