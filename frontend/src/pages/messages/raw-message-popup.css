@@ -2,12 +2,13 @@
   padding: 0;
 }
 
-.raw-message-popup__content {
+.review-decision-popup .review-decision-popup__content {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   padding: var(--space-4);
+  overflow-y: auto;
 }
 
 .raw-message-popup__message-id {
@@ -32,4 +33,12 @@
 
 .raw-message-popup__empty {
   color: var(--color-text-secondary);
+}
+
+.review-decision-popup .raw-message-popup__body {
+  flex: 1 0 160px;
+}
+
+.review-decision-popup .review-decision-popup__actions {
+  flex-wrap: wrap;
 }

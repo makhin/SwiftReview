@@ -109,14 +109,6 @@ vi.mock('./AuditTrailDrawer', () => ({
     </aside>
   ),
 }));
-vi.mock('./RawMessagePopup', () => ({
-  default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
-    <aside aria-label="Raw message">
-      {message.externalId}
-      <button type="button" onClick={onClose}>Close raw</button>
-    </aside>
-  ),
-}));
 vi.mock('./AssignmentPopup', () => ({
   default: ({ message, onClose, onChanged }: {
     message: { externalId: string };
@@ -132,13 +124,17 @@ vi.mock('./AssignmentPopup', () => ({
 }));
 
 vi.mock('./ReviewDecisionPopup', () => ({
-  default: ({ decision, onClose, onChanged }: {
-    decision: string;
+  default: ({ message, canApprove, canReject, onClose, onChanged }: {
+    message: { externalId: string };
+    canApprove: boolean;
+    canReject: boolean;
     onClose: () => void;
     onChanged: () => void;
   }) => (
     <aside aria-label="Review dialog">
-      {decision}
+      {message.externalId}
+      <button type="button" disabled={!canApprove}>Approve</button>
+      <button type="button" disabled={!canReject}>Reject</button>
       <button type="button" onClick={onChanged}>Save review</button>
       <button type="button" onClick={onClose}>Close review</button>
     </aside>
@@ -246,7 +242,7 @@ describe('MessagesPage', () => {
     expect(getCurrentUser).toHaveBeenCalledTimes(2);
   });
 
-  it.each(['Approve', 'Reject'])('refreshes after %s and restores focus when closed', async (action) => {
+  it('opens a combined review, refreshes after saving and restores focus when closed', async () => {
     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1 });
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(['current-user'], {
@@ -258,10 +254,13 @@ describe('MessagesPage', () => {
         <MessagesGrid dataSource={messageDataSource} enableReviewActions />
       </QueryClientProvider>,
     );
-    const trigger = screen.getByRole('button', { name: action });
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Review' });
     trigger.focus();
     fireEvent.click(trigger);
-    expect(screen.getByLabelText('Review dialog')).toHaveTextContent(action.toLowerCase());
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Save review' }));
     expect(refreshGrid).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
@@ -400,20 +399,22 @@ describe('MessagesPage', () => {
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
   });
 
-  it('opens raw message from the shared actions column', () => {
+  it('opens Review from the shared actions column with decisions disabled', () => {
     renderPage();
 
     const rawButton = componentProps.mock.calls
       .filter(([name]) => name === 'Button')
       .map(([, props]) => props)
-      .find((props) => props.hint === 'View raw message');
+      .find((props) => props.hint === 'Review message');
     expect(rawButton).toMatchObject({ icon: 'doc', stylingMode: 'outlined' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'View raw message' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 
-    expect(screen.getByLabelText('Raw message')).toHaveTextContent('MSG-0042');
-    fireEvent.click(screen.getByRole('button', { name: 'Close raw' }));
-    expect(screen.queryByLabelText('Raw message')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Review dialog')).toHaveTextContent('MSG-0042');
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
+    expect(screen.queryByLabelText('Review dialog')).not.toBeInTheDocument();
   });
 
   it('shows manual assignment only with permission', () => {
@@ -432,7 +433,7 @@ describe('MessagesPage', () => {
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
-    expect(screen.getByRole('button', { name: 'View raw message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));

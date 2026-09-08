@@ -26,7 +26,6 @@ import AuditTrailDrawer from './AuditTrailDrawer';
 import AssignmentPopup from './AssignmentPopup';
 import MessageStage from './MessageStage';
 import type { MessageRow } from './messagesApi';
-import RawMessagePopup from './RawMessagePopup';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
 import { canReviewMessage, type ReviewDecision } from './reviewDecision';
 import './messages-grid.css';
@@ -34,11 +33,6 @@ import './messages-grid.css';
 type MessagesGridProps = {
   dataSource: CustomStore<MessageRow, MessageRow['id']>;
   enableReviewActions?: boolean;
-};
-
-type SelectedReviewAction = {
-  decision: ReviewDecision;
-  message: MessageRow;
 };
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
@@ -74,12 +68,9 @@ export default function MessagesGrid({
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
   const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
-  const [selectedRawMessage, setSelectedRawMessage] = useState<MessageRow | null>(null);
-  const [selectedReviewAction, setSelectedReviewAction] =
-    useState<SelectedReviewAction | null>(null);
+  const [selectedReviewMessage, setSelectedReviewMessage] = useState<MessageRow | null>(null);
   const [selectedAssignmentMessage, setSelectedAssignmentMessage] = useState<MessageRow | null>(null);
   const auditTriggerRef = useRef<HTMLElement | null>(null);
-  const rawTriggerRef = useRef<HTMLElement | null>(null);
   const reviewTriggerRef = useRef<HTMLElement | null>(null);
   const assignmentTriggerRef = useRef<HTMLElement | null>(null);
   const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
@@ -102,13 +93,8 @@ export default function MessagesGrid({
     requestAnimationFrame(() => auditTriggerRef.current?.focus());
   }
 
-  function closeRawMessage() {
-    setSelectedRawMessage(null);
-    requestAnimationFrame(() => rawTriggerRef.current?.focus());
-  }
-
   function closeReviewAction() {
-    setSelectedReviewAction(null);
+    setSelectedReviewMessage(null);
     requestAnimationFrame(() => reviewTriggerRef.current?.focus());
   }
 
@@ -121,12 +107,6 @@ export default function MessagesGrid({
     assignmentTriggerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedAssignmentMessage(message);
-  }
-
-  function openRawMessage(message: MessageRow) {
-    rawTriggerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setSelectedRawMessage(message);
   }
 
   function openAudit(message: MessageRow) {
@@ -142,10 +122,10 @@ export default function MessagesGrid({
     return assignableState && (message.currentAssigneeId != null) === assigned;
   }
 
-  function openReviewAction(message: MessageRow, decision: ReviewDecision) {
+  function openReviewAction(message: MessageRow) {
     reviewTriggerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setSelectedReviewAction({ decision, message });
+    setSelectedReviewMessage(message);
   }
 
   function canShowReviewAction(message: MessageRow | undefined, decision: ReviewDecision) {
@@ -283,8 +263,7 @@ export default function MessagesGrid({
           </Column>
           <Column
             caption="Actions"
-            width={(enableReviewActions ? 170 : 0) + (showAudit ? 40 : 0) +
-              (showAssignment ? 100 : 0) + 40}
+            width={100 + (showAudit ? 40 : 0) + (showAssignment ? 100 : 0)}
             allowFiltering={false}
             allowSorting={false}
             cellRender={(cell) => {
@@ -307,35 +286,12 @@ export default function MessagesGrid({
                       onClick={() => openAssignment(message)}
                     />
                   )}
-                  {enableReviewActions && canShowReviewAction(message, 'approve') && (
-                    <Button
-                      text="Approve"
-                      icon="check"
-                      hint="Approve message"
-                      type="success"
-                      stylingMode="outlined"
-                      onClick={() => openReviewAction(message, 'approve')}
-                    />
-                  )}
-                  {enableReviewActions && canShowReviewAction(message, 'reject') && (
-                    <Button
-                      text="Reject"
-                      icon="close"
-                      hint="Reject message"
-                      type="danger"
-                      stylingMode="outlined"
-                      onClick={() => openReviewAction(message, 'reject')}
-                    />
-                  )}
                   <Button
+                    text="Review"
                     icon="doc"
-                    hint="View raw message"
+                    hint="Review message"
                     stylingMode="outlined"
-                    elementAttr={{
-                      class: 'message-actions__icon-button',
-                      'aria-label': 'View raw message',
-                    }}
-                    onClick={() => openRawMessage(message)}
+                    onClick={() => openReviewAction(message)}
                   />
                   {showAudit && (
                     <Button
@@ -355,13 +311,11 @@ export default function MessagesGrid({
           />
         </DataGrid>
       </div>
-      {selectedRawMessage && (
-        <RawMessagePopup message={selectedRawMessage} onClose={closeRawMessage} />
-      )}
-      {selectedReviewAction && (
+      {selectedReviewMessage && (
         <ReviewDecisionPopup
-          decision={selectedReviewAction.decision}
-          message={selectedReviewAction.message}
+          message={selectedReviewMessage}
+          canApprove={enableReviewActions && canShowReviewAction(selectedReviewMessage, 'approve')}
+          canReject={enableReviewActions && canShowReviewAction(selectedReviewMessage, 'reject')}
           onClose={closeReviewAction}
           onChanged={() => void dataGridRef.current?.instance().refresh()}
         />

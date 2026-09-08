@@ -1,16 +1,21 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { PropsWithChildren } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../test/createTestQueryClient';
+import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../shared/api/errors';
 
-const { approveReview, rejectReview, startReview } = vi.hoisted(() => ({
+const { approveReview, getMessage, notify, rejectReview, startReview } = vi.hoisted(() => ({
   approveReview: vi.fn(),
+  getMessage: vi.fn(),
+  notify: vi.fn(),
   rejectReview: vi.fn(),
   startReview: vi.fn(),
 }));
 
-vi.mock('./messagesApi', () => ({ approveReview, rejectReview, startReview }));
+vi.mock('devextreme/ui/notify', () => ({ default: notify }));
+vi.mock('./messagesApi', () => ({ approveReview, getMessage, rejectReview, startReview }));
 vi.mock('devextreme-react/popup', () => ({
   default: ({ children, title, width, maxWidth }: PropsWithChildren<{
     title: string;
@@ -68,33 +73,49 @@ const baseMessage = {
   amount: null,
 };
 
+function render(ui: ReactElement, preload = true) {
+  const client = createTestQueryClient();
+  if (preload) {
+    client.setQueryData(['messages', 42], { body: '{1:F01RAW}\n  {4:PAYLOAD}' });
+  }
+  return renderComponent(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+
 describe('ReviewDecisionPopup', () => {
   beforeEach(() => {
+    notify.mockReset();
+    getMessage.mockReset().mockResolvedValue({ body: '{1:F01RAW}\n  {4:PAYLOAD}' });
     approveReview.mockReset().mockResolvedValue(undefined);
     rejectReview.mockReset().mockResolvedValue(undefined);
     startReview.mockReset().mockResolvedValue(undefined);
   });
 
-  it.each(['approve', 'reject'] as const)('suppresses the default comment placeholder for %s', (decision) => {
+  it('shows raw text and all three actions with an optional comment', () => {
     render(
       <ReviewDecisionPopup
-        decision={decision}
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'Assigned' }}
         onClose={vi.fn()}
         onChanged={vi.fn()}
       />,
     );
 
+    expect(screen.getByLabelText('Raw message content').textContent).toBe('{1:F01RAW}\n  {4:PAYLOAD}');
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
     expect(screen.getByLabelText('Comment (optional)')).toHaveAttribute('placeholder', '');
     expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '90vw');
-    expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '520');
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '900');
   });
 
   it('cancels without changing the review', () => {
     const onClose = vi.fn();
     render(
       <ReviewDecisionPopup
-        decision="approve"
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'Assigned' }}
         onClose={onClose}
         onChanged={vi.fn()}
@@ -106,6 +127,8 @@ describe('ReviewDecisionPopup', () => {
     expect(onClose).toHaveBeenCalledOnce();
     expect(startReview).not.toHaveBeenCalled();
     expect(approveReview).not.toHaveBeenCalled();
+    expect(rejectReview).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('starts a waiting review before approving it', async () => {
@@ -113,7 +136,8 @@ describe('ReviewDecisionPopup', () => {
     const onChanged = vi.fn();
     render(
       <ReviewDecisionPopup
-        decision="approve"
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'WaitingForSecondReview' }}
         onClose={onClose}
         onChanged={onChanged}
@@ -132,6 +156,8 @@ describe('ReviewDecisionPopup', () => {
     );
     expect(onClose).toHaveBeenCalledOnce();
     expect(onChanged).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith('Message MSG-0042 approved.', 'success', 4000);
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(notify.mock.invocationCallOrder[0]);
   });
 
   it('rejects an active review without starting it and allows no comment', async () => {
@@ -139,7 +165,8 @@ describe('ReviewDecisionPopup', () => {
     const onChanged = vi.fn();
     render(
       <ReviewDecisionPopup
-        decision="reject"
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'ThirdReviewInProgress' }}
         onClose={onClose}
         onChanged={onChanged}
@@ -152,12 +179,15 @@ describe('ReviewDecisionPopup', () => {
     expect(startReview).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledOnce();
     expect(onChanged).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith('Message MSG-0042 rejected.', 'success', 4000);
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(notify.mock.invocationCallOrder[0]);
   });
 
   it('starts and approves the third review level', async () => {
     render(
       <ReviewDecisionPopup
-        decision="approve"
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'WaitingForThirdReview' }}
         onClose={vi.fn()}
         onChanged={vi.fn()}
@@ -178,7 +208,8 @@ describe('ReviewDecisionPopup', () => {
     const onClose = vi.fn();
     render(
       <ReviewDecisionPopup
-        decision="approve"
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'FirstReviewInProgress' }}
         onClose={onClose}
         onChanged={vi.fn()}
@@ -191,6 +222,7 @@ describe('ReviewDecisionPopup', () => {
       'The review state changed. Refresh and try again.',
     );
     expect(onClose).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('keeps the dialog open and refreshes after a started review fails to approve', async () => {
@@ -201,7 +233,8 @@ describe('ReviewDecisionPopup', () => {
     const onChanged = vi.fn();
     render(
       <ReviewDecisionPopup
-        decision="approve"
+        canApprove
+        canReject
         message={{ ...baseMessage, state: 'Assigned' }}
         onClose={onClose}
         onChanged={onChanged}
@@ -214,6 +247,7 @@ describe('ReviewDecisionPopup', () => {
       'Unable to approve the message',
     );
     expect(onClose).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
     expect(onChanged).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
@@ -223,4 +257,59 @@ describe('ReviewDecisionPopup', () => {
     expect(onClose).toHaveBeenCalledOnce();
     expect(onChanged).toHaveBeenCalledTimes(2);
   });
+
+  it('disables decisions until the raw message loads and supports retry', async () => {
+    getMessage.mockRejectedValueOnce(new Error('network failure'))
+      .mockResolvedValueOnce({ body: 'RAW MESSAGE' });
+    render(
+      <ReviewDecisionPopup canApprove canReject message={{ ...baseMessage, state: 'Assigned' }}
+        onClose={vi.fn()} onChanged={vi.fn()} />,
+      false,
+    );
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load raw message');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByLabelText('Raw message content')).toHaveTextContent('RAW MESSAGE');
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+    expect(getMessage).toHaveBeenCalledWith(42, expect.anything());
+  });
+
+  it('shows an empty state when the message has no raw content', async () => {
+    getMessage.mockResolvedValue({ body: null });
+    render(
+      <ReviewDecisionPopup canApprove={false} canReject={false}
+        message={{ ...baseMessage, state: 'New' }} onClose={vi.fn()} onChanged={vi.fn()} />,
+      false,
+    );
+    expect(await screen.findByText('No raw message content available.')).toBeInTheDocument();
+  });
+
+  it.each([[false, false], [true, false], [false, true]])(
+    'respects independent decision permissions (approve: %s, reject: %s)',
+    (canApprove, canReject) => {
+      render(
+        <ReviewDecisionPopup canApprove={canApprove} canReject={canReject}
+          message={{ ...baseMessage, state: 'FirstReviewInProgress' }}
+          onClose={vi.fn()} onChanged={vi.fn()} />,
+      );
+      expect(screen.getByRole('button', { name: 'Approve' })).toHaveProperty('disabled', !canApprove);
+      expect(screen.getByRole('button', { name: 'Reject' })).toHaveProperty('disabled', !canReject);
+    },
+  );
+
+  it('disables all actions while submitting a decision', async () => {
+    approveReview.mockImplementation(() => new Promise(() => undefined));
+    render(
+      <ReviewDecisionPopup canApprove canReject
+        message={{ ...baseMessage, state: 'FirstReviewInProgress' }}
+        onClose={vi.fn()} onChanged={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(screen.getByRole('button', { name: 'Approve…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(rejectReview).not.toHaveBeenCalled();
+  });
+
 });
