@@ -38,15 +38,6 @@ export default function MessagesPage() {
 
   return (
     <main className="app-content app-page app-page--wide">
-      <header className="app-page-header">
-        <div className="app-page-header__main">
-          <h1 className="app-page-title">All messages</h1>
-          <p className="app-page-subtitle">
-            Messages available to the current user, loaded from the backend.
-          </p>
-        </div>
-      </header>
-
       <MessagesGrid dataSource={messageDataSource} />
     </main>
   );

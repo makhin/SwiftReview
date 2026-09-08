@@ -18,7 +18,12 @@ public sealed class DebugAuthenticationHandler(IOptionsMonitor<AuthenticationSch
             ? await users.GetByIdAsync(userId, Context.RequestAborted)
             : await users.GetByUserNameAsync(requestedUser, Context.RequestAborted);
         if (access is null) return AuthenticateResult.Fail("Unknown development user.");
-        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, access.UserId.ToString()), new(ClaimTypes.Name, access.UserName) };
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, access.UserId.ToString()),
+            new(ClaimTypes.Name, access.UserName),
+            new("display_name", access.DisplayName)
+        };
         claims.AddRange(access.Permissions.Select(x => new Claim("permission", x)));
         claims.AddRange(access.BranchIds.Select(x => new Claim("branch", x.ToString())));
         claims.AddRange(access.DepartmentIds.Select(x => new Claim("department", x.ToString())));
@@ -31,4 +36,5 @@ public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUse
     private ClaimsPrincipal Principal => accessor.HttpContext?.User ?? throw new UnauthorizedAccessException();
     public int UserId => int.Parse(Principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException());
     public string UserName => Principal.Identity?.Name ?? throw new UnauthorizedAccessException();
+    public string DisplayName => Principal.FindFirstValue("display_name") ?? UserName;
 }

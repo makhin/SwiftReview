@@ -64,6 +64,7 @@ export type AuditEventType =
 export interface CurrentUserResponse {
   userId: number | string;
   userName: string;
+  displayName: string;
   permissions: string[];
   branches: (number | string)[];
   departments: (number | string)[];

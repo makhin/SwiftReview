@@ -207,7 +207,7 @@ export default function MessagesGrid({
           />
 
           <Column dataField="externalId" caption="External ID" minWidth={140} />
-          <Column dataField="messageType" caption="Message type" minWidth={120} />
+          <Column dataField="messageType" caption="Message type" width={110} />
           {/* Server-side sorting supports lookup IDs, not their displayed labels. */}
           <Column
             dataField="branchId"
@@ -261,7 +261,7 @@ export default function MessagesGrid({
             minWidth={160}
           />
           <Column dataField="account" caption="Account" minWidth={130} />
-          <Column dataField="currency" caption="CCY" width={80} />
+          <Column dataField="currency" caption="CCY" width={64} />
           <Column
             dataField="amount"
             caption="Amount"
@@ -283,8 +283,8 @@ export default function MessagesGrid({
           </Column>
           <Column
             caption="Actions"
-            width={(enableReviewActions ? 170 : 0) + (showAudit ? 70 : 0) +
-              (showAssignment ? 100 : 0) + 70}
+            width={(enableReviewActions ? 170 : 0) + (showAudit ? 40 : 0) +
+              (showAssignment ? 100 : 0) + 40}
             allowFiltering={false}
             allowSorting={false}
             cellRender={(cell) => {
@@ -294,7 +294,6 @@ export default function MessagesGrid({
                   {canShowAssignment(message, false) && (
                     <Button
                       text="Assign"
-                      icon="user"
                       hint="Assign message"
                       stylingMode="outlined"
                       onClick={() => openAssignment(message)}
@@ -303,7 +302,6 @@ export default function MessagesGrid({
                   {canShowAssignment(message, true) && (
                     <Button
                       text="Reassign"
-                      icon="edit"
                       hint="Reassign message"
                       stylingMode="outlined"
                       onClick={() => openAssignment(message)}
@@ -330,18 +328,24 @@ export default function MessagesGrid({
                     />
                   )}
                   <Button
-                    text="Raw"
                     icon="doc"
                     hint="View raw message"
                     stylingMode="outlined"
+                    elementAttr={{
+                      class: 'message-actions__icon-button',
+                      'aria-label': 'View raw message',
+                    }}
                     onClick={() => openRawMessage(message)}
                   />
                   {showAudit && (
                     <Button
-                      text="Audit"
                       icon="search"
                       hint="View audit trail"
                       stylingMode="outlined"
+                      elementAttr={{
+                        class: 'message-actions__icon-button',
+                        'aria-label': 'View audit trail',
+                      }}
                       onClick={() => openAudit(message)}
                     />
                   )}

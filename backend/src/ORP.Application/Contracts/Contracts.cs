@@ -13,7 +13,7 @@ public sealed record RejectReviewRequest([property: Range(1, 3)] int Level,
 public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long ReviewId);
 
 public sealed record StartReviewResponse(long ReviewId);
-public sealed record CurrentUserResponse(int UserId, string UserName, IReadOnlyList<string> Permissions,
+public sealed record CurrentUserResponse(int UserId, string UserName, string DisplayName, IReadOnlyList<string> Permissions,
     IReadOnlyList<int> Branches, IReadOnlyList<int> Departments);
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,

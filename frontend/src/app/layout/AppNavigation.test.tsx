@@ -55,11 +55,13 @@ describe('AppNavigation', () => {
     expect(listProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
         items: expect.arrayContaining([
-          expect.objectContaining({ path: '/messages', text: 'All messages' }),
+          expect.objectContaining({ path: '/messages', text: 'Messages' }),
           expect.objectContaining({
             path: '/messages/assigned?scope=mine',
-            text: 'Assigned messages',
+            text: 'Review queue',
+            icon: 'todo',
           }),
+          expect.objectContaining({ path: '/me', text: 'User profile', icon: 'user' }),
         ]),
         keyExpr: 'path',
         displayExpr: 'text',
@@ -73,7 +75,7 @@ describe('AppNavigation', () => {
 
     await act(() =>
       props.onItemClick({
-        itemData: { path: '/me', text: 'Current user', icon: 'user' },
+        itemData: { path: '/me', text: 'User profile', icon: 'user' },
       }),
     );
 
@@ -98,11 +100,11 @@ describe('AppNavigation', () => {
     );
   });
 
-  it('shows an assignment queue for users with assignment permission', () => {
+  it('does not show the removed assignment queue', () => {
     renderNavigation(['message.view', 'message.assign']);
 
     const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
-    expect(items).toEqual(expect.arrayContaining([
+    expect(items).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ path: '/messages/assigned?scope=assignable' }),
     ]));
   });
@@ -120,8 +122,8 @@ describe('AppNavigation', () => {
       props.onItemClick({
         itemData: {
           path: '/messages/assigned?scope=mine',
-          text: 'Assigned messages',
-          icon: 'user',
+          text: 'Review queue',
+          icon: 'todo',
         },
       }),
     );

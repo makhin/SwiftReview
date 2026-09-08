@@ -62,7 +62,7 @@ public sealed class ReferenceDataHandlerTests
         var users = Substitute.For<IUserAccessService>();
         var current = Substitute.For<ICurrentUser>();
         current.UserId.Returns(1);
-        users.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(new UserAccess(1, "viewer", permissions,
+        users.GetByIdAsync(1, Arg.Any<CancellationToken>()).Returns(new UserAccess(1, "viewer", "Viewer", permissions,
             new HashSet<int> { 1 }, new HashSet<int> { 1 }));
         return (queries, users, current);
     }

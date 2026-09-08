@@ -13,6 +13,7 @@ public sealed class UserAccessService(ORPDbContext db) : IUserAccessService
         .Include(x => x.Roles).ThenInclude(x => x.Role).ThenInclude(x => x.Permissions).ThenInclude(x => x.Permission)
         .Include(x => x.Branches).Include(x => x.Departments).AsSplitQuery();
     private static UserAccess? Map(Domain.Identity.User? x) => x is null ? null : new UserAccess(x.Id, x.UserName,
+        x.DisplayName,
         x.Roles.SelectMany(r => r.Role.Permissions.Select(p => p.Permission.Name)).ToHashSet(),
         x.Branches.Select(b => b.BranchId).ToHashSet(), x.Departments.Select(d => d.DepartmentId).ToHashSet());
 }

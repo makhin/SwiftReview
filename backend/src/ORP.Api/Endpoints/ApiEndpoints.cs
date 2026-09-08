@@ -101,7 +101,7 @@ public static class ApiEndpoints
         handler.HandleAsync(id, new AuditTrailRequest(skip, take), ct);
     private static async Task<DashboardSummaryDto> Dashboard(GetDashboardSummaryHandler handler, CancellationToken ct) => await handler.HandleAsync(ct);
     private static Ok<CurrentUserResponse> Me(ICurrentUser current, HttpContext context) => TypedResults.Ok(new CurrentUserResponse(
-        current.UserId, current.UserName,
+        current.UserId, current.UserName, current.DisplayName,
         context.User.FindAll("permission").Select(x => x.Value).Order().ToList(),
         context.User.FindAll("branch").Select(x => int.Parse(x.Value)).Order().ToList(),
         context.User.FindAll("department").Select(x => int.Parse(x.Value)).Order().ToList()));

@@ -6,11 +6,21 @@
 }
 
 .message-actions .dx-button {
+  flex: 0 0 auto;
   min-height: 28px;
 }
 
 .message-actions .dx-button-content {
   padding: var(--space-1) var(--space-2);
+}
+
+.message-actions .message-actions__icon-button {
+  width: 32px;
+  min-width: 32px;
+}
+
+.message-actions .message-actions__icon-button .dx-button-content {
+  padding: var(--space-1);
 }
 
 .audit-drawer {

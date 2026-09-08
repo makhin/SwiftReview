@@ -41,7 +41,6 @@ vi.mock('devextreme-react/tabs', () => ({
     </div>
   ),
 }));
-
 import AssignedMessagesPage from './AssignedMessagesPage';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 
@@ -77,12 +76,13 @@ describe('AssignedMessagesPage', () => {
   it('loads messages assigned to or actively reviewed by the current user by default', async () => {
     renderPage('/messages/assigned?scope=mine');
 
-    expect(screen.getByRole('heading', { name: 'Assigned messages' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByRole('button', { name: 'My work' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
+    expect(screen.getByLabelText('Messages')).toBeInTheDocument();
 
     const dataSource = gridProps.mock.calls.at(-1)?.[0].dataSource;
     expect(gridProps.mock.calls.at(-1)?.[0].enableReviewActions).toBe(true);
@@ -126,16 +126,14 @@ describe('AssignedMessagesPage', () => {
     );
   });
 
-  it('shows the assignment queue only to authorised users', async () => {
+  it('normalizes the removed assignment queue scope to mine', async () => {
     renderPage('/messages/assigned?scope=assignable', ['message.view', 'message.assign']);
 
-    expect(screen.getByRole('heading', { name: 'Assignment queue' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Assignment queue' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    expect(screen.queryByRole('button', { name: 'Assignment queue' })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('location-search')).toHaveTextContent(
+        '?scope=mine',
+      ),
     );
-    const dataSource = gridProps.mock.calls.at(-1)?.[0].dataSource;
-    await act(() => dataSource.load({ skip: 0, take: 20 }));
-    expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, 'assignable');
   });
 });

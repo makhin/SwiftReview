@@ -3,7 +3,7 @@ import List from 'devextreme-react/list';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canAssignMessages, canViewAllMessages } from '../../shared/auth/permissions';
+import { canViewAllMessages } from '../../shared/auth/permissions';
 import { preserveUserQuery } from '../../shared/routing/preserveUserQuery';
 
 type NavigationItem = {
@@ -22,13 +22,10 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const navigationItems: NavigationItem[] = [
     ...(currentUser && canViewAllMessages(currentUser.permissions)
-      ? [{ path: '/messages', text: 'All messages', icon: 'email' }]
+      ? [{ path: '/messages', text: 'Messages', icon: 'email' }]
       : []),
-    { path: '/messages/assigned?scope=mine', text: 'Assigned messages', icon: 'user' },
-    ...(currentUser && canAssignMessages(currentUser.permissions)
-      ? [{ path: '/messages/assigned?scope=assignable', text: 'Assignment queue', icon: 'group' }]
-      : []),
-    { path: '/me', text: 'Current user', icon: 'user' },
+    { path: '/messages/assigned?scope=mine', text: 'Review queue', icon: 'todo' },
+    { path: '/me', text: 'User profile', icon: 'user' },
   ];
 
   return (
@@ -41,9 +38,7 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
           selectionMode="single"
           selectedItemKeys={[
             location.pathname === '/messages/assigned'
-              ? location.search.includes('scope=assignable')
-                ? '/messages/assigned?scope=assignable'
-                : '/messages/assigned?scope=mine'
+              ? '/messages/assigned?scope=mine'
               : location.pathname,
           ]}
           focusStateEnabled

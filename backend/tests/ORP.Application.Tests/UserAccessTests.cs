@@ -9,7 +9,7 @@ public sealed class UserAccessTests
     [Fact]
     public void AllDepartmentPermission_BypassesDepartmentsButNotBranches()
     {
-        var access = new UserAccess(1, "admin",
+        var access = new UserAccess(1, "admin", "Administrator",
             new HashSet<string> { Permissions.MessageAccessAllDepartments },
             new HashSet<int> { 10 }, new HashSet<int> { 20 });
 
@@ -20,7 +20,7 @@ public sealed class UserAccessTests
     [Fact]
     public void RegularUser_CanAccessEveryAssignedDepartmentOnly()
     {
-        var access = new UserAccess(1, "reviewer", new HashSet<string>(),
+        var access = new UserAccess(1, "reviewer", "Reviewer", new HashSet<string>(),
             new HashSet<int> { 10 }, new HashSet<int> { 20, 30 });
 
         Assert.True(access.CanAccess(10, 20));

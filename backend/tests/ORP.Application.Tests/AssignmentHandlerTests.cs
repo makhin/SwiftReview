@@ -29,7 +29,7 @@ public sealed class AssignmentHandlerTests
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
                 "A", "B", null, null, null, null));
-        access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "out-of-scope",
+        access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "out-of-scope", "Out of scope",
             new HashSet<string> { Permissions.MessageView, Permissions.ReviewLevel1 },
             new HashSet<int> { 2 }, new HashSet<int> { 2 }));
         user.UserId.Returns(5);
@@ -57,7 +57,7 @@ public sealed class AssignmentHandlerTests
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B", null, null, null, null));
-        access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "assignee",
+        access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "assignee", "Assignee",
             new HashSet<string> { Permissions.MessageView, Permissions.ReviewLevel1 },
             new HashSet<int> { 1 }, new HashSet<int> { 1 }));
         user.UserId.Returns(5);
@@ -165,7 +165,7 @@ public sealed class AssignmentHandlerTests
                 "A", "B", null, null, null, null));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
         access.GetByIdAsync(assigneeId, Arg.Any<CancellationToken>()).Returns(new UserAccess(assigneeId,
-            "assignee", new HashSet<string> { Permissions.MessageView, reviewPermission },
+            "assignee", "Assignee", new HashSet<string> { Permissions.MessageView, reviewPermission },
             new HashSet<int> { 1 }, new HashSet<int> { 1 }));
     }
 }

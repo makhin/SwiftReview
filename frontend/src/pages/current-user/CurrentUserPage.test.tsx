@@ -15,13 +15,18 @@ import CurrentUserPage from './CurrentUserPage';
 
 const currentUser = {
   userId: 42,
-  userName: 'Alex Morgan',
+  userName: 'alex.morgan',
+  displayName: 'Alex Morgan',
   permissions: ['messages.read', 'messages.assign'],
   branches: [10, 20],
   departments: [30, 40],
 };
 
 function renderPage(queryClient = createTestQueryClient()) {
+  queryClient.setQueryData(referenceDataKeys.branches, [
+    { id: 10, name: 'London' },
+    { id: 20, name: 'Dublin' },
+  ]);
   queryClient.setQueryData(referenceDataKeys.departments, [
     { id: 30, name: 'Operations' },
     { id: 40, name: 'Compliance' },
@@ -52,9 +57,10 @@ describe('CurrentUserPage', () => {
 
     resolveRequest(currentUser);
 
-    expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
+    expect(screen.getByText('Identity and access details.')).toBeInTheDocument();
     expect(screen.getByText('messages.read, messages.assign')).toBeInTheDocument();
-    expect(screen.getByText('10, 20')).toBeInTheDocument();
+    expect(screen.getByText('London, Dublin')).toBeInTheDocument();
     expect(screen.getByText('Operations, Compliance')).toBeInTheDocument();
   });
 
@@ -68,7 +74,7 @@ describe('CurrentUserPage', () => {
 
     renderPage();
 
-    expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
     expect(screen.getAllByText('None')).toHaveLength(2);
     expect(screen.getByText('No departments')).toBeInTheDocument();
   });
@@ -115,7 +121,7 @@ describe('CurrentUserPage', () => {
     expect(alert).not.toHaveTextContent('Internal network details');
     await user.click(screen.getByRole('button', { name: 'Retry' }));
 
-    expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
     expect(getCurrentUser).toHaveBeenCalledTimes(2);
   });
 
@@ -124,12 +130,12 @@ describe('CurrentUserPage', () => {
     const queryClient = createTestQueryClient();
     const firstView = renderPage(queryClient);
 
-    expect(await screen.findByText('Alex Morgan')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
     firstView.unmount();
 
     renderPage(queryClient);
 
-    expect(screen.getByText('Alex Morgan')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
     expect(getCurrentUser).toHaveBeenCalledTimes(1);
   });
 

@@ -9,7 +9,7 @@ namespace ORP.Application.Abstractions;
 
 public interface IClock { DateTimeOffset UtcNow { get; } }
 public interface ICorrelationContext { string CorrelationId { get; } }
-public interface ICurrentUser { int UserId { get; } string UserName { get; } }
+public interface ICurrentUser { int UserId { get; } string UserName { get; } string DisplayName { get; } }
 
 public interface IORPStore
 {
@@ -68,7 +68,7 @@ public interface IReferenceDataQueries
     Task<IReadOnlyList<string>> GetMessageTypesAsync(UserAccess access, CancellationToken cancellationToken);
 }
 
-public sealed record UserAccess(int UserId, string UserName, IReadOnlySet<string> Permissions,
+public sealed record UserAccess(int UserId, string UserName, string DisplayName, IReadOnlySet<string> Permissions,
     IReadOnlySet<int> BranchIds, IReadOnlySet<int> DepartmentIds)
 {
     public bool HasAllDepartmentAccess => Permissions.Contains(Domain.Identity.Permissions.MessageAccessAllDepartments);

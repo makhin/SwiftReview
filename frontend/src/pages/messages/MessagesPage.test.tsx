@@ -72,9 +72,18 @@ vi.mock('devextreme-react/data-grid', () => {
   };
 });
 vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick, ...props }: Record<string, unknown>) => {
+  default: ({ text, onClick, elementAttr, ...props }: Record<string, unknown>) => {
     componentProps('Button', { text, onClick, ...props });
-    return <button type="button" onClick={() => (onClick as () => void)()}>{String(text)}</button>;
+    const attributes = elementAttr as { 'aria-label'?: string } | undefined;
+    return (
+      <button
+        type="button"
+        aria-label={attributes?.['aria-label']}
+        onClick={() => (onClick as () => void)()}
+      >
+        {text == null ? null : String(text)}
+      </button>
+    );
   },
 }));
 vi.mock('devextreme-react/drawer', () => ({
@@ -275,7 +284,7 @@ describe('MessagesPage', () => {
   it('configures the remote messages grid', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: 'All messages' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
@@ -397,10 +406,10 @@ describe('MessagesPage', () => {
     const rawButton = componentProps.mock.calls
       .filter(([name]) => name === 'Button')
       .map(([, props]) => props)
-      .find((props) => props.text === 'Raw');
+      .find((props) => props.hint === 'View raw message');
     expect(rawButton).toMatchObject({ icon: 'doc', stylingMode: 'outlined' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Raw' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View raw message' }));
 
     expect(screen.getByLabelText('Raw message')).toHaveTextContent('MSG-0042');
     fireEvent.click(screen.getByRole('button', { name: 'Close raw' }));
@@ -423,10 +432,10 @@ describe('MessagesPage', () => {
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
-    expect(screen.getByRole('button', { name: 'Raw' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Audit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View raw message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Audit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
 
     expect(screen.getByLabelText('Audit trail')).toHaveTextContent('MSG-0042');
     expect(view.container).toHaveAttribute('inert');
@@ -455,7 +464,7 @@ describe('MessagesPage', () => {
     })));
     renderPage(true, ['message.access.all-departments', 'audit.view']);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Audit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
 
     const drawerProps = componentProps.mock.calls
       .filter(([name]) => name === 'Drawer')

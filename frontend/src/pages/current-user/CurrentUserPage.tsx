@@ -3,7 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { ApiError } from '../../shared/api/errors';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
-import { departmentsQueryOptions } from '../../shared/api/referenceDataQueries';
+import {
+  branchesQueryOptions,
+  departmentsQueryOptions,
+} from '../../shared/api/referenceDataQueries';
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 
 function getErrorContent(error: Error) {
@@ -36,8 +39,12 @@ function getErrorContent(error: Error) {
 
 export default function CurrentUserPage() {
   const { data: user, error, isPending, refetch } = useQuery(currentUserQueryOptions());
+  const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
   const errorContent = error ? getErrorContent(error) : undefined;
+  const branchNames = user?.branches.map(
+    (id) => branches?.find((branch) => branch.id === id)?.name ?? String(id),
+  );
   const departmentNames = user?.departments.map(
     (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
   );
@@ -46,10 +53,8 @@ export default function CurrentUserPage() {
     <main className="app-content app-page">
       <header className="app-page-header">
         <div className="app-page-header__main">
-          <h1 className="app-page-title">Current user</h1>
-          <p className="app-page-subtitle">
-            Identity and access details loaded from the backend.
-          </p>
+          <h1 className="app-page-title">{user?.displayName ?? 'Current user'}</h1>
+          <p className="app-page-subtitle">Identity and access details.</p>
         </div>
       </header>
 
@@ -74,7 +79,7 @@ export default function CurrentUserPage() {
               <dt>Permissions</dt>
               <dd>{user.permissions.join(', ') || 'None'}</dd>
               <dt>Branches</dt>
-              <dd>{user.branches.join(', ') || 'None'}</dd>
+              <dd>{branchNames?.join(', ') || 'None'}</dd>
               <dt>Departments</dt>
               <dd>{departmentNames?.join(', ') || 'No departments'}</dd>
             </dl>
