@@ -49,7 +49,6 @@ src/
     providers/
     router/
   assets/fonts/
-  features/
   pages/
     current-user/
     messages/
@@ -86,11 +85,31 @@ src/
 | `src/styles/` | Application-level primitives and reusable `.app-*` patterns | Brand palette definitions, generated vendor CSS, or page-specific styles |
 | `src/app/` | Providers, routing, the root shell, and global navigation | Page-specific behavior or generally reusable components |
 | `src/pages/` | Route-level vertical slices and their page-specific data access | Application bootstrap or cross-page primitives |
-| `src/features/` | Reusable business actions used by multiple pages | One-page-only code or generic UI primitives |
+| `src/features/` (optional; not currently used) | Business actions reused independently across page slices | One-page-only code or generic UI primitives |
 | `src/shared/api/` | Generated API contracts and common HTTP infrastructure | Page-specific endpoint orchestration |
 | `src/shared/components/` | Reusable React components grouped by responsibility | Route composition or business workflows |
 | `src/shared/hooks/`, `src/shared/lib/`, `src/shared/types/` | Proven cross-page hooks, utilities, and types | Speculative abstractions with only one consumer |
 | `src/assets/` | Locally bundled fonts and other static brand assets | Remote asset references or component styles |
+
+### Import boundaries
+
+Dependencies flow from `app` to `pages` to `shared`. ESLint checks static imports
+and re-exports, including types, with these rules:
+
+- `shared` must not depend on `pages` or `app`.
+- `pages` must not depend on `app` or a different page slice.
+- Files within one page slice may import each other; both message routes share
+  the `pages/messages` slice.
+- `app` may compose pages and shared modules.
+
+New page directories are discovered automatically by the ESLint configuration.
+The checks cover relative imports and source-root paths; update the configured
+prefix if module aliases are introduced.
+
+Current-user API access and query options belong to `shared/api`, because the
+application shell and multiple pages consume them. Only the profile screen belongs
+to `pages/current-user`. Add the optional `features` layer when a business action
+needs independent reuse outside its owning page slice.
 
 ### Theme ownership
 

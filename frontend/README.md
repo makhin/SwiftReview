@@ -76,7 +76,16 @@ All routes render inside `RootLayout`, which provides the global header and resp
 - `src/shared/hooks`, `src/shared/lib`, and `src/shared/types` — proven cross-page abstractions.
 - `src/theme` and `src/styles` — design tokens, generated DevExtreme theme files, and application styles.
 
-Dependencies flow from `app` to `pages` to `shared`; page code must not import from `app`. Tests are colocated with the code they cover.
+Dependencies flow from `app` to `pages` to `shared`. ESLint checks static imports
+and re-exports, including types: shared code must not import pages or app code;
+page code must not import app code or another page slice. Imports within one slice
+are allowed. Both message routes belong to the same `pages/messages` slice.
+New page directories are included automatically in these checks. Update the ESLint
+import prefix if module aliases are introduced. Tests are colocated with the code they cover.
+
+The optional `features` layer is reserved for business actions that need independent
+reuse across page slices. It is not used yet; keep current message workflows in
+`pages/messages` until that need appears.
 
 ## API access
 
