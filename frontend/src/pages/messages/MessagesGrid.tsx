@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { currentUserQueryOptions } from '../current-user/currentUserQueries';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import { canAssignMessages, canViewAudit } from '../../shared/auth/permissions';
 import {
   branchesQueryOptions,

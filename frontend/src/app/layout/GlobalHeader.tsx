@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import Button from 'devextreme-react/button';
 import { NavLink } from 'react-router-dom';
 
-import { currentUserQueryOptions } from '../../pages/current-user/currentUserQueries';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import './global-header.css';
 
 type GlobalHeaderProps = {

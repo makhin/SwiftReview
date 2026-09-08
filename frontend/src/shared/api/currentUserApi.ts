@@ -1,6 +1,6 @@
-import { apiClient } from '../../shared/api/client';
-import { ApiError } from '../../shared/api/errors';
-import type { CurrentUserResponse } from '../../shared/api/generated/contracts.generated';
+import { apiClient } from './client';
+import { ApiError } from './errors';
+import type { CurrentUserResponse } from './generated/contracts.generated';
 
 type CurrentUser = CurrentUserResponse;
 

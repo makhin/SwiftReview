@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { createMessageDataSource } from './messageDataSource';
-import { currentUserQueryOptions } from '../current-user/currentUserQueries';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import { canAssignMessages } from '../../shared/auth/permissions';
 import MessagesGrid from './MessagesGrid';
 

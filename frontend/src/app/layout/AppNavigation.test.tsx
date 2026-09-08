@@ -11,7 +11,7 @@ vi.mock('devextreme-react/list', () => ({
     return <div aria-label="Application pages" />;
   },
 }));
-vi.mock('../../pages/current-user/currentUserApi', () => ({
+vi.mock('../../shared/api/currentUserApi', () => ({
   getCurrentUser: vi.fn(() => new Promise(() => undefined)),
 }));
 

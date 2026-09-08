@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
         reporter: ['text', 'html'],
         include: [
           'src/shared/api/client.ts',
+          'src/shared/api/currentUser{Api,Queries}.ts',
           'src/app/**/*.{ts,tsx}',
           'src/pages/current-user/**/*.{ts,tsx}',
           'src/pages/messages/**/*.{ts,tsx}',

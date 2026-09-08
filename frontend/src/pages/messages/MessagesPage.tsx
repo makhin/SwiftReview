@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Navigate } from 'react-router-dom';
 
-import { currentUserQueryOptions } from '../current-user/currentUserQueries';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import { canViewAllMessages } from '../../shared/auth/permissions';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';

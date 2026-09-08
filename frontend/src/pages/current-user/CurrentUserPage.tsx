@@ -4,7 +4,7 @@ import { ApiError } from '../../shared/api/errors';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import { departmentsQueryOptions } from '../../shared/api/referenceDataQueries';
-import { currentUserQueryOptions } from './currentUserQueries';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 
 function getErrorContent(error: Error) {
   if (error instanceof ApiError && error.status === 401) {

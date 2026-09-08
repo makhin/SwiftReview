@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import List from 'devextreme-react/list';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { currentUserQueryOptions } from '../../pages/current-user/currentUserQueries';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import { canAssignMessages, canViewAllMessages } from '../../shared/auth/permissions';
 
 type NavigationItem = {

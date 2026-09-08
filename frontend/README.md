@@ -72,7 +72,7 @@ All routes render inside `RootLayout`, which provides the global header and resp
 
 - `src/app` — application composition, providers, routing, and the root layout.
 - `src/pages` — route-level slices and their page-specific API code.
-- `src/shared/api` — generated DTO contracts, the shared HTTP client, and reference-data access.
+- `src/shared/api` — generated DTO contracts, the shared HTTP client, current-user queries, and reference-data access.
 - `src/shared/hooks`, `src/shared/lib`, and `src/shared/types` — proven cross-page abstractions.
 - `src/theme` and `src/styles` — design tokens, generated DevExtreme theme files, and application styles.
 

@@ -9,7 +9,7 @@ import { createTestQueryClient } from '../../test/createTestQueryClient';
 
 const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
 
-vi.mock('./currentUserApi', () => ({ getCurrentUser }));
+vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser }));
 
 import CurrentUserPage from './CurrentUserPage';
 

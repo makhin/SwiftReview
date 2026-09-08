@@ -28,7 +28,7 @@ vi.mock('devextreme-react/button', () => ({
 }));
 vi.mock('./providers/ReferenceDataPreloader', () => ({ default: () => null }));
 
-vi.mock('../pages/current-user/currentUserApi', () => ({
+vi.mock('../shared/api/currentUserApi', () => ({
   getCurrentUser: vi.fn().mockResolvedValue({
     userId: 42,
     userName: 'Alex Morgan',

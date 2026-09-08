@@ -1,11 +1,14 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import type { PropsWithChildren } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { useImperativeHandle, type PropsWithChildren, type Ref } from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { componentProps } = vi.hoisted(() => ({
+const { componentProps, refreshGrid, getCurrentUser, rowOverrides } = vi.hoisted(() => ({
   componentProps: vi.fn(),
+  refreshGrid: vi.fn(),
+  getCurrentUser: vi.fn(),
+  rowOverrides: {} as Record<string, unknown>,
 }));
 
 vi.mock('../../shared/api/referenceDataApi', () => ({
@@ -16,8 +19,8 @@ vi.mock('../../shared/api/referenceDataApi', () => ({
   getUsers: vi.fn(() => new Promise(() => undefined)),
   getWorkflows: vi.fn(() => new Promise(() => undefined)),
 }));
-vi.mock('../current-user/currentUserApi', () => ({
-  getCurrentUser: vi.fn(() => new Promise(() => undefined)),
+vi.mock('../../shared/api/currentUserApi', () => ({
+  getCurrentUser,
 }));
 
 vi.mock('devextreme-react/data-grid', () => {
@@ -46,14 +49,17 @@ vi.mock('devextreme-react/data-grid', () => {
           {props.children}
           {name === 'Column' && props.caption === 'Actions' &&
             (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
-              data: rowData,
+              data: { ...rowData, ...rowOverrides },
             })}
         </span>
       );
     };
 
   return {
-    default: ({ children, ...props }: PropsWithChildren<Record<string, unknown>>) => {
+    default: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
+      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid } }>;
+    }>) {
+      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid }) }));
       componentProps('DataGrid', props);
       return <div aria-label="Messages">{children}</div>;
     },
@@ -103,14 +109,35 @@ vi.mock('./RawMessagePopup', () => ({
   ),
 }));
 vi.mock('./AssignmentPopup', () => ({
-  default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
+  default: ({ message, onClose, onChanged }: {
+    message: { externalId: string };
+    onClose: () => void;
+    onChanged: () => void;
+  }) => (
     <aside aria-label="Assignment dialog">
       {message.externalId}
+      <button type="button" onClick={onChanged}>Save assignment</button>
       <button type="button" onClick={onClose}>Close assignment</button>
     </aside>
   ),
 }));
 
+vi.mock('./ReviewDecisionPopup', () => ({
+  default: ({ decision, onClose, onChanged }: {
+    decision: string;
+    onClose: () => void;
+    onChanged: () => void;
+  }) => (
+    <aside aria-label="Review dialog">
+      {decision}
+      <button type="button" onClick={onChanged}>Save review</button>
+      <button type="button" onClick={onClose}>Close review</button>
+    </aside>
+  ),
+}));
+
+import MessagesGrid from './MessagesGrid';
+import { messageDataSource } from './messageDataSource';
 import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 import MessagesPage from './MessagesPage';
@@ -118,15 +145,18 @@ import MessagesPage from './MessagesPage';
 function renderPage(
   withReferenceData = true,
   permissions = ['message.access.all-departments'],
+  withCurrentUser = true,
 ) {
   const queryClient = createTestQueryClient();
-  queryClient.setQueryData(['current-user'], {
-    userId: 1,
-    userName: 'alex.morgan',
-    permissions,
-    branches: [10],
-    departments: [20],
-  });
+  if (withCurrentUser) {
+    queryClient.setQueryData(['current-user'], {
+      userId: 1,
+      userName: 'alex.morgan',
+      permissions,
+      branches: [10],
+      departments: [20],
+    });
+  }
 
   if (withReferenceData) {
     queryClient.setQueryData(referenceDataKeys.users, [
@@ -177,10 +207,69 @@ function renderPage(
 describe('MessagesPage', () => {
   beforeEach(() => {
     componentProps.mockClear();
+    refreshGrid.mockReset();
+    getCurrentUser.mockReset().mockImplementation(() => new Promise(() => undefined));
+    for (const key of Object.keys(rowOverrides)) delete rowOverrides[key];
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('waits for the current user before displaying the messages grid', () => {
+    renderPage(true, undefined, false);
+    expect(screen.getByText('Loading messages…')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
+  });
+
+  it('retries a failed current-user request before granting access', async () => {
+    getCurrentUser.mockRejectedValueOnce(new Error('Network unavailable'));
+    renderPage(true, undefined, false);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to verify access');
+    expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
+
+    getCurrentUser.mockResolvedValue({
+      userId: 1,
+      permissions: ['message.access.all-departments'],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByLabelText('Messages')).toBeInTheDocument();
+    expect(getCurrentUser).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['Approve', 'Reject'])('refreshes after %s and restores focus when closed', async (action) => {
+    Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1 });
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(['current-user'], {
+      userId: 1,
+      permissions: ['review.level1', 'review.reject'],
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MessagesGrid dataSource={messageDataSource} enableReviewActions />
+      </QueryClientProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: action });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(screen.getByLabelText('Review dialog')).toHaveTextContent(action.toLowerCase());
+    fireEvent.click(screen.getByRole('button', { name: 'Save review' }));
+    expect(refreshGrid).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
+    expect(screen.queryByLabelText('Review dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('refreshes after assignment and restores focus when closed', async () => {
+    renderPage(true, ['message.access.all-departments', 'message.assign']);
+    const trigger = screen.getByRole('button', { name: 'Assign' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }));
+    expect(refreshGrid).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Close assignment' }));
+    expect(screen.queryByLabelText('Assignment dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('configures the remote messages grid', () => {
