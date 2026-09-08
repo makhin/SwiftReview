@@ -80,5 +80,9 @@ describe('App routing', () => {
     await router.navigate('/');
     await waitFor(() => expect(router.state.location.pathname).toBe('/messages'));
     expect(screen.getByText('Messages page')).toBeInTheDocument();
+
+    await router.navigate('/?user=alex.morgan');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/messages'));
+    expect(router.state.location.search).toBe('?user=alex.morgan');
   });
 });

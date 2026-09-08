@@ -19,10 +19,11 @@ import { createTestQueryClient } from '../../test/createTestQueryClient';
 import AppNavigation from './AppNavigation';
 
 function LocationPath() {
-  return <span data-testid="location">{useLocation().pathname}</span>;
+  const location = useLocation();
+  return <span data-testid="location">{location.pathname}{location.search}</span>;
 }
 
-function renderNavigation(permissions: string[]) {
+function renderNavigation(permissions: string[], initialEntry = '/messages') {
   const queryClient = createTestQueryClient();
   queryClient.setQueryData(['current-user'], {
     userId: 1,
@@ -35,7 +36,7 @@ function renderNavigation(permissions: string[]) {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/messages']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <AppNavigation onNavigate={onNavigate} />
         <LocationPath />
       </MemoryRouter>
@@ -104,5 +105,30 @@ describe('AppNavigation', () => {
     expect(items).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: '/messages/assigned?scope=assignable' }),
     ]));
+  });
+
+  it('preserves the URL user when navigating', async () => {
+    const onNavigate = renderNavigation(
+      ['message.access.all-departments'],
+      '/messages?user=alex.morgan',
+    );
+    const props = listProps.mock.calls.at(-1)?.[0] as {
+      onItemClick: (event: { itemData: unknown }) => void;
+    };
+
+    await act(() =>
+      props.onItemClick({
+        itemData: {
+          path: '/messages/assigned?scope=mine',
+          text: 'Assigned messages',
+          icon: 'user',
+        },
+      }),
+    );
+
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/messages/assigned?scope=mine&user=alex.morgan',
+    );
+    expect(onNavigate).toHaveBeenCalledOnce();
   });
 });

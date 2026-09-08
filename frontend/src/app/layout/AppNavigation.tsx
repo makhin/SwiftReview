@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import { canAssignMessages, canViewAllMessages } from '../../shared/auth/permissions';
+import { preserveUserQuery } from '../../shared/routing/preserveUserQuery';
 
 type NavigationItem = {
   path: string;
@@ -49,7 +50,7 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
           activeStateEnabled
           onItemClick={({ itemData }) => {
             const item = itemData as NavigationItem;
-            void navigate(item.path);
+            void navigate(preserveUserQuery(item.path, location.search));
             onNavigate();
           }}
           elementAttr={{ 'aria-label': 'Application pages' }}

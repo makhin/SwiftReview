@@ -31,10 +31,11 @@ const currentUser = {
 
 function renderHeader(
   props: Partial<React.ComponentProps<typeof GlobalHeader>> = {},
+  initialEntry = '/',
 ) {
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <GlobalHeader
           navigationOpen={false}
           showNavigationToggle={false}
@@ -73,6 +74,17 @@ describe('GlobalHeader', () => {
 
     expect(await screen.findByText('User unavailable')).toBeInTheDocument();
     expect(screen.queryByText('private authentication details')).not.toBeInTheDocument();
+  });
+
+  it('preserves the URL user in the home link', () => {
+    getCurrentUser.mockResolvedValue(currentUser);
+
+    renderHeader({}, '/me?user=alex.morgan');
+
+    expect(screen.getByRole('link', { name: 'SMBC home' })).toHaveAttribute(
+      'href',
+      '/?user=alex.morgan',
+    );
   });
 
   it('exposes the mobile navigation state and toggles it', async () => {

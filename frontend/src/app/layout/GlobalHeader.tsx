@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import Button from 'devextreme-react/button';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
+import { preserveUserQuery } from '../../shared/routing/preserveUserQuery';
 import './global-header.css';
 
 type GlobalHeaderProps = {
@@ -16,6 +17,7 @@ export default function GlobalHeader({
   showNavigationToggle,
   onNavigationToggle,
 }: GlobalHeaderProps) {
+  const location = useLocation();
   const { data: user, isError, isPending } = useQuery(currentUserQueryOptions());
   const userLabel = isPending
     ? 'Loading user…'
@@ -41,7 +43,11 @@ export default function GlobalHeader({
             />
           ) : null}
 
-          <NavLink className="global-header__brand" to="/" aria-label="SMBC home">
+          <NavLink
+            className="global-header__brand"
+            to={preserveUserQuery('/', location.search)}
+            aria-label="SMBC home"
+          >
             <img src="/smbc-logo.svg" alt="SMBC" width="146" height="42" />
             <span>Operations Reporting and Processing</span>
           </NavLink>

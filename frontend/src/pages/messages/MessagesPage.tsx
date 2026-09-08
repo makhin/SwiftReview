@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Navigate } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import { canViewAllMessages } from '../../shared/auth/permissions';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
+import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
 import { messageDataSource } from './messageDataSource';
 import MessagesGrid from './MessagesGrid';
 
@@ -33,7 +33,7 @@ export default function MessagesPage() {
   }
 
   if (!currentUserQuery.data || !canViewAllMessages(currentUserQuery.data.permissions)) {
-    return <Navigate to="/messages/assigned?scope=mine" replace />;
+    return <UserPreservingNavigate to="/messages/assigned?scope=mine" replace />;
   }
 
   return (
