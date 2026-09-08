@@ -1,0 +1,8 @@
+# Local integration-test solution and project
+/ORP-with-IntegrationTests.sln
+/tests/ORP.IntegrationTests/
+
+# Local Docker configuration
+/.dockerignore
+/docker-compose.yml
+/src/ORP.Api/Dockerfile

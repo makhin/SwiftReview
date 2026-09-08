@@ -9,7 +9,7 @@ The backend implements the Operations Reporting and Processing domain, REST API,
 - `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, queries, and seed data.
 - `src/ORP.Api` — ASP.NET Core endpoints, authentication, authorization, OpenAPI, health checks, and telemetry.
 - `src/ORP.Sync` — one-shot .NET Framework 4.7.2 host for registering messages produced by a legacy SWIFT synchronization process.
-- `tests` — domain, application, API, and SQL Server integration tests.
+- `tests` — domain, application, and synchronization unit tests.
 
 Dependencies point inward: the Domain project has no persistence or API dependency, Application depends on Domain contracts, and Infrastructure provides the external implementations used by the API.
 
@@ -110,14 +110,6 @@ dotnet restore ORP.sln --configfile NuGet.Config
 dotnet build ORP.sln --no-restore
 dotnet test ORP.sln --no-build --no-restore
 ```
-
-The SQL Server integration tests are opt-in:
-
-```bash
-RUN_INTEGRATION_TESTS=1 dotnet test tests/ORP.IntegrationTests
-```
-
-They cover migrations and seed data, idempotent message registration, workflow actions, permissions, SQL filtering and pagination, and concurrent updates.
 
 ## Legacy synchronization host
 

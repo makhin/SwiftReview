@@ -1,9 +1,6 @@
 using System.Configuration;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using ORP.Infrastructure.Persistence;
 using ORP.Sync;
-using Testcontainers.MsSql;
 using Xunit;
 
 namespace ORP.Sync.Tests;
@@ -101,58 +98,6 @@ public sealed class SyncTests
         Assert.False(route.IsRouted);
         Assert.NotEmpty(route.Error);
         Assert.Equal(0, new SwiftMessageData().EntryCount);
-    }
-
-    [Fact]
-    public async Task SqlServer_SaveSkipsDuplicatesPreservesEntriesAndRollsBackOnFailure()
-    {
-        Assert.SkipUnless(Environment.GetEnvironmentVariable("RUN_INTEGRATION_TESTS") == "1",
-            "Set RUN_INTEGRATION_TESTS=1 to run the SQL Server container test.");
-        var ct = TestContext.Current.CancellationToken;
-        await using var sql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
-            .WithPassword("ORP_Test_Passw0rd!").Build();
-        await sql.StartAsync(ct);
-        await using var db = new ORPDbContext(new DbContextOptionsBuilder<ORPDbContext>()
-            .UseSqlServer(sql.GetConnectionString()).Options);
-        await db.Database.MigrateAsync(ct);
-        using var config = new Settings("RoutingRules", "");
-        using var overlap = new Settings("OverlapMinutes", "5");
-        using var lookback = new Settings("InitialLookbackHours", "24");
-        var rules = RoutingRules.FromConfiguration();
-        var repository = new SwiftMessageRepository(sql.GetConnectionString());
-        Assert.Equal(Now.AddHours(-24), repository.GetFromUtc(Now));
-        var message = new SwiftMessageData { WarehouseId = "TEST-1", MessageType = "MT103", Body = "original",
-            Accounts = new[] { "account-1" }, Amounts = new decimal?[] { 1250.50m, 25m } };
-        var duplicate = new SwiftMessageData { WarehouseId = "TEST-1", Body = "changed" };
-        var first = repository.Save(new[] { message, duplicate, new SwiftMessageData() }, rules, Now, "test-first");
-        Assert.Equal(1, first.Inserted);
-        Assert.Equal(2, first.Skipped);
-        Assert.Equal(1, first.RoutingIssues);
-        var source = Assert.Single(await db.SwiftMessages.AsNoTracking().ToListAsync(ct));
-        Assert.Equal("original", source.Body);
-        Assert.Equal(SwiftMessageRoutingStatus.Unroutable, source.RoutingStatus);
-        Assert.Empty(await db.Messages.ToListAsync(ct));
-        var entries = await db.SwiftMessageEntries.AsNoTracking().OrderBy(x => x.Position).ToListAsync(ct);
-        Assert.Equal(2, entries.Count);
-        Assert.Equal(1250.50m, entries[0].Amount);
-        Assert.Equal("account-1", entries[0].Account);
-        Assert.Null(entries[1].Account);
-        Assert.Equal(25m, entries[1].Amount);
-
-        var second = repository.Save(new[] { duplicate }, rules, Now.AddHours(1), "test-repeat");
-        Assert.Equal(0, second.Inserted);
-        Assert.Equal(1, second.Skipped);
-        var unchanged = Assert.Single(await db.SwiftMessages.AsNoTracking().ToListAsync(ct));
-        Assert.Equal(source.Body, unchanged.Body);
-        Assert.Equal(source.LastSynchronizedAtUtc, unchanged.LastSynchronizedAtUtc);
-        Assert.Equal(2, await db.SwiftMessageEntries.CountAsync(ct));
-        Assert.Equal(Now.AddMinutes(55), repository.GetFromUtc(Now.AddHours(2)));
-
-        var valid = new SwiftMessageData { WarehouseId = "ROLLBACK-1", MessageType = "MT103" };
-        var invalid = new SwiftMessageData { WarehouseId = "ROLLBACK-2", Amounts = new decimal?[] { decimal.MaxValue } };
-        Assert.ThrowsAny<Exception>(() => repository.Save(new[] { valid, invalid }, rules, Now.AddHours(2), "test-rollback"));
-        Assert.Equal(1, await db.SwiftMessages.CountAsync(ct));
-        Assert.Equal(Now.AddMinutes(55), repository.GetFromUtc(Now.AddHours(3)));
     }
 
     private sealed class Settings : IDisposable
