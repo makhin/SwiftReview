@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import type { AssignmentCandidateDto } from '../../shared/api/generated/contracts.generated';
 import { ApiError } from '../../shared/api/errors';
 import { assignMessage, getAssignmentCandidates, type MessageRow } from './messagesApi';
+import './message-action-popup.css';
 
 type AssignmentPopupProps = {
   message: MessageRow;

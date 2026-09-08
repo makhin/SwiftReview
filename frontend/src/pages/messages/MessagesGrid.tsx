@@ -29,6 +29,7 @@ import type { MessageRow } from './messagesApi';
 import RawMessagePopup from './RawMessagePopup';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
 import { canReviewMessage, type ReviewDecision } from './reviewDecision';
+import './messages-grid.css';
 
 type MessagesGridProps = {
   dataSource: CustomStore<MessageRow, MessageRow['id']>;

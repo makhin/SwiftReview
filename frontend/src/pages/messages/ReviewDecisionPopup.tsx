@@ -7,6 +7,7 @@ import { ApiError } from '../../shared/api/errors';
 import { approveReview, rejectReview, startReview } from './messagesApi';
 import type { MessageRow } from './messagesApi';
 import { getReviewStep, type ReviewDecision } from './reviewDecision';
+import './message-action-popup.css';
 
 type ReviewDecisionPopupProps = {
   decision: ReviewDecision;

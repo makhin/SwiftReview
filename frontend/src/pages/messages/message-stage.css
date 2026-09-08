@@ -1,0 +1,72 @@
+.message-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.message-stage__stepper.dx-stepper {
+  padding: 0;
+  pointer-events: none;
+}
+
+.message-stage__stepper .dx-stepper-connector {
+  display: none;
+}
+
+.message-stage__stepper .dx-step-list {
+  gap: var(--space-1);
+}
+
+.message-stage__stepper.dx-stepper-horizontal .dx-step {
+  flex: 0 0 16px;
+  min-width: 16px;
+}
+
+.message-stage__stepper .dx-step-content {
+  display: block;
+}
+
+.message-stage__stepper .dx-step-indicator {
+  width: 16px;
+  height: 4px;
+  color: transparent;
+  background: var(--color-border-control);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+}
+
+.message-stage__stepper .dx-step-text,
+.message-stage__stepper .dx-step-caption {
+  display: none;
+}
+
+.message-stage__stepper .dx-step.dx-step-completed .dx-step-indicator {
+  background: var(--color-feedback-success);
+  box-shadow: none;
+}
+
+.message-stage__stepper .dx-step.dx-step-selected .dx-step-indicator {
+  background: var(--color-feedback-warning);
+  box-shadow: none;
+}
+
+.message-stage.message-stage--completed .message-stage__stepper .dx-step .dx-step-indicator {
+  background: var(--color-feedback-success);
+}
+
+.message-stage.message-stage--rejected .message-stage__stepper .dx-step .dx-step-indicator {
+  background: var(--color-feedback-danger);
+}
+
+.message-stage__label {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

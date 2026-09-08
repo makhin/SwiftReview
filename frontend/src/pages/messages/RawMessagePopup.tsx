@@ -5,6 +5,7 @@ import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import { getMessage } from './messagesApi';
 import type { MessageRow } from './messagesApi';
+import './raw-message-popup.css';
 
 type RawMessagePopupProps = {
   message: MessageRow;

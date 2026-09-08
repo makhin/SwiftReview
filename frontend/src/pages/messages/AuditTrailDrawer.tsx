@@ -12,6 +12,7 @@ import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import { messageAuditQueryOptions } from './auditQueries';
 import type { MessageRow } from './messagesApi';
+import './audit-trail-drawer.css';
 
 const eventLabels: Record<AuditEventType, string> = {
   MessageRegistered: 'Message registered',

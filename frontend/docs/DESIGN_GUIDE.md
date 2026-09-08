@@ -132,6 +132,13 @@ co-located with its page until it has a stable meaning and at least one other
 real consumer. File size alone is not a reason to promote local CSS into this
 directory.
 
+Message stages, grid actions, raw-message popups, review/assignment dialogs, and
+audit panels own their styles in `pages/messages`, including responsive rules.
+Each component imports its own stylesheet. Review and assignment dialogs both
+import their common local stylesheet; neither relies on the other being loaded.
+These selectors also apply to overlays rendered through portals. Audit headings
+use global theme typography so lazy stylesheet loading does not override it.
+
 Small DevExtreme integration rules are allowed here when they apply only inside
 an `.app-*` pattern, for example removing a nested grid border inside a table
 shell. A correction to DevExtreme itself belongs in

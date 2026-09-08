@@ -1,0 +1,32 @@
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.message-actions .dx-button {
+  min-height: 28px;
+}
+
+.message-actions .dx-button-content {
+  padding: var(--space-1) var(--space-2);
+}
+
+.audit-drawer {
+  position: fixed !important;
+  z-index: 150;
+  inset: 0;
+  min-width: 0;
+}
+
+.audit-drawer__view {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 760px) {
+  .audit-drawer.dx-drawer-overlap > .dx-drawer-wrapper > .dx-overlay > .dx-overlay-wrapper > .dx-overlay-content {
+    width: 100vw !important;
+  }
+}
