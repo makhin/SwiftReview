@@ -38,33 +38,35 @@ vi.mock('devextreme-react/data-grid', () => {
       return <div aria-label="Messages">{children}</div>;
     },
     Column: childComponent('Column'),
-    Button: ({ onClick, text, ...props }: Record<string, unknown>) => {
-      componentProps('GridButton', { onClick, text, ...props });
+    Button: ({ onClick, text, visible, ...props }: Record<string, unknown>) => {
+      const event = {
+        row: {
+          data: {
+            id: 42,
+            externalId: 'MSG-0042',
+            messageType: 'MT103',
+            branchId: 10,
+            departmentId: 20,
+            state: 'New',
+            receivedAt: '2026-09-05T08:00:00Z',
+            currentAssigneeId: null,
+            activeReviewId: null,
+            activeReviewLevel: null,
+            activeReviewerId: null,
+            account: null,
+            currency: null,
+            amount: null,
+          },
+        },
+      };
+      componentProps('GridButton', { onClick, text, visible, ...props });
+      if (typeof visible === 'function' && !(visible as (value: typeof event) => boolean)(event)) {
+        return null;
+      }
       return (
         <button
           type="button"
-          onClick={() =>
-            (onClick as (event: Record<string, unknown>) => void)({
-              row: {
-                data: {
-                  id: 42,
-                  externalId: 'MSG-0042',
-                  messageType: 'MT103',
-                  branchId: 10,
-                  departmentId: 20,
-                  state: 'New',
-                  receivedAt: '2026-09-05T08:00:00Z',
-                  currentAssigneeId: null,
-                  activeReviewId: null,
-                  activeReviewLevel: null,
-                  activeReviewerId: null,
-                  account: null,
-                  currency: null,
-                  amount: null,
-                },
-              },
-            })
-          }
+          onClick={() => (onClick as (value: typeof event) => void)(event)}
         >
           {String(text)}
         </button>
@@ -105,6 +107,14 @@ vi.mock('./RawMessagePopup', () => ({
     <aside aria-label="Raw message">
       {message.externalId}
       <button type="button" onClick={onClose}>Close raw</button>
+    </aside>
+  ),
+}));
+vi.mock('./AssignmentPopup', () => ({
+  default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
+    <aside aria-label="Assignment dialog">
+      {message.externalId}
+      <button type="button" onClick={onClose}>Close assignment</button>
     </aside>
   ),
 }));
@@ -338,6 +348,17 @@ describe('MessagesPage', () => {
     expect(screen.getByLabelText('Raw message')).toHaveTextContent('MSG-0042');
     fireEvent.click(screen.getByRole('button', { name: 'Close raw' }));
     expect(screen.queryByLabelText('Raw message')).not.toBeInTheDocument();
+  });
+
+  it('shows manual assignment only with permission', () => {
+    const withoutPermission = renderPage();
+    expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
+    withoutPermission.unmount();
+
+    renderPage(true, ['message.access.all-departments', 'message.assign']);
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    expect(screen.getByLabelText('Assignment dialog')).toHaveTextContent('MSG-0042');
+    expect(screen.queryByRole('button', { name: 'Reassign' })).not.toBeInTheDocument();
   });
 
   it('shows the audit action only with permission and opens the right-side drawer', () => {

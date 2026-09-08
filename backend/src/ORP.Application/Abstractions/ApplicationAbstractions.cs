@@ -43,15 +43,12 @@ public interface IUserAccessService
     Task<UserAccess?> GetByIdAsync(int userId, CancellationToken cancellationToken);
 }
 
-public interface IAutomaticAssignmentQueries
+public interface IAssignmentCandidateQueries
 {
-    Task<int?> SelectAssigneeAsync(long messageId, int branchId, int departmentId, int reviewLevel,
-        IReadOnlyCollection<int> excludedUserIds, CancellationToken cancellationToken);
-    Task<IReadOnlyList<UnassignedMessageCursor>> GetUnassignedMessagesAsync(UnassignedMessageCursor? after, int take,
+    Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId, int departmentId,
+        int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId, int? currentAssigneeId,
         CancellationToken cancellationToken);
 }
-
-public sealed record UnassignedMessageCursor(DateTimeOffset ReceivedAt, long MessageId);
 
 public sealed class ConcurrentUpdateException(string message, Exception innerException)
     : Exception(message, innerException);

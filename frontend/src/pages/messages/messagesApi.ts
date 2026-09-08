@@ -4,6 +4,7 @@ import { apiFetch } from '../../shared/api/client';
 import { ApiError } from '../../shared/api/errors';
 import type {
   ApproveReviewRequest,
+  AssignmentCandidateDto,
   MessageDetailsDto,
   MessageListItemDto,
   RejectReviewRequest,
@@ -11,7 +12,7 @@ import type {
 } from '../../shared/api/generated/contracts.generated';
 
 export type MessageRow = MessageListItemDto;
-export type MessageAssignmentScope = 'mine' | 'departments';
+export type MessageAssignmentScope = 'mine' | 'departments' | 'assignable';
 
 export async function getMessage(
   messageId: MessageRow['id'],
@@ -152,4 +153,59 @@ export function rejectReview(
   comment: string | null,
 ) {
   return postReviewAction(messageId, 'reject', { level, comment });
+}
+
+export async function getAssignmentCandidates(
+  messageId: MessageRow['id'],
+  signal?: AbortSignal,
+): Promise<AssignmentCandidateDto[]> {
+  try {
+    const response = await apiFetch(`/api/messages/${messageId}/assignment-candidates`, {
+      signal,
+    });
+    if (!response.ok) {
+      throw new ApiError(
+        `Unable to load assignment candidates (${response.status}).`,
+        response.status,
+      );
+    }
+    return (await response.json()) as AssignmentCandidateDto[];
+  } catch (error) {
+    if (error instanceof ApiError || signal?.aborted) {
+      throw error;
+    }
+    throw new Error('Unable to load assignment candidates.', { cause: error });
+  }
+}
+
+export async function assignMessage(
+  messageId: MessageRow['id'],
+  assignedTo: number | string,
+  reassign: boolean,
+) {
+  const action = reassign ? 'reassign' : 'assign';
+  try {
+    const response = await apiFetch(`/api/messages/${messageId}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignedTo }),
+    });
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const problem = (await response.json()) as { detail?: unknown };
+        if (typeof problem.detail === 'string' && problem.detail.trim()) {
+          detail = problem.detail;
+        }
+      } catch {
+        // Fall back to the stable assignment error.
+      }
+      throw new ApiError(detail ?? `Unable to ${action} message (${response.status}).`, response.status);
+    }
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new Error(`Unable to ${action} message.`, { cause: error });
+  }
 }

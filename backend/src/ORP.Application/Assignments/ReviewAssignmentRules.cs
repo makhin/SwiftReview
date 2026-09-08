@@ -1,3 +1,4 @@
+using ORP.Application.Abstractions;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
@@ -6,11 +7,11 @@ namespace ORP.Application.Assignments;
 
 public static class ReviewAssignmentRules
 {
-    public static int? ReviewLevelForState(MessageState state) => state switch
+    public static int? AssignmentLevelForState(MessageState state) => state switch
     {
-        MessageState.New or MessageState.Assigned or MessageState.FirstReviewInProgress => 1,
-        MessageState.WaitingForSecondReview or MessageState.SecondReviewInProgress => 2,
-        MessageState.WaitingForThirdReview or MessageState.ThirdReviewInProgress => 3,
+        MessageState.New or MessageState.Assigned => 1,
+        MessageState.WaitingForSecondReview => 2,
+        MessageState.WaitingForThirdReview => 3,
         _ => null
     };
 
@@ -27,4 +28,12 @@ public static class ReviewAssignmentRules
             .Select(review => review.ReviewerId)
             .Distinct()
             .ToArray();
+
+    public static bool IsEligible(UserAccess target, MessageSourceDto source, int reviewLevel,
+        IReadOnlyCollection<int> approvedReviewerIds, int actorId, int? currentAssigneeId) =>
+        target.UserId != actorId && target.UserId != currentAssigneeId &&
+        target.Permissions.Contains(Permissions.MessageView) &&
+        target.Permissions.Contains(PermissionForLevel(reviewLevel)) &&
+        target.CanAccess(source.BranchId, source.DepartmentId) &&
+        !approvedReviewerIds.Contains(target.UserId);
 }

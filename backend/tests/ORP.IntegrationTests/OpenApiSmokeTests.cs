@@ -16,7 +16,6 @@ public sealed class OpenApiSmokeTests
         {
             web.UseEnvironment("Production");
             web.UseSetting("UseMockData", "true");
-            web.UseSetting("AutoAssignment:Enabled", "false");
         });
         using var client = factory.CreateClient();
         using var response = await client.GetAsync("/openapi/v1.json", ct);
@@ -65,8 +64,9 @@ public sealed class OpenApiSmokeTests
         Assert.False(auditProperties.TryGetProperty("detailsJson", out _));
         Assert.False(auditProperties.GetProperty("oldState").TryGetProperty("oneOf", out _));
         Assert.False(auditProperties.GetProperty("newState").TryGetProperty("oneOf", out _));
-        Assert.Contains("MessageRegistered", schemas.GetProperty("AuditEventType").GetProperty("enum")
+        Assert.Contains("MessageUnassigned", schemas.GetProperty("AuditEventType").GetProperty("enum")
             .EnumerateArray().Select(x => x.GetString()));
+        Assert.True(schemas.TryGetProperty("AssignmentCandidateDto", out _));
 
         Assert.False(paths.TryGetProperty("/api/messages/import", out _));
         Assert.True(paths.GetProperty("/api/messages/{id}/reviews/start").GetProperty("post").GetProperty("responses")
@@ -82,6 +82,7 @@ public sealed class OpenApiSmokeTests
     private static readonly string[] RequiredPaths =
     [
         "/api/messages/{id}", "/api/messages/grid", "/api/messages/search", "/api/messages/{id}/assign", "/api/messages/{id}/reassign",
+        "/api/messages/{id}/assignment-candidates",
         "/api/messages/{id}/reviews/start", "/api/messages/{id}/reviews/approve", "/api/messages/{id}/reviews/reject",
         "/api/messages/{id}/undo", "/api/messages/{id}/audit", "/api/dashboard/summary", "/api/me", "/api/workflows", "/api/users",
         "/api/branches", "/api/departments", "/api/message-types", "/api/message-states"

@@ -96,4 +96,13 @@ describe('AppNavigation', () => {
       ]),
     );
   });
+
+  it('shows an assignment queue for users with assignment permission', () => {
+    renderNavigation(['message.view', 'message.assign']);
+
+    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    expect(items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '/messages/assigned?scope=assignable' }),
+    ]));
+  });
 });

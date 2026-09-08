@@ -54,8 +54,7 @@ public sealed class ApiWorkflowTests
             {
                 ["ConnectionStrings:ORP"] = sql.GetConnectionString(),
                 ["BootstrapDatabase"] = "false",
-                ["UseMockData"] = "false",
-                ["AutoAssignment:Enabled"] = "false"
+                ["UseMockData"] = "false"
             }));
             web.ConfigureServices(services =>
             {
@@ -88,11 +87,6 @@ public sealed class ApiWorkflowTests
             await CreateAndSeedSwiftSource(seeded, ct);
             Assert.Equal(76, await seeded.Messages.CountAsync(ct));
             Assert.Equal(76, await seeded.SwiftMessages.CountAsync(ct));
-            var assignmentQueries = scope.ServiceProvider.GetRequiredService<IAutomaticAssignmentQueries>();
-            var firstQueuePage = await assignmentQueries.GetUnassignedMessagesAsync(null, 2, ct);
-            Assert.Equal([1, 2], firstQueuePage.Select(item => item.MessageId));
-            Assert.Equal([3, 4], (await assignmentQueries.GetUnassignedMessagesAsync(firstQueuePage[^1], 2, ct))
-                .Select(item => item.MessageId));
             Assert.Equal(8, await seeded.WorkflowDefinitions.CountAsync(ct));
             Assert.Equal(15, await seeded.WorkflowSteps.CountAsync(ct));
             await VerifyInvalidWorkflowIsNotRegistered(seeded, ct);
@@ -148,6 +142,7 @@ public sealed class ApiWorkflowTests
         Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
         var details = await client.GetFromJsonAsync<MessageDetailsDto>($"/api/messages/{id}", ResponseJson, ct);
         Assert.Equal(MessageState.Completed, details!.State);
+        Assert.Null(details.CurrentAssigneeId);
         Assert.Equal("RAW-1001", details.Body);
         Assert.Equal(["IT-ACCOUNT", "SECONDARY"], details.Accounts);
         Assert.Equal(["EUR", "CHF"], details.Currencies);
@@ -190,7 +185,7 @@ public sealed class ApiWorkflowTests
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
         var audit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
             $"/api/messages/{id}/audit", ResponseJson, ct);
-        Assert.Equal(5, audit!.TotalCount);
+        Assert.Equal(6, audit!.TotalCount);
         Assert.Contains(audit!.Items, x => x.EventType == AuditEventType.MessageRegistered);
         var assignedAudit = Assert.Single(audit.Items, x => x.EventType == AuditEventType.MessageAssigned);
         Assert.Null(assignedAudit.Details.PreviousAssigneeId);
@@ -199,12 +194,14 @@ public sealed class ApiWorkflowTests
         Assert.Equal(reviewId, approvedAudit.Details.ReviewId);
         Assert.Equal("confirmed", approvedAudit.Details.Comment);
         Assert.Contains(audit.Items, x => x.EventType == AuditEventType.MessageCompleted);
+        Assert.Contains(audit.Items, x => x.EventType == AuditEventType.MessageUnassigned);
 
-        await VerifyLevelPermission(client, fixture.PriyaId, ct);
+        await VerifyLevelPermission(client, fixture.PriyaId, fixture.VictorId, ct);
 
     }
 
-    private static async Task VerifyLevelPermission(HttpClient client, int priyaId, CancellationToken ct)
+    private static async Task VerifyLevelPermission(HttpClient client, int priyaId, int victorId,
+        CancellationToken ct)
     {
         const long id = 6;
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
@@ -215,6 +212,8 @@ public sealed class ApiWorkflowTests
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/approve", new ApproveReviewRequest(1, null), ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(2), ct)).StatusCode);
         client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/api/messages/{id}/assign", new AssignMessageRequest(victorId), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User"); client.DefaultRequestHeaders.Add("X-Debug-User", "victor.stone");
         Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new StartReviewRequest(2), ct)).StatusCode);
     }
 
@@ -264,7 +263,7 @@ public sealed class ApiWorkflowTests
             db.WorkflowDefinitions.Add(workflow);
         }
         await db.SaveChangesAsync(ct);
-        return new SqlFixture(users[0].Id, users[1].Id, users[2].Id);
+        return new SqlFixture(users[0].Id, users[1].Id, users[2].Id, users[3].Id);
 
         void Grant(Role role, params string[] names) => db.RolePermissions.AddRange(names.Select(name =>
             new RolePermission { RoleId = role.Id, PermissionId = permissionByName[name] }));
@@ -276,7 +275,7 @@ public sealed class ApiWorkflowTests
         }
     }
 
-    private sealed record SqlFixture(int AmeliaId, int TheoId, int PriyaId);
+    private sealed record SqlFixture(int AmeliaId, int TheoId, int PriyaId, int VictorId);
 
     private static async Task VerifyConcurrentAssignmentReturnsControlledConflict(
         WebApplicationFactory<Program> factory, SqlFixture fixture, CancellationToken ct)

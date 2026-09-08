@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../shared/api/errors';
 import {
   approveReview,
+  assignMessage,
+  getAssignmentCandidates,
   getMessage,
   getMessageGrid,
   rejectReview,
@@ -158,6 +160,47 @@ describe('review actions', () => {
 
     await expect(approveReview(42, 1, null)).rejects.toEqual(
       new ApiError('No eligible reviewer is available for review level 2.', 409),
+    );
+  });
+});
+
+describe('manual assignment', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('loads eligible reviewers for the message', async () => {
+    const candidates = [{ id: 2, userName: 'sam.lee', displayName: 'Sam Lee' }];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(candidates), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    await expect(getAssignmentCandidates(42)).resolves.toEqual(candidates);
+    expect(fetch).toHaveBeenCalledWith('/api/messages/42/assignment-candidates',
+      expect.objectContaining({ signal: undefined }));
+  });
+
+  it.each([
+    [false, 'assign'],
+    [true, 'reassign'],
+  ])('posts the correct assignment action', async (reassign, action) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await assignMessage(42, 2, reassign);
+
+    expect(fetchMock).toHaveBeenCalledWith(`/api/messages/42/${action}`,
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ assignedTo: 2 }) }));
+  });
+
+  it('uses Problem Details for an invalid assignment', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      detail: 'The assignee is not eligible.',
+    }), { status: 400, headers: { 'Content-Type': 'application/problem+json' } })));
+
+    await expect(assignMessage(42, 2, false)).rejects.toEqual(
+      new ApiError('The assignee is not eligible.', 400),
     );
   });
 });

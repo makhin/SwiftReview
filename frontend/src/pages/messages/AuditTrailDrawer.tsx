@@ -17,6 +17,7 @@ const eventLabels: Record<AuditEventType, string> = {
   MessageRegistered: 'Message registered',
   MessageAssigned: 'Message assigned',
   MessageReassigned: 'Message reassigned',
+  MessageUnassigned: 'Message unassigned',
   ReviewStarted: 'Review started',
   ReviewApproved: 'Review approved',
   MessageCompleted: 'Message completed',

@@ -86,7 +86,7 @@ public sealed class MessageGridQueriesTests
     }
 
     [Fact]
-    public async Task MineScope_IncludesCurrentAssigneeAndOwnerOfActiveReview()
+    public async Task MineScope_IncludesOwnerOfActiveReview()
     {
         var options = new DbContextOptionsBuilder<ORPDbContext>()
             .UseInMemoryDatabase($"message-grid-active-review-{Guid.NewGuid():N}")
@@ -94,8 +94,7 @@ public sealed class MessageGridQueriesTests
         await using var db = new ORPDbContext(options);
         var ct = TestContext.Current.CancellationToken;
         var reviewer = new User("reviewer", "Reviewer");
-        var assignee = new User("assignee", "Assignee");
-        db.Users.AddRange(reviewer, assignee);
+        db.Users.Add(reviewer);
         await db.SaveChangesAsync(ct);
 
         var workflow = new WorkflowDefinition("Review", "MT199", 1).AddStep(1, 1);
@@ -104,7 +103,6 @@ public sealed class MessageGridQueriesTests
         message.Assign(reviewer.Id);
         var activeReview = message.StartReview(1, reviewer.Id, workflow, reviews, DateTimeOffset.UtcNow);
         reviews.Add(activeReview);
-        message.Assign(assignee.Id);
         db.Messages.Add(message);
         db.Reviews.Add(activeReview);
         db.SwiftMessages.Add(new SwiftMessageRecord
@@ -124,11 +122,9 @@ public sealed class MessageGridQueriesTests
         await db.SaveChangesAsync(ct);
 
         var reviewerResult = await LoadMine(reviewer);
-        var assigneeResult = await LoadMine(assignee);
         var row = Assert.IsType<MessageGridRowDto>(Assert.Single(reviewerResult.data.Cast<object>()));
 
-        Assert.Single(assigneeResult.data.Cast<object>());
-        Assert.Equal(assignee.Id, row.CurrentAssigneeId);
+        Assert.Equal(reviewer.Id, row.CurrentAssigneeId);
         Assert.Equal(activeReview.Id, row.ActiveReviewId);
         Assert.Equal(activeReview.Level, row.ActiveReviewLevel);
         Assert.Equal(reviewer.Id, row.ActiveReviewerId);

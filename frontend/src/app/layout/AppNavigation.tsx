@@ -3,7 +3,7 @@ import List from 'devextreme-react/list';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../pages/current-user/currentUserQueries';
-import { canViewAllMessages } from '../../shared/auth/permissions';
+import { canAssignMessages, canViewAllMessages } from '../../shared/auth/permissions';
 
 type NavigationItem = {
   path: string;
@@ -24,6 +24,9 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
       ? [{ path: '/messages', text: 'All messages', icon: 'email' }]
       : []),
     { path: '/messages/assigned?scope=mine', text: 'Assigned messages', icon: 'user' },
+    ...(currentUser && canAssignMessages(currentUser.permissions)
+      ? [{ path: '/messages/assigned?scope=assignable', text: 'Assignment queue', icon: 'group' }]
+      : []),
     { path: '/me', text: 'Current user', icon: 'user' },
   ];
 
@@ -37,7 +40,9 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
           selectionMode="single"
           selectedItemKeys={[
             location.pathname === '/messages/assigned'
-              ? '/messages/assigned?scope=mine'
+              ? location.search.includes('scope=assignable')
+                ? '/messages/assigned?scope=assignable'
+                : '/messages/assigned?scope=mine'
               : location.pathname,
           ]}
           focusStateEnabled

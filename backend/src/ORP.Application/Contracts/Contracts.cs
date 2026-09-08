@@ -53,5 +53,6 @@ public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType,
     bool IsActive, IReadOnlyList<WorkflowStepDto> Steps);
 public sealed record UserSummaryDto(int Id, string UserName, string DisplayName, IReadOnlyList<int> BranchIds,
     IReadOnlyList<int> DepartmentIds);
+public sealed record AssignmentCandidateDto(int Id, string UserName, string DisplayName);
 public sealed record ReferenceItemDto(int Id, string Name);
 public sealed record MessageStateReferenceDto(string Code, string Label);

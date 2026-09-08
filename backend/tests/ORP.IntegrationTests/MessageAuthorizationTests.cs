@@ -38,9 +38,41 @@ public sealed class MessageAuthorizationTests
         Assert.False(await IsAuthorized(User(6, branch + 1, department, permissions), resource, Permissions.ReviewLevel2, 2));
     }
 
-    private static async Task<bool> IsAuthorized(ClaimsPrincipal user, MessageAuthorizationResource resource, string permission, int level)
+    [Fact]
+    public async Task StartReview_RequiresTheCurrentAssignee()
     {
-        var requirement = new MessageActionRequirement(permission, level);
+        var workflow = new WorkflowDefinition("One", "MT199", 20).AddStep(1, 1);
+        var message = new Message(1, workflow.Id);
+        message.Assign(6);
+        var resource = new MessageAuthorizationResource(message, 10, 20, []);
+
+        Assert.True(await IsAuthorized(User(6, 10, 20, Permissions.ReviewLevel1), resource,
+            Permissions.ReviewLevel1, 1, MessageActionOwnership.Assignee));
+        Assert.False(await IsAuthorized(User(7, 10, 20, Permissions.ReviewLevel1), resource,
+            Permissions.ReviewLevel1, 1, MessageActionOwnership.Assignee));
+    }
+
+    [Fact]
+    public async Task ReviewDecision_RequiresTheActiveReviewerForTheRequestedLevel()
+    {
+        var (waiting, branch, department) = WaitingForLevelTwo();
+        waiting.Message.Assign(6);
+        var reviews = waiting.Reviews.ToList();
+        reviews.Add(waiting.Message.StartReview(2, 6,
+            new WorkflowDefinition("Two", "MT199", 20).AddStep(1, 1).AddStep(2, 2),
+            reviews, DateTimeOffset.UtcNow));
+        var resource = new MessageAuthorizationResource(waiting.Message, branch, department, reviews);
+
+        Assert.True(await IsAuthorized(User(6, branch, department, Permissions.ReviewLevel2), resource,
+            Permissions.ReviewLevel2, 2, MessageActionOwnership.ActiveReviewer));
+        Assert.False(await IsAuthorized(User(7, branch, department, Permissions.ReviewLevel2), resource,
+            Permissions.ReviewLevel2, 2, MessageActionOwnership.ActiveReviewer));
+    }
+
+    private static async Task<bool> IsAuthorized(ClaimsPrincipal user, MessageAuthorizationResource resource,
+        string permission, int level, MessageActionOwnership ownership = MessageActionOwnership.None)
+    {
+        var requirement = new MessageActionRequirement(permission, level, ownership);
         var context = new AuthorizationHandlerContext([requirement], user, resource);
         await new MessageActionAuthorizationHandler().HandleAsync(context);
         return context.HasSucceeded;
@@ -57,9 +89,9 @@ public sealed class MessageAuthorizationTests
     {
         var workflow = new WorkflowDefinition("Two", "MT199", 20).AddStep(1, 1).AddStep(2, 2);
         var message = new Message(1, workflow.Id);
-        var reviews = new List<Review>(); message.Assign(2);
+        var reviews = new List<Review>(); message.Assign(5);
         var first = message.StartReview(1, 5, workflow, reviews, DateTimeOffset.UtcNow); reviews.Add(first);
-        message.Approve(first, workflow, reviews, null, DateTimeOffset.UtcNow);
+        message.Approve(first, workflow, reviews, 5, null, DateTimeOffset.UtcNow);
         return (new MessageAuthorizationResource(message, 10, 20, reviews), 10, 20);
     }
 }

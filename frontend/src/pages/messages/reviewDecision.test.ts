@@ -17,35 +17,35 @@ describe('review decision availability', () => {
   });
 
   it('requires the level permission to approve', () => {
-    const message = { state: 'Assigned' as const, activeReviewerId: null };
+    const message = { state: 'Assigned' as const, currentAssigneeId: 1, activeReviewerId: null };
     expect(canReviewMessage(message, 'approve', 1, ['review.level1'])).toBe(true);
     expect(canReviewMessage(message, 'approve', 1, ['review.level2'])).toBe(false);
   });
 
   it('allows only the owner to approve an active review', () => {
-    const message = { state: 'SecondReviewInProgress' as const, activeReviewerId: 7 };
+    const message = { state: 'SecondReviewInProgress' as const, currentAssigneeId: 7, activeReviewerId: 7 };
     expect(canReviewMessage(message, 'approve', 7, ['review.level2'])).toBe(true);
     expect(canReviewMessage(message, 'approve', 8, ['review.level2'])).toBe(false);
   });
 
   it('requires start permission only when rejection must start the review', () => {
     expect(
-      canReviewMessage({ state: 'WaitingForSecondReview', activeReviewerId: null }, 'reject', 1, [
+      canReviewMessage({ state: 'WaitingForSecondReview', currentAssigneeId: 1, activeReviewerId: null }, 'reject', 1, [
         'review.level2',
         'review.reject',
       ]),
     ).toBe(true);
     expect(canReviewMessage(
-      { state: 'WaitingForSecondReview', activeReviewerId: null },
+      { state: 'WaitingForSecondReview', currentAssigneeId: 1, activeReviewerId: null },
       'reject',
       1,
       ['review.reject'],
     )).toBe(false);
     expect(canReviewMessage(
-      { state: 'SecondReviewInProgress', activeReviewerId: 7 },
+      { state: 'SecondReviewInProgress', currentAssigneeId: 8, activeReviewerId: 7 },
       'reject',
       8,
       ['review.reject'],
-    )).toBe(true);
+    )).toBe(false);
   });
 });

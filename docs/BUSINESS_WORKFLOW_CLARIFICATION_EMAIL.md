@@ -1,5 +1,7 @@
 # Business workflow clarification email
 
+The confirmed decisions are recorded in [BUSINESS_WORKFLOW_DECISIONS.md](BUSINESS_WORKFLOW_DECISIONS.md).
+
 ## English
 
 **Subject:** Clarification needed: review sequence and reviewer assignment rules

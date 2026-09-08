@@ -44,6 +44,10 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 db.UserDepartments.Any(userDepartment =>
                     userDepartment.UserId == x.CurrentAssigneeId.Value &&
                     access.DepartmentIds.Contains(userDepartment.DepartmentId))),
+            MessageAssignmentScopes.Assignable => query.Where(x =>
+                x.State == MessageState.New || x.State == MessageState.Assigned ||
+                x.State == MessageState.WaitingForSecondReview ||
+                x.State == MessageState.WaitingForThirdReview),
             _ => throw new FormatException("Unsupported message assignment scope.")
         };
         var rows = query
@@ -72,4 +76,5 @@ public static class MessageAssignmentScopes
 {
     public const string Mine = "mine";
     public const string Departments = "departments";
+    public const string Assignable = "assignable";
 }

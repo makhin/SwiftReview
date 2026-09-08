@@ -13,7 +13,7 @@ public sealed class MessageWorkflowTests
     public void New_Assign_StartFirstReview()
     {
         var (message, workflow, reviews) = Create(1);
-        message.Assign(2);
+        message.Assign(10);
         var review = message.StartReview(1, 10, workflow, reviews, Now);
         Assert.Equal(MessageState.FirstReviewInProgress, message.State);
         Assert.Equal(ReviewStatus.InProgress, review.Status);
@@ -56,7 +56,7 @@ public sealed class MessageWorkflowTests
         var (message, workflow, reviews) = Create(1);
         var unrelated = new Review(message.Id, 1, 10, Now);
         reviews.Add(unrelated);
-        Assert.Throws<DomainRuleViolationException>(() => message.Approve(unrelated, workflow, reviews, null, Now));
+        Assert.Throws<DomainRuleViolationException>(() => message.Approve(unrelated, workflow, reviews, 10, null, Now));
         Assert.Equal(ReviewStatus.InProgress, unrelated.Status);
         Assert.Equal(MessageState.New, message.State);
     }
@@ -66,6 +66,7 @@ public sealed class MessageWorkflowTests
     {
         var (message, workflow, reviews) = Create(1, 2);
         message.Assign(2); CompleteLevel(message, workflow, reviews, 1, 10);
+        message.Assign(10);
         Assert.Throws<DomainRuleViolationException>(() => message.StartReview(2, 10, workflow, reviews, Now));
     }
 
@@ -73,20 +74,20 @@ public sealed class MessageWorkflowTests
     public void SameReviewCannotBeApprovedTwice()
     {
         var (message, workflow, reviews) = Create(1);
-        message.Assign(2); var review = message.StartReview(1, 10, workflow, reviews, Now); reviews.Add(review);
-        message.Approve(review, workflow, reviews, null, Now);
-        Assert.Throws<DomainRuleViolationException>(() => message.Approve(review, workflow, reviews, null, Now));
+        message.Assign(10); var review = message.StartReview(1, 10, workflow, reviews, Now); reviews.Add(review);
+        message.Approve(review, workflow, reviews, 10, null, Now);
+        Assert.Throws<DomainRuleViolationException>(() => message.Approve(review, workflow, reviews, 10, null, Now));
     }
 
     [Fact]
     public void Reject_AllowsNoComment()
     {
         var (message, workflow, reviews) = Create(1);
-        message.Assign(2);
+        message.Assign(10);
         var review = message.StartReview(1, 10, workflow, reviews, Now);
         reviews.Add(review);
 
-        message.Reject(review, null, Now);
+        message.Reject(review, 10, null, Now);
 
         Assert.Equal(MessageState.Rejected, message.State);
         Assert.Equal(ReviewStatus.Rejected, review.Status);
@@ -105,6 +106,7 @@ public sealed class MessageWorkflowTests
         message.UndoLastApproval(review, workflow, reviews, 10, Now.AddMinutes(1));
         Assert.Equal(MessageState.Assigned, message.State);
         Assert.Equal(ReviewStatus.Undone, review.Status);
+        message.Assign(10);
         Assert.Equal(ReviewStatus.InProgress, message.StartReview(1, 10, workflow, reviews, Now.AddMinutes(2)).Status);
     }
 
@@ -136,7 +138,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void InactiveWorkflow_CannotStartReview()
     {
-        var (message, workflow, reviews) = Create(1); message.Assign(2); workflow.Deactivate();
+        var (message, workflow, reviews) = Create(1); message.Assign(10); workflow.Deactivate();
         Assert.Throws<DomainRuleViolationException>(() => message.StartReview(1, 10, workflow, reviews, Now));
         Assert.Equal(MessageState.Assigned, message.State);
     }
@@ -168,7 +170,7 @@ public sealed class MessageWorkflowTests
             .AddStep(1, 1, false)
             .AddStep(2, 2);
         var message = new Message(1, workflow.Id);
-        message.Assign(2);
+        message.Assign(10);
 
         Assert.Throws<DomainRuleViolationException>(() =>
             message.StartReview(2, 10, workflow, [], Now));
@@ -204,6 +206,27 @@ public sealed class MessageWorkflowTests
         Assert.Equal(MessageState.Assigned, message.State); Assert.Equal(3, message.CurrentAssigneeId);
     }
 
+    [Fact]
+    public void ActiveReview_CannotBeReassigned()
+    {
+        var (message, workflow, reviews) = Create(1);
+        message.Assign(10);
+        reviews.Add(message.StartReview(1, 10, workflow, reviews, Now));
+
+        Assert.Throws<DomainRuleViolationException>(() => message.Assign(11));
+        Assert.Equal(10, message.CurrentAssigneeId);
+    }
+
+    [Fact]
+    public void OnlyAssignedReviewer_CanStartReview()
+    {
+        var (message, workflow, reviews) = Create(1);
+        message.Assign(10);
+
+        Assert.Throws<DomainRuleViolationException>(() =>
+            message.StartReview(1, 11, workflow, reviews, Now));
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 8, 22, 8, 0, 0, TimeSpan.Zero);
     private static (Message Message, WorkflowDefinition Workflow, List<Review> Reviews) Create(params int[] levels)
     {
@@ -214,7 +237,9 @@ public sealed class MessageWorkflowTests
     }
     private static void CompleteLevel(Message message, WorkflowDefinition workflow, List<Review> reviews, int level, int reviewer)
     {
+        message.Assign(reviewer);
         var review = message.StartReview(level, reviewer, workflow, reviews, Now); reviews.Add(review);
-        message.Approve(review, workflow, reviews, null, Now);
+        message.Approve(review, workflow, reviews, reviewer, null, Now);
+        message.Unassign();
     }
 }

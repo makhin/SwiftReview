@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { currentUserQueryOptions } from '../current-user/currentUserQueries';
-import { canViewAudit } from '../../shared/auth/permissions';
+import { canAssignMessages, canViewAudit } from '../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
@@ -23,6 +23,7 @@ import {
   usersQueryOptions,
 } from '../../shared/api/referenceDataQueries';
 import AuditTrailDrawer from './AuditTrailDrawer';
+import AssignmentPopup from './AssignmentPopup';
 import type { MessageRow } from './messagesApi';
 import RawMessagePopup from './RawMessagePopup';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
@@ -74,12 +75,15 @@ export default function MessagesGrid({
   const [selectedRawMessage, setSelectedRawMessage] = useState<MessageRow | null>(null);
   const [selectedReviewAction, setSelectedReviewAction] =
     useState<SelectedReviewAction | null>(null);
+  const [selectedAssignmentMessage, setSelectedAssignmentMessage] = useState<MessageRow | null>(null);
   const auditTriggerRef = useRef<HTMLElement | null>(null);
   const rawTriggerRef = useRef<HTMLElement | null>(null);
   const reviewTriggerRef = useRef<HTMLElement | null>(null);
+  const assignmentTriggerRef = useRef<HTMLElement | null>(null);
   const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const showAudit = currentUser ? canViewAudit(currentUser.permissions) : false;
+  const showAssignment = currentUser ? canAssignMessages(currentUser.permissions) : false;
   const assigneeUsers = users?.map((user) => {
     const names = user.departmentIds.map(
       (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
@@ -104,6 +108,24 @@ export default function MessagesGrid({
   function closeReviewAction() {
     setSelectedReviewAction(null);
     requestAnimationFrame(() => reviewTriggerRef.current?.focus());
+  }
+
+  function closeAssignment() {
+    setSelectedAssignmentMessage(null);
+    requestAnimationFrame(() => assignmentTriggerRef.current?.focus());
+  }
+
+  function openAssignment(message: MessageRow) {
+    assignmentTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedAssignmentMessage(message);
+  }
+
+  function canShowAssignment(message: MessageRow | undefined, assigned: boolean) {
+    if (!showAssignment || !message) return false;
+    const assignableState = message.state === 'New' || message.state === 'Assigned' ||
+      message.state === 'WaitingForSecondReview' || message.state === 'WaitingForThirdReview';
+    return assignableState && (message.currentAssigneeId != null) === assigned;
   }
 
   function openReviewAction(message: MessageRow, decision: ReviewDecision) {
@@ -241,10 +263,33 @@ export default function MessagesGrid({
           <Column
             type="buttons"
             caption="Actions"
-            width={enableReviewActions ? (showAudit ? 290 : 250) : showAudit ? 130 : 90}
+            width={(enableReviewActions ? 250 : 90) + (showAudit ? 40 : 0) +
+              (showAssignment ? 90 : 0)}
             allowFiltering={false}
             allowSorting={false}
           >
+            <GridButton
+              text="Assign"
+              hint="Assign message"
+              visible={(event) =>
+                canShowAssignment(event.row?.data as MessageRow | undefined, false)
+              }
+              onClick={(event) => {
+                const message = event.row?.data as MessageRow | undefined;
+                if (message) openAssignment(message);
+              }}
+            />
+            <GridButton
+              text="Reassign"
+              hint="Reassign message"
+              visible={(event) =>
+                canShowAssignment(event.row?.data as MessageRow | undefined, true)
+              }
+              onClick={(event) => {
+                const message = event.row?.data as MessageRow | undefined;
+                if (message) openAssignment(message);
+              }}
+            />
             {enableReviewActions && (
               <GridButton
                 text="Approve"
@@ -318,6 +363,13 @@ export default function MessagesGrid({
           decision={selectedReviewAction.decision}
           message={selectedReviewAction.message}
           onClose={closeReviewAction}
+          onChanged={() => void dataGridRef.current?.instance().refresh()}
+        />
+      )}
+      {selectedAssignmentMessage && (
+        <AssignmentPopup
+          message={selectedAssignmentMessage}
+          onClose={closeAssignment}
           onChanged={() => void dataGridRef.current?.instance().refresh()}
         />
       )}

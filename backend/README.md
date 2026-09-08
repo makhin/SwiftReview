@@ -34,11 +34,8 @@ The default addresses are:
 - OpenAPI document: <http://localhost:5080/openapi/v1.json>
 - Health check: <http://localhost:5080/health>
 
-The in-memory data is recreated whenever the process restarts.
-
-New messages are automatically assigned by the API host. The worker runs immediately at startup
-and then every 10 seconds by default. Configure it with `AutoAssignment:Enabled`,
-`AutoAssignment:IntervalSeconds`, and `AutoAssignment:BatchSize`.
+The in-memory data is recreated whenever the process restarts. New messages remain unassigned
+until a user with the `message.assign` permission assigns an eligible reviewer.
 
 ## Development authentication
 

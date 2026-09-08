@@ -27,7 +27,7 @@ export function getReviewStep(state: MessageRow['state']): ReviewStep | null {
 }
 
 export function canReviewMessage(
-  message: Pick<MessageRow, 'state' | 'activeReviewerId'>,
+  message: Pick<MessageRow, 'state' | 'currentAssigneeId' | 'activeReviewerId'>,
   decision: ReviewDecision,
   currentUserId: number | string,
   permissions: string[],
@@ -38,9 +38,10 @@ export function canReviewMessage(
   }
 
   const canReviewLevel = permissions.includes(`review.level${step.level}`);
+  const ownsReview = step.needsStart
+    ? String(message.currentAssigneeId) === String(currentUserId)
+    : String(message.activeReviewerId) === String(currentUserId);
   return decision === 'approve'
-    ? canReviewLevel && (
-      step.needsStart || String(message.activeReviewerId) === String(currentUserId)
-    )
-    : permissions.includes('review.reject') && (!step.needsStart || canReviewLevel);
+    ? canReviewLevel && ownsReview
+    : permissions.includes('review.reject') && ownsReview && (!step.needsStart || canReviewLevel);
 }

@@ -9,6 +9,7 @@ public enum AuditEventType
     MessageRegistered,
     MessageAssigned,
     MessageReassigned,
+    MessageUnassigned,
     ReviewStarted,
     ReviewApproved,
     MessageCompleted,

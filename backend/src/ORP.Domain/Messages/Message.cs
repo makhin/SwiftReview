@@ -29,10 +29,22 @@ public sealed class Message
         CurrentAssigneeId = assigneeId;
     }
 
+    public void Unassign()
+    {
+        if (CurrentAssigneeId is null)
+            throw new DomainRuleViolationException("The message is not assigned.");
+        if (State is not (MessageState.Assigned or MessageState.WaitingForSecondReview or MessageState.WaitingForThirdReview or
+            MessageState.Completed or MessageState.Rejected))
+            throw new DomainRuleViolationException($"The assignment cannot be ended while message is in state '{State}'.");
+        CurrentAssigneeId = null;
+    }
+
     public Review StartReview(int level, int reviewerId, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
         DateTimeOffset now, bool preventReviewerReuse = true)
     {
         EnsureWorkflow(workflow);
+        if (CurrentAssigneeId != reviewerId)
+            throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
         var expected = ExpectedLevel(workflow, reviews);
         if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
         if (reviews.Any(x => x.Level == level && x.Status != ReviewStatus.Undone))
@@ -44,11 +56,14 @@ public sealed class Message
         return new Review(Id, level, reviewerId, now);
     }
 
-    public void Approve(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews, string? comment, DateTimeOffset now)
+    public void Approve(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
+        int actorId, string? comment, DateTimeOffset now)
     {
         EnsureWorkflow(workflow);
         if (State == MessageState.Completed) throw new DomainRuleViolationException("A completed message cannot be approved.");
         if (!reviews.Contains(review)) throw new DomainRuleViolationException("Review does not belong to this message workflow.");
+        if (review.ReviewerId != actorId)
+            throw new DomainRuleViolationException("Only the reviewer who started the review can approve it.");
         var required = workflow.RequiredLevels();
         var completed = reviews.Where(x => x.Status == ReviewStatus.Approved).Select(x => x.Level).Append(review.Level).Distinct().ToHashSet();
         var next = required.FirstOrDefault(x => !completed.Contains(x));
@@ -59,9 +74,11 @@ public sealed class Message
         machine.Fire(MessageTrigger.Approve);
     }
 
-    public void Reject(Review review, string? comment, DateTimeOffset now)
+    public void Reject(Review review, int actorId, string? comment, DateTimeOffset now)
     {
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
+        if (review.ReviewerId != actorId)
+            throw new DomainRuleViolationException("Only the reviewer who started the review can reject it.");
         var machine = CreateMachine();
         EnsureCanFire(machine, MessageTrigger.Reject);
         review.Reject(comment, now);
@@ -105,20 +122,23 @@ public sealed class Message
                 machine.Configure(State).Permit(MessageTrigger.Assign, MessageState.Assigned);
                 break;
             case MessageState.Assigned:
-                machine.Configure(State).PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.FirstReviewInProgress);
+                machine.Configure(State).PermitReentry(MessageTrigger.Assign)
+                    .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.FirstReviewInProgress);
                 break;
             case MessageState.FirstReviewInProgress:
                 ConfigureReview(machine, State, approveTarget ?? MessageState.WaitingForSecondReview);
                 break;
             case MessageState.WaitingForSecondReview:
-                var second = machine.Configure(State).PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.SecondReviewInProgress);
+                var second = machine.Configure(State).PermitReentry(MessageTrigger.Assign)
+                    .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.SecondReviewInProgress);
                 if (approveTarget is not null) second.Permit(MessageTrigger.Undo, approveTarget.Value);
                 break;
             case MessageState.SecondReviewInProgress:
                 ConfigureReview(machine, State, approveTarget ?? MessageState.Completed);
                 break;
             case MessageState.WaitingForThirdReview:
-                var third = machine.Configure(State).PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.ThirdReviewInProgress);
+                var third = machine.Configure(State).PermitReentry(MessageTrigger.Assign)
+                    .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.ThirdReviewInProgress);
                 if (approveTarget is not null) third.Permit(MessageTrigger.Undo, approveTarget.Value);
                 break;
             case MessageState.ThirdReviewInProgress:
@@ -137,8 +157,7 @@ public sealed class Message
     private static void ConfigureReview(StateMachine<MessageState, MessageTrigger> machine, MessageState state, MessageState approveTarget) =>
         machine.Configure(state)
             .Permit(MessageTrigger.Approve, approveTarget)
-            .Permit(MessageTrigger.Reject, MessageState.Rejected)
-            .PermitReentry(MessageTrigger.Reassign);
+            .Permit(MessageTrigger.Reject, MessageState.Rejected);
 
     private static void Fire(StateMachine<MessageState, MessageTrigger> machine, MessageTrigger trigger)
     {

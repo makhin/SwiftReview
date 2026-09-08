@@ -4,8 +4,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Abstractions;
 using ORP.Domain.Auditing;
+using ORP.Domain.Identity;
+using ORP.Infrastructure.Persistence;
 using Xunit;
 
 namespace ORP.IntegrationTests;
@@ -146,18 +150,17 @@ public sealed class MockDataModeTests
         client.DefaultRequestHeaders.Remove("X-Debug-User");
         client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
         var latest = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
-            "/api/messages/1/audit?skip=0&take=2", ResponseJson, ct);
-        Assert.Equal(5, latest!.TotalCount);
-        Assert.Equal([AuditEventType.MessageCompleted, AuditEventType.ReviewApproved],
-            latest.Items.Select(x => x.EventType));
-        Assert.All(latest.Items, item =>
-        {
-            Assert.Equal(reviewId, item.Details.ReviewId);
-            Assert.Equal(1, item.Details.ReviewLevel);
-            Assert.Equal("confirmed", item.Details.Comment);
-            Assert.Equal("amelia.hart", item.Actor!.UserName);
-            Assert.Equal("approve-1", item.CorrelationId);
-        });
+            "/api/messages/1/audit?skip=0&take=3", ResponseJson, ct);
+        Assert.Equal(6, latest!.TotalCount);
+        Assert.Equal(3, latest.Items.Count);
+        Assert.Contains(latest.Items, item => item.EventType == AuditEventType.MessageCompleted);
+        Assert.Contains(latest.Items, item => item.EventType == AuditEventType.MessageUnassigned);
+        var approved = Assert.Single(latest.Items, item => item.EventType == AuditEventType.ReviewApproved);
+        Assert.Equal(reviewId, approved.Details.ReviewId);
+        Assert.Equal(1, approved.Details.ReviewLevel);
+        Assert.Equal("confirmed", approved.Details.Comment);
+        Assert.Equal("amelia.hart", approved.Actor!.UserName);
+        Assert.Equal("approve-1", approved.CorrelationId);
 
         Assert.Equal(HttpStatusCode.BadRequest,
             (await client.GetAsync("/api/messages/1/audit?take=0", ct)).StatusCode);
@@ -189,8 +192,24 @@ public sealed class MockDataModeTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
 
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
+            var undoPermissionId = await db.Permissions.Where(x => x.Name == Permissions.ReviewUndo)
+                .Select(x => x.Id).SingleAsync(ct);
+            var rejectPermissionId = await db.Permissions.Where(x => x.Name == Permissions.ReviewReject)
+                .Select(x => x.Id).SingleAsync(ct);
+            var theoRoleId = await db.UserRoles.Where(x => x.UserId == 2).Select(x => x.RoleId).SingleAsync(ct);
+            var priyaRoleId = await db.UserRoles.Where(x => x.UserId == 3).Select(x => x.RoleId).SingleAsync(ct);
+            db.RolePermissions.Add(new RolePermission { RoleId = theoRoleId, PermissionId = undoPermissionId });
+            db.RolePermissions.Add(new RolePermission { RoleId = priyaRoleId, PermissionId = rejectPermissionId });
+            await db.SaveChangesAsync(ct);
+        }
+
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
             "/api/messages/2/assign", new AssignMessageRequest(2), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
         var startedForUndo = await client.PostAsJsonAsync(
             "/api/messages/2/reviews/start", new StartReviewRequest(1), ct);
         var undoReviewId = (await startedForUndo.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
@@ -198,6 +217,8 @@ public sealed class MockDataModeTests
             "/api/messages/2/reviews/approve", new ApproveReviewRequest(1, "undo this"), ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
             "/api/messages/2/undo", new UndoReviewRequest(undoReviewId), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
         var undoAudit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
             "/api/messages/2/audit", ResponseJson, ct);
         var undone = Assert.Single(undoAudit!.Items,
@@ -210,11 +231,15 @@ public sealed class MockDataModeTests
         client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
             "/api/messages/3/assign", new AssignMessageRequest(3), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "priya.nair");
         var startedForReject = await client.PostAsJsonAsync(
             "/api/messages/3/reviews/start", new StartReviewRequest(1), ct);
         var rejectReviewId = (await startedForReject.Content.ReadFromJsonAsync<StartReviewResponse>(cancellationToken: ct))!.ReviewId;
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
             "/api/messages/3/reviews/reject", new RejectReviewRequest(1, null), ct)).StatusCode);
+        client.DefaultRequestHeaders.Remove("X-Debug-User");
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
         var rejectAudit = await client.GetFromJsonAsync<PagedResult<AuditEventDto>>(
             "/api/messages/3/audit", ResponseJson, ct);
         var rejected = Assert.Single(rejectAudit!.Items,
@@ -231,7 +256,6 @@ public sealed class MockDataModeTests
         {
             web.UseEnvironment(environment);
             web.UseSetting("UseMockData", "true");
-            web.UseSetting("AutoAssignment:Enabled", "false");
             web.UseSetting("ConnectionStrings:ORP", "not-a-sql-server-connection");
         });
     }

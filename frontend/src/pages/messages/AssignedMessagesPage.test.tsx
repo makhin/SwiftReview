@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,17 +43,28 @@ vi.mock('devextreme-react/tabs', () => ({
 }));
 
 import AssignedMessagesPage from './AssignedMessagesPage';
+import { createTestQueryClient } from '../../test/createTestQueryClient';
 
 function LocationSearch() {
   return <span data-testid="location-search">{useLocation().search}</span>;
 }
 
-function renderPage(initialEntry: string) {
+function renderPage(initialEntry: string, permissions: string[] = ['message.view']) {
+  const queryClient = createTestQueryClient();
+  queryClient.setQueryData(['current-user'], {
+    userId: 1,
+    userName: 'alex.morgan',
+    permissions,
+    branches: [10],
+    departments: [20],
+  });
   return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <AssignedMessagesPage />
-      <LocationSearch />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <AssignedMessagesPage />
+        <LocationSearch />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -111,5 +123,18 @@ describe('AssignedMessagesPage', () => {
         '?user=admin&scope=mine',
       ),
     );
+  });
+
+  it('shows the assignment queue only to authorised users', async () => {
+    renderPage('/messages/assigned?scope=assignable', ['message.view', 'message.assign']);
+
+    expect(screen.getByRole('heading', { name: 'Assignment queue' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Assignment queue' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const dataSource = gridProps.mock.calls.at(-1)?.[0].dataSource;
+    await act(() => dataSource.load({ skip: 0, take: 20 }));
+    expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, 'assignable');
   });
 });

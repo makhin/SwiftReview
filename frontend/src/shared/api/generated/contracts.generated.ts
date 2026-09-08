@@ -13,6 +13,12 @@ export interface AssignMessageRequest {
   assignedTo: number | string;
 }
 
+export interface AssignmentCandidateDto {
+  id: number | string;
+  userName: string;
+  displayName: string;
+}
+
 export interface AuditActorDto {
   userId: number | string;
   userName: string;
@@ -26,6 +32,11 @@ export interface AuditEventDetailsDto {
   reviewId?: number | string | null;
   reviewLevel?: number | string | null;
   comment?: string | null;
+  previousBranchId?: number | string | null;
+  branchId?: number | string | null;
+  previousDepartmentId?: number | string | null;
+  departmentId?: number | string | null;
+  previousWorkflowDefinitionId?: number | string | null;
 }
 
 export interface AuditEventDto {
@@ -43,6 +54,7 @@ export type AuditEventType =
   | "MessageRegistered"
   | "MessageAssigned"
   | "MessageReassigned"
+  | "MessageUnassigned"
   | "ReviewStarted"
   | "ReviewApproved"
   | "MessageCompleted"
@@ -89,6 +101,20 @@ export interface MessageDetailsDto {
   amount: number | string | null;
   reference: string | null;
   body: string | null;
+  accounts: string[];
+  currencies: string[];
+  amounts: (number | string | null)[];
+  beneficiaryCustomerAccounts: string[];
+  beneficiaryCustomerBanks: string[];
+  beneficiaryCustomerNames: string[];
+  orderingCustomerAccounts: string[];
+  orderingCustomerBanks: string[];
+  orderingCustomerNames: string[];
+  senderMessageReferences: string[];
+  settlementDates: (string | null)[];
+  tradeDealDates: (string | null)[];
+  unitDataOwners: string[];
+  valueDates: (string | null)[];
 }
 
 export interface MessageFilter {

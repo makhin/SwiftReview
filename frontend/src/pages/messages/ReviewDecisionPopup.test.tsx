@@ -148,9 +148,9 @@ describe('ReviewDecisionPopup', () => {
     expect(startReview).toHaveBeenCalledWith(42, 3);
   });
 
-  it('shows an automatic-assignment conflict and keeps the dialog open', async () => {
+  it('shows a review conflict and keeps the dialog open', async () => {
     approveReview.mockRejectedValue(new ApiError(
-      'No eligible reviewer is available for review level 2.',
+      'The review state changed. Refresh and try again.',
       409,
     ));
     const onClose = vi.fn();
@@ -166,7 +166,7 @@ describe('ReviewDecisionPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No eligible reviewer is available for review level 2.',
+      'The review state changed. Refresh and try again.',
     );
     expect(onClose).not.toHaveBeenCalled();
   });

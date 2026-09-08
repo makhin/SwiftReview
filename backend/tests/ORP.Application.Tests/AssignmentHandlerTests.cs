@@ -2,8 +2,8 @@ using System.Text.Json;
 using FluentValidation;
 using NSubstitute;
 using ORP.Application.Abstractions;
+using ORP.Application.Assignments;
 using ORP.Application.Assignments.Assign;
-using ORP.Application.Assignments.Automatic;
 using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -25,6 +25,7 @@ public sealed class AssignmentHandlerTests
         var correlation = Substitute.For<ICorrelationContext>();
         var message = new Message(1, 1);
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
+        store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
                 "A", "B", null, null, null, null));
@@ -53,6 +54,7 @@ public sealed class AssignmentHandlerTests
         var now = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
         AuditEvent? audit = null;
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
+        store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B", null, null, null, null));
         access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "assignee",
@@ -88,10 +90,11 @@ public sealed class AssignmentHandlerTests
             .AddStep(2, 2);
         var message = new Message(1, workflow.Id);
         var reviews = new List<Review>();
-        message.Assign(3);
+        message.Assign(2);
         var review = message.StartReview(1, 2, workflow, reviews, DateTimeOffset.UtcNow);
         reviews.Add(review);
-        message.Approve(review, workflow, reviews, null, DateTimeOffset.UtcNow);
+        message.Approve(review, workflow, reviews, 2, null, DateTimeOffset.UtcNow);
+        message.Unassign();
         ConfigureAssignment(store, access, message, reviews, 2, Permissions.ReviewLevel2);
 
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
@@ -100,7 +103,7 @@ public sealed class AssignmentHandlerTests
         var exception = await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1,
             new AssignMessageRequest(2), TestContext.Current.CancellationToken));
 
-        Assert.Equal("The assignee cannot review more than one level of the same message.", exception.Message);
+        Assert.Equal("The assignee is not eligible to review the message in its current workflow state.", exception.Message);
         store.DidNotReceive().AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
         store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
         await store.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -116,13 +119,16 @@ public sealed class AssignmentHandlerTests
             .AddStep(3, 3);
         var message = new Message(1, workflow.Id);
         var reviews = new List<Review>();
-        message.Assign(3);
+        message.Assign(4);
         var first = message.StartReview(1, 4, workflow, reviews, DateTimeOffset.UtcNow);
         reviews.Add(first);
-        message.Approve(first, workflow, reviews, null, DateTimeOffset.UtcNow);
+        message.Approve(first, workflow, reviews, 4, null, DateTimeOffset.UtcNow);
+        message.Unassign();
+        message.Assign(2);
         var second = message.StartReview(2, 2, workflow, reviews, DateTimeOffset.UtcNow);
         reviews.Add(second);
-        message.Approve(second, workflow, reviews, null, DateTimeOffset.UtcNow);
+        message.Approve(second, workflow, reviews, 2, null, DateTimeOffset.UtcNow);
+        message.Unassign();
         message.UndoLastApproval(second, workflow, reviews, 2, DateTimeOffset.UtcNow);
         ConfigureAssignment(store, access, message, reviews, 2, Permissions.ReviewLevel2);
 

@@ -5,7 +5,9 @@ using ORP.Domain.Reviews;
 
 namespace ORP.Api.Authorization;
 
-public sealed record MessageActionRequirement(string Permission, int? ReviewLevel = null) : IAuthorizationRequirement;
+public enum MessageActionOwnership { None, Assignee, ActiveReviewer }
+public sealed record MessageActionRequirement(string Permission, int? ReviewLevel = null,
+    MessageActionOwnership Ownership = MessageActionOwnership.None) : IAuthorizationRequirement;
 public sealed record MessageAuthorizationResource(Message Message, int BranchId, int DepartmentId,
     IReadOnlyCollection<Review> Reviews);
 
@@ -26,7 +28,15 @@ public sealed class MessageActionAuthorizationHandler : AuthorizationHandler<Mes
         };
         var currentId = int.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
         var fourEyes = requirement.ReviewLevel is null || resource.Reviews.All(x => x.Status != ReviewStatus.Approved || x.ReviewerId != currentId);
-        if (permission && branch && department && stateOk && fourEyes) context.Succeed(requirement);
+        var ownership = requirement.Ownership switch
+        {
+            MessageActionOwnership.Assignee => resource.Message.CurrentAssigneeId == currentId,
+            MessageActionOwnership.ActiveReviewer => resource.Reviews.Any(x =>
+                x.Status == ReviewStatus.InProgress && x.Level == requirement.ReviewLevel &&
+                x.ReviewerId == currentId),
+            _ => true
+        };
+        if (permission && branch && department && stateOk && fourEyes && ownership) context.Succeed(requirement);
         return Task.CompletedTask;
     }
 }
