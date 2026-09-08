@@ -25,6 +25,7 @@ loads `SwiftMessage` objects, routes them in C#, inserts new rows into `[orp].[S
 | `InitialLookbackHours` | `24` | First-run query window |
 | `OverlapMinutes` | `5` | Overlap before the last successful watermark |
 | `CommandTimeoutSeconds` | `300` | SQL command timeout |
+| `LogLevel` | `Information` | Minimum `Microsoft.Extensions.Logging` level for the one-shot process |
 | `RoutingRules` | empty | Semicolon-separated ordered rules |
 
 Rule format:
@@ -49,5 +50,7 @@ The fixed `WarehouseId` makes the first run insert the message and subsequent ru
 skipping. Set the option to `false` when the approved package is available.
 
 The process exits `0` only after persistence, registration, and watermark advancement succeed.
-Standard output contains counts and the correlation ID; errors are written to standard error.
+Operational events are emitted through `Microsoft.Extensions.Logging`; the default simple-console provider
+includes timestamps, levels, counts, warnings, failures, and the run correlation ID. Deployments can capture
+that process output through Windows Task Scheduler or replace the provider without changing sync components.
 Messages whose `WarehouseId` already exists are counted as skipped and are not modified.

@@ -1,18 +1,24 @@
+using Microsoft.Extensions.Logging;
+
 namespace ORP.Sync;
 
 internal static class LegacySwiftSynchronizer
 {
-    public static void Run(string connectionString)
+    public static void Run(string connectionString, ILoggerFactory loggerFactory, string correlationId)
     {
-        var repository = new SwiftMessageRepository(connectionString);
+        var logger = loggerFactory.CreateLogger("ORP.Sync.LegacySwiftSynchronizer");
+        var repository = new SwiftMessageRepository(connectionString,
+            loggerFactory.CreateLogger<SwiftMessageRepository>());
         var routing = RoutingRules.FromConfiguration();
         repository.ValidateRoutingReferences(routing);
         var toUtc = DateTime.UtcNow;
         var fromUtc = repository.GetFromUtc(toUtc);
-        Console.WriteLine($"Querying Swift messages from {fromUtc:O} to {toUtc:O}.");
-        var messages = new SwiftQueryClient().GetMessages(fromUtc, toUtc);
-        var correlationId = $"sync-{Guid.NewGuid():N}";
+        SyncLog.SwiftQueryStarted(logger, fromUtc, toUtc);
+        var messages = new SwiftQueryClient(loggerFactory.CreateLogger<SwiftQueryClient>())
+            .GetMessages(fromUtc, toUtc);
+        SyncLog.SwiftQueryCompleted(logger, messages.Count);
         var result = repository.Save(messages, routing, toUtc, correlationId);
-        Console.WriteLine($"Swift synchronization completed. Read={messages.Count}, Inserted={result.Inserted}, Skipped={result.Skipped}, RoutingIssues={result.RoutingIssues}, CorrelationId={correlationId}.");
+        SyncLog.SyncCompleted(logger, messages.Count, result.Inserted, result.Skipped,
+            result.RoutingIssues, toUtc, correlationId);
     }
 }

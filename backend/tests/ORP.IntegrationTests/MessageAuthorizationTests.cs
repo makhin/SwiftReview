@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using ORP.Api.Authorization;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -74,7 +76,8 @@ public sealed class MessageAuthorizationTests
     {
         var requirement = new MessageActionRequirement(permission, level, ownership);
         var context = new AuthorizationHandlerContext([requirement], user, resource);
-        await new MessageActionAuthorizationHandler().HandleAsync(context);
+        await new MessageActionAuthorizationHandler(NullLogger<MessageActionAuthorizationHandler>.Instance,
+            new HttpContextAccessor()).HandleAsync(context);
         return context.HasSucceeded;
     }
 

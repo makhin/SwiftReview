@@ -11,9 +11,11 @@
     <Compile Include="../../src/ORP.Sync/MockSwiftQuery.cs" Link="Sync/MockSwiftQuery.cs" />
     <Compile Include="../../src/ORP.Sync/RoutingRules.cs" Link="Sync/RoutingRules.cs" />
     <Compile Include="../../src/ORP.Sync/SwiftMessageRepository.cs" Link="Sync/SwiftMessageRepository.cs" />
+    <Compile Include="../../src/ORP.Sync/SyncLog.cs" Link="Sync/SyncLog.cs" />
     <ProjectReference Include="../../src/ORP.Infrastructure/ORP.Infrastructure.csproj" />
     <PackageReference Include="System.Data.SqlClient" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="xunit.v3" />

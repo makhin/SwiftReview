@@ -125,3 +125,5 @@ They cover migrations and seed data, idempotent message registration, workflow a
 legacy library, routes and inserts new `WarehouseId` values into `[orp]`, then calls `[orp].[RegisterNewMessages]`.
 Registration is idempotent and does not reset workflow state for existing messages. Deployment
 prerequisites and routing configuration are documented in [`src/ORP.Sync/README.md`](src/ORP.Sync/README.md).
+Both API and sync operational events use structured `Microsoft.Extensions.Logging`; application source does
+not write directly through `System.Console`.

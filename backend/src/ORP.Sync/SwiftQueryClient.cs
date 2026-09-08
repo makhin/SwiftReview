@@ -5,11 +5,18 @@ using System.Configuration;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ORP.Sync;
 
 internal sealed class SwiftQueryClient
 {
+    private readonly ILogger<SwiftQueryClient> _logger;
+
+    public SwiftQueryClient(ILogger<SwiftQueryClient> logger = null) =>
+        _logger = logger ?? NullLogger<SwiftQueryClient>.Instance;
+
     public IReadOnlyList<SwiftMessageData> GetMessages(DateTime fromUtc, DateTime toUtc)
     {
         object query;
@@ -18,7 +25,7 @@ internal sealed class SwiftQueryClient
         {
             query = new MockSwiftQuery();
             queryType = query.GetType();
-            Console.WriteLine("Using the temporary SwiftQuery mock.");
+            SyncLog.SwiftQueryModeSelected(_logger, "Mock");
         }
         else
         {
@@ -37,6 +44,7 @@ internal sealed class SwiftQueryClient
 
             queryType = assembly.GetType(queryTypeName, true);
             query = Activator.CreateInstance(queryType);
+            SyncLog.SwiftQueryModeSelected(_logger, queryTypeName);
         }
 
         Set(query, "AwhApplicationName", "ORP");

@@ -5,6 +5,8 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ORP.Sync;
 
@@ -13,10 +15,12 @@ internal sealed class SwiftMessageRepository
     private const string WatermarkName = "SwiftMessages";
     private readonly string _connectionString;
     private readonly int _commandTimeout;
+    private readonly ILogger<SwiftMessageRepository> _logger;
 
-    public SwiftMessageRepository(string connectionString)
+    public SwiftMessageRepository(string connectionString, ILogger<SwiftMessageRepository> logger = null)
     {
         _connectionString = connectionString;
+        _logger = logger ?? NullLogger<SwiftMessageRepository>.Instance;
         _commandTimeout = ReadPositiveInt("CommandTimeoutSeconds", 300);
     }
 
@@ -52,7 +56,7 @@ internal sealed class SwiftMessageRepository
             if (string.IsNullOrWhiteSpace(message.WarehouseId) || message.WarehouseId.Length > 30)
             {
                 result.Skipped++;
-                Console.Error.WriteLine("Skipping a Swift message with an absent or overlong WarehouseId.");
+                SyncLog.InvalidWarehouseId(_logger);
                 continue;
             }
 
@@ -64,14 +68,19 @@ internal sealed class SwiftMessageRepository
 
             var distinctLengths = message.CollectionLengths.Distinct().ToArray();
             if (distinctLengths.Length > 1)
-                Console.Error.WriteLine($"Swift message '{message.WarehouseId}' has different collection lengths ({string.Join(",", distinctLengths)}); missing positions will be NULL.");
+                SyncLog.CollectionLengthMismatch(_logger, message.WarehouseId,
+                    string.Join(",", distinctLengths));
 
             var route = rules.Resolve(message);
             var routingStatus = route.IsRouted ? "Routed" : "Unroutable";
             var messageId = InsertMessage(connection, transaction, message, route, routingStatus, toUtc);
             InsertEntries(connection, transaction, messageId, message);
             result.Inserted++;
-            if (routingStatus != "Routed") result.RoutingIssues++;
+            if (routingStatus != "Routed")
+            {
+                result.RoutingIssues++;
+                SyncLog.MessageUnroutable(_logger, message.WarehouseId, route.Error);
+            }
         }
 
         RegisterNewMessages(connection, transaction, correlationId);

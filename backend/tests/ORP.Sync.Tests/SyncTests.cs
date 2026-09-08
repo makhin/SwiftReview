@@ -1,5 +1,6 @@
 using System.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ORP.Infrastructure.Persistence;
 using ORP.Sync;
 using Testcontainers.MsSql;
@@ -20,7 +21,8 @@ public sealed class SyncTests
     public void MockQuery_MapsPayloadCollectionsAndStableWarehouseId()
     {
         using var config = new Settings("UseMockSwiftQuery", "true");
-        var client = new SwiftQueryClient();
+        var logger = new CapturingLogger<SwiftQueryClient>();
+        var client = new SwiftQueryClient(logger);
         var message = Assert.Single(client.GetMessages(Now.AddHours(-1), Now));
         Assert.Equal("MT103", message.MessageType);
         Assert.Equal("MOCK-SWIFT-MT103-001", message.WarehouseId);
@@ -37,6 +39,7 @@ public sealed class SyncTests
         Assert.All(message.CollectionLengths, count => Assert.Equal(2, count));
         Assert.Equal(message.WarehouseId,
             Assert.Single(client.GetMessages(Now, Now.AddHours(1))).WarehouseId);
+        Assert.Contains(logger.Events, entry => entry.EventId.Id == 3002 && entry.Level == LogLevel.Information);
     }
 
     [Fact]
@@ -166,5 +169,14 @@ public sealed class SyncTests
         {
             ConfigurationManager.AppSettings[_key] = _previous;
         }
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, EventId EventId)> Events { get; } = new();
+        public IDisposable BeginScope<TState>(TState state) => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception,
+            Func<TState, Exception, string> formatter) => Events.Add((logLevel, eventId));
     }
 }

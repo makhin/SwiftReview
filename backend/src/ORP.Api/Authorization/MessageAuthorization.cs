@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
+using ORP.Api.Infrastructure;
 
 namespace ORP.Api.Authorization;
 
@@ -11,7 +12,9 @@ public sealed record MessageActionRequirement(string Permission, int? ReviewLeve
 public sealed record MessageAuthorizationResource(Message Message, int BranchId, int DepartmentId,
     IReadOnlyCollection<Review> Reviews);
 
-public sealed class MessageActionAuthorizationHandler : AuthorizationHandler<MessageActionRequirement, MessageAuthorizationResource>
+public sealed class MessageActionAuthorizationHandler(ILogger<MessageActionAuthorizationHandler> logger,
+    IHttpContextAccessor httpContextAccessor)
+    : AuthorizationHandler<MessageActionRequirement, MessageAuthorizationResource>
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, MessageActionRequirement requirement, MessageAuthorizationResource resource)
     {
@@ -36,7 +39,18 @@ public sealed class MessageActionAuthorizationHandler : AuthorizationHandler<Mes
                 x.ReviewerId == currentId),
             _ => true
         };
-        if (permission && branch && department && stateOk && fourEyes && ownership) context.Succeed(requirement);
+        if (permission && branch && department && stateOk && fourEyes && ownership)
+        {
+            context.Succeed(requirement);
+        }
+        else
+        {
+            var httpContext = httpContextAccessor.HttpContext;
+            ApiLog.MessageAuthorizationDenied(logger, resource.Message.Id, currentId == 0 ? null : currentId,
+                requirement.Permission, requirement.ReviewLevel, requirement.Ownership.ToString(), permission,
+                branch, department, stateOk, fourEyes, ownership,
+                httpContext is null ? "system" : ApiLog.CorrelationId(httpContext));
+        }
         return Task.CompletedTask;
     }
 }

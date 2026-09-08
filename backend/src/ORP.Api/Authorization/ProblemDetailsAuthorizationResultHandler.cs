@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Mvc;
+using ORP.Api.Infrastructure;
 
 namespace ORP.Api.Authorization;
 
-public sealed class ProblemDetailsAuthorizationResultHandler(IProblemDetailsService problemDetails)
+public sealed class ProblemDetailsAuthorizationResultHandler(IProblemDetailsService problemDetails,
+    ILogger<ProblemDetailsAuthorizationResultHandler> logger)
     : IAuthorizationMiddlewareResultHandler
 {
     public async Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy,
@@ -18,6 +20,8 @@ public sealed class ProblemDetailsAuthorizationResultHandler(IProblemDetailsServ
 
         var status = authorizeResult.Forbidden ? StatusCodes.Status403Forbidden : StatusCodes.Status401Unauthorized;
         context.Response.StatusCode = status;
+        ApiLog.AuthorizationDenied(logger, context.Request.Method, context.Request.Path, status,
+            ApiLog.UserId(context), ApiLog.CorrelationId(context));
         await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = context,

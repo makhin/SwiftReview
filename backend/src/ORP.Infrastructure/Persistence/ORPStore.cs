@@ -1,15 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using ORP.Application.Abstractions;
 using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
 using ORP.Domain.Workflows;
+using ORP.Infrastructure.Logging;
 
 namespace ORP.Infrastructure.Persistence;
 
-public sealed class ORPStore(ORPDbContext db) : IORPStore
+public sealed class ORPStore(ORPDbContext db, ILogger<ORPStore> logger) : IORPStore
 {
     public Task<Message?> FindMessageAsync(long id, CancellationToken ct) => db.Messages.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken ct) => db.ReadMessages()
@@ -25,9 +27,18 @@ public sealed class ORPStore(ORPDbContext db) : IORPStore
     public void AddAudit(AuditEvent x) => db.AuditEvents.Add(x);
     public async Task<int> SaveChangesAsync(CancellationToken ct)
     {
+        var pendingAuditEvents = db.ChangeTracker.Entries<AuditEvent>()
+            .Where(entry => entry.State == EntityState.Added)
+            .Select(entry => entry.Entity)
+            .ToArray();
         try
         {
-            return await db.SaveChangesAsync(ct);
+            var changes = await db.SaveChangesAsync(ct);
+            foreach (var auditEvent in pendingAuditEvents)
+                InfrastructureLog.BusinessActionCommitted(logger, auditEvent.EventType, auditEvent.Id,
+                    auditEvent.MessageId, auditEvent.UserId, auditEvent.OldState, auditEvent.NewState,
+                    auditEvent.CorrelationId);
+            return changes;
         }
         catch (DbUpdateConcurrencyException exception)
         {

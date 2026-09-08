@@ -61,15 +61,19 @@ app.MapApiEndpoints();
 
 if (app.Configuration.GetValue<bool>("UseMockData"))
 {
+    ApiLog.DatabaseInitializationStarted(app.Logger, "MockData");
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
     await db.Database.EnsureCreatedAsync();
     await MockDataSeeder.SeedAsync(db);
+    ApiLog.DatabaseInitializationCompleted(app.Logger, "MockData");
 }
 else if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("BootstrapDatabase"))
 {
+    ApiLog.DatabaseInitializationStarted(app.Logger, "Migration");
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<ORPDbContext>().Database.MigrateAsync();
+    ApiLog.DatabaseInitializationCompleted(app.Logger, "Migration");
 }
 
 await app.RunAsync();
