@@ -544,12 +544,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("LastSynchronizedAtUtc")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<DateTimeOffset>("LoadedAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset?>("LoadedDateTime")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<DateTimeOffset?>("MessageDate")
                         .HasColumnType("datetimeoffset");
 
@@ -577,36 +571,9 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("NetworkInterfaceMessageReference")
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<string>("NetworkPriority")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("NetworkProtocol")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("OriginalStatus")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("OwnBic")
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<bool>("PossibleDuplicate")
-                        .HasColumnType("bit");
-
                     b.Property<string>("ReceiverResponder")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ReceiverResponderBic8")
-                        .HasMaxLength(8)
-                        .HasColumnType("nvarchar(8)");
 
                     b.Property<string>("RoutingError")
                         .HasMaxLength(1000)
@@ -620,10 +587,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<string>("SenderRequestor")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("SenderRequestorBic8")
-                        .HasMaxLength(8)
-                        .HasColumnType("nvarchar(8)");
 
                     b.Property<string>("SequenceNumber")
                         .HasMaxLength(20)
@@ -647,13 +610,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("StatusDate")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("TouchedByHuman")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Uetr")
-                        .HasMaxLength(38)
-                        .HasColumnType("nvarchar(38)");
 
                     b.Property<string>("WarehouseId")
                         .IsRequired()

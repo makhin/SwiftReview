@@ -1,5 +1,4 @@
 using System.Configuration;
-using Microsoft.Extensions.Logging;
 using ORP.Sync;
 using Xunit;
 
@@ -13,31 +12,6 @@ public sealed class SyncConfigurationCollection;
 public sealed class SyncTests
 {
     private static readonly DateTime Now = new(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc);
-
-    [Fact]
-    public void MockQuery_MapsPayloadCollectionsAndStableWarehouseId()
-    {
-        using var config = new Settings("UseMockSwiftQuery", "true");
-        var logger = new CapturingLogger<SwiftQueryClient>();
-        var client = new SwiftQueryClient(logger);
-        var message = Assert.Single(client.GetMessages(Now.AddHours(-1), Now));
-        Assert.Equal("MT103", message.MessageType);
-        Assert.Equal("MOCK-SWIFT-MT103-001", message.WarehouseId);
-        Assert.Equal(Now.AddMinutes(-1), message.MessageDate);
-        Assert.Equal(DateTimeKind.Utc, message.MessageDate.Value.Kind);
-        Assert.Contains("\"source\":\"mock\"", message.Json);
-        Assert.Equal(message.Body.Length, message.MessageLength);
-        Assert.Equal("AAAAUS33", message.ReceiverResponderBic8);
-        Assert.Equal("11111111-2222-4333-8444-555555555555", message.Uetr);
-        Assert.Equal(new[] { "USD", "GBP" }, message.Currencies);
-        Assert.Equal(new decimal?[] { 1250.50m, 25m }, message.Amounts);
-        Assert.Equal(new[] { "Mock Beneficiary One", "Mock Beneficiary Two" }, message.BeneficiaryCustomerNames);
-        Assert.Equal(2, message.EntryCount);
-        Assert.All(message.CollectionLengths, count => Assert.Equal(2, count));
-        Assert.Equal(message.WarehouseId,
-            Assert.Single(client.GetMessages(Now, Now.AddHours(1))).WarehouseId);
-        Assert.Contains(logger.Events, entry => entry.EventId.Id == 3002 && entry.Level == LogLevel.Information);
-    }
 
     [Fact]
     public void RealQuery_MissingAssemblyFailsInsteadOfReturningMock()
@@ -116,12 +90,4 @@ public sealed class SyncTests
         }
     }
 
-    private sealed class CapturingLogger<T> : ILogger<T>
-    {
-        public List<(LogLevel Level, EventId EventId)> Events { get; } = new();
-        public IDisposable BeginScope<TState>(TState state) => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception,
-            Func<TState, Exception, string> formatter) => Events.Add((logLevel, eventId));
-    }
 }

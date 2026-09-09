@@ -2,17 +2,19 @@
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
     <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Exercise the unchanged net472 sources on the cross-platform test runtime. -->
+    <!-- Exercise the legacy .NET Framework synchronization sources directly. -->
     <Compile Include="../../src/ORP.Sync/SwiftMessageData.cs" Link="Sync/SwiftMessageData.cs" />
     <Compile Include="../../src/ORP.Sync/SwiftQueryClient.cs" Link="Sync/SwiftQueryClient.cs" />
     <Compile Include="../../src/ORP.Sync/MockSwiftQuery.cs" Link="Sync/MockSwiftQuery.cs" />
     <Compile Include="../../src/ORP.Sync/RoutingRules.cs" Link="Sync/RoutingRules.cs" />
     <Compile Include="../../src/ORP.Sync/SwiftMessageRepository.cs" Link="Sync/SwiftMessageRepository.cs" />
     <Compile Include="../../src/ORP.Sync/SyncLog.cs" Link="Sync/SyncLog.cs" />
-    <ProjectReference Include="../../src/ORP.Infrastructure/ORP.Infrastructure.csproj" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
     <PackageReference Include="System.Data.SqlClient" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

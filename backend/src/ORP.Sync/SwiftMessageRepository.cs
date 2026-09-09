@@ -95,25 +95,21 @@ internal sealed class SwiftMessageRepository
         using var command = Command(connection,
             """
             INSERT INTO [orp].[SwiftMessages]
-            ([WarehouseId],[LoadedDateTime],[BodyContainsMx],[BodyContainsMt],[Json],[Body],[BackendDirection],
+            ([WarehouseId],[BodyContainsMx],[BodyContainsMt],[Json],[Body],[BackendDirection],
              [CounterParty],[CounterPartyCountry],[CreationDate],[Direction],[LastModificationDate],[MessageDate],
              [MessageLength],[MessageFormatVersion],[MessageInputReference],[MessageType],[MessageTypeShort],
-             [ModifiedBy],[NetworkInterfaceMessageReference],[NetworkPriority],[NetworkProtocol],[OriginalStatus],
-             [OwnBic],[PossibleDuplicate],[ReceiverResponder],[ReceiverResponderBic8],[SenderRequestor],
-             [SenderRequestorBic8],[SequenceNumber],[SessionNumber],[Service],[SourceInterface],[Status],[StatusDate],
-             [TouchedByHuman],[Uetr],[BranchId],[DepartmentId],[RoutingStatus],[RoutingError],[LoadedAtUtc],[LastSynchronizedAtUtc])
+             [ModifiedBy],[ReceiverResponder],[SenderRequestor],[SequenceNumber],[SessionNumber],[Service],
+             [SourceInterface],[Status],[StatusDate],[BranchId],[DepartmentId],[RoutingStatus],[RoutingError],
+             [LastSynchronizedAtUtc])
             VALUES
-            (@WarehouseId,@LoadedDateTime,@BodyContainsMx,@BodyContainsMt,@Json,@Body,@BackendDirection,
+            (@WarehouseId,@BodyContainsMx,@BodyContainsMt,@Json,@Body,@BackendDirection,
              @CounterParty,@CounterPartyCountry,@CreationDate,@Direction,@LastModificationDate,@MessageDate,
              @MessageLength,@MessageFormatVersion,@MessageInputReference,@MessageType,@MessageTypeShort,
-             @ModifiedBy,@NetworkInterfaceMessageReference,@NetworkPriority,@NetworkProtocol,@OriginalStatus,
-             @OwnBic,@PossibleDuplicate,@ReceiverResponder,@ReceiverResponderBic8,@SenderRequestor,
-             @SenderRequestorBic8,@SequenceNumber,@SessionNumber,@Service,@SourceInterface,@Status,@StatusDate,
-             @TouchedByHuman,@Uetr,@BranchId,@DepartmentId,@RoutingStatus,@RoutingError,@Now,@Now);
+             @ModifiedBy,@ReceiverResponder,@SenderRequestor,@SequenceNumber,@SessionNumber,@Service,
+             @SourceInterface,@Status,@StatusDate,@BranchId,@DepartmentId,@RoutingStatus,@RoutingError,@Now);
             SELECT CAST(SCOPE_IDENTITY() AS bigint);
             """, transaction);
         Add(command, "@WarehouseId", Clip(message.WarehouseId, 30));
-        Add(command, "@LoadedDateTime", Utc(message.LoadedDateTime));
         Add(command, "@BodyContainsMx", ContainsMx(message.Body));
         Add(command, "@BodyContainsMt", ContainsMt(message.Body));
         Add(command, "@Json", message.Json);
@@ -131,24 +127,14 @@ internal sealed class SwiftMessageRepository
         Add(command, "@MessageType", Clip(message.MessageType ?? string.Empty, 20));
         Add(command, "@MessageTypeShort", Clip(message.MessageTypeShort, 10));
         Add(command, "@ModifiedBy", Clip(message.ModifiedBy, 20));
-        Add(command, "@NetworkInterfaceMessageReference", Clip(message.NetworkInterfaceMessageReference, 16));
-        Add(command, "@NetworkPriority", Clip(message.NetworkPriority, 100));
-        Add(command, "@NetworkProtocol", Clip(message.NetworkProtocol, 50));
-        Add(command, "@OriginalStatus", Clip(message.OriginalStatus, 20));
-        Add(command, "@OwnBic", Clip(message.OwnBic, 16));
-        Add(command, "@PossibleDuplicate", message.PossibleDuplicate);
         Add(command, "@ReceiverResponder", Clip(message.ReceiverResponder, 100));
-        Add(command, "@ReceiverResponderBic8", Clip(message.ReceiverResponderBic8, 8));
         Add(command, "@SenderRequestor", Clip(message.SenderRequestor, 100));
-        Add(command, "@SenderRequestorBic8", Clip(message.SenderRequestorBic8, 8));
         Add(command, "@SequenceNumber", Clip(message.SequenceNumber, 20));
         Add(command, "@SessionNumber", Clip(message.SessionNumber, 20));
         Add(command, "@Service", Clip(message.Service, 20));
         Add(command, "@SourceInterface", Clip(message.SourceInterface, 20));
         Add(command, "@Status", Clip(message.Status, 20));
         Add(command, "@StatusDate", Utc(message.StatusDate));
-        Add(command, "@TouchedByHuman", message.TouchedByHuman);
-        Add(command, "@Uetr", Clip(message.Uetr, 38));
         Add(command, "@BranchId", route.BranchId);
         Add(command, "@DepartmentId", route.DepartmentId);
         Add(command, "@RoutingStatus", routingStatus);

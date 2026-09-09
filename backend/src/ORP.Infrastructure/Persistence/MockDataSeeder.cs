@@ -49,7 +49,6 @@ public static class MockDataSeeder
                 ReceiverResponder = fake.Receiver,
                 Body = $"{{1:F01MOCK{message.Id:0000000000}}}\n{{2:I{MessageTypes[typeIndex][2..]}MOCK}}",
                 RoutingStatus = SwiftMessageRoutingStatus.Routed,
-                LoadedAtUtc = DateTimeOffset.UtcNow,
                 LastSynchronizedAtUtc = DateTimeOffset.UtcNow,
                 Entries =
                 [

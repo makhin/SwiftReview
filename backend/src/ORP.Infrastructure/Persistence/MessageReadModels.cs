@@ -45,7 +45,7 @@ internal static class MessageReadModels
             DepartmentId = source.DepartmentId!.Value,
             State = message.State,
             WorkflowDefinitionId = message.WorkflowDefinitionId,
-            ReceivedAt = source.MessageDate ?? source.LoadedAtUtc,
+            ReceivedAt = source.MessageDate ?? source.LastSynchronizedAtUtc,
             CurrentAssigneeId = message.CurrentAssigneeId,
             ActiveReviewId = activeReview == null ? null : activeReview.Id,
             ActiveReviewLevel = activeReview == null ? null : activeReview.Level,
