@@ -146,7 +146,7 @@ import MessagesPage from './MessagesPage';
 
 function renderPage(
   withReferenceData = true,
-  permissions = ['message.view'],
+  permissions = ['message.view', 'message.assign'],
   withCurrentUser = true,
 ) {
   const queryClient = createTestQueryClient();
@@ -202,6 +202,7 @@ function renderPage(
         <Routes>
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/messages/assigned" element={<main>Assigned messages page</main>} />
+          <Route path="/me" element={<main>User profile</main>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -234,7 +235,7 @@ describe('MessagesPage', () => {
 
     getCurrentUser.mockResolvedValue({
       userId: 1,
-      permissions: ['message.view'],
+      permissions: ['message.view', 'message.assign'],
     });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByLabelText('Messages')).toBeInTheDocument();
@@ -415,9 +416,11 @@ describe('MessagesPage', () => {
   });
 
   it('shows manual assignment only with permission', () => {
+    rowOverrides.departmentId = 30;
     const withoutPermission = renderPage();
     expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
     withoutPermission.unmount();
+    delete rowOverrides.departmentId;
 
     renderPage(true, ['message.view', 'message.assign']);
     fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
@@ -426,7 +429,7 @@ describe('MessagesPage', () => {
   });
 
   it('shows the audit action only with permission and opens the right-side drawer', () => {
-    const view = renderPage(true, ['message.view', 'audit.view']);
+    const view = renderPage(true, ['message.view', 'message.assign', 'audit.view']);
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(8);
@@ -460,7 +463,7 @@ describe('MessagesPage', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })));
-    renderPage(true, ['message.view', 'audit.view']);
+    renderPage(true, ['message.view', 'message.assign', 'audit.view']);
 
     fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
 
@@ -470,11 +473,18 @@ describe('MessagesPage', () => {
     expect(drawerProps).toMatchObject({ animationEnabled: false });
   });
 
-  it('redirects users without message access to assigned messages', () => {
-    renderPage(true, []);
+  it('redirects reviewers without assign permission to the review queue', () => {
+    renderPage(true, ['message.view', 'review.level1']);
 
     expect(screen.getByText('Assigned messages page')).toBeInTheDocument();
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
+  });
+
+  it('redirects a view-only user to the profile without rendering the assignment grid', () => {
+    renderPage(true, ['message.view']);
+    expect(screen.getByText('User profile')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
+    expect(componentProps.mock.calls.some(([name]) => name === 'DataGrid')).toBe(false);
   });
 
   it('uses department IDs until department metadata is available', () => {
@@ -482,7 +492,7 @@ describe('MessagesPage', () => {
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       userName: 'alex.morgan',
-      permissions: ['message.view'],
+      permissions: ['message.view', 'message.assign'],
       branches: [10],
       departments: [20],
     });

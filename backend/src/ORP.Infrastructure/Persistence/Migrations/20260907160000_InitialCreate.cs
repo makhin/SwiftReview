@@ -648,6 +648,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 SELECT role.[Id], permission.[Id]
                 FROM [orp].[Roles] AS role CROSS JOIN [orp].[Permissions] AS permission
                 WHERE role.[Name] = N'Operations manager'
+                   OR permission.[Name] = N'audit.view'
                    OR (role.[Name] IN (N'CS Reviewer', N'DC Reviewer')
                        AND permission.[Name] IN (N'message.view', N'review.level1'))
                    OR (role.[Name] = N'TFO Reviewer'

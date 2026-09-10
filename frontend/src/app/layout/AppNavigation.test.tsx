@@ -47,8 +47,23 @@ function renderNavigation(permissions: string[], initialEntry = '/messages') {
 }
 
 describe('AppNavigation', () => {
+  it.each([
+    { permissions: ['message.view'], assign: false, review: false },
+    { permissions: ['message.assign'], assign: true, review: false },
+    { permissions: ['review.level1'], assign: false, review: true },
+    { permissions: ['review.level2'], assign: false, review: true },
+    { permissions: ['review.level3'], assign: false, review: true },
+    { permissions: ['message.assign', 'review.level2'], assign: true, review: true },
+    { permissions: ['review.undo', 'audit.view'], assign: false, review: false },
+  ])('shows pages according to $permissions', ({ permissions, assign, review }) => {
+    renderNavigation(permissions);
+    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    expect(items.some((item) => item.path === '/messages')).toBe(assign);
+    expect(items.some((item) => item.path === '/messages/assigned?scope=mine')).toBe(review);
+  });
+
   it('selects the current route and navigates through list items', async () => {
-    const onNavigate = renderNavigation(['message.view']);
+    const onNavigate = renderNavigation(['message.assign', 'review.level1']);
 
     expect(screen.getByRole('navigation', { name: 'Application navigation' }))
       .toBeInTheDocument();
@@ -86,8 +101,8 @@ describe('AppNavigation', () => {
     );
   });
 
-  it('hides the messages page from users without business access', () => {
-    renderNavigation([]);
+  it('hides the assignment page from reviewers without assign permission', () => {
+    renderNavigation(['review.level1']);
 
     const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
     expect(items).not.toEqual(
@@ -111,7 +126,7 @@ describe('AppNavigation', () => {
 
   it('preserves the URL user when navigating', async () => {
     const onNavigate = renderNavigation(
-      ['message.view'],
+      ['review.level1'],
       '/messages?user=alex.morgan',
     );
     const props = listProps.mock.calls.at(-1)?.[0] as {

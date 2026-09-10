@@ -1,3 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
+import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
+import { canAssignMessages, canReviewMessages } from '../../shared/auth/permissions';
+import PageError from '../../shared/components/feedback/PageError';
+import PageLoading from '../../shared/components/feedback/PageLoading';
+import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
 import Tabs from 'devextreme-react/tabs';
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -17,6 +23,20 @@ function isAssignmentScope(value: unknown): value is AssignmentScope {
 }
 
 export default function AssignedMessagesPage() {
+  const userQuery = useQuery(currentUserQueryOptions());
+  if (userQuery.isPending) return <main className="app-content app-page"><PageLoading message="Loading review queue…" /></main>;
+  if (userQuery.error) return <main className="app-content app-page"><PageError
+    title="Unable to verify access" message="Check your connection and try again."
+    actionLabel="Retry" onAction={() => void userQuery.refetch()} /></main>;
+  const user = userQuery.data;
+  if (!user || !canReviewMessages(user.permissions)) {
+    const destination = user && canAssignMessages(user.permissions) ? '/messages' : user?.isGlobalAdministrator ? '/admin' : '/me';
+    return <UserPreservingNavigate to={destination} replace />;
+  }
+  return <ReviewQueue />;
+}
+
+function ReviewQueue() {
   const [searchParams, setSearchParams] = useSearchParams();
   const scopeParam = searchParams.get('scope');
   const scope: AssignmentScope = isAssignmentScope(scopeParam) ? scopeParam : 'mine';

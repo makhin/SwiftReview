@@ -99,10 +99,10 @@ public static class MockDataSeeder
         }
 
         var grants = new List<RolePermission>();
-        Grant(1, Permissions.MessageView, Permissions.ReviewLevel1);
-        Grant(2, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2);
-        Grant(3, Permissions.MessageView, Permissions.ReviewLevel1);
-        Grant(4, Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewUndo);
+        Grant(1, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.AuditView);
+        Grant(2, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2, Permissions.AuditView);
+        Grant(3, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.AuditView);
+        Grant(4, Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewUndo, Permissions.AuditView);
         Grant(5, Permissions.All);
         db.RolePermissions.AddRange(grants);
 

@@ -138,6 +138,7 @@ public sealed class AdministrationApiTests : IDisposable
     public async Task ScopedActionPermissions_DoNotLeakToOtherScopes()
     {
         using var admin = Client();
+        (await admin.PutAsJsonAsync("/api/admin/roles/1/permissions", new { permissions = new[] { Permissions.MessageView, Permissions.ReviewLevel1 } }, Ct)).EnsureSuccessStatusCode();
         (await admin.PutAsJsonAsync("/api/admin/users/1/access", new UpdateUserAccessRequest([new(1, 1, [1]), new(2, 2, [5])]), Ct)).EnsureSuccessStatusCode();
         using var user = Client("amelia.hart");
         Assert.Equal(HttpStatusCode.Forbidden, (await user.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 1 }, Ct)).StatusCode);
@@ -230,5 +231,17 @@ public sealed class AdministrationApiTests : IDisposable
         Assert.All(catalog.Roles, role => Assert.DoesNotContain("review.reject", role.Permissions));
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/roles/1/permissions",
             new { permissions = new[] { "review.reject" } }, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task EveryStartingRole_HasAuditAccess_WithinMessageScopeOnly()
+    {
+        using var admin = Client();
+        var catalog = await admin.GetFromJsonAsync<AccessCatalogDto>("/api/admin/catalog", Ct);
+        Assert.NotEmpty(catalog!.Roles);
+        Assert.All(catalog.Roles, role => Assert.Contains(Permissions.AuditView, role.Permissions));
+        using var reviewer = Client("amelia.hart");
+        (await reviewer.GetAsync("/api/messages/1/audit", Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await reviewer.GetAsync("/api/messages/2/audit", Ct)).StatusCode);
     }
 }

@@ -20,6 +20,12 @@ also enforces this restriction on every `/api/admin` endpoint.
 
 ## Screens and changes
 
+The message assignment page (`/messages`) requires `message.assign`. The review
+queue (`/messages/assigned`) requires at least one of `review.level1`,
+`review.level2`, `review.level3`. Navigation and direct route access use these
+same checks. Permissions on individual messages remain scoped to their exact
+branch and department; `message.view` alone does not grant either page.
+
 The Users tab searches existing users and edits their scoped role assignments.
 Removing all scopes removes business access. The Roles tab edits permission sets
 of existing roles; changes apply to every assignment of that role. Neither screen
@@ -27,7 +33,8 @@ creates users or changes global administrator status.
 
 The original initial migration creates the fixed permission catalog and five
 starting business roles (CS Reviewer, TFO Reviewer, DC Reviewer, DC Senior Reviewer,
-Operations manager). Their permissions can subsequently be edited in the UI.
+Operations manager). All five roles include `audit.view` for messages within their
+assigned scopes. Their permissions can subsequently be edited in the UI.
 Users, branches, departments and global administrators remain provisioning data.
 Mock mode supplies demo reference data and an `admin` identity with explicit
 business assignments; that demo access is not an implicit administrator bypass.

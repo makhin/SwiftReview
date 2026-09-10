@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canViewAllMessages } from '../../shared/auth/permissions';
+import { canAssignMessages, canReviewMessages } from '../../shared/auth/permissions';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
@@ -32,8 +32,11 @@ export default function MessagesPage() {
     );
   }
 
-  if (!currentUserQuery.data || !canViewAllMessages(currentUserQuery.data.permissions)) {
-    return <UserPreservingNavigate to="/messages/assigned?scope=mine" replace />;
+  if (!currentUserQuery.data || !canAssignMessages(currentUserQuery.data.permissions)) {
+    const user = currentUserQuery.data;
+    const destination = user && canReviewMessages(user.permissions)
+      ? '/messages/assigned?scope=mine' : user?.isGlobalAdministrator ? '/admin' : '/me';
+    return <UserPreservingNavigate to={destination} replace />;
   }
 
   return (
