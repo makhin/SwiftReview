@@ -48,7 +48,7 @@ function renderNavigation(permissions: string[], initialEntry = '/messages') {
 
 describe('AppNavigation', () => {
   it('selects the current route and navigates through list items', async () => {
-    const onNavigate = renderNavigation(['message.access.all-departments']);
+    const onNavigate = renderNavigation(['message.view']);
 
     expect(screen.getByRole('navigation', { name: 'Application navigation' }))
       .toBeInTheDocument();
@@ -86,8 +86,8 @@ describe('AppNavigation', () => {
     );
   });
 
-  it('hides the all-messages page from users without administrator access', () => {
-    renderNavigation(['message.view']);
+  it('hides the messages page from users without business access', () => {
+    renderNavigation([]);
 
     const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
     expect(items).not.toEqual(
@@ -111,7 +111,7 @@ describe('AppNavigation', () => {
 
   it('preserves the URL user when navigating', async () => {
     const onNavigate = renderNavigation(
-      ['message.access.all-departments'],
+      ['message.view'],
       '/messages?user=alex.morgan',
     );
     const props = listProps.mock.calls.at(-1)?.[0] as {

@@ -25,6 +25,7 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
       ? [{ path: '/messages', text: 'Messages', icon: 'email' }]
       : []),
     { path: '/messages/assigned?scope=mine', text: 'Review queue', icon: 'todo' },
+    ...(currentUser?.isGlobalAdministrator ? [{ path: '/admin', text: 'Users & access', icon: 'preferences' }] : []),
     { path: '/me', text: 'User profile', icon: 'user' },
   ];
 

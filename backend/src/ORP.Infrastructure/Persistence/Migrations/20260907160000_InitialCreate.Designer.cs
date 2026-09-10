@@ -21,7 +21,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("orp")
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -60,6 +60,50 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasFilter("[EndedAt] IS NULL");
 
                     b.ToTable("Assignments", "orp");
+                });
+
+            modelBuilder.Entity("ORP.Domain.Auditing.AccessAuditEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("ActorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AfterJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BeforeJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("RoleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TargetUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("RoleId", "Timestamp");
+
+                    b.HasIndex("TargetUserId", "Timestamp");
+
+                    b.ToTable("AccessAuditEvents", "orp");
                 });
 
             modelBuilder.Entity("ORP.Domain.Auditing.AuditEvent", b =>
@@ -221,6 +265,9 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<bool>("IsGlobalAdministrator")
+                        .HasColumnType("bit");
+
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -234,7 +281,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.ToTable("Users", "orp");
                 });
 
-            modelBuilder.Entity("ORP.Domain.Identity.UserBranch", b =>
+            modelBuilder.Entity("ORP.Domain.Identity.UserRole", b =>
                 {
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -242,37 +289,17 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<int>("BranchId")
                         .HasColumnType("int");
 
-                    b.HasKey("UserId", "BranchId");
-
-                    b.HasIndex("BranchId");
-
-                    b.ToTable("UserBranches", "orp");
-                });
-
-            modelBuilder.Entity("ORP.Domain.Identity.UserDepartment", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
                     b.Property<int>("DepartmentId")
-                        .HasColumnType("int");
-
-                    b.HasKey("UserId", "DepartmentId");
-
-                    b.HasIndex("DepartmentId");
-
-                    b.ToTable("UserDepartments", "orp");
-                });
-
-            modelBuilder.Entity("ORP.Domain.Identity.UserRole", b =>
-                {
-                    b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.Property<int>("RoleId")
                         .HasColumnType("int");
 
-                    b.HasKey("UserId", "RoleId");
+                    b.HasKey("UserId", "BranchId", "DepartmentId", "RoleId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("RoleId");
 
@@ -571,6 +598,25 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ORP.Domain.Auditing.AccessAuditEvent", b =>
+                {
+                    b.HasOne("ORP.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ORP.Domain.Identity.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ORP.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("ORP.Domain.Auditing.AuditEvent", b =>
                 {
                     b.HasOne("ORP.Domain.Messages.Message", "Message")
@@ -613,7 +659,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Navigation("Permission");
                 });
 
-            modelBuilder.Entity("ORP.Domain.Identity.UserBranch", b =>
+            modelBuilder.Entity("ORP.Domain.Identity.UserRole", b =>
                 {
                     b.HasOne("ORP.Domain.Identity.Branch", null)
                         .WithMany()
@@ -621,30 +667,12 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ORP.Domain.Identity.User", null)
-                        .WithMany("Branches")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("ORP.Domain.Identity.UserDepartment", b =>
-                {
                     b.HasOne("ORP.Domain.Identity.Department", null)
                         .WithMany()
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ORP.Domain.Identity.User", null)
-                        .WithMany("Departments")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("ORP.Domain.Identity.UserRole", b =>
-                {
                     b.HasOne("ORP.Domain.Identity.Role", "Role")
                         .WithMany()
                         .HasForeignKey("RoleId")
@@ -738,10 +766,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ORP.Domain.Identity.User", b =>
                 {
-                    b.Navigation("Branches");
-
-                    b.Navigation("Departments");
-
                     b.Navigation("Roles");
                 });
 
@@ -749,7 +773,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 {
                     b.Navigation("Steps");
                 });
-
 #pragma warning restore 612, 618
         }
     }

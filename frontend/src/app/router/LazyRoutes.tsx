@@ -1,5 +1,7 @@
 import { lazy } from 'react';
 
+export const AdministrationPage = lazy(() => import('../../pages/administration/AdministrationPage'));
+
 export const CurrentUserPage = lazy(
   () => import('../../pages/current-user/CurrentUserPage'),
 );

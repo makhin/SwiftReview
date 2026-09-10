@@ -39,15 +39,9 @@ function getErrorContent(error: Error) {
 
 export default function CurrentUserPage() {
   const { data: user, error, isPending, refetch } = useQuery(currentUserQueryOptions());
-  const { data: branches } = useQuery(branchesQueryOptions());
-  const { data: departments } = useQuery(departmentsQueryOptions());
+  const { data: branches } = useQuery({ ...branchesQueryOptions(), enabled: !!user?.permissions.includes('message.view') });
+  const { data: departments } = useQuery({ ...departmentsQueryOptions(), enabled: !!user?.permissions.includes('message.view') });
   const errorContent = error ? getErrorContent(error) : undefined;
-  const branchNames = user?.branches.map(
-    (id) => branches?.find((branch) => branch.id === id)?.name ?? String(id),
-  );
-  const departmentNames = user?.departments.map(
-    (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
-  );
 
   return (
     <main className="app-content app-page">
@@ -71,18 +65,22 @@ export default function CurrentUserPage() {
               onAction={() => void refetch()}
             />
           ) : user ? (
+            <>
             <dl className="app-details">
               <dt>User ID</dt>
               <dd>{user.userId}</dd>
               <dt>User name</dt>
               <dd>{user.userName}</dd>
-              <dt>Permissions</dt>
-              <dd>{user.permissions.join(', ') || 'None'}</dd>
-              <dt>Branches</dt>
-              <dd>{branchNames?.join(', ') || 'None'}</dd>
-              <dt>Departments</dt>
-              <dd>{departmentNames?.join(', ') || 'No departments'}</dd>
+              <dt>Global administrator</dt><dd>{user.isGlobalAdministrator ? 'Yes' : 'No'}</dd>
             </dl>
+            <h2>Access by scope</h2>
+            {user.scopes?.length ? <table><thead><tr><th>Branch</th><th>Department</th><th>Permissions</th></tr></thead>
+              <tbody>{user.scopes.map((scope) => <tr key={`${scope.branchId}-${scope.departmentId}`}>
+                <td>{branches?.find((b) => String(b.id) === String(scope.branchId))?.name ?? scope.branchId}</td>
+                <td>{departments?.find((d) => String(d.id) === String(scope.departmentId))?.name ?? scope.departmentId}</td>
+                <td>{scope.permissions.join(', ') || 'None'}</td>
+              </tr>)}</tbody></table> : <p>No business access.</p>}
+            </>
           ) : (
             <PageLoading message="Loading current user…" />
           )}

@@ -30,8 +30,7 @@ public sealed class AssignmentHandlerTests
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
                 "A", "B"));
         access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "out-of-scope", "Out of scope",
-            new HashSet<string> { Permissions.MessageView, Permissions.ReviewLevel1 },
-            new HashSet<int> { 2 }, new HashSet<int> { 2 }));
+            false, [new UserScopeAccess(2, 2, [], [Permissions.MessageView, Permissions.ReviewLevel1])]));
         user.UserId.Returns(5);
 
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
@@ -58,8 +57,7 @@ public sealed class AssignmentHandlerTests
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B"));
         access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "assignee", "Assignee",
-            new HashSet<string> { Permissions.MessageView, Permissions.ReviewLevel1 },
-            new HashSet<int> { 1 }, new HashSet<int> { 1 }));
+            false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, Permissions.ReviewLevel1])]));
         user.UserId.Returns(5);
         clock.UtcNow.Returns(now);
         correlation.CorrelationId.Returns("assign-correlation");
@@ -165,7 +163,6 @@ public sealed class AssignmentHandlerTests
                 "A", "B"));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
         access.GetByIdAsync(assigneeId, Arg.Any<CancellationToken>()).Returns(new UserAccess(assigneeId,
-            "assignee", "Assignee", new HashSet<string> { Permissions.MessageView, reviewPermission },
-            new HashSet<int> { 1 }, new HashSet<int> { 1 }));
+            "assignee", "Assignee", false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, reviewPermission])]));
     }
 }

@@ -28,20 +28,14 @@ public sealed class MessageGridQueries(ORPDbContext db)
     public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access,
         string? assignmentScope, CancellationToken ct)
     {
-        var allDepartments = access.HasAllDepartmentAccess;
-        var query = db.ReadMessages()
-            .Where(x => access.Permissions.Contains(Permissions.MessageView) &&
-                access.BranchIds.Contains(x.BranchId) &&
-                (allDepartments || access.DepartmentIds.Contains(x.DepartmentId)));
+        var query = db.ReadAccessibleMessages(access.UserId, assignmentScope == MessageAssignmentScopes.Assignable
+            ? Permissions.MessageAssign : Permissions.MessageView);
         query = assignmentScope switch
         {
             null => query,
             MessageAssignmentScopes.Mine => query.Where(x =>
                 x.CurrentAssigneeId == access.UserId || x.ActiveReviewerId == access.UserId),
-            MessageAssignmentScopes.Departments => query.Where(x => x.CurrentAssigneeId != null &&
-                db.UserDepartments.Any(userDepartment =>
-                    userDepartment.UserId == x.CurrentAssigneeId.Value &&
-                    access.DepartmentIds.Contains(userDepartment.DepartmentId))),
+            MessageAssignmentScopes.Departments => query.Where(x => x.CurrentAssigneeId != null),
             MessageAssignmentScopes.Assignable => query.Where(x =>
                 x.State == MessageState.New || x.State == MessageState.Assigned ||
                 x.State == MessageState.WaitingForSecondReview ||

@@ -10,6 +10,25 @@ namespace ORP.Api.Tests;
 public sealed class MessageSchemaTests
 {
     [Fact]
+    public void InitialMigration_ContainsScopedRolesAndFixedPermissionCatalog()
+    {
+        using var db = new ORPDbContext(new DbContextOptionsBuilder<ORPDbContext>()
+            .UseSqlServer("Server=localhost;Database=SchemaTest;Integrated Security=true").Options);
+        var userRole = db.Model.FindEntityType(typeof(ORP.Domain.Identity.UserRole))!;
+        Assert.Equal(new[] { "UserId", "BranchId", "DepartmentId", "RoleId" },
+            userRole.FindPrimaryKey()!.Properties.Select(p => p.Name));
+        var sql = db.GetService<IMigrator>().GenerateScript();
+        Assert.Contains("[IsGlobalAdministrator] bit NOT NULL", sql);
+        Assert.Contains("CREATE TABLE [orp].[AccessAuditEvents]", sql);
+        Assert.DoesNotContain("UserBranches", sql);
+        Assert.DoesNotContain("UserDepartments", sql);
+        Assert.DoesNotContain("message.access.all-departments", sql);
+        Assert.DoesNotContain("review.reject", sql);
+        foreach (var permission in ORP.Domain.Identity.Permissions.All) Assert.Contains($"N'{permission}'", sql);
+        Assert.Contains("N'Operations manager'", sql);
+    }
+
+    [Fact]
     public void MessageModelAndInitialMigration_DoNotUseRowVersion()
     {
         using var db = new ORPDbContext(new DbContextOptionsBuilder<ORPDbContext>()

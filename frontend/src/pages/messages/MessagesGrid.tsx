@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canAssignMessages, canViewAudit } from '../../shared/auth/permissions';
+import { canAssignMessages, canViewAudit, permissionsForScope } from '../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
@@ -27,7 +27,7 @@ import AssignmentPopup from './AssignmentPopup';
 import MessageStage from './MessageStage';
 import type { MessageRow } from './messagesApi';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
-import { canReviewMessage, type ReviewDecision } from './reviewDecision';
+import { canReviewMessage } from './reviewDecision';
 import './messages-grid.css';
 
 type MessagesGridProps = {
@@ -116,7 +116,7 @@ export default function MessagesGrid({
   }
 
   function canShowAssignment(message: MessageRow | undefined, assigned: boolean) {
-    if (!showAssignment || !message) return false;
+    if (!message || !canAssignMessages(permissionsForScope(currentUser, message.branchId, message.departmentId))) return false;
     const assignableState = message.state === 'New' || message.state === 'Assigned' ||
       message.state === 'WaitingForSecondReview' || message.state === 'WaitingForThirdReview';
     return assignableState && (message.currentAssigneeId != null) === assigned;
@@ -128,12 +128,12 @@ export default function MessagesGrid({
     setSelectedReviewMessage(message);
   }
 
-  function canShowReviewAction(message: MessageRow | undefined, decision: ReviewDecision) {
+  function canShowReviewAction(message: MessageRow | undefined) {
     if (!currentUser || !message) {
       return false;
     }
 
-    return canReviewMessage(message, decision, currentUser.userId, currentUser.permissions);
+    return canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId));
   }
 
   useEffect(() => {
@@ -283,7 +283,7 @@ export default function MessagesGrid({
                     stylingMode="outlined"
                     onClick={() => openReviewAction(message)}
                   />
-                  {showAudit && (
+                  {canViewAudit(permissionsForScope(currentUser, message.branchId, message.departmentId)) && (
                     <Button
                       icon="search"
                       hint="View audit trail"
@@ -304,8 +304,8 @@ export default function MessagesGrid({
       {selectedReviewMessage && (
         <ReviewDecisionPopup
           message={selectedReviewMessage}
-          canApprove={enableReviewActions && canShowReviewAction(selectedReviewMessage, 'approve')}
-          canReject={enableReviewActions && canShowReviewAction(selectedReviewMessage, 'reject')}
+          canApprove={enableReviewActions && canShowReviewAction(selectedReviewMessage)}
+          canReject={enableReviewActions && canShowReviewAction(selectedReviewMessage)}
           onClose={closeReviewAction}
           onChanged={() => void dataGridRef.current?.instance().refresh()}
         />

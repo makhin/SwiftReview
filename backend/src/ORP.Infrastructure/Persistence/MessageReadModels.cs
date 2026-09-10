@@ -23,6 +23,15 @@ internal sealed class MessageReadRow
 
 internal static class MessageReadModels
 {
+    public static IQueryable<MessageReadRow> ReadAccessibleMessages(this ORPDbContext db, int userId,
+        string permission = Domain.Identity.Permissions.MessageView) => db.ReadMessages().Where(message =>
+        db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
+            role.DepartmentId == message.DepartmentId && role.Role.Permissions.Any(grant =>
+                grant.Permission.Name == Domain.Identity.Permissions.MessageView)) &&
+        db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
+            role.DepartmentId == message.DepartmentId && role.Role.Permissions.Any(grant =>
+                grant.Permission.Name == permission)));
+
     public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db) =>
         from message in db.Messages.AsNoTracking()
         join source in db.SwiftMessages.AsNoTracking() on message.Id equals source.MessageId

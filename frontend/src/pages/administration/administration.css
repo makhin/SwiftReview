@@ -1,0 +1,8 @@
+.admin-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0; }
+.admin-toolbar input, .admin-toolbar button { padding: 8px 12px; font: inherit; }
+.admin-toolbar [aria-selected="true"] { font-weight: 700; border-bottom: 3px solid currentColor; }
+.admin-editor { padding: 24px; margin-top: 24px; }
+.admin-editor fieldset { border: 0; padding: 0; min-width: 0; }
+.admin-scope { display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 12px; padding: 16px 0; border-bottom: 1px solid #d9dfdf; }
+.admin-permissions { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 800px) { .admin-scope { grid-template-columns: 1fr; } }

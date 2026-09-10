@@ -146,7 +146,7 @@ import MessagesPage from './MessagesPage';
 
 function renderPage(
   withReferenceData = true,
-  permissions = ['message.access.all-departments'],
+  permissions = ['message.view'],
   withCurrentUser = true,
 ) {
   const queryClient = createTestQueryClient();
@@ -155,6 +155,8 @@ function renderPage(
       userId: 1,
       userName: 'alex.morgan',
       permissions,
+      isGlobalAdministrator: false,
+      scopes: [{ branchId: 10, departmentId: 20, roleIds: [1], permissions }],
       branches: [10],
       departments: [20],
     });
@@ -232,11 +234,11 @@ describe('MessagesPage', () => {
 
     getCurrentUser.mockResolvedValue({
       userId: 1,
-      permissions: ['message.access.all-departments'],
+      permissions: ['message.view'],
     });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByLabelText('Messages')).toBeInTheDocument();
-    expect(getCurrentUser).toHaveBeenCalledTimes(2);
+    expect(getCurrentUser).toHaveBeenCalledTimes(3);
   });
 
   it('opens a combined review, refreshes after saving and restores focus when closed', async () => {
@@ -244,7 +246,8 @@ describe('MessagesPage', () => {
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(['current-user'], {
       userId: 1,
-      permissions: ['review.level1', 'review.reject'],
+      permissions: ['review.level1'],
+      scopes: [{ branchId: 10, departmentId: 20, roleIds: [1], permissions: ['review.level1'] }],
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -266,7 +269,7 @@ describe('MessagesPage', () => {
   });
 
   it('refreshes after assignment and restores focus when closed', async () => {
-    renderPage(true, ['message.access.all-departments', 'message.assign']);
+    renderPage(true, ['message.view', 'message.assign']);
     const trigger = screen.getByRole('button', { name: 'Assign' });
     trigger.focus();
     fireEvent.click(trigger);
@@ -416,14 +419,14 @@ describe('MessagesPage', () => {
     expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
     withoutPermission.unmount();
 
-    renderPage(true, ['message.access.all-departments', 'message.assign']);
+    renderPage(true, ['message.view', 'message.assign']);
     fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
     expect(screen.getByLabelText('Assignment dialog')).toHaveTextContent('MSG-0042');
     expect(screen.queryByRole('button', { name: 'Reassign' })).not.toBeInTheDocument();
   });
 
   it('shows the audit action only with permission and opens the right-side drawer', () => {
-    const view = renderPage(true, ['message.access.all-departments', 'audit.view']);
+    const view = renderPage(true, ['message.view', 'audit.view']);
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(8);
@@ -457,7 +460,7 @@ describe('MessagesPage', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })));
-    renderPage(true, ['message.access.all-departments', 'audit.view']);
+    renderPage(true, ['message.view', 'audit.view']);
 
     fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
 
@@ -467,8 +470,8 @@ describe('MessagesPage', () => {
     expect(drawerProps).toMatchObject({ animationEnabled: false });
   });
 
-  it('redirects users without all-departments access to assigned messages', () => {
-    renderPage(true, ['message.view']);
+  it('redirects users without message access to assigned messages', () => {
+    renderPage(true, []);
 
     expect(screen.getByText('Assigned messages page')).toBeInTheDocument();
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
@@ -479,7 +482,7 @@ describe('MessagesPage', () => {
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       userName: 'alex.morgan',
-      permissions: ['message.access.all-departments'],
+      permissions: ['message.view'],
       branches: [10],
       departments: [20],
     });

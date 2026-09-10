@@ -27,6 +27,7 @@ public sealed class DebugAuthenticationHandler(IOptionsMonitor<AuthenticationSch
         claims.AddRange(access.Permissions.Select(x => new Claim("permission", x)));
         claims.AddRange(access.BranchIds.Select(x => new Claim("branch", x.ToString())));
         claims.AddRange(access.DepartmentIds.Select(x => new Claim("department", x.ToString())));
+        if (access.IsGlobalAdministrator) claims.Add(new Claim("global_admin", "true"));
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name));
     }
 }

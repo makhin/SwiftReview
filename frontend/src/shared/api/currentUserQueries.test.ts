@@ -7,10 +7,11 @@ vi.mock('./currentUserApi', () => ({ getCurrentUser }));
 import { currentUserQueryOptions } from './currentUserQueries';
 
 describe('currentUserQueryOptions', () => {
-  it('defines the current-user key and a five-minute stale time', () => {
+  it('refreshes access on mount and periodically', () => {
     const options = currentUserQueryOptions();
 
     expect(options.queryKey).toEqual(['current-user']);
-    expect(options.staleTime).toBe(5 * 60 * 1000);
+    expect(options.staleTime).toBe(0);
+    expect(options.refetchInterval).toBe(30_000);
   });
 });

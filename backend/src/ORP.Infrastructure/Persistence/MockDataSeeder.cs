@@ -77,7 +77,7 @@ public static class MockDataSeeder
         AddWithId(db, new Role("TFO Reviewer"), 2);
         AddWithId(db, new Role("DC Reviewer"), 3);
         AddWithId(db, new Role("DC Senior Reviewer"), 4);
-        AddWithId(db, new Role("Administrator"), 5);
+        AddWithId(db, new Role("Operations manager"), 5);
 
         (int Id, string UserName, string DisplayName, int RoleId)[] users =
         [
@@ -95,30 +95,33 @@ public static class MockDataSeeder
         ];
         foreach (var user in users)
         {
-            AddWithId(db, new User(user.UserName, user.DisplayName), user.Id);
-            db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = user.RoleId });
+            AddWithId(db, new User(user.UserName, user.DisplayName, user.Id == 5), user.Id);
         }
 
         var grants = new List<RolePermission>();
-        Grant(1, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewReject);
-        Grant(2, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2, Permissions.ReviewReject);
-        Grant(3, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewReject);
-        Grant(4, Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewReject, Permissions.ReviewUndo);
+        Grant(1, Permissions.MessageView, Permissions.ReviewLevel1);
+        Grant(2, Permissions.MessageView, Permissions.ReviewLevel1, Permissions.ReviewLevel2);
+        Grant(3, Permissions.MessageView, Permissions.ReviewLevel1);
+        Grant(4, Permissions.MessageView, Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewUndo);
         Grant(5, Permissions.All);
         db.RolePermissions.AddRange(grants);
 
-        db.UserBranches.AddRange(new[]
+        foreach (var user in users)
         {
-            LinkBranches(1, 1), LinkBranches(2, 2), LinkBranches(3, 3), LinkBranches(4, 1, 2, 3),
-            LinkBranches(5, 1, 2, 3), LinkBranches(6, 2), LinkBranches(7, 3),
-            LinkBranches(8, 1), LinkBranches(9, 3), LinkBranches(10, 1), LinkBranches(11, 2)
-        }.SelectMany(x => x));
-        db.UserDepartments.AddRange(new[]
-        {
-            LinkDepartments(1, 1), LinkDepartments(2, 2), LinkDepartments(3, 3), LinkDepartments(4, 3),
-            LinkDepartments(5, 2), LinkDepartments(6, 1), LinkDepartments(7, 1),
-            LinkDepartments(8, 2), LinkDepartments(9, 2), LinkDepartments(10, 3), LinkDepartments(11, 3)
-        }.SelectMany(x => x));
+            var branches = user.Id switch
+            {
+                4 or 5 => new[] { 1, 2, 3 },
+                1 or 8 or 10 => [1],
+                2 or 6 or 11 => [2],
+                _ => [3]
+            };
+            var departments = user.Id == 5 ? new[] { 1, 2, 3 } :
+                new[] { user.RoleId == 4 ? 3 : user.RoleId };
+            foreach (var branchId in branches)
+                foreach (var departmentId in departments)
+                    db.UserRoles.Add(new UserRole { UserId = user.Id, BranchId = branchId,
+                        DepartmentId = departmentId, RoleId = user.RoleId });
+        }
 
         string[] workflowNames = ["Single Review", "Two Reviews", "Three Reviews", "MT700 Single Review",
             "MT710 Two Reviews", "MT760 Three Reviews", "MT799 Single Review", "MT999 Two Reviews"];
@@ -136,12 +139,6 @@ public static class MockDataSeeder
             grants.AddRange(names.Select(name => new RolePermission { RoleId = roleId, PermissionId = permissionIds[name] }));
         }
     }
-
-    private static UserBranch[] LinkBranches(int userId, params int[] branchIds) =>
-        branchIds.Select(branchId => new UserBranch { UserId = userId, BranchId = branchId }).ToArray();
-
-    private static UserDepartment[] LinkDepartments(int userId, params int[] departmentIds) =>
-        departmentIds.Select(departmentId => new UserDepartment { UserId = userId, DepartmentId = departmentId }).ToArray();
 
     private static T AddWithId<T>(ORPDbContext db, T entity, int id) where T : class
     {

@@ -33,7 +33,8 @@ public static class ApiEndpoints
         messages.MapPost("/{id:long}/reassign", Reassign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapGet("/{id:long}/assignment-candidates", AssignmentCandidates)
             .Produces<IReadOnlyList<AssignmentCandidateDto>>().ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/start", StartReview).Produces<StartReviewResponse>(StatusCodes.Status201Created).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        messages.MapPost("/{id:long}/reviews/start", StartReview).AddEndpointFilter<StartReviewTransactionFilter>()
+            .Produces<StartReviewResponse>(StatusCodes.Status201Created).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/approve", Approve).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/reject", Reject).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/undo", Undo).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
@@ -89,22 +90,24 @@ public static class ApiEndpoints
             async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
     private static Task<IResult> Reject(long id, RejectReviewRequest request, RejectReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
         ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
-            async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); }, Permissions.ReviewReject);
+            async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
     private static async Task<IResult> ReviewAction(long id, int level, IORPStore store,
         IAuthorizationService auth, HttpContext context, CancellationToken ct,
-        MessageActionOwnership ownership, Func<Task<IResult>> action, string? permission = null)
-    { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(permission ?? ReviewPermissions.ForLevel(level), level, ownership)); return ok.Succeeded ? await action() : Forbidden(); }
+        MessageActionOwnership ownership, Func<Task<IResult>> action)
+    { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(ReviewPermissions.ForLevel(level), level, ownership)); return ok.Succeeded ? await action() : Forbidden(); }
     private static async Task<IResult> Undo(long id, UndoReviewRequest request, UndoReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct)
     { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.ReviewUndo)); if (!ok.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent(); }
     private static Task<PagedResult<AuditEventDto>> Audit(long id, GetAuditTrailHandler handler,
         CancellationToken ct, int skip = 0, int take = 100) =>
         handler.HandleAsync(id, new AuditTrailRequest(skip, take), ct);
     private static async Task<DashboardSummaryDto> Dashboard(GetDashboardSummaryHandler handler, CancellationToken ct) => await handler.HandleAsync(ct);
-    private static Ok<CurrentUserResponse> Me(ICurrentUser current, HttpContext context) => TypedResults.Ok(new CurrentUserResponse(
-        current.UserId, current.UserName, current.DisplayName,
-        context.User.FindAll("permission").Select(x => x.Value).Order().ToList(),
-        context.User.FindAll("branch").Select(x => int.Parse(x.Value)).Order().ToList(),
-        context.User.FindAll("department").Select(x => int.Parse(x.Value)).Order().ToList()));
+    private static async Task<CurrentUserResponse> Me(ICurrentUser current, IUserAccessService users, CancellationToken ct)
+    {
+        var access = await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException();
+        return new CurrentUserResponse(access.UserId, access.UserName, access.DisplayName,
+            access.Permissions.Order().ToArray(), access.BranchIds.Order().ToArray(),
+            access.DepartmentIds.Order().ToArray(), access.IsGlobalAdministrator, access.Scopes);
+    }
     private static Task<IReadOnlyList<WorkflowSummaryDto>> Workflows(GetWorkflowsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<UserSummaryDto>> Users(GetUsersHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
     private static Task<IReadOnlyList<ReferenceItemDto>> Branches(GetBranchesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);

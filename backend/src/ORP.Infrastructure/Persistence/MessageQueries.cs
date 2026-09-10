@@ -59,7 +59,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     public async Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request,
         UserAccess access, CancellationToken ct)
     {
-        if (!await Accessible(access).AnyAsync(x => x.Id == messageId, ct)) return null;
+        if (!await db.ReadAccessibleMessages(access.UserId, Permissions.AuditView).AnyAsync(x => x.Id == messageId, ct)) return null;
         var query = db.AuditEvents.AsNoTracking().Where(x => x.MessageId == messageId);
         var count = await query.CountAsync(ct);
         var rows = await query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.Id)
@@ -85,12 +85,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             actor, details, row.CorrelationId);
     }
 
-    private IQueryable<MessageReadRow> Accessible(UserAccess access)
-    {
-        var allDepartments = access.HasAllDepartmentAccess;
-        return db.ReadMessages().Where(x => access.BranchIds.Contains(x.BranchId) &&
-            (allDepartments || access.DepartmentIds.Contains(x.DepartmentId)));
-    }
+    private IQueryable<MessageReadRow> Accessible(UserAccess access) => db.ReadAccessibleMessages(access.UserId);
 
     private static IQueryable<MessageReadRow> ApplySort(IQueryable<MessageReadRow> query, IReadOnlyList<SortClause>? sort)
     {

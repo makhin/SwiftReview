@@ -3,6 +3,7 @@ using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
 using ORP.Api.Infrastructure;
+using ORP.Application.Abstractions;
 
 namespace ORP.Api.Authorization;
 
@@ -13,15 +14,16 @@ public sealed record MessageAuthorizationResource(Message Message, int BranchId,
     IReadOnlyCollection<Review> Reviews);
 
 public sealed class MessageActionAuthorizationHandler(ILogger<MessageActionAuthorizationHandler> logger,
-    IHttpContextAccessor httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor, IUserAccessService users)
     : AuthorizationHandler<MessageActionRequirement, MessageAuthorizationResource>
 {
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, MessageActionRequirement requirement, MessageAuthorizationResource resource)
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, MessageActionRequirement requirement, MessageAuthorizationResource resource)
     {
-        var permission = context.User.HasClaim("permission", requirement.Permission);
-        var branch = context.User.HasClaim("branch", resource.BranchId.ToString());
-        var department = context.User.HasClaim("department", resource.DepartmentId.ToString()) ||
-            context.User.HasClaim("permission", Permissions.MessageAccessAllDepartments);
+        var currentId = int.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
+        var access = await users.GetByIdAsync(currentId, httpContextAccessor.HttpContext?.RequestAborted ?? default);
+        var permission = access?.HasPermission(requirement.Permission, resource.BranchId, resource.DepartmentId) == true;
+        var branch = access?.CanAccess(resource.BranchId, resource.DepartmentId) == true;
+        var department = branch;
         var stateOk = requirement.ReviewLevel switch
         {
             1 => resource.Message.State is MessageState.Assigned or MessageState.FirstReviewInProgress,
@@ -29,7 +31,6 @@ public sealed class MessageActionAuthorizationHandler(ILogger<MessageActionAutho
             3 => resource.Message.State is MessageState.WaitingForThirdReview or MessageState.ThirdReviewInProgress,
             _ => true
         };
-        var currentId = int.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
         var fourEyes = requirement.ReviewLevel is null || resource.Reviews.All(x => x.Status != ReviewStatus.Approved || x.ReviewerId != currentId);
         var ownership = requirement.Ownership switch
         {
@@ -51,7 +52,6 @@ public sealed class MessageActionAuthorizationHandler(ILogger<MessageActionAutho
                 branch, department, stateOk, fourEyes, ownership,
                 httpContext is null ? "system" : ApiLog.CorrelationId(httpContext));
         }
-        return Task.CompletedTask;
     }
 }
 

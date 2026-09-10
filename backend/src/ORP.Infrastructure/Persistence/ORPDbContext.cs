@@ -23,9 +23,8 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departments => Set<Department>();
-    public DbSet<UserBranch> UserBranches => Set<UserBranch>();
-    public DbSet<UserDepartment> UserDepartments => Set<UserDepartment>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<AccessAuditEvent> AccessAuditEvents => Set<AccessAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,5 +58,7 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
             throw new InvalidOperationException("Swift messages are written only by ORP.Sync.");
         if (ChangeTracker.Entries<AuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Audit events are append-only.");
+        if (ChangeTracker.Entries<AccessAuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Access audit events are append-only.");
     }
 }

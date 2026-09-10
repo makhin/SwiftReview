@@ -67,12 +67,20 @@ public interface IReferenceDataQueries
     Task<IReadOnlyList<string>> GetMessageTypesAsync(UserAccess access, CancellationToken cancellationToken);
 }
 
-public sealed record UserAccess(int UserId, string UserName, string DisplayName, IReadOnlySet<string> Permissions,
-    IReadOnlySet<int> BranchIds, IReadOnlySet<int> DepartmentIds)
+public sealed record UserScopeAccess(int BranchId, int DepartmentId, IReadOnlyList<int> RoleIds,
+    IReadOnlyList<string> Permissions);
+
+public sealed record UserAccess(int UserId, string UserName, string DisplayName, bool IsGlobalAdministrator,
+    IReadOnlyList<UserScopeAccess> Scopes)
 {
-    public bool HasAllDepartmentAccess => Permissions.Contains(Domain.Identity.Permissions.MessageAccessAllDepartments);
-    public bool CanAccess(int branchId, int departmentId) =>
-        BranchIds.Contains(branchId) && (HasAllDepartmentAccess || DepartmentIds.Contains(departmentId));
+    // Summaries are for navigation and labels only, never for message authorization.
+    public IReadOnlySet<string> Permissions => Scopes.SelectMany(x => x.Permissions).ToHashSet();
+    public IReadOnlySet<int> BranchIds => Scopes.Select(x => x.BranchId).ToHashSet();
+    public IReadOnlySet<int> DepartmentIds => Scopes.Select(x => x.DepartmentId).ToHashSet();
+    public bool HasPermission(string permission, int branchId, int departmentId) => Scopes.Any(x =>
+        x.BranchId == branchId && x.DepartmentId == departmentId && x.Permissions.Contains(permission));
+    public bool CanAccess(int branchId, int departmentId) => HasPermission(
+        Domain.Identity.Permissions.MessageView, branchId, departmentId);
 }
 
 public sealed class ResourceNotFoundException(string message) : Exception(message);

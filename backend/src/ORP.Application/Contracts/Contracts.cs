@@ -14,7 +14,8 @@ public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long 
 
 public sealed record StartReviewResponse(long ReviewId);
 public sealed record CurrentUserResponse(int UserId, string UserName, string DisplayName, IReadOnlyList<string> Permissions,
-    IReadOnlyList<int> Branches, IReadOnlyList<int> Departments);
+    IReadOnlyList<int> Branches, IReadOnlyList<int> Departments, bool IsGlobalAdministrator,
+    IReadOnlyList<UserScopeAccess> Scopes);
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,

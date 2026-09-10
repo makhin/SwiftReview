@@ -14,6 +14,7 @@ const referenceDataApi = vi.hoisted(() => ({
 }));
 
 vi.mock('../../shared/api/referenceDataApi', () => referenceDataApi);
+vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser: vi.fn().mockResolvedValue({ permissions: ['message.view'] }) }));
 
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 import { referenceDataKeys } from '../../shared/api/referenceDataQueries';

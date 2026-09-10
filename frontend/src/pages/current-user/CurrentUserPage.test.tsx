@@ -20,6 +20,11 @@ const currentUser = {
   permissions: ['messages.read', 'messages.assign'],
   branches: [10, 20],
   departments: [30, 40],
+  isGlobalAdministrator: false,
+  scopes: [
+    { branchId: 10, departmentId: 30, roleIds: [1], permissions: ['messages.read', 'messages.assign'] },
+    { branchId: 20, departmentId: 40, roleIds: [2], permissions: ['messages.read'] },
+  ],
 };
 
 function renderPage(queryClient = createTestQueryClient()) {
@@ -60,23 +65,23 @@ describe('CurrentUserPage', () => {
     expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
     expect(screen.getByText('Identity and access details.')).toBeInTheDocument();
     expect(screen.getByText('messages.read, messages.assign')).toBeInTheDocument();
-    expect(screen.getByText('London, Dublin')).toBeInTheDocument();
-    expect(screen.getByText('Operations, Compliance')).toBeInTheDocument();
+    expect(screen.getByText('London')).toBeInTheDocument();
+    expect(screen.getByText('Compliance')).toBeInTheDocument();
   });
 
-  it('shows None for empty access lists', async () => {
+  it('shows no business access for empty scopes', async () => {
     getCurrentUser.mockResolvedValue({
       ...currentUser,
       permissions: [],
       branches: [],
       departments: [],
+      scopes: [],
     });
 
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
-    expect(screen.getAllByText('None')).toHaveLength(2);
-    expect(screen.getByText('No departments')).toBeInTheDocument();
+    expect(screen.getByText('No business access.')).toBeInTheDocument();
   });
 
   it.each([
@@ -125,7 +130,7 @@ describe('CurrentUserPage', () => {
     expect(getCurrentUser).toHaveBeenCalledTimes(2);
   });
 
-  it('uses fresh cached data when mounted again', async () => {
+  it('renders cached data and refreshes access when mounted again', async () => {
     getCurrentUser.mockResolvedValue(currentUser);
     const queryClient = createTestQueryClient();
     const firstView = renderPage(queryClient);
@@ -136,7 +141,7 @@ describe('CurrentUserPage', () => {
     renderPage(queryClient);
 
     expect(screen.getByRole('heading', { name: 'Alex Morgan' })).toBeInTheDocument();
-    expect(getCurrentUser).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(2));
   });
 
   it('aborts the request after unmounting', async () => {

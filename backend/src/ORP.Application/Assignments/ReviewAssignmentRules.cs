@@ -32,8 +32,7 @@ public static class ReviewAssignmentRules
     public static bool IsEligible(UserAccess target, MessageSourceDto source, int reviewLevel,
         IReadOnlyCollection<int> approvedReviewerIds, int actorId, int? currentAssigneeId) =>
         target.UserId != actorId && target.UserId != currentAssigneeId &&
-        target.Permissions.Contains(Permissions.MessageView) &&
-        target.Permissions.Contains(PermissionForLevel(reviewLevel)) &&
+        target.HasPermission(PermissionForLevel(reviewLevel), source.BranchId, source.DepartmentId) &&
         target.CanAccess(source.BranchId, source.DepartmentId) &&
         !approvedReviewerIds.Contains(target.UserId);
 }

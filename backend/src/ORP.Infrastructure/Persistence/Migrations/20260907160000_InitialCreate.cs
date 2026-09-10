@@ -78,25 +78,12 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     UserName = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
-                    DisplayName = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false)
+                    DisplayName = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
+                    IsGlobalAdministrator = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Users", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "SyncState",
-                schema: "orp",
-                columns: table => new
-                {
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    LastSuccessfulToUtc = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    UpdatedAtUtc = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SyncState", x => x.Name);
                 });
 
             migrationBuilder.CreateTable(
@@ -217,57 +204,44 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserBranches",
+                name: "AccessAuditEvents",
                 schema: "orp",
                 columns: table => new
                 {
-                    UserId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ActorId = table.Column<int>(type: "int", nullable: false),
+                    TargetUserId = table.Column<int>(type: "int", nullable: true),
+                    RoleId = table.Column<int>(type: "int", nullable: true),
+                    Timestamp = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    BeforeJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AfterJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CorrelationId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserBranches", x => new { x.UserId, x.BranchId });
+                    table.PrimaryKey("PK_AccessAuditEvents", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_UserBranches_Branches_BranchId",
-                        column: x => x.BranchId,
+                        name: "FK_AccessAuditEvents_Roles_RoleId",
+                        column: x => x.RoleId,
                         principalSchema: "orp",
-                        principalTable: "Branches",
+                        principalTable: "Roles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_UserBranches_Users_UserId",
-                        column: x => x.UserId,
+                        name: "FK_AccessAuditEvents_Users_ActorId",
+                        column: x => x.ActorId,
                         principalSchema: "orp",
                         principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "UserDepartments",
-                schema: "orp",
-                columns: table => new
-                {
-                    UserId = table.Column<int>(type: "int", nullable: false),
-                    DepartmentId = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserDepartments", x => new { x.UserId, x.DepartmentId });
-                    table.ForeignKey(
-                        name: "FK_UserDepartments_Departments_DepartmentId",
-                        column: x => x.DepartmentId,
-                        principalSchema: "orp",
-                        principalTable: "Departments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_UserDepartments_Users_UserId",
-                        column: x => x.UserId,
+                        name: "FK_AccessAuditEvents_Users_TargetUserId",
+                        column: x => x.TargetUserId,
                         principalSchema: "orp",
                         principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -276,11 +250,27 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     UserId = table.Column<int>(type: "int", nullable: false),
+                    BranchId = table.Column<int>(type: "int", nullable: false),
+                    DepartmentId = table.Column<int>(type: "int", nullable: false),
                     RoleId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserRoles", x => new { x.UserId, x.RoleId });
+                    table.PrimaryKey("PK_UserRoles", x => new { x.UserId, x.BranchId, x.DepartmentId, x.RoleId });
+                    table.ForeignKey(
+                        name: "FK_UserRoles_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalSchema: "orp",
+                        principalTable: "Branches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_UserRoles_Departments_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalSchema: "orp",
+                        principalTable: "Departments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_UserRoles_Roles_RoleId",
                         column: x => x.RoleId,
@@ -474,6 +464,24 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AccessAuditEvents_ActorId",
+                schema: "orp",
+                table: "AccessAuditEvents",
+                column: "ActorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccessAuditEvents_RoleId_Timestamp",
+                schema: "orp",
+                table: "AccessAuditEvents",
+                columns: new[] { "RoleId", "Timestamp" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccessAuditEvents_TargetUserId_Timestamp",
+                schema: "orp",
+                table: "AccessAuditEvents",
+                columns: new[] { "TargetUserId", "Timestamp" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Assignments_AssignedBy",
                 schema: "orp",
                 table: "Assignments",
@@ -577,15 +585,15 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserBranches_BranchId",
+                name: "IX_UserRoles_BranchId",
                 schema: "orp",
-                table: "UserBranches",
+                table: "UserRoles",
                 column: "BranchId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserDepartments_DepartmentId",
+                name: "IX_UserRoles_DepartmentId",
                 schema: "orp",
-                table: "UserDepartments",
+                table: "UserRoles",
                 column: "DepartmentId");
 
             migrationBuilder.CreateIndex(
@@ -627,13 +635,26 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 table: "WorkflowSteps",
                 columns: new[] { "WorkflowDefinitionId", "Order" },
                 unique: true);
-
             migrationBuilder.Sql(
                 """
-                INSERT INTO [orp].[Permissions] ([Name])
-                VALUES (N'message.access.all-departments');
+                INSERT INTO [orp].[Permissions] ([Name]) VALUES
+                    (N'message.view'), (N'message.assign'), (N'review.level1'),
+                    (N'review.level2'), (N'review.level3'),
+                    (N'review.undo'), (N'audit.view'), (N'workflow.manage');
+                INSERT INTO [orp].[Roles] ([Name]) VALUES
+                    (N'CS Reviewer'), (N'TFO Reviewer'), (N'DC Reviewer'),
+                    (N'DC Senior Reviewer'), (N'Operations manager');
+                INSERT INTO [orp].[RolePermissions] ([RoleId], [PermissionId])
+                SELECT role.[Id], permission.[Id]
+                FROM [orp].[Roles] AS role CROSS JOIN [orp].[Permissions] AS permission
+                WHERE role.[Name] = N'Operations manager'
+                   OR (role.[Name] IN (N'CS Reviewer', N'DC Reviewer')
+                       AND permission.[Name] IN (N'message.view', N'review.level1'))
+                   OR (role.[Name] = N'TFO Reviewer'
+                       AND permission.[Name] IN (N'message.view', N'review.level1', N'review.level2'))
+                   OR (role.[Name] = N'DC Senior Reviewer'
+                       AND permission.[Name] IN (N'message.view', N'review.level2', N'review.level3', N'review.undo'));
                 """);
-
             migrationBuilder.Sql(RegisterNewMessagesSql);
         }
 
@@ -641,6 +662,9 @@ namespace ORP.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("DROP PROCEDURE IF EXISTS [orp].[RegisterNewMessages];");
+            migrationBuilder.DropTable(
+                name: "AccessAuditEvents",
+                schema: "orp");
 
             migrationBuilder.DropTable(
                 name: "Assignments",
@@ -652,18 +676,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "RolePermissions",
-                schema: "orp");
-
-            migrationBuilder.DropTable(
-                name: "SyncState",
-                schema: "orp");
-
-            migrationBuilder.DropTable(
-                name: "UserBranches",
-                schema: "orp");
-
-            migrationBuilder.DropTable(
-                name: "UserDepartments",
                 schema: "orp");
 
             migrationBuilder.DropTable(
@@ -710,7 +722,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 name: "Departments",
                 schema: "orp");
         }
-
         private const string RegisterNewMessagesSql =
             """
             CREATE PROCEDURE [orp].[RegisterNewMessages]
