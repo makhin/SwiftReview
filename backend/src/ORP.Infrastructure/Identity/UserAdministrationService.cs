@@ -113,7 +113,8 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
     {
         var active = await (from review in db.Reviews
             join source in db.SwiftMessages on review.MessageId equals source.MessageId
-            where review.Status == ReviewStatus.InProgress && userIds.Contains(review.ReviewerId)
+            where review.Status == ReviewStatus.InProgress && userIds.Contains(review.ReviewerId) &&
+                !db.Users.Any(u => u.Id == review.ReviewerId && u.IsGlobalAdministrator)
             select new { review.ReviewerId, review.Level, source.BranchId, source.DepartmentId }).ToListAsync(ct);
         foreach (var review in active)
         {

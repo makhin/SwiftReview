@@ -16,11 +16,11 @@ public sealed class AssignmentCandidateQueries(ORPDbContext db) : IAssignmentCan
             .Concat(currentAssigneeId is null ? [] : [currentAssigneeId.Value])
             .Distinct().ToArray();
         return await db.Users.AsNoTracking()
-            .Where(user => !excluded.Contains(user.Id) &&
+            .Where(user => user.Id != currentAssigneeId && (user.IsGlobalAdministrator || (!excluded.Contains(user.Id) &&
                 user.Roles.Any(r => r.BranchId == branchId && r.DepartmentId == departmentId &&
                     r.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)) &&
                 user.Roles.Any(r => r.BranchId == branchId && r.DepartmentId == departmentId &&
-                    r.Role.Permissions.Any(p => p.Permission.Name == reviewPermission)))
+                    r.Role.Permissions.Any(p => p.Permission.Name == reviewPermission)))))
             .OrderBy(user => user.DisplayName).ThenBy(user => user.Id)
             .Select(user => new AssignmentCandidateDto(user.Id, user.UserName, user.DisplayName))
             .ToListAsync(cancellationToken);

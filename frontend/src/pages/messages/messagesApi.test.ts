@@ -10,6 +10,7 @@ import {
   getMessageGrid,
   rejectReview,
   startReview,
+  undoReview,
 } from './messagesApi';
 
 describe('getMessageGrid', () => {
@@ -119,6 +120,13 @@ describe('getMessage', () => {
 });
 
 describe('review actions', () => {
+  it('posts the selected approval ID to the undo endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204 }));
+    await undoReview(42, '9007199254740993', 'Review again');
+    expect(fetch).toHaveBeenCalledWith('/api/messages/42/undo', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ reviewId: '9007199254740993', comment: 'Review again' }),
+    }));
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });

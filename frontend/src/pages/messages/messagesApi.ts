@@ -10,9 +10,27 @@ import type {
   MessageListItemDto,
   RejectReviewRequest,
   StartReviewRequest,
+  UndoReviewRequest,
+  ChangeMessageWorkflowRequest,
 } from '../../shared/api/generated/contracts.generated';
 
-export type MessageRow = MessageListItemDto & { requiredReviewLevels?: number[] };
+export type MessageRow = MessageListItemDto & {
+  requiredReviewLevels?: number[];
+  undoReviewId?: number | string | null;
+  workflowDefinitionId?: number | string;
+  canChangeWorkflow?: boolean;
+};
+
+export async function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: number | string) {
+  const request: ChangeMessageWorkflowRequest = { workflowDefinitionId };
+  const response = await apiFetch(`/api/messages/${messageId}/workflow`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null) as { detail?: string } | null;
+    throw new ApiError(problem?.detail ?? 'Unable to change workflow. Refresh the grid and check your access and review history.', response.status);
+  }
+}
 export type MessageAssignmentScope = 'mine' | 'departments' | 'assignable';
 
 export async function getMessage(
@@ -142,6 +160,16 @@ export function startReview(messageId: MessageRow['id'], level: number) {
 
 export function cancelReview(messageId: MessageRow['id'], level: number) {
   return postReviewAction(messageId, 'cancel', { level });
+}
+
+export async function undoReview(messageId: MessageRow['id'], reviewId: UndoReviewRequest['reviewId'], comment: string | null = null) {
+  const request: UndoReviewRequest = { reviewId, comment };
+  const response = await apiFetch(`/api/messages/${messageId}/undo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new ApiError('Unable to undo the approval. Refresh the grid and check the message state.', response.status);
 }
 
 export function approveReview(

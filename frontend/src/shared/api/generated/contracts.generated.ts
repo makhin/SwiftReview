@@ -67,10 +67,15 @@ export type AuditEventType =
   | "MessageCompleted"
   | "ReviewRejected"
   | "ConfirmationUndone"
-  | "ReviewCancelled";
+  | "ReviewCancelled"
+  | "MessageWorkflowChanged";
 
 export interface CancelReviewRequest {
   level: number | string;
+}
+
+export interface ChangeMessageWorkflowRequest {
+  workflowDefinitionId: number | string;
 }
 
 export interface CurrentUserResponse {
@@ -215,6 +220,7 @@ export interface StartReviewResponse {
 
 export interface UndoReviewRequest {
   reviewId: number | string;
+  comment?: string | null;
 }
 
 export interface UpdateRolePermissionsRequest {

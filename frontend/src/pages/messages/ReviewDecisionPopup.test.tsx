@@ -153,7 +153,7 @@ describe('ReviewDecisionPopup', () => {
   it('closing the window leaves the started review active', async () => {
     const props = open();
     await ready();
-    expect(screen.getByText(/Closing this window keeps the message assigned/)).toBeInTheDocument();
+    expect(screen.getByText(/Closing this window leaves the review and assignment active/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(props.onClose).toHaveBeenCalledOnce();
     expect(startReview).toHaveBeenCalledOnce();

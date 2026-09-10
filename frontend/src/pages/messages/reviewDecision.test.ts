@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { canReviewMessage, getReviewStep } from './reviewDecision';
 
 describe('review decision availability', () => {
+  it.each(['Assigned', 'SecondReviewInProgress', 'WaitingForThirdReview'] as const)(
+    'lets an administrator review %s without permissions or ownership', (state) => {
+      expect(canReviewMessage({ state, currentAssigneeId: 7, activeReviewerId: 7 }, 8, [], true)).toBe(true);
+    },
+  );
+  it.each(['New', 'Completed', 'Rejected'] as const)('retains state restrictions for administrators in %s', (state) => {
+    expect(canReviewMessage({ state, currentAssigneeId: null, activeReviewerId: null }, 8, [], true)).toBe(false);
+  });
   it('maps waiting and active states to the current review step', () => {
     expect(getReviewStep('Assigned')).toEqual({ level: 1, needsStart: true });
     expect(getReviewStep('SecondReviewInProgress')).toEqual({

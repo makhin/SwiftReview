@@ -164,7 +164,7 @@ export default function ReviewDecisionPopup({
 
         {isStarting && <PageLoading message="Starting review…" />}
         {startError && <PageError title="Review unavailable" message={startError} actionLabel="Retry review" onAction={retryStart} />}
-        {ready && reviewEnabled && <p role="status">Review in progress. Closing this window keeps the message assigned to you. Cancel review stops this review and allows reassignment.</p>}
+        {ready && reviewEnabled && <p role="status">Review in progress. Closing this window leaves the review and assignment active. Cancel review stops this review and allows reassignment.</p>}
 
         {messageQuery.isSuccess && (!reviewEnabled || ready) && messageQuery.data.body && (
           <pre className="raw-message-popup__body" aria-label="Raw message content">

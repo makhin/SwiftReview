@@ -29,6 +29,16 @@ public sealed class Message
         CurrentAssigneeId = assigneeId;
     }
 
+    public void ChangeWorkflow(WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews)
+    {
+        if (State is not (MessageState.New or MessageState.Assigned) ||
+            reviews.Any(review => review.Status is not (ReviewStatus.Cancelled or ReviewStatus.Undone)))
+            throw new DomainRuleViolationException("Workflow can only be changed when there are no reviews or all review attempts have been cancelled or undone.");
+        if (!workflow.IsActive) throw new DomainRuleViolationException("The selected workflow is inactive.");
+        _ = workflow.RequiredLevels();
+        WorkflowDefinitionId = workflow.Id;
+    }
+
     public void Unassign()
     {
         if (CurrentAssigneeId is null)
@@ -40,16 +50,16 @@ public sealed class Message
     }
 
     public Review StartReview(int level, int reviewerId, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
-        DateTimeOffset now, bool preventReviewerReuse = true)
+        DateTimeOffset now, bool preventReviewerReuse = true, bool isGlobalAdministrator = false)
     {
         EnsureWorkflow(workflow);
-        if (CurrentAssigneeId != reviewerId)
+        if (!isGlobalAdministrator && CurrentAssigneeId != reviewerId)
             throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
         var expected = ExpectedLevel(workflow, reviews);
         if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
         if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
             throw new DomainRuleViolationException("This review level has already been started.");
-        if (preventReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
+        if (!isGlobalAdministrator && preventReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
             throw new DomainRuleViolationException("Four-eyes principle: a reviewer cannot be reused.");
 
         Fire(CreateMachine(), MessageTrigger.StartReview);
@@ -57,12 +67,12 @@ public sealed class Message
     }
 
     public void Approve(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
-        int actorId, string? comment, DateTimeOffset now)
+        int actorId, string? comment, DateTimeOffset now, bool isGlobalAdministrator = false)
     {
         EnsureWorkflow(workflow);
         if (State == MessageState.Completed) throw new DomainRuleViolationException("A completed message cannot be approved.");
         if (!reviews.Contains(review)) throw new DomainRuleViolationException("Review does not belong to this message workflow.");
-        if (review.ReviewerId != actorId)
+        if (!isGlobalAdministrator && review.ReviewerId != actorId)
             throw new DomainRuleViolationException("Only the reviewer who started the review can approve it.");
         var required = workflow.RequiredLevels();
         var completed = reviews.Where(x => x.Status == ReviewStatus.Approved).Select(x => x.Level).Append(review.Level).Distinct().ToHashSet();
@@ -74,10 +84,10 @@ public sealed class Message
         machine.Fire(MessageTrigger.Approve);
     }
 
-    public void Reject(Review review, int actorId, string? comment, DateTimeOffset now)
+    public void Reject(Review review, int actorId, string? comment, DateTimeOffset now, bool isGlobalAdministrator = false)
     {
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
-        if (review.ReviewerId != actorId)
+        if (!isGlobalAdministrator && review.ReviewerId != actorId)
             throw new DomainRuleViolationException("Only the reviewer who started the review can reject it.");
         var machine = CreateMachine();
         EnsureCanFire(machine, MessageTrigger.Reject);
@@ -85,10 +95,10 @@ public sealed class Message
         machine.Fire(MessageTrigger.Reject);
     }
 
-    public void CancelReview(Review review, int actorId, DateTimeOffset now)
+    public void CancelReview(Review review, int actorId, DateTimeOffset now, bool isGlobalAdministrator = false)
     {
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
-        if (review.ReviewerId != actorId)
+        if (!isGlobalAdministrator && review.ReviewerId != actorId)
             throw new DomainRuleViolationException("Only the reviewer who started the review can cancel it.");
         var activeState = review.Level switch
         {
@@ -105,11 +115,11 @@ public sealed class Message
     }
 
     public void UndoLastApproval(Review review, WorkflowDefinition workflow,
-        IReadOnlyCollection<Review> reviews, int actorId, DateTimeOffset now)
+        IReadOnlyCollection<Review> reviews, int actorId, DateTimeOffset now, bool isGlobalAdministrator = false)
     {
         EnsureWorkflow(workflow);
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
-        if (review.ReviewerId != actorId) throw new DomainRuleViolationException("Only the reviewer who approved can undo confirmation.");
+        if (!isGlobalAdministrator && review.ReviewerId != actorId) throw new DomainRuleViolationException("Only the reviewer who approved can undo confirmation.");
         var latestApprovedLevel = workflow.RequiredLevels().LastOrDefault(level =>
             reviews.Any(x => x.Level == level && x.Status == ReviewStatus.Approved));
         if (latestApprovedLevel == 0 || review.Level != latestApprovedLevel)

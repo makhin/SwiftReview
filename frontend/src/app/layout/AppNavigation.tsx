@@ -3,7 +3,7 @@ import List from 'devextreme-react/list';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canAssignMessages, canReviewMessages } from '../../shared/auth/permissions';
+import { canOpenMessagesPage, canReviewMessages } from '../../shared/auth/permissions';
 import { preserveUserQuery } from '../../shared/routing/preserveUserQuery';
 
 type NavigationItem = {
@@ -21,10 +21,10 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
   const navigate = useNavigate();
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const navigationItems: NavigationItem[] = [
-    ...(currentUser && canAssignMessages(currentUser.permissions)
+    ...(currentUser && canOpenMessagesPage(currentUser.permissions, currentUser.isGlobalAdministrator)
       ? [{ path: '/messages', text: 'Messages', icon: 'email' }]
       : []),
-    ...(currentUser && canReviewMessages(currentUser.permissions)
+    ...(currentUser && canReviewMessages(currentUser.permissions, currentUser.isGlobalAdministrator)
       ? [{ path: '/messages/assigned?scope=mine', text: 'Review queue', icon: 'todo' }]
       : []),
     ...(currentUser?.isGlobalAdministrator ? [{ path: '/admin', text: 'Users & access', icon: 'preferences' }] : []),

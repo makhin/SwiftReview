@@ -49,12 +49,13 @@ function LocationSearch() {
   return <span data-testid="location-search">{useLocation().search}</span>;
 }
 
-function renderPage(initialEntry: string, permissions: string[] = ['message.view', 'review.level1']) {
+function renderPage(initialEntry: string, permissions: string[] = ['message.view', 'review.level1'], isGlobalAdministrator = false) {
   const queryClient = createTestQueryClient();
   queryClient.setQueryData(['current-user'], {
     userId: 1,
     userName: 'alex.morgan',
     permissions,
+    isGlobalAdministrator,
     branches: [10],
     departments: [20],
   });
@@ -73,6 +74,11 @@ function renderPage(initialEntry: string, permissions: string[] = ['message.view
 }
 
 describe('AssignedMessagesPage', () => {
+  it('lets an administrator without roles open the all messages tab', () => {
+    renderPage('/messages/assigned?scope=departments', [], true);
+    expect(screen.getByLabelText('Messages')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All messages' })).toHaveAttribute('aria-pressed', 'true');
+  });
   beforeEach(() => {
     getMessageGrid.mockClear();
     gridProps.mockClear();

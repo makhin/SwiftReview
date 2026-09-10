@@ -10,6 +10,7 @@ using ORP.Application.Assignments.Reassign;
 using ORP.Application.Audit.GetAuditTrail;
 using ORP.Application.Dashboard.GetSummary;
 using ORP.Application.Messages.Get;
+using ORP.Application.Messages.ChangeWorkflow;
 using ORP.Application.Messages.Search;
 using ORP.Application.Reviews;
 using ORP.Application.ReferenceData;
@@ -28,6 +29,8 @@ public static class ApiEndpoints
 
         messages.MapGet("/grid", Grid).Produces<LoadResult>().ProducesProblem(400).ProducesProblem(403);
         messages.MapGet("/{id:long}", GetMessage).Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(403);
+        messages.MapPut("/{id:long}/workflow", ChangeWorkflow).AddEndpointFilter<StartReviewTransactionFilter>()
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/search", Search).Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
         messages.MapPost("/{id:long}/assign", Assign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reassign", Reassign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
@@ -38,7 +41,8 @@ public static class ApiEndpoints
         messages.MapPost("/{id:long}/reviews/approve", Approve).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/reject", Reject).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/cancel", CancelReview).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/undo", Undo).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        messages.MapPost("/{id:long}/undo", Undo).RequireAuthorization("GlobalAdministrator")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapGet("/{id:long}/audit", Audit).Produces<PagedResult<AuditEventDto>>()
             .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404);
         api.MapGet("/dashboard/summary", Dashboard).Produces<DashboardSummaryDto>();
@@ -53,6 +57,15 @@ public static class ApiEndpoints
     }
 
     private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
+    private static async Task<IResult> ChangeWorkflow(long id, ChangeMessageWorkflowRequest request, ChangeMessageWorkflowHandler handler,
+        IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct)
+    {
+        var resource = await AuthorizationResource(id, store, ct);
+        var result = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.WorkflowManage));
+        if (!result.Succeeded) return Forbidden();
+        await handler.HandleAsync(id, request, ct);
+        return Results.NoContent();
+    }
     private static async Task<LoadResult> Grid([AsParameters] DevExtremeGridRequest request, MessageGridQueries queries, ICurrentUser currentUser,
         IUserAccessService accessService, CancellationToken ct)
     {

@@ -148,6 +148,7 @@ function renderPage(
   withReferenceData = true,
   permissions = ['message.view', 'message.assign'],
   withCurrentUser = true,
+  isGlobalAdministrator = false,
 ) {
   const queryClient = createTestQueryClient();
   if (withCurrentUser) {
@@ -155,8 +156,8 @@ function renderPage(
       userId: 1,
       userName: 'alex.morgan',
       permissions,
-      isGlobalAdministrator: false,
-      scopes: [{ branchId: 10, departmentId: 20, roleIds: [1], permissions }],
+      isGlobalAdministrator,
+      scopes: isGlobalAdministrator ? [] : [{ branchId: 10, departmentId: 20, roleIds: [1], permissions }],
       branches: [10],
       departments: [20],
     });
@@ -210,6 +211,30 @@ function renderPage(
 }
 
 describe('MessagesPage', () => {
+  it('shows Undo to a global administrator in the assignment grid', () => {
+    renderPage(true, [], true, true);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+  });
+
+  it('does not expose Undo to an ordinary user even with review.undo permission', () => {
+    renderPage(true, ['message.view', 'message.assign', 'review.undo']);
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+  });
+
+  it('allows an administrator without permissions to review another users message from this page', () => {
+    Object.assign(rowOverrides, { state: 'SecondReviewInProgress', currentAssigneeId: 7, activeReviewerId: 7, branchId: 99, departmentId: 99 });
+    renderPage(true, [], true, true);
+    expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
+  });
+
+  it('allows an administrator to assign in a scope without roles', () => {
+    Object.assign(rowOverrides, { branchId: 99, departmentId: 99 });
+    renderPage(true, [], true, true);
+    expect(screen.getByRole('button', { name: 'Assign' })).toBeInTheDocument();
+  });
   beforeEach(() => {
     componentProps.mockClear();
     refreshGrid.mockReset();
@@ -528,5 +553,23 @@ describe('MessagesPage', () => {
     expect(assigneeLookup?.dataSource).toEqual([
       expect.objectContaining({ displayLabel: 'Alex Morgan — 20' }),
     ]);
+  });
+});
+
+
+describe('workflow action', () => {
+  it('explains why review history prevents changing workflow', () => {
+    renderPage(true, ['message.view', 'workflow.manage']);
+    expect(screen.getByText('Change workflow')).toBeInTheDocument();
+    expect(screen.getByTitle(/Workflow cannot be changed/)).toHaveAttribute('tabindex', '0');
+    expect(componentProps).toHaveBeenCalledWith('Button', expect.objectContaining({ text: 'Change workflow', disabled: true }));
+    expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
+  });
+
+  it('enables changing workflow when the server allows it', () => {
+    rowOverrides.canChangeWorkflow = true;
+    renderPage(true, [], true, true);
+    expect(componentProps).toHaveBeenCalledWith('Button', expect.objectContaining({ text: 'Change workflow', disabled: false }));
+    expect(screen.queryByTitle(/Workflow cannot be changed/)).not.toBeInTheDocument();
   });
 });

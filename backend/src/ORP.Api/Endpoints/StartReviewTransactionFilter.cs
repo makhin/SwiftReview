@@ -6,6 +6,7 @@ namespace ORP.Api.Endpoints;
 
 // Keep the permission read and review creation atomic with administrative revocations.
 // A revocation must either see the active review or finish before authorization reads access.
+// Workflow changes share this transaction boundary so they cannot race the first review start.
 public sealed class StartReviewTransactionFilter(ORPDbContext db) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

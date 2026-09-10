@@ -21,6 +21,11 @@ public sealed class MessageActionAuthorizationHandler(ILogger<MessageActionAutho
     {
         var currentId = int.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
         var access = await users.GetByIdAsync(currentId, httpContextAccessor.HttpContext?.RequestAborted ?? default);
+        if (access?.IsGlobalAdministrator == true)
+        {
+            context.Succeed(requirement);
+            return;
+        }
         var permission = access?.HasPermission(requirement.Permission, resource.BranchId, resource.DepartmentId) == true;
         var branch = access?.CanAccess(resource.BranchId, resource.DepartmentId) == true;
         var department = branch;

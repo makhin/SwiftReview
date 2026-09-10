@@ -25,22 +25,27 @@ public sealed class CancelReviewValidator : AbstractValidator<CancelReviewReques
 }
 public sealed class UndoReviewValidator : AbstractValidator<UndoReviewRequest>
 {
-    public UndoReviewValidator() { RuleFor(x => x.ReviewId).GreaterThan(0); }
+    public UndoReviewValidator() { RuleFor(x => x.ReviewId).GreaterThan(0); RuleFor(x => x.Comment).MaximumLength(2000); }
 }
 
 public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRequest> validator,
-    ICurrentUser user, IClock clock, ICorrelationContext correlation)
+    ICurrentUser user, IClock clock, ICorrelationContext correlation, AssignmentCoordinator assignments)
 {
     public async Task<long> HandleAsync(long messageId, StartReviewRequest request, CancellationToken cancellationToken)
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var (message, workflow, reviews) = await LoadAsync(store, messageId, cancellationToken);
         var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
-        if (active is not null && active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)
+        if (active is not null && (user.IsGlobalAdministrator ||
+            (active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)))
             return active.Id;
+        if (user.IsGlobalAdministrator && message.CurrentAssigneeId != user.UserId &&
+            message.State is Domain.Messages.MessageState.Assigned or Domain.Messages.MessageState.WaitingForSecondReview or Domain.Messages.MessageState.WaitingForThirdReview)
+            await assignments.AssignAsync(message, user.UserId, user.UserId, correlation.CorrelationId,
+                cancellationToken, allowSelfAssignment: true);
         var oldState = message.State;
         var now = clock.UtcNow;
-        var review = message.StartReview(request.Level, user.UserId, workflow, reviews, now);
+        var review = message.StartReview(request.Level, user.UserId, workflow, reviews, now, isGlobalAdministrator: user.IsGlobalAdministrator);
         store.AddReview(review);
         AddEvent(store, messageId, AuditEventType.ReviewStarted, user.UserId, oldState, message.State,
             review, now, correlation.CorrelationId);
@@ -76,7 +81,7 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             ?? throw new ResourceNotFoundException("Active review was not found.");
         var oldState = message.State;
         var now = clock.UtcNow;
-        message.Approve(review, workflow, reviews, user.UserId, request.Comment, now);
+        message.Approve(review, workflow, reviews, user.UserId, request.Comment, now, user.IsGlobalAdministrator);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, request.Comment);
         await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, cancellationToken);
@@ -99,7 +104,7 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             ?? throw new ResourceNotFoundException("Active review was not found.");
         var oldState = message.State;
         var now = clock.UtcNow;
-        message.Reject(review, user.UserId, request.Comment, now);
+        message.Reject(review, user.UserId, request.Comment, now, user.IsGlobalAdministrator);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, request.Comment);
         await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, cancellationToken);
@@ -118,7 +123,7 @@ public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReview
             ?? throw new ResourceNotFoundException("Active review was not found.");
         var oldState = message.State;
         var now = clock.UtcNow;
-        message.CancelReview(review, user.UserId, now);
+        message.CancelReview(review, user.UserId, now, user.IsGlobalAdministrator);
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewCancelled, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId);
         await store.SaveChangesAsync(cancellationToken);
@@ -139,9 +144,10 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
         var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId) ?? throw new ResourceNotFoundException("Review was not found.");
         var oldState = message.State;
         var now = clock.UtcNow;
-        message.UndoLastApproval(review, workflow, reviews, user.UserId, now);
+        message.UndoLastApproval(review, workflow, reviews, user.UserId, now, user.IsGlobalAdministrator);
+        var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
-            message.State, review, now, correlation.CorrelationId, review.Comment);
+            message.State, review, now, correlation.CorrelationId, comment);
         if (message.CurrentAssigneeId is not null)
             await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, cancellationToken);
         await store.SaveChangesAsync(cancellationToken);

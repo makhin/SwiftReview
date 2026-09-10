@@ -23,12 +23,13 @@ function LocationPath() {
   return <span data-testid="location">{location.pathname}{location.search}</span>;
 }
 
-function renderNavigation(permissions: string[], initialEntry = '/messages') {
+function renderNavigation(permissions: string[], initialEntry = '/messages', isGlobalAdministrator = false) {
   const queryClient = createTestQueryClient();
   queryClient.setQueryData(['current-user'], {
     userId: 1,
     userName: 'alex.morgan',
     permissions,
+    isGlobalAdministrator,
     branches: [10],
     departments: [20],
   });
@@ -47,6 +48,11 @@ function renderNavigation(permissions: string[], initialEntry = '/messages') {
 }
 
 describe('AppNavigation', () => {
+  it('shows every page to a global administrator without business roles', () => {
+    renderNavigation([], '/messages', true);
+    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    expect(items.map((item) => item.path)).toEqual(expect.arrayContaining(['/messages', '/messages/assigned?scope=mine', '/admin']));
+  });
   it.each([
     { permissions: ['message.view'], assign: false, review: false },
     { permissions: ['message.assign'], assign: true, review: false },

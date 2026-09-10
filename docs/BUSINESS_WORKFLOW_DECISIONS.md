@@ -2,6 +2,8 @@
 
 This document records the assignment and review rules confirmed on 8 September 2026.
 
+Global administrators bypass permission, scope, review-owner and four-eyes restrictions. They can self-assign and act on another user's active review or undo their latest approval. Starting a pending review assigns it to the administrator; acting on an existing review preserves its original owner and records the administrator as the audit actor. The rules below apply to ordinary users; workflow-state rules apply to everyone.
+
 - An authorised user is a user with `message.assign` and access to the message's branch and department; no role name is hard-coded.
 - Assignment is manual. The system does not automatically assign the first or subsequent review levels.
 - Self-assignment is prohibited. Only eligible reviewers are offered: they must be able to view the message, access its scope, hold the required review-level permission, and must not have approved an earlier level.
@@ -19,3 +21,9 @@ This document records the assignment and review rules confirmed on 8 September 2
 - Undoing an approval closes any next-level assignment and clears the assignee in the same transaction. The reopened level requires a new manual assignment with eligibility checked for that level.
 
 Availability, workload balancing, fallback pools, escalation/SLA rules, and the Data Control message types and conditions that permit skipping level 2 remain subject to business confirmation.
+
+### Changing a message workflow
+
+The assignments page is available with `message.assign` or `workflow.manage`. Changing a workflow requires `workflow.manage` in the message's branch and department, with message visibility; global administrators bypass permission checks. Assignment itself still requires `message.assign`.
+
+The Change workflow action selects an accessible active workflow as a manual override and preserves the message's branch, department and assignment. It is allowed before review, or after every review attempt has been Cancelled or Undone. Active, Approved or Rejected reviews prevent the change, including for global administrators. A tooltip on the disabled action explains this restriction, and server refusals appear in the dialog. History is preserved; MessageWorkflowChanged records the previous and new workflow IDs and actual actor.

@@ -9,7 +9,7 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
     public async Task<IReadOnlyList<WorkflowSummaryDto>> GetWorkflowsAsync(UserAccess access, CancellationToken ct)
     {
         var workflows = await db.WorkflowDefinitions.AsNoTracking().Include(x => x.Steps)
-            .Where(x => db.UserRoles.Any(role => role.UserId == access.UserId &&
+            .Where(x => access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
                 role.DepartmentId == x.DepartmentId && (x.BranchId == null || role.BranchId == x.BranchId) &&
                 role.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
             .OrderBy(x => x.MessageType).ToListAsync(ct);
@@ -20,7 +20,7 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
     public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(UserAccess access, CancellationToken ct)
     {
         var users = await db.Users.AsNoTracking().Include(x => x.Roles)
-            .Where(user => user.Roles.Any(target => db.UserRoles.Any(actor =>
+            .Where(user => access.IsGlobalAdministrator || user.Roles.Any(target => db.UserRoles.Any(actor =>
                 actor.UserId == access.UserId && actor.BranchId == target.BranchId &&
                 actor.DepartmentId == target.DepartmentId &&
                 actor.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView))))
@@ -35,12 +35,12 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
     }
 
     public async Task<IReadOnlyList<ReferenceItemDto>> GetBranchesAsync(UserAccess access, CancellationToken ct) =>
-        await db.Branches.AsNoTracking().Where(x => db.UserRoles.Any(role => role.UserId == access.UserId &&
+        await db.Branches.AsNoTracking().Where(x => access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
                 role.BranchId == x.Id && role.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
             .OrderBy(x => x.Name).ThenBy(x => x.Id).Select(x => new ReferenceItemDto(x.Id, x.Name)).ToListAsync(ct);
 
     public async Task<IReadOnlyList<ReferenceItemDto>> GetDepartmentsAsync(UserAccess access, CancellationToken ct) =>
-        await db.Departments.AsNoTracking().Where(x => db.UserRoles.Any(role => role.UserId == access.UserId &&
+        await db.Departments.AsNoTracking().Where(x => access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
                 role.DepartmentId == x.Id && role.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
             .OrderBy(x => x.Name).ThenBy(x => x.Id).Select(x => new ReferenceItemDto(x.Id, x.Name)).ToListAsync(ct);
 

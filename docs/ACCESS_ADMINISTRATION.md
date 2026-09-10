@@ -5,7 +5,7 @@ also enforces this restriction on every `/api/admin` endpoint.
 
 ## Access model
 
-- Business permissions are granted only through roles. A user has no direct grants.
+- Ordinary users receive business permissions only through roles, with no direct grants. Global administrators bypass permission, branch/department and review-ownership checks even with no role assignments.
 - Each assignment is `(user, branch, department, role)`. Multiple roles may be
   assigned to the same exact branch/department pair; their permissions are combined
   only within that pair. Separate branch and department lists are not access grants.
@@ -15,7 +15,7 @@ also enforces this restriction on every `/api/admin` endpoint.
   rejection and cancellation at that level, only by the active review's owner. There is no
   separate global rejection permission.
 - `Users.IsGlobalAdministrator` controls access administration independently of
-  business roles. It neither grants message access nor bypasses review ownership.
+  business roles. It grants access to all information and actions, including starting, approving, rejecting, cancelling and undoing another user's review, and self-assignment. The flag comes from server-side identity, never from an action request.
   Set this flag through trusted provisioning/seed data; no UI or API changes it.
 
 ## Screens and changes
@@ -37,15 +37,39 @@ Operations manager). All five roles include `audit.view` for messages within the
 assigned scopes. Their permissions can subsequently be edited in the UI.
 Users, branches, departments and global administrators remain provisioning data.
 Mock mode supplies demo reference data and an `admin` identity with explicit
-business assignments; that demo access is not an implicit administrator bypass.
+business assignments; its global-administrator flag provides the same bypass even if those assignments are removed.
+
+The administrator review queue provides an **All messages** tab across all branches,
+departments and states. **My work** remains a personal filter. Starting a pending
+review as administrator assigns the message to that administrator; opening someone
+else's active review keeps its original owner. Audit events always identify the
+actual actor. Workflow-state validation remains enforced: active reviews must be
+finished or cancelled before reassignment, and completed reviews cannot be completed
+again. Ordinary assignees must still be eligible for the requested review level.
+
+The assignment grid exposes **Undo** only to global administrators. The API also
+requires a global administrator for `/api/messages/{id}/undo` at this stage;
+`review.undo` alone does not grant access yet. The button undoes the latest approved
+level, requires confirmation with an optional comment (up to 2,000 characters), closes the current assignment and refreshes the grid.
+The undo comment is stored in its audit event; the original approval comment is preserved.
+It is disabled while a review is active or no approval can be undone. The selected
+review ID is sent explicitly, so retrying an old request cannot undo an earlier level.
 
 Each saved user/role change appends an `AccessAuditEvents` record containing the
 actor, target, timestamp, before/after state and correlation ID in the same database
 transaction. Changes that remove the access needed to complete an active review
 are rejected with HTTP 409. Finish or cancel the review before revoking that access.
+Global administrators do not depend on role permissions, so editing their roles
+does not block their active reviews.
 Review start and administrative changes use serializable database transactions
 to coordinate permission reads with review creation. No row-version field is used.
 
 The initial migration was rewritten, not extended with an upgrade migration.
 It is intended for a new database, not one with the previous schema already applied.
 Sync is outside this feature's scope.
+
+### Changing a message workflow
+
+The assignments page is available with `message.assign` or `workflow.manage`. Changing a workflow requires `workflow.manage` in the message's branch and department, with message visibility; global administrators bypass permission checks. Assignment itself still requires `message.assign`.
+
+The Change workflow action selects an accessible active workflow as a manual override and preserves the message's branch, department and assignment. It is allowed before review, or after every review attempt has been Cancelled or Undone. Active, Approved or Rejected reviews prevent the change, including for global administrators. A tooltip on the disabled action explains this restriction, and server refusals appear in the dialog. History is preserved; MessageWorkflowChanged records the previous and new workflow IDs and actual actor.

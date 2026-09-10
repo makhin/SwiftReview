@@ -9,7 +9,7 @@ namespace ORP.Application.Abstractions;
 
 public interface IClock { DateTimeOffset UtcNow { get; } }
 public interface ICorrelationContext { string CorrelationId { get; } }
-public interface ICurrentUser { int UserId { get; } string UserName { get; } string DisplayName { get; } }
+public interface ICurrentUser { int UserId { get; } string UserName { get; } string DisplayName { get; } bool IsGlobalAdministrator => false; }
 
 public interface IORPStore
 {
@@ -74,10 +74,11 @@ public sealed record UserAccess(int UserId, string UserName, string DisplayName,
     IReadOnlyList<UserScopeAccess> Scopes)
 {
     // Summaries are for navigation and labels only, never for message authorization.
-    public IReadOnlySet<string> Permissions => Scopes.SelectMany(x => x.Permissions).ToHashSet();
+    public IReadOnlySet<string> Permissions => IsGlobalAdministrator
+        ? Domain.Identity.Permissions.All.ToHashSet() : Scopes.SelectMany(x => x.Permissions).ToHashSet();
     public IReadOnlySet<int> BranchIds => Scopes.Select(x => x.BranchId).ToHashSet();
     public IReadOnlySet<int> DepartmentIds => Scopes.Select(x => x.DepartmentId).ToHashSet();
-    public bool HasPermission(string permission, int branchId, int departmentId) => Scopes.Any(x =>
+    public bool HasPermission(string permission, int branchId, int departmentId) => IsGlobalAdministrator || Scopes.Any(x =>
         x.BranchId == branchId && x.DepartmentId == departmentId && x.Permissions.Contains(permission));
     public bool CanAccess(int branchId, int departmentId) => HasPermission(
         Domain.Identity.Permissions.MessageView, branchId, departmentId);

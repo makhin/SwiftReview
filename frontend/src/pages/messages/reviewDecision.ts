@@ -30,11 +30,13 @@ export function canReviewMessage(
   message: Pick<MessageRow, 'state' | 'currentAssigneeId' | 'activeReviewerId'>,
   currentUserId: number | string,
   permissions: string[],
+  isGlobalAdministrator = false,
 ) {
   const step = getReviewStep(message.state);
   if (!step) {
     return false;
   }
+  if (isGlobalAdministrator) return true;
 
   const canReviewLevel = permissions.includes(`review.level${step.level}`);
   const ownsReview = step.needsStart

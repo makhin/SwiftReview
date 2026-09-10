@@ -39,14 +39,14 @@ public sealed class AdministrationApiTests : IDisposable
     }
 
     [Fact]
-    public async Task GlobalAdminWithoutBusinessRoles_CanManageButCannotReadMessages()
+    public async Task GlobalAdminWithoutBusinessRoles_CanManageAndReadAllMessages()
     {
         using var admin = Client();
         (await admin.PutAsJsonAsync("/api/admin/users/5/access", new { assignments = Array.Empty<object>() }, Ct)).EnsureSuccessStatusCode();
         (await admin.GetAsync("/api/admin/catalog", Ct)).EnsureSuccessStatusCode();
         var grid = await admin.GetFromJsonAsync<JsonElement>("/api/messages/grid?skip=0&take=20", Ct);
-        Assert.Empty(grid.GetProperty("data").EnumerateArray());
-        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/messages/1", Ct)).StatusCode);
+        Assert.NotEmpty(grid.GetProperty("data").EnumerateArray());
+        (await admin.GetAsync("/api/messages/1", Ct)).EnsureSuccessStatusCode();
         var me = await admin.GetFromJsonAsync<JsonElement>("/api/me", Ct);
         Assert.True(me.GetProperty("isGlobalAdministrator").GetBoolean());
         Assert.Equal(0, me.GetProperty("scopes").GetArrayLength());
@@ -137,7 +137,7 @@ public sealed class AdministrationApiTests : IDisposable
         Assert.Equal(firstBody.GetProperty("reviewId").GetInt64(), resumedBody.GetProperty("reviewId").GetInt64());
 
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 2 }, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).StatusCode);
+        (await admin.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 2 }, Ct)).StatusCode);
         (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).StatusCode);
@@ -155,7 +155,9 @@ public sealed class AdministrationApiTests : IDisposable
         using var reviewer = Client("amelia.hart");
         (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 1 }, Ct)).EnsureSuccessStatusCode();
         (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
+        (await admin.PutAsJsonAsync("/api/admin/users/6/access", new UpdateUserAccessRequest([new(1, 1, [5])]), Ct)).EnsureSuccessStatusCode();
+        using var otherReviewer = Client("lucas.bennett");
+        Assert.Equal(HttpStatusCode.Forbidden, (await otherReviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 2 }, Ct)).StatusCode);
 
         (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
@@ -288,7 +290,9 @@ public sealed class AdministrationApiTests : IDisposable
         var path = $"/api/messages/1/reviews/{decision}";
         var body = new { level, comment = "Decision" };
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync(path, body, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync(path, body, Ct)).StatusCode);
+        (await admin.PutAsJsonAsync("/api/admin/users/6/access", new UpdateUserAccessRequest([new(1, 1, [5])]), Ct)).EnsureSuccessStatusCode();
+        using var otherReviewer = Client("lucas.bennett");
+        Assert.Equal(HttpStatusCode.Forbidden, (await otherReviewer.PostAsJsonAsync(path, body, Ct)).StatusCode);
         (await admin.PutAsJsonAsync("/api/admin/roles/1/permissions", new { permissions = new[] { Permissions.MessageView, $"review.level{level}" } }, Ct)).EnsureSuccessStatusCode();
         (await reviewer.PostAsJsonAsync(path, body, Ct)).EnsureSuccessStatusCode();
     }

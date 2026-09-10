@@ -24,6 +24,7 @@ const eventLabels: Record<AuditEventType, string> = {
   MessageCompleted: 'Message completed',
   ReviewRejected: 'Review rejected',
   ReviewCancelled: 'Review cancelled',
+  MessageWorkflowChanged: 'Workflow changed',
   ConfirmationUndone: 'Confirmation undone',
 };
 
@@ -96,6 +97,7 @@ function AuditEvent({
           {details.workflowDefinitionId != null && (
             <Detail label="Workflow" value={String(details.workflowDefinitionId)} />
           )}
+          {details.previousWorkflowDefinitionId != null && <Detail label="Previous workflow" value={String(details.previousWorkflowDefinitionId)} />}
           {details.previousAssigneeId != null && (
             <Detail
               label="Previous assignee"

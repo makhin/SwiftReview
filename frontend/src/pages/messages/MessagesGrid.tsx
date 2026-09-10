@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canAssignMessages, canViewAudit, permissionsForScope } from '../../shared/auth/permissions';
+import { canAssignMessages, canManageWorkflows, canViewAudit, permissionsForScope } from '../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
@@ -28,12 +28,16 @@ import AssignmentPopup from './AssignmentPopup';
 import MessageStage from './MessageStage';
 import type { MessageRow } from './messagesApi';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
+import UndoReviewButton from './UndoReviewButton';
+import ChangeWorkflowPopup from './ChangeWorkflowPopup';
 import { canReviewMessage } from './reviewDecision';
 import './messages-grid.css';
 
 type MessagesGridProps = {
   dataSource: CustomStore<MessageRow, MessageRow['id']>;
   enableReviewActions?: boolean;
+  enableUndoActions?: boolean;
+  enableWorkflowActions?: boolean;
 };
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
@@ -62,6 +66,8 @@ function usePrefersReducedMotion() {
 export default function MessagesGrid({
   dataSource,
   enableReviewActions = false,
+  enableUndoActions = false,
+  enableWorkflowActions = false,
 }: MessagesGridProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const { data: users } = useQuery(usersQueryOptions());
@@ -71,13 +77,16 @@ export default function MessagesGrid({
   const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
   const [selectedReviewMessage, setSelectedReviewMessage] = useState<MessageRow | null>(null);
   const [selectedAssignmentMessage, setSelectedAssignmentMessage] = useState<MessageRow | null>(null);
+  const [selectedWorkflowMessage, setSelectedWorkflowMessage] = useState<MessageRow | null>(null);
   const auditTriggerRef = useRef<HTMLElement | null>(null);
   const reviewTriggerRef = useRef<HTMLElement | null>(null);
   const assignmentTriggerRef = useRef<HTMLElement | null>(null);
   const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
-  const showAudit = currentUser ? canViewAudit(currentUser.permissions) : false;
-  const showAssignment = currentUser ? canAssignMessages(currentUser.permissions) : false;
+  const showAudit = currentUser ? canViewAudit(currentUser.permissions, currentUser.isGlobalAdministrator) : false;
+  const showAssignment = currentUser ? canAssignMessages(currentUser.permissions, currentUser.isGlobalAdministrator) : false;
+  const showUndo = enableUndoActions && currentUser?.isGlobalAdministrator === true;
+  const showWorkflow = enableWorkflowActions && currentUser != null && canManageWorkflows(currentUser.permissions, currentUser.isGlobalAdministrator);
   const assigneeUsers = users?.map((user) => {
     const names = user.departmentIds.map(
       (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
@@ -117,7 +126,7 @@ export default function MessagesGrid({
   }
 
   function canShowAssignment(message: MessageRow | undefined, assigned: boolean) {
-    if (!message || !canAssignMessages(permissionsForScope(currentUser, message.branchId, message.departmentId))) return false;
+    if (!message || !canAssignMessages(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator)) return false;
     const assignableState = message.state === 'New' || message.state === 'Assigned' ||
       message.state === 'WaitingForSecondReview' || message.state === 'WaitingForThirdReview';
     return assignableState && (message.currentAssigneeId != null) === assigned;
@@ -134,7 +143,7 @@ export default function MessagesGrid({
       return false;
     }
 
-    return canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId));
+    return canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser.isGlobalAdministrator);
   }
 
   useEffect(() => {
@@ -257,13 +266,24 @@ export default function MessagesGrid({
           </Column>
           <Column
             caption="Actions"
-            width={100 + (showAudit ? 40 : 0) + (showAssignment ? 100 : 0)}
+            width={100 + (showAudit ? 40 : 0) + (showAssignment ? 100 : 0) + (showUndo ? 85 : 0) + (showWorkflow ? 155 : 0)}
             allowFiltering={false}
             allowSorting={false}
             cellRender={(cell) => {
               const message = cell.data as MessageRow;
               return (
                 <div className="message-actions">
+                  {showWorkflow && canManageWorkflows(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator) &&
+                    <span
+                      title={!message.canChangeWorkflow ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.' : undefined}
+                      aria-label={!message.canChangeWorkflow ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.' : undefined}
+                      tabIndex={!message.canChangeWorkflow ? 0 : undefined}
+                    >
+                      <Button text="Change workflow" stylingMode="outlined" disabled={!message.canChangeWorkflow}
+                        onClick={() => { if (message.canChangeWorkflow) setSelectedWorkflowMessage(message); }} />
+                    </span>}
+                  {showUndo && <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message}
+                    onChanged={() => void dataGridRef.current?.instance().refresh()} />}
                   {canShowAssignment(message, false) && (
                     <Button
                       text="Assign"
@@ -287,7 +307,7 @@ export default function MessagesGrid({
                     stylingMode="outlined"
                     onClick={() => openReviewAction(message)}
                   />
-                  {canViewAudit(permissionsForScope(currentUser, message.branchId, message.departmentId)) && (
+                  {canViewAudit(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator) && (
                     <Button
                       icon="search"
                       hint="View audit trail"
@@ -309,12 +329,14 @@ export default function MessagesGrid({
         <ReviewDecisionPopup
           key={String(selectedReviewMessage.id)}
           message={selectedReviewMessage}
-          canApprove={enableReviewActions && canShowReviewAction(selectedReviewMessage)}
-          canReject={enableReviewActions && canShowReviewAction(selectedReviewMessage)}
+          canApprove={(enableReviewActions || currentUser?.isGlobalAdministrator === true) && canShowReviewAction(selectedReviewMessage)}
+          canReject={(enableReviewActions || currentUser?.isGlobalAdministrator === true) && canShowReviewAction(selectedReviewMessage)}
           onClose={closeReviewAction}
           onChanged={() => void dataGridRef.current?.instance().refresh()}
         />
       )}
+      {selectedWorkflowMessage && <ChangeWorkflowPopup key={String(selectedWorkflowMessage.id)} message={selectedWorkflowMessage}
+        onClose={() => setSelectedWorkflowMessage(null)} onChanged={() => void dataGridRef.current?.instance().refresh()} />}
       {selectedAssignmentMessage && (
         <AssignmentPopup
           message={selectedAssignmentMessage}

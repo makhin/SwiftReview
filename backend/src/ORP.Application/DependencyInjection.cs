@@ -7,6 +7,7 @@ using ORP.Application.Assignments.Reassign;
 using ORP.Application.Audit.GetAuditTrail;
 using ORP.Application.Dashboard.GetSummary;
 using ORP.Application.Messages.Get;
+using ORP.Application.Messages.ChangeWorkflow;
 using ORP.Application.Messages.Search;
 using ORP.Application.Reviews;
 using ORP.Application.ReferenceData;
@@ -19,6 +20,7 @@ public static class DependencyInjection
     {
         services.AddValidatorsFromAssemblyContaining<MessageSearchValidator>();
         services.AddScoped<GetMessageHandler>();
+        services.AddScoped<ChangeMessageWorkflowHandler>();
         services.AddScoped<GetAuditTrailHandler>();
         services.AddScoped<GetDashboardSummaryHandler>();
         services.AddScoped<AssignMessageHandler>();

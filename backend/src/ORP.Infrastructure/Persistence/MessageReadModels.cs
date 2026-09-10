@@ -25,12 +25,13 @@ internal static class MessageReadModels
 {
     public static IQueryable<MessageReadRow> ReadAccessibleMessages(this ORPDbContext db, int userId,
         string permission = Domain.Identity.Permissions.MessageView) => db.ReadMessages().Where(message =>
-        db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
+        db.Users.Any(user => user.Id == userId && user.IsGlobalAdministrator) ||
+        (db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
             role.DepartmentId == message.DepartmentId && role.Role.Permissions.Any(grant =>
                 grant.Permission.Name == Domain.Identity.Permissions.MessageView)) &&
         db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
             role.DepartmentId == message.DepartmentId && role.Role.Permissions.Any(grant =>
-                grant.Permission.Name == permission)));
+                grant.Permission.Name == permission))));
 
     public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db) =>
         from message in db.Messages.AsNoTracking()

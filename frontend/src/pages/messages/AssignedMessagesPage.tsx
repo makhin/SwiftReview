@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canAssignMessages, canReviewMessages } from '../../shared/auth/permissions';
+import { canOpenMessagesPage, canReviewMessages } from '../../shared/auth/permissions';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
@@ -29,14 +29,14 @@ export default function AssignedMessagesPage() {
     title="Unable to verify access" message="Check your connection and try again."
     actionLabel="Retry" onAction={() => void userQuery.refetch()} /></main>;
   const user = userQuery.data;
-  if (!user || !canReviewMessages(user.permissions)) {
-    const destination = user && canAssignMessages(user.permissions) ? '/messages' : user?.isGlobalAdministrator ? '/admin' : '/me';
+  if (!user || !canReviewMessages(user.permissions, user.isGlobalAdministrator)) {
+    const destination = user && canOpenMessagesPage(user.permissions, user.isGlobalAdministrator) ? '/messages' : user?.isGlobalAdministrator ? '/admin' : '/me';
     return <UserPreservingNavigate to={destination} replace />;
   }
-  return <ReviewQueue />;
+  return <ReviewQueue isGlobalAdministrator={user.isGlobalAdministrator} />;
 }
 
-function ReviewQueue() {
+function ReviewQueue({ isGlobalAdministrator }: { isGlobalAdministrator: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const scopeParam = searchParams.get('scope');
   const scope: AssignmentScope = isAssignmentScope(scopeParam) ? scopeParam : 'mine';
@@ -63,7 +63,7 @@ function ReviewQueue() {
     <main className="app-content app-page app-page--wide">
       <div className="app-toolbar">
         <Tabs
-          items={scopeItems}
+          items={isGlobalAdministrator ? scopeItems.map((item) => item.id === 'departments' ? { ...item, text: 'All messages' } : item) : scopeItems}
           keyExpr="id"
           selectedItemKeys={[scope]}
           selectionMode="single"

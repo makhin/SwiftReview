@@ -74,7 +74,7 @@ export default function CurrentUserPage() {
               <dt>Global administrator</dt><dd>{user.isGlobalAdministrator ? 'Yes' : 'No'}</dd>
             </dl>
             <h2>Access by scope</h2>
-            {user.scopes?.length ? <table><thead><tr><th>Branch</th><th>Department</th><th>Permissions</th></tr></thead>
+            {user.isGlobalAdministrator ? <p>Full access to all information and actions across all branches and departments.</p> : user.scopes?.length ? <table><thead><tr><th>Branch</th><th>Department</th><th>Permissions</th></tr></thead>
               <tbody>{user.scopes.map((scope) => <tr key={`${scope.branchId}-${scope.departmentId}`}>
                 <td>{branches?.find((b) => String(b.id) === String(scope.branchId))?.name ?? scope.branchId}</td>
                 <td>{departments?.find((d) => String(d.id) === String(scope.departmentId))?.name ?? scope.departmentId}</td>

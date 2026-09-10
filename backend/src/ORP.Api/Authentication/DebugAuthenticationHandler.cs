@@ -38,4 +38,5 @@ public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUse
     public int UserId => int.Parse(Principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException());
     public string UserName => Principal.Identity?.Name ?? throw new UnauthorizedAccessException();
     public string DisplayName => Principal.FindFirstValue("display_name") ?? UserName;
+    public bool IsGlobalAdministrator => Principal.HasClaim("global_admin", "true");
 }

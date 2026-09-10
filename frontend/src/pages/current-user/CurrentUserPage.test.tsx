@@ -84,6 +84,13 @@ describe('CurrentUserPage', () => {
     expect(screen.getByText('No business access.')).toBeInTheDocument();
   });
 
+  it('shows full access for a global administrator with no scopes', async () => {
+    getCurrentUser.mockResolvedValue({ ...currentUser, isGlobalAdministrator: true, permissions: [], scopes: [] });
+    renderPage();
+    expect(await screen.findByText('Full access to all information and actions across all branches and departments.')).toBeInTheDocument();
+    expect(screen.queryByText('No business access.')).not.toBeInTheDocument();
+  });
+
   it.each([
     {
       status: 401,

@@ -10,7 +10,7 @@ namespace ORP.Application.Assignments;
 public sealed class AssignmentCoordinator(IORPStore store, IClock clock)
 {
     public async Task AssignAsync(Message message, int assignedTo, int assignedBy, string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool allowSelfAssignment = false)
     {
         var oldState = message.State;
         var previousAssigneeId = message.CurrentAssigneeId;
@@ -18,7 +18,7 @@ public sealed class AssignmentCoordinator(IORPStore store, IClock clock)
         var now = clock.UtcNow;
         previous?.End(now);
         message.Assign(assignedTo);
-        store.AddAssignment(new Assignment(message.Id, assignedBy, assignedTo, now));
+        store.AddAssignment(new Assignment(message.Id, assignedBy, assignedTo, now, allowSelfAssignment));
         store.AddAudit(AuditEventFactory.Create(message.Id,
             previousAssigneeId is null ? AuditEventType.MessageAssigned : AuditEventType.MessageReassigned,
             assignedBy, now, oldState, message.State,

@@ -21,10 +21,13 @@ public sealed class UserAccessTests
     }
 
     [Fact]
-    public void GlobalAdministrator_DoesNotBypassBusinessAccess()
+    public void GlobalAdministrator_BypassesBusinessAccessWithoutRoles()
     {
         var access = new UserAccess(1, "admin", "Administrator", true, []);
-        Assert.False(access.CanAccess(1, 1));
-        Assert.False(access.HasPermission(Permissions.ReviewLevel1, 1, 1));
+        Assert.True(access.CanAccess(1, 1));
+        Assert.True(access.CanAccess(99, 99));
+        Assert.All(Permissions.All, permission => Assert.True(access.HasPermission(permission, 99, 99)));
+        Assert.True(access.HasPermission("future.permission", 99, 99));
+        Assert.Equal(Permissions.All.Order(), access.Permissions.Order());
     }
 }

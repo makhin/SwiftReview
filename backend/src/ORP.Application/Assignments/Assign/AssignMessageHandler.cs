@@ -39,7 +39,7 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAccessService acc
                 ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
             throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
         await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
-            cancellationToken);
+            cancellationToken, user.IsGlobalAdministrator);
         await store.SaveChangesAsync(cancellationToken);
     }
 }
