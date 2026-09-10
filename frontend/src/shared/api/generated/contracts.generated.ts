@@ -162,6 +162,11 @@ export type MessageState =
   | "Completed"
   | "Rejected";
 
+export interface MessageStateCountDto {
+  state: MessageState;
+  count: number | string;
+}
+
 export interface MessageStateReferenceDto {
   code: string;
   label: string;

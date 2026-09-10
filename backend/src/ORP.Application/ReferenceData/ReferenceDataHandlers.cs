@@ -56,18 +56,12 @@ public sealed class GetMessageTypesHandler(IReferenceDataQueries queries, IUserA
 
 public sealed class GetMessageStatesHandler(IUserAccessService users, ICurrentUser current)
 {
-    private static readonly IReadOnlyList<MessageStateReferenceDto> States =
-    [
-        State(MessageState.New, "New"),
-        State(MessageState.Assigned, "Assigned"),
-        State(MessageState.FirstReviewInProgress, "First review in progress"),
-        State(MessageState.WaitingForSecondReview, "Waiting for second review"),
-        State(MessageState.SecondReviewInProgress, "Second review in progress"),
-        State(MessageState.WaitingForThirdReview, "Waiting for third review"),
-        State(MessageState.ThirdReviewInProgress, "Third review in progress"),
-        State(MessageState.Completed, "Completed"),
-        State(MessageState.Rejected, "Rejected")
-    ];
+    private static readonly IReadOnlyList<MessageStateReferenceDto> States = Enum.GetValues<MessageState>()
+        .Select(state =>
+        {
+            var words = System.Text.RegularExpressions.Regex.Replace(state.ToString(), "(?<!^)([A-Z])", " $1");
+            return new MessageStateReferenceDto(state.ToString(), words[..1] + words[1..].ToLowerInvariant());
+        }).ToArray();
 
     public async Task<IReadOnlyList<MessageStateReferenceDto>> HandleAsync(CancellationToken ct)
     {
@@ -76,5 +70,4 @@ public sealed class GetMessageStatesHandler(IUserAccessService users, ICurrentUs
         return States;
     }
 
-    private static MessageStateReferenceDto State(MessageState state, string label) => new(state.ToString(), label);
 }

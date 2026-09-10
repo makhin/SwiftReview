@@ -30,6 +30,13 @@ public sealed class MessageGridRowDto
 
 public sealed class MessageGridQueries(ORPDbContext db)
 {
+    public async Task<IReadOnlyList<MessageStateCountDto>> StateCountsAsync(UserAccess access, CancellationToken ct)
+    {
+        var counts = await db.ReadAccessibleMessages(access.UserId).GroupBy(x => x.State)
+            .Select(g => new { State = g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.State, x => x.Count, ct);
+        return Enum.GetValues<MessageState>().Select(state => new MessageStateCountDto(state, counts.GetValueOrDefault(state))).ToArray();
+    }
+
     public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access,
         string? assignmentScope, CancellationToken ct)
     {

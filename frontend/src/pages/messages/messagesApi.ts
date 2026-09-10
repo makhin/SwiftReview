@@ -7,6 +7,7 @@ import type {
   CancelReviewRequest,
   AssignmentCandidateDto,
   MessageDetailsDto,
+  MessageStateCountDto,
   MessageListItemDto,
   RejectReviewRequest,
   StartReviewRequest,
@@ -249,4 +250,10 @@ export async function assignMessage(
     }
     throw new Error(`Unable to ${action} message.`, { cause: error });
   }
+}
+
+export async function getMessageStateCounts(signal?: AbortSignal): Promise<MessageStateCountDto[]> {
+  const response = await apiFetch('/api/messages/state-counts', { signal });
+  if (!response.ok) throw new ApiError('Unable to load message counts.', response.status);
+  return response.json() as Promise<MessageStateCountDto[]>;
 }

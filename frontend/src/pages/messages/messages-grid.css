@@ -72,3 +72,5 @@
   font-size: var(--font-size-xs);
 }
 .message-review-legend span { padding-inline-start: var(--space-2); }
+
+.message-counts-note { color: var(--color-text-secondary); font-size: var(--font-size-xs); margin-top: 0; }

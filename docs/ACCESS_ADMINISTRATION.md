@@ -81,3 +81,12 @@ viewer, permissions or assignment. A separate Traditional Green leading stripe a
 Assigned to you badge identify the current user's assignments without changing the
 stage colour. Ready for review remains a personal action cue. Completed, rejected
 and new messages have no review-level fill.
+
+Both message grids share the GridStateCards radio filter above the grid. All is
+selected initially. Selecting a state resets pagination and applies a server-side
+filter; All removes this card filter while preserving column filters. Counts cover
+all accessible messages before grid filters and paging, refresh after actions and
+manual grid refresh, and periodically refresh while the screen is open. Counts are
+never calculated from the current page. The API state catalog and zero-inclusive
+counts are generated from MessageState, so new states appear automatically.
+Cards reuse the row review-level colour tokens; unknown stages use neutral colours.

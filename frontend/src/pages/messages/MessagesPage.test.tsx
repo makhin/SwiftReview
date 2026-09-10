@@ -4,12 +4,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { componentProps, refreshGrid, getCurrentUser, rowOverrides } = vi.hoisted(() => ({
+const { componentProps, refreshGrid, getCurrentUser, rowOverrides, stateCounts, gridFilter, gridPageIndex } = vi.hoisted(() => ({
   componentProps: vi.fn(),
+  stateCounts: vi.fn().mockResolvedValue([{ state: 'New', count: 15 }, { state: 'Assigned', count: 5 }]),
+  gridFilter: vi.fn(),
+  gridPageIndex: vi.fn(),
   refreshGrid: vi.fn(),
   getCurrentUser: vi.fn(),
   rowOverrides: {} as Record<string, unknown>,
 }));
+
+vi.mock('./messagesApi', async (original) => ({ ...await original<typeof import('./messagesApi')>(), getMessageStateCounts: stateCounts }));
 
 vi.mock('../../shared/api/referenceDataApi', () => ({
   getBranches: vi.fn(() => new Promise(() => undefined)),
@@ -55,9 +60,9 @@ vi.mock('devextreme-react/data-grid', () => {
 
   return {
     default: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
-      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid } }>;
+      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid; filter: typeof gridFilter; pageIndex: typeof gridPageIndex; beginUpdate: () => void; endUpdate: () => void } }>;
     }>) {
-      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid }) }));
+      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid, filter: gridFilter, pageIndex: gridPageIndex, beginUpdate: () => undefined, endUpdate: () => undefined }) }));
       componentProps('DataGrid', props);
       return <div aria-label="Messages">{children}</div>;
     },
@@ -648,3 +653,37 @@ describe('workflow action', () => {
    });
 
  });
+
+describe('message state cards integration', () => {
+  beforeEach(() => { gridFilter.mockClear(); gridPageIndex.mockClear(); refreshGrid.mockClear(); stateCounts.mockClear(); });
+  it('loads server counts, filters by the selected state and clears only the card filter with All', async () => {
+    renderPage();
+    expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+    await waitFor(() => expect(screen.getByLabelText('20 messages')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('radio', { name: 'New' }));
+    expect(gridPageIndex).toHaveBeenLastCalledWith(0);
+    expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'New']);
+    expect(screen.getByRole('radio', { name: 'New' })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: 'All' }));
+    expect(gridFilter).toHaveBeenLastCalledWith(null);
+  });
+  it('refreshes the counts with the grid without clearing the selected card', async () => {
+    renderPage();
+    await waitFor(() => expect(stateCounts).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('radio', { name: 'Assigned' }));
+    const before = stateCounts.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(stateCounts.mock.calls.length).toBeGreaterThan(before));
+    expect(screen.getByRole('radio', { name: 'Assigned' })).toBeChecked();
+    expect(refreshGrid).toHaveBeenCalledOnce();
+  });
+});
+
+it('adds a state returned by the server even when reference labels are still cached', async () => {
+  stateCounts.mockResolvedValueOnce([{ state: 'FutureState', count: 4 }]);
+  renderPage();
+  const card = await screen.findByRole('radio', { name: 'Future State' });
+  expect(screen.getAllByLabelText('4 messages')).toHaveLength(2);
+  fireEvent.click(card);
+  expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'FutureState']);
+});

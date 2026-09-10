@@ -26,7 +26,9 @@ import {
 import AuditTrailDrawer from './AuditTrailDrawer';
 import AssignmentPopup from './AssignmentPopup';
 import MessageStage from './MessageStage';
-import type { MessageRow } from './messagesApi';
+import { getMessageStateCounts, type MessageRow } from './messagesApi';
+import GridStateCards from '../../shared/components/GridStateCards';
+import { messageStateCardColours } from './messageStateCards';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
 import UndoReviewButton from './UndoReviewButton';
 import ChangeWorkflowPopup from './ChangeWorkflowPopup';
@@ -70,10 +72,24 @@ export default function MessagesGrid({
   enableWorkflowActions = false,
 }: MessagesGridProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions());
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const stateCounts = useQuery({
+    queryKey: ['message-state-counts', currentUser?.userId, currentUser?.scopes, currentUser?.isGlobalAdministrator],
+    queryFn: ({ signal }) => getMessageStateCounts(signal), enabled: currentUser != null,
+    refetchInterval: 30_000,
+  });
+  const counts = stateCounts.isError ? undefined : stateCounts.data;
   const { data: users } = useQuery(usersQueryOptions());
   const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
+  const stateCards = [
+    { value: null, label: 'All', count: counts ? counts.reduce((sum, item) => sum + Number(item.count), 0) : null },
+    ...(counts?.map((item) => ({ code: item.state, label: messageStates?.find((state) => state.code === item.state)?.label ?? item.state.replace(/([a-z])([A-Z])/g, '$1 $2') })) ?? messageStates ?? []).map(({ code, label }) => ({
+      value: code, label, count: counts ? Number(counts.find((item) => item.state === code)?.count ?? 0) : null,
+      ...messageStateCardColours(code),
+    })),
+  ];
   const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
   const [readOnly, setReadOnly] = useState(false);
   const [selectedReviewMessage, setSelectedReviewMessage] = useState<MessageRow | null>(null);
@@ -98,6 +114,21 @@ export default function MessagesGrid({
       displayLabel: `${user.displayName} — ${names.length > 0 ? names.join(', ') : 'No departments'}`,
     };
   });
+
+  async function refreshMessages() {
+    await Promise.all([dataGridRef.current?.instance().refresh(), stateCounts.refetch()]);
+  }
+
+  function selectState(value: string | null) {
+    setSelectedState(value);
+    const grid = dataGridRef.current?.instance();
+    if (!grid) return;
+    grid.beginUpdate();
+    try {
+      grid.pageIndex(0);
+      grid.filter(value === null ? null : ['state', '=', value]);
+    } finally { grid.endUpdate(); }
+  }
 
   function closeAudit() {
     setSelectedAuditMessage(null);
@@ -182,8 +213,11 @@ export default function MessagesGrid({
 
   return (
     <>
+      <GridStateCards items={stateCards} value={selectedState} onChange={selectState} />
+      <p className="message-counts-note">Counts include all accessible messages, before grid filters.</p>
+      {stateCounts.isError && <p role="alert">Unable to load counts. <button type="button" onClick={() => void stateCounts.refetch()}>Retry counts</button></p>}
       <div className="app-toolbar">
-        <GridRefreshButton refresh={() => dataGridRef.current?.instance().refresh()} />
+        <GridRefreshButton refresh={refreshMessages} />
       </div>
       <p className="message-review-legend">
         Review stage:
@@ -304,7 +338,7 @@ export default function MessagesGrid({
                         onClick={() => { if (message.canChangeWorkflow) setSelectedWorkflowMessage(message); }} />
                     </span>}
                   {showUndo && <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message}
-                    onChanged={() => void dataGridRef.current?.instance().refresh()} />}
+                    onChanged={() => void refreshMessages()} />}
                   {canShowAssignment(message, false) && (
                     <Button
                       text="Assign"
@@ -354,16 +388,16 @@ export default function MessagesGrid({
           canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
           canReject={!readOnly && canShowReviewAction(selectedReviewMessage)}
           onClose={closeReviewAction}
-          onChanged={() => void dataGridRef.current?.instance().refresh()}
+          onChanged={() => void refreshMessages()}
         />
       )}
       {selectedWorkflowMessage && <ChangeWorkflowPopup key={String(selectedWorkflowMessage.id)} message={selectedWorkflowMessage}
-        onClose={() => setSelectedWorkflowMessage(null)} onChanged={() => void dataGridRef.current?.instance().refresh()} />}
+        onClose={() => setSelectedWorkflowMessage(null)} onChanged={() => void refreshMessages()} />}
       {selectedAssignmentMessage && (
         <AssignmentPopup
           message={selectedAssignmentMessage}
           onClose={closeAssignment}
-          onChanged={() => void dataGridRef.current?.instance().refresh()}
+          onChanged={() => void refreshMessages()}
         />
       )}
       {selectedAuditMessage &&

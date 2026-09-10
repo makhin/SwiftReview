@@ -27,6 +27,9 @@ public static class ApiEndpoints
         var api = endpoints.MapGroup("/api").RequireAuthorization();
         var messages = api.MapGroup("/messages");
 
+        messages.MapGet("/state-counts", async (MessageGridQueries queries, IUserAccessService users, ICurrentUser current, CancellationToken ct) =>
+            await queries.StateCountsAsync(await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException(), ct))
+            .Produces<IReadOnlyList<MessageStateCountDto>>();
         messages.MapGet("/grid", Grid).Produces<LoadResult>().ProducesProblem(400).ProducesProblem(403);
         messages.MapGet("/{id:long}", GetMessage).Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(403);
         messages.MapPut("/{id:long}/workflow", ChangeWorkflow).AddEndpointFilter<StartReviewTransactionFilter>()
