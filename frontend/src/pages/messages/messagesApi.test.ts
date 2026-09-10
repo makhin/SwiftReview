@@ -133,17 +133,19 @@ describe('review actions', () => {
 
   it.each([
     ['start', startReview, { level: 2 }],
-    ['cancel', cancelReview, { level: 2 }],
-    ['approve', approveReview, { level: 2, comment: 'confirmed' }],
-    ['reject', rejectReview, { level: 2, comment: null }],
+    ['cancel', cancelReview, { level: 2, reviewId: '9007199254740993' }],
+    ['approve', approveReview, { level: 2, comment: 'confirmed', reviewId: '9007199254740993' }],
+    ['reject', rejectReview, { level: 2, comment: null, reviewId: '9007199254740993' }],
   ] as const)('posts the %s review action', async (action, request, body) => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: action === 'start' ? 201 : 204, json: async () => ({ reviewId: '9007199254740993' }) });
     vi.stubGlobal('fetch', fetchMock);
 
-    if (action === 'start' || action === 'cancel') {
-      await request(42, 2);
+    if (action === 'start') {
+      expect(await request(42, 2)).toBe('9007199254740993');
+    } else if (action === 'cancel') {
+      await request(42, 2, body.reviewId);
     } else {
-      await request(42, 2, body.comment);
+      await request(42, 2, body.comment, body.reviewId);
     }
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -158,7 +160,7 @@ describe('review actions', () => {
   it('normalizes an unsuccessful review response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
 
-    await expect(approveReview(42, 1, null)).rejects.toEqual(
+    await expect(approveReview(42, 1, null, 73)).rejects.toEqual(
       new ApiError('Unable to approve review (409).', 409),
     );
   });
@@ -168,7 +170,7 @@ describe('review actions', () => {
       detail: 'No eligible reviewer is available for review level 2.',
     }), { status: 409, headers: { 'Content-Type': 'application/problem+json' } })));
 
-    await expect(approveReview(42, 1, null)).rejects.toEqual(
+    await expect(approveReview(42, 1, null, 73)).rejects.toEqual(
       new ApiError('No eligible reviewer is available for review level 2.', 409),
     );
   });

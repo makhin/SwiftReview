@@ -3,7 +3,7 @@ import List from 'devextreme-react/list';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canOpenMessagesPage, canReviewMessages } from '../../shared/auth/permissions';
+import { canOpenMessagesPage, canOpenReviewQueue } from '../../shared/auth/permissions';
 import { preserveUserQuery } from '../../shared/routing/preserveUserQuery';
 
 type NavigationItem = {
@@ -24,8 +24,8 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
     ...(currentUser && canOpenMessagesPage(currentUser.permissions, currentUser.isGlobalAdministrator)
       ? [{ path: '/messages', text: 'Messages', icon: 'email' }]
       : []),
-    ...(currentUser && canReviewMessages(currentUser.permissions, currentUser.isGlobalAdministrator)
-      ? [{ path: '/messages/assigned?scope=mine', text: 'Review queue', icon: 'todo' }]
+    ...(currentUser && canOpenReviewQueue(currentUser.permissions, currentUser.isGlobalAdministrator)
+      ? [{ path: '/messages/assigned', text: 'Review queue', icon: 'todo' }]
       : []),
     ...(currentUser?.isGlobalAdministrator ? [{ path: '/admin', text: 'Users & access', icon: 'preferences' }] : []),
     { path: '/me', text: 'User profile', icon: 'user' },
@@ -41,7 +41,7 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
           selectionMode="single"
           selectedItemKeys={[
             location.pathname === '/messages/assigned'
-              ? '/messages/assigned?scope=mine'
+              ? '/messages/assigned'
               : location.pathname,
           ]}
           focusStateEnabled

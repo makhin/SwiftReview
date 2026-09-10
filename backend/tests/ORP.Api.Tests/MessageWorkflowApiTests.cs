@@ -41,7 +41,7 @@ public sealed class MessageWorkflowApiTests : IDisposable
             start.EnsureSuccessStatusCode();
             var reviewId = (await start.Content.ReadFromJsonAsync<StartReviewResponse>(Ct))!.ReviewId;
             if (action != "active")
-                (await client.PostAsJsonAsync($"/api/messages/1/reviews/{(action == "undo" ? "approve" : action)}", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+                (await client.PostAsJsonAsync($"/api/messages/1/reviews/{(action == "undo" ? "approve" : action)}", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).EnsureSuccessStatusCode();
             if (action == "undo")
                 (await client.PostAsJsonAsync("/api/messages/1/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
         }
@@ -75,9 +75,9 @@ public sealed class MessageWorkflowApiTests : IDisposable
         (await client.PostAsJsonAsync("/api/messages/3/assign", new { assignedTo = 5 }, Ct)).EnsureSuccessStatusCode();
         var start = await client.PostAsJsonAsync("/api/messages/3/reviews/start", new { level = 1 }, Ct);
         var reviewId = (await start.Content.ReadFromJsonAsync<StartReviewResponse>(Ct))!.ReviewId;
-        (await client.PostAsJsonAsync("/api/messages/3/reviews/approve", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/messages/3/reviews/approve", new { reviewId = await factory.LatestReviewIdAsync(3), level = 1 }, Ct)).EnsureSuccessStatusCode();
         (await client.PostAsJsonAsync("/api/messages/3/reviews/start", new { level = 2 }, Ct)).EnsureSuccessStatusCode();
-        (await client.PostAsJsonAsync("/api/messages/3/reviews/cancel", new { level = 2 }, Ct)).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/messages/3/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(3), level = 2 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/messages/3/workflow", new { workflowDefinitionId = 1 }, Ct)).StatusCode);
         (await client.PostAsJsonAsync("/api/messages/3/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
         (await client.PutAsJsonAsync("/api/messages/3/workflow", new { workflowDefinitionId = 1 }, Ct)).EnsureSuccessStatusCode();

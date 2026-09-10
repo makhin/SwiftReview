@@ -23,6 +23,7 @@ public sealed class MessageGridRowDto
     public int? ActiveReviewerId { get; init; }
     public long? UndoReviewId { get; init; }
     public int WorkflowDefinitionId { get; init; }
+    public bool CanReview { get; init; }
     public bool CanChangeWorkflow { get; init; }
     public int[] RequiredReviewLevels { get; init; } = [];
 }
@@ -61,6 +62,16 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 ActiveReviewLevel = x.ActiveReviewLevel,
                 ActiveReviewerId = x.ActiveReviewerId,
                 WorkflowDefinitionId = x.WorkflowDefinitionId,
+                CanReview = (x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress ||
+                    x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress ||
+                    x.State == MessageState.WaitingForThirdReview || x.State == MessageState.ThirdReviewInProgress) &&
+                    (access.IsGlobalAdministrator || (
+                        (x.ActiveReviewId != null ? x.ActiveReviewerId == access.UserId : x.CurrentAssigneeId == access.UserId) &&
+                        !db.Reviews.Any(r => r.MessageId == x.Id && r.ReviewerId == access.UserId && r.Status == ReviewStatus.Approved) &&
+                        db.UserRoles.Any(role => role.UserId == access.UserId && role.BranchId == x.BranchId && role.DepartmentId == x.DepartmentId &&
+                            role.Role.Permissions.Any(grant => grant.Permission.Name ==
+                                (x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress ? Permissions.ReviewLevel1 :
+                                 x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress ? Permissions.ReviewLevel2 : Permissions.ReviewLevel3))))),
                 CanChangeWorkflow = (x.State == MessageState.New || x.State == MessageState.Assigned) &&
                     !db.Reviews.Any(review => review.MessageId == x.Id && review.Status != ReviewStatus.Cancelled && review.Status != ReviewStatus.Undone) &&
                     (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&

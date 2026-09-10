@@ -13,6 +13,7 @@ export interface AccessCatalogDto {
 
 export interface ApproveReviewRequest {
   level: number | string;
+  reviewId: number | string;
   comment: string | null;
 }
 
@@ -72,6 +73,7 @@ export type AuditEventType =
 
 export interface CancelReviewRequest {
   level: number | string;
+  reviewId: number | string;
 }
 
 export interface ChangeMessageWorkflowRequest {
@@ -190,6 +192,7 @@ export interface ReferenceItemDto {
 
 export interface RejectReviewRequest {
   level: number | string;
+  reviewId: number | string;
   comment: string | null;
 }
 

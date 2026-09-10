@@ -51,25 +51,25 @@ describe('AppNavigation', () => {
   it('shows every page to a global administrator without business roles', () => {
     renderNavigation([], '/messages', true);
     const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
-    expect(items.map((item) => item.path)).toEqual(expect.arrayContaining(['/messages', '/messages/assigned?scope=mine', '/admin']));
+    expect(items.map((item) => item.path)).toEqual(expect.arrayContaining(['/messages', '/messages/assigned', '/admin']));
   });
   it.each([
-    { permissions: ['message.view'], assign: false, review: false },
+    { permissions: ['message.view'], assign: false, review: true },
     { permissions: ['message.assign'], assign: true, review: false },
-    { permissions: ['review.level1'], assign: false, review: true },
-    { permissions: ['review.level2'], assign: false, review: true },
-    { permissions: ['review.level3'], assign: false, review: true },
-    { permissions: ['message.assign', 'review.level2'], assign: true, review: true },
+    { permissions: ['message.view', 'review.level1'], assign: false, review: true },
+    { permissions: ['message.view', 'review.level2'], assign: false, review: true },
+    { permissions: ['message.view', 'review.level3'], assign: false, review: true },
+    { permissions: ['message.view', 'message.assign', 'review.level2'], assign: true, review: true },
     { permissions: ['review.undo', 'audit.view'], assign: false, review: false },
   ])('shows pages according to $permissions', ({ permissions, assign, review }) => {
     renderNavigation(permissions);
     const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
     expect(items.some((item) => item.path === '/messages')).toBe(assign);
-    expect(items.some((item) => item.path === '/messages/assigned?scope=mine')).toBe(review);
+    expect(items.some((item) => item.path === '/messages/assigned')).toBe(review);
   });
 
   it('selects the current route and navigates through list items', async () => {
-    const onNavigate = renderNavigation(['message.assign', 'review.level1']);
+    const onNavigate = renderNavigation(['message.view', 'message.assign', 'review.level1']);
 
     expect(screen.getByRole('navigation', { name: 'Application navigation' }))
       .toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('AppNavigation', () => {
         items: expect.arrayContaining([
           expect.objectContaining({ path: '/messages', text: 'Messages' }),
           expect.objectContaining({
-            path: '/messages/assigned?scope=mine',
+            path: '/messages/assigned',
             text: 'Review queue',
             icon: 'todo',
           }),
@@ -108,7 +108,7 @@ describe('AppNavigation', () => {
   });
 
   it('hides the assignment page from reviewers without assign permission', () => {
-    renderNavigation(['review.level1']);
+    renderNavigation(['message.view', 'review.level1']);
 
     const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
     expect(items).not.toEqual(
@@ -116,7 +116,7 @@ describe('AppNavigation', () => {
     );
     expect(items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: '/messages/assigned?scope=mine' }),
+        expect.objectContaining({ path: '/messages/assigned' }),
       ]),
     );
   });
@@ -142,7 +142,7 @@ describe('AppNavigation', () => {
     await act(() =>
       props.onItemClick({
         itemData: {
-          path: '/messages/assigned?scope=mine',
+          path: '/messages/assigned',
           text: 'Review queue',
           icon: 'todo',
         },
@@ -150,7 +150,7 @@ describe('AppNavigation', () => {
     );
 
     expect(screen.getByTestId('location')).toHaveTextContent(
-      '/messages/assigned?scope=mine&user=alex.morgan',
+      '/messages/assigned?user=alex.morgan',
     );
     expect(onNavigate).toHaveBeenCalledOnce();
   });

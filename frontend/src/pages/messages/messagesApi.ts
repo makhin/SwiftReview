@@ -10,6 +10,7 @@ import type {
   MessageListItemDto,
   RejectReviewRequest,
   StartReviewRequest,
+  StartReviewResponse,
   UndoReviewRequest,
   ChangeMessageWorkflowRequest,
 } from '../../shared/api/generated/contracts.generated';
@@ -19,6 +20,7 @@ export type MessageRow = MessageListItemDto & {
   undoReviewId?: number | string | null;
   workflowDefinitionId?: number | string;
   canChangeWorkflow?: boolean;
+  canReview?: boolean;
 };
 
 export async function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: number | string) {
@@ -145,6 +147,7 @@ async function postReviewAction(
         response.status,
       );
     }
+    return response;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
@@ -154,12 +157,15 @@ async function postReviewAction(
   }
 }
 
-export function startReview(messageId: MessageRow['id'], level: number) {
-  return postReviewAction(messageId, 'start', { level });
+export async function startReview(messageId: MessageRow['id'], level: number) {
+  const response = await postReviewAction(messageId, 'start', { level });
+  const result = await response.json() as StartReviewResponse;
+  if (result.reviewId == null || !/^[1-9][0-9]*$/.test(String(result.reviewId))) throw new Error('Invalid review ID returned by the server.');
+  return result.reviewId;
 }
 
-export function cancelReview(messageId: MessageRow['id'], level: number) {
-  return postReviewAction(messageId, 'cancel', { level });
+export function cancelReview(messageId: MessageRow['id'], level: number, reviewId: CancelReviewRequest['reviewId']) {
+  return postReviewAction(messageId, 'cancel', { level, reviewId });
 }
 
 export async function undoReview(messageId: MessageRow['id'], reviewId: UndoReviewRequest['reviewId'], comment: string | null = null) {
@@ -176,16 +182,18 @@ export function approveReview(
   messageId: MessageRow['id'],
   level: number,
   comment: string | null,
+  reviewId: ApproveReviewRequest['reviewId'],
 ) {
-  return postReviewAction(messageId, 'approve', { level, comment });
+  return postReviewAction(messageId, 'approve', { level, comment, reviewId });
 }
 
 export function rejectReview(
   messageId: MessageRow['id'],
   level: number,
   comment: string | null,
+  reviewId: ApproveReviewRequest['reviewId'],
 ) {
-  return postReviewAction(messageId, 'reject', { level, comment });
+  return postReviewAction(messageId, 'reject', { level, comment, reviewId });
 }
 
 export async function getAssignmentCandidates(

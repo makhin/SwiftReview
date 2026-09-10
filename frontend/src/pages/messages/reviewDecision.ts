@@ -27,13 +27,13 @@ export function getReviewStep(state: MessageRow['state']): ReviewStep | null {
 }
 
 export function canReviewMessage(
-  message: Pick<MessageRow, 'state' | 'currentAssigneeId' | 'activeReviewerId'>,
+  message: Pick<MessageRow, 'state' | 'currentAssigneeId' | 'activeReviewerId' | 'canReview'>,
   currentUserId: number | string,
   permissions: string[],
   isGlobalAdministrator = false,
 ) {
   const step = getReviewStep(message.state);
-  if (!step) {
+  if (!step || message.canReview !== true) {
     return false;
   }
   if (isGlobalAdministrator) return true;
@@ -42,5 +42,5 @@ export function canReviewMessage(
   const ownsReview = step.needsStart
     ? String(message.currentAssigneeId) === String(currentUserId)
     : String(message.activeReviewerId) === String(currentUserId);
-  return canReviewLevel && ownsReview;
+  return permissions.includes('message.view') && canReviewLevel && ownsReview;
 }

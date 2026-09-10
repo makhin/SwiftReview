@@ -26,6 +26,7 @@ vi.mock('../../shared/api/currentUserApi', () => ({
 vi.mock('devextreme-react/data-grid', () => {
   const rowData = {
     id: 42,
+    canReview: true,
     externalId: 'MSG-0042',
     messageType: 'MT103',
     branchId: 10,
@@ -211,6 +212,19 @@ function renderPage(
 }
 
 describe('MessagesPage', () => {
+  it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)(
+    'uses the shared stage colours in the administrator assignment grid: %s', (state, level) => {
+      renderPage(true, [], true, true);
+      expect(screen.getByText('Review stage:')).toBeInTheDocument();
+      const prepare = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
+      const rowElement = document.createElement('tr');
+      prepare({ rowType: 'data', rowElement, data: { state, currentAssigneeId: 7 } });
+      expect(rowElement).toHaveClass(`message-review-level-${level}`);
+      expect(rowElement).not.toHaveClass('message-assigned-to-you');
+      prepare({ rowType: 'data', rowElement, data: { state, currentAssigneeId: 1 } });
+      expect(rowElement).toHaveClass(`message-review-level-${level}`, 'message-assigned-to-you');
+    },
+  );
   it('shows Undo to a global administrator in the assignment grid', () => {
     renderPage(true, [], true, true);
     expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
@@ -279,8 +293,8 @@ describe('MessagesPage', () => {
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(['current-user'], {
       userId: 1,
-      permissions: ['review.level1'],
-      scopes: [{ branchId: 10, departmentId: 20, roleIds: [1], permissions: ['review.level1'] }],
+      permissions: ['message.view', 'review.level1'],
+      scopes: [{ branchId: 10, departmentId: 20, roleIds: [1], permissions: ['message.view', 'review.level1'] }],
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -429,16 +443,16 @@ describe('MessagesPage', () => {
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
   });
 
-  it('opens Review from the shared actions column with decisions disabled', () => {
+  it('opens View from the shared actions column with decisions disabled', () => {
     renderPage();
 
     const rawButton = componentProps.mock.calls
       .filter(([name]) => name === 'Button')
       .map(([, props]) => props)
-      .find((props) => props.hint === 'Review message');
+      .find((props) => props.hint === 'View message');
     expect(rawButton).toMatchObject({ icon: 'doc', stylingMode: 'outlined' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
     expect(screen.getByLabelText('Review dialog')).toHaveTextContent('MSG-0042');
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
@@ -465,7 +479,7 @@ describe('MessagesPage', () => {
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(8);
-    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
@@ -512,9 +526,9 @@ describe('MessagesPage', () => {
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
   });
 
-  it('redirects a view-only user to the profile without rendering the assignment grid', () => {
+  it('redirects a view-only user to the queue without rendering the assignment grid', () => {
     renderPage(true, ['message.view']);
-    expect(screen.getByText('User profile')).toBeInTheDocument();
+    expect(screen.getByText('Assigned messages page')).toBeInTheDocument();
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
     expect(componentProps.mock.calls.some(([name]) => name === 'DataGrid')).toBe(false);
   });
@@ -573,3 +587,64 @@ describe('workflow action', () => {
     expect(screen.queryByTitle(/Workflow cannot be changed/)).not.toBeInTheDocument();
   });
 });
+
+ describe('queue row actions and colours', () => {
+   beforeEach(() => { componentProps.mockClear(); for (const key of Object.keys(rowOverrides)) delete rowOverrides[key]; });
+   function queue(permissions = ['message.view', 'review.level1', 'review.level2', 'review.level3'], isGlobalAdministrator = false) {
+     const client = createTestQueryClient();
+     client.setQueryData(['current-user'], { userId: 1, permissions, isGlobalAdministrator, scopes: [{ branchId: 10, departmentId: 20, permissions }] });
+     return render(<QueryClientProvider client={client}><MessagesGrid dataSource={messageDataSource} enableReviewActions /></QueryClientProvider>);
+   }
+   it.each([['Assigned', 1], ['SecondReviewInProgress', 2], ['WaitingForThirdReview', 3]] as const)('highlights an actionable %s and clears recycled rows', (state, level) => {
+     Object.assign(rowOverrides, { state, currentAssigneeId: 1, activeReviewerId: 1, canReview: true });
+     queue();
+     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
+     const onRowPrepared = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
+     const rowElement = document.createElement('tr');
+     const data = { ...rowOverrides, branchId: 10, departmentId: 20 };
+     onRowPrepared({ rowType: 'data', rowElement, data });
+     expect(rowElement).toHaveClass(`message-review-level-${level}`);
+     onRowPrepared({ rowType: 'data', rowElement, data: { ...data, state: 'Completed', currentAssigneeId: null, canReview: false } });
+     expect(rowElement.className).toBe('');
+     fireEvent.click(screen.getByRole('button', { name: 'View' }));
+     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+   });
+   it.each([
+     { state: 'Completed', currentAssigneeId: null, canReview: false },
+     { state: 'Assigned', currentAssigneeId: 7, canReview: false },
+     { state: 'Assigned', currentAssigneeId: 1, canReview: false },
+     { state: 'Assigned', currentAssigneeId: 1, canReview: true, departmentId: 99 },
+   ])('hides Review when the row is not actionable: %j', (row) => {
+     Object.assign(rowOverrides, row); queue();
+     expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+   });
+   it.each([7, null])('does not personally highlight an administrator-accessible row owned by %s', (owner) => {
+     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: owner, activeReviewerId: null, canReview: true });
+     queue([], true);
+     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
+     const rowElement = document.createElement('tr');
+     const data = { ...rowOverrides, branchId: 10, departmentId: 20 };
+     componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared({ rowType: 'data', rowElement, data });
+     expect(rowElement).toHaveClass('message-review-level-1');
+     expect(rowElement).not.toHaveClass('message-assigned-to-you');
+     const stage = componentProps.mock.calls.find(([name, props]) => name === 'Column' && props.dataField === 'state')![1].cellRender({ data });
+     expect(stage.props.readyForReview).toBe(false);
+     expect(stage.props.assignedToYou).toBe(false);
+   });
+
+   it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)('colours %s even without review rights and separately marks personal assignments', (state, level) => {
+     queue(['message.view']);
+     const rowElement = document.createElement('tr');
+     const data = { state, currentAssigneeId: 7, canReview: false };
+     const prepare = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
+     prepare({ rowType: 'data', rowElement, data });
+     expect(rowElement).toHaveClass(`message-review-level-${level}`);
+     expect(rowElement).not.toHaveClass('message-assigned-to-you');
+     prepare({ rowType: 'data', rowElement, data: { ...data, currentAssigneeId: '1' } });
+     expect(rowElement).toHaveClass(`message-review-level-${level}`, 'message-assigned-to-you');
+     prepare({ rowType: 'data', rowElement, data });
+     expect(rowElement).not.toHaveClass('message-assigned-to-you');
+   });
+
+ });

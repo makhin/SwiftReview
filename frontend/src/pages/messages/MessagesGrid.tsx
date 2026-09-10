@@ -30,7 +30,7 @@ import type { MessageRow } from './messagesApi';
 import ReviewDecisionPopup from './ReviewDecisionPopup';
 import UndoReviewButton from './UndoReviewButton';
 import ChangeWorkflowPopup from './ChangeWorkflowPopup';
-import { canReviewMessage } from './reviewDecision';
+import { canReviewMessage, getReviewStep } from './reviewDecision';
 import './messages-grid.css';
 
 type MessagesGridProps = {
@@ -75,6 +75,7 @@ export default function MessagesGrid({
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
   const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
   const [selectedReviewMessage, setSelectedReviewMessage] = useState<MessageRow | null>(null);
   const [selectedAssignmentMessage, setSelectedAssignmentMessage] = useState<MessageRow | null>(null);
   const [selectedWorkflowMessage, setSelectedWorkflowMessage] = useState<MessageRow | null>(null);
@@ -132,7 +133,8 @@ export default function MessagesGrid({
     return assignableState && (message.currentAssigneeId != null) === assigned;
   }
 
-  function openReviewAction(message: MessageRow) {
+  function openReviewAction(message: MessageRow, preview = false) {
+    setReadOnly(preview);
     reviewTriggerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedReviewMessage(message);
@@ -143,7 +145,14 @@ export default function MessagesGrid({
       return false;
     }
 
-    return canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser.isGlobalAdministrator);
+    return (enableReviewActions || currentUser.isGlobalAdministrator) && canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser.isGlobalAdministrator);
+  }
+
+  function ownReviewLevel(message: MessageRow) {
+    if (!currentUser || !canShowReviewAction(message)) return null;
+    const step = getReviewStep(message.state);
+    const owner = step?.needsStart ? message.currentAssigneeId : message.activeReviewerId;
+    return String(owner) === String(currentUser.userId) ? step?.level : null;
   }
 
   useEffect(() => {
@@ -176,12 +185,22 @@ export default function MessagesGrid({
       <div className="app-toolbar">
         <GridRefreshButton refresh={() => dataGridRef.current?.instance().refresh()} />
       </div>
+      <p className="message-review-legend">
+        Review stage:
+        {[1, 2, 3].map((level) => <span key={level} style={{ borderInlineStart: `4px solid var(--color-review-level-${level})` }}>Level {level}</span>)}
+      </p>
       <div className="app-table-shell">
         <DataGrid
           ref={dataGridRef}
           dataSource={dataSource}
           width="100%"
           remoteOperations
+          onRowPrepared={(event) => {
+            if (event.rowType !== 'data' || !event.data) return;
+            const level = getReviewStep(event.data.state)?.level;
+            event.rowElement.classList.toggle('message-assigned-to-you', currentUser != null && event.data.currentAssigneeId != null && String(event.data.currentAssigneeId) === String(currentUser.userId));
+            for (const candidate of [1, 2, 3]) event.rowElement.classList.toggle(`message-review-level-${candidate}`, level === candidate);
+          }}
           showBorders={false}
           rowAlternationEnabled
           hoverStateEnabled
@@ -238,6 +257,8 @@ export default function MessagesGrid({
                   label={label}
                   requiredLevels={message.requiredReviewLevels ?? []}
                   hasAssignee={message.currentAssigneeId != null}
+                  assignedToYou={currentUser != null && message.currentAssigneeId != null && String(message.currentAssigneeId) === String(currentUser.userId)}
+                  readyForReview={ownReviewLevel(message) != null && getReviewStep(message.state)?.needsStart === true}
                 />
               );
             }}
@@ -266,7 +287,7 @@ export default function MessagesGrid({
           </Column>
           <Column
             caption="Actions"
-            width={100 + (showAudit ? 40 : 0) + (showAssignment ? 100 : 0) + (showUndo ? 85 : 0) + (showWorkflow ? 155 : 0)}
+            width={200 + (showAudit ? 40 : 0) + (showAssignment ? 100 : 0) + (showUndo ? 85 : 0) + (showWorkflow ? 155 : 0)}
             allowFiltering={false}
             allowSorting={false}
             cellRender={(cell) => {
@@ -301,12 +322,13 @@ export default function MessagesGrid({
                     />
                   )}
                   <Button
-                    text="Review"
+                    text="View"
                     icon="doc"
-                    hint="Review message"
+                    hint="View message"
                     stylingMode="outlined"
-                    onClick={() => openReviewAction(message)}
+                    onClick={() => openReviewAction(message, true)}
                   />
+                  {canShowReviewAction(message) && <Button text="Review" hint="Review message" stylingMode="outlined" onClick={() => openReviewAction(message)} />}
                   {canViewAudit(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator) && (
                     <Button
                       icon="search"
@@ -329,8 +351,8 @@ export default function MessagesGrid({
         <ReviewDecisionPopup
           key={String(selectedReviewMessage.id)}
           message={selectedReviewMessage}
-          canApprove={(enableReviewActions || currentUser?.isGlobalAdministrator === true) && canShowReviewAction(selectedReviewMessage)}
-          canReject={(enableReviewActions || currentUser?.isGlobalAdministrator === true) && canShowReviewAction(selectedReviewMessage)}
+          canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
+          canReject={!readOnly && canShowReviewAction(selectedReviewMessage)}
           onClose={closeReviewAction}
           onChanged={() => void dataGridRef.current?.instance().refresh()}
         />

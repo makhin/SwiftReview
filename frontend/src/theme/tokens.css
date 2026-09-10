@@ -96,6 +96,14 @@
   --color-feedback-danger-faint: rgb(195 39 43 / 7%);
   --color-feedback-info-subtle: rgb(49 117 137 / 10%);
 
+  /* Actionable review stages: SMBC DESIGN_GUIDE colour contract. */
+  --color-review-level-1: var(--color-feedback-info);
+  --color-review-level-1-surface: var(--color-feedback-info-subtle);
+  --color-review-level-2: var(--color-action-primary);
+  --color-review-level-2-surface: var(--color-action-primary-muted);
+  --color-review-level-3: var(--color-feedback-warning);
+  --color-review-level-3-surface: var(--color-feedback-warning-subtle);
+
   --color-navigation-background: var(--color-brand-green-700);
   --color-navigation-text: rgb(255 255 255 / 78%);
   --color-navigation-text-muted: rgb(255 255 255 / 62%);

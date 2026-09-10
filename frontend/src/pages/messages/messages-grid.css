@@ -40,3 +40,35 @@
     width: 100vw !important;
   }
 }
+
+.app-table-shell .dx-data-row.message-review-level-1 {
+  --review-accent: var(--color-review-level-1);
+  --review-surface: var(--color-review-level-1-surface);
+}
+
+.app-table-shell .dx-data-row.message-review-level-2 {
+  --review-accent: var(--color-review-level-2);
+  --review-surface: var(--color-review-level-2-surface);
+}
+
+.app-table-shell .dx-data-row.message-review-level-3 {
+  --review-accent: var(--color-review-level-3);
+  --review-surface: var(--color-review-level-3-surface);
+}
+
+.app-table-shell .dx-data-row[class*="message-review-level-"]:not(.dx-selection):not(.dx-row-focused):not(.dx-state-hover) > td {
+  background-color: var(--review-surface);
+}
+.app-table-shell .dx-data-row.message-assigned-to-you > td:first-child {
+  box-shadow: inset 4px 0 0 var(--color-action-primary);
+}
+
+.message-review-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.message-review-legend span { padding-inline-start: var(--space-2); }

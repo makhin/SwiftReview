@@ -88,7 +88,7 @@ describe('ReviewDecisionPopup', () => {
     approveReview.mockReset().mockResolvedValue(undefined);
     cancelReview.mockReset().mockResolvedValue(undefined);
     rejectReview.mockReset().mockResolvedValue(undefined);
-    startReview.mockReset().mockResolvedValue(undefined);
+    startReview.mockReset().mockResolvedValue(73);
   });
 
   function open(overrides: Partial<React.ComponentProps<typeof ReviewDecisionPopup>> = {}, strict = false) {
@@ -103,8 +103,8 @@ describe('ReviewDecisionPopup', () => {
   }
 
   it('starts on opening, before exposing the message or enabling decisions', async () => {
-    let resolve!: () => void;
-    startReview.mockReturnValue(new Promise<void>((done) => { resolve = done; }));
+    let resolve!: (id: number) => void;
+    startReview.mockReturnValue(new Promise<number>((done) => { resolve = done; }));
     const props = open();
     expect(startReview).toHaveBeenCalledWith(42, 1);
     expect(screen.queryByLabelText('Raw message content')).not.toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('ReviewDecisionPopup', () => {
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel review' })).toBeDisabled();
-    resolve();
+    resolve(73);
     await ready();
     expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled();
     expect(screen.getByLabelText('Raw message content').textContent).toBe('{1:F01RAW}\n  {4:PAYLOAD}');
@@ -140,7 +140,7 @@ describe('ReviewDecisionPopup', () => {
   });
 
   it('retries an uncertain start before enabling decisions', async () => {
-    startReview.mockRejectedValueOnce(new Error('Response lost')).mockResolvedValueOnce(undefined);
+    startReview.mockRejectedValueOnce(new Error('Response lost')).mockResolvedValueOnce(73);
     open();
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to start or resume');
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
@@ -167,7 +167,7 @@ describe('ReviewDecisionPopup', () => {
     await ready();
     fireEvent.change(screen.getByLabelText('Comment (optional)'), { target: { value: '  confirmed  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(approveReview).toHaveBeenCalledWith(42, 2, 'confirmed'));
+    await waitFor(() => expect(approveReview).toHaveBeenCalledWith(42, 2, 'confirmed', 73));
     expect(startReview).toHaveBeenCalledExactlyOnceWith(42, 2);
     expect(props.onChanged).toHaveBeenCalledTimes(2);
     expect(props.onClose).toHaveBeenCalledOnce();
@@ -178,17 +178,17 @@ describe('ReviewDecisionPopup', () => {
     const props = open({ message: { ...baseMessage, state: 'ThirdReviewInProgress' } });
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
-    await waitFor(() => expect(rejectReview).toHaveBeenCalledWith(42, 3, null));
+    await waitFor(() => expect(rejectReview).toHaveBeenCalledWith(42, 3, null, 73));
     expect(startReview).toHaveBeenCalledExactlyOnceWith(42, 3);
     expect(props.onClose).toHaveBeenCalledOnce();
   });
 
   it('keeps a failed decision retryable only after verifying the review is still active', async () => {
-    approveReview.mockRejectedValueOnce(new ApiError('Please try again.', 409));
+    approveReview.mockRejectedValueOnce(new Error('Please try again.'));
     const props = open();
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Please try again.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to approve');
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(approveReview).toHaveBeenCalledTimes(2));
@@ -242,7 +242,7 @@ describe('ReviewDecisionPopup', () => {
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel review' }));
     await waitFor(() => expect(props.onClose).toHaveBeenCalledOnce());
-    expect(cancelReview).toHaveBeenCalledExactlyOnceWith(42, level);
+    expect(cancelReview).toHaveBeenCalledExactlyOnceWith(42, level, 73);
     expect(props.onChanged).toHaveBeenCalledTimes(2);
     expect(approveReview).not.toHaveBeenCalled();
     expect(rejectReview).not.toHaveBeenCalled();
@@ -315,7 +315,7 @@ describe('ReviewDecisionPopup', () => {
     open({ message: { ...baseMessage, state: 'WaitingForThirdReview' } });
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    await waitFor(() => expect(approveReview).toHaveBeenCalledWith(42, 3, null));
+    await waitFor(() => expect(approveReview).toHaveBeenCalledWith(42, 3, null, 73));
     expect(startReview).toHaveBeenCalledExactlyOnceWith(42, 3);
   });
 
@@ -344,4 +344,32 @@ describe('ReviewDecisionPopup', () => {
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled();
   });
+  it.each(['Approve', 'Reject', 'Cancel review'] as const)('blocks further decisions after a stale %s request', async (button) => {
+    const action = button === 'Approve' ? approveReview : button === 'Reject' ? rejectReview : cancelReview;
+    action.mockRejectedValue(new ApiError('This review attempt is no longer active. Close this window and refresh the message before reviewing again.', 409));
+    const props = open();
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: button }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('no longer active');
+    for (const name of ['Approve', 'Reject', 'Cancel review']) expect(screen.getByRole('button', { name })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Retry review' })).not.toBeInTheDocument();
+    expect(startReview).toHaveBeenCalledOnce();
+    expect(props.onChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not switch the dialog to a different attempt during recovery', async () => {
+    open();
+    await ready();
+    approveReview.mockRejectedValue(new Error('Response lost'));
+    getMessage.mockRejectedValue(new Error('Offline'));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await screen.findByText(/Unable to verify the review state/);
+    startReview.mockResolvedValue(74);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry review' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This review attempt has changed');
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(approveReview).toHaveBeenCalledExactlyOnceWith(42, 1, null, 73);
+  });
+
 });

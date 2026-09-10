@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAssignMessages, canReviewMessages, canViewAudit, permissionsForScope } from './permissions';
+import { canAssignMessages, canOpenReviewQueue, canViewAudit, permissionsForScope } from './permissions';
 import type { CurrentUserResponse } from '../api/generated/contracts.generated';
 
 const user: CurrentUserResponse = {
@@ -19,7 +19,7 @@ describe('permissionsForScope', () => {
   });
   it('allows administrator actions without roles or scoped permissions', () => {
     expect(canAssignMessages([], true)).toBe(true);
-    expect(canReviewMessages([], true)).toBe(true);
+    expect(canOpenReviewQueue([], true)).toBe(true);
     expect(canViewAudit([], true)).toBe(true);
     expect(permissionsForScope({ ...user, isGlobalAdministrator: true }, 99, 99)).toEqual(user.permissions);
   });

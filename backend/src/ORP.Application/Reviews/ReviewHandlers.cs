@@ -4,6 +4,7 @@ using ORP.Application.Assignments;
 using ORP.Application.Audit;
 using ORP.Domain.Auditing;
 using ORP.Domain.Reviews;
+using ORP.Domain.Common;
 
 namespace ORP.Application.Reviews;
 
@@ -13,15 +14,15 @@ public sealed class StartReviewValidator : AbstractValidator<StartReviewRequest>
 }
 public sealed class ApproveReviewValidator : AbstractValidator<ApproveReviewRequest>
 {
-    public ApproveReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.Comment).MaximumLength(2000); }
+    public ApproveReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.ReviewId).GreaterThan(0); RuleFor(x => x.Comment).MaximumLength(2000); }
 }
 public sealed class RejectReviewValidator : AbstractValidator<RejectReviewRequest>
 {
-    public RejectReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.Comment).MaximumLength(2000); }
+    public RejectReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.ReviewId).GreaterThan(0); RuleFor(x => x.Comment).MaximumLength(2000); }
 }
 public sealed class CancelReviewValidator : AbstractValidator<CancelReviewRequest>
 {
-    public CancelReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); }
+    public CancelReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.ReviewId).GreaterThan(0); }
 }
 public sealed class UndoReviewValidator : AbstractValidator<UndoReviewRequest>
 {
@@ -77,8 +78,8 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var (message, workflow, reviews) = await StartReviewHandler.LoadAsync(store, messageId, cancellationToken);
-        var review = reviews.SingleOrDefault(x => x.Level == request.Level && x.Status == ReviewStatus.InProgress)
-            ?? throw new ResourceNotFoundException("Active review was not found.");
+        var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
+            ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
         var oldState = message.State;
         var now = clock.UtcNow;
         message.Approve(review, workflow, reviews, user.UserId, request.Comment, now, user.IsGlobalAdministrator);
@@ -100,8 +101,8 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var (message, _, reviews) = await StartReviewHandler.LoadAsync(store, messageId, cancellationToken);
-        var review = reviews.SingleOrDefault(x => x.Level == request.Level && x.Status == ReviewStatus.InProgress)
-            ?? throw new ResourceNotFoundException("Active review was not found.");
+        var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
+            ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
         var oldState = message.State;
         var now = clock.UtcNow;
         message.Reject(review, user.UserId, request.Comment, now, user.IsGlobalAdministrator);
@@ -119,8 +120,8 @@ public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReview
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var (message, _, reviews) = await StartReviewHandler.LoadAsync(store, messageId, cancellationToken);
-        var review = reviews.SingleOrDefault(x => x.Level == request.Level && x.Status == ReviewStatus.InProgress)
-            ?? throw new ResourceNotFoundException("Active review was not found.");
+        var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
+            ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
         var oldState = message.State;
         var now = clock.UtcNow;
         message.CancelReview(review, user.UserId, now, user.IsGlobalAdministrator);

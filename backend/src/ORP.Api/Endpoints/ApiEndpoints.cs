@@ -38,9 +38,9 @@ public static class ApiEndpoints
             .Produces<IReadOnlyList<AssignmentCandidateDto>>().ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/start", StartReview).AddEndpointFilter<StartReviewTransactionFilter>()
             .Produces<StartReviewResponse>(StatusCodes.Status201Created).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/approve", Approve).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/reject", Reject).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/cancel", CancelReview).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        messages.MapPost("/{id:long}/reviews/approve", Approve).AddEndpointFilter<StartReviewTransactionFilter>().Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        messages.MapPost("/{id:long}/reviews/reject", Reject).AddEndpointFilter<StartReviewTransactionFilter>().Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        messages.MapPost("/{id:long}/reviews/cancel", CancelReview).AddEndpointFilter<StartReviewTransactionFilter>().Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/undo", Undo).RequireAuthorization("GlobalAdministrator")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapGet("/{id:long}/audit", Audit).Produces<PagedResult<AuditEventDto>>()

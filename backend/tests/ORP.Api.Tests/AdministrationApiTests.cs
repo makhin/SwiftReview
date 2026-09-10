@@ -139,7 +139,7 @@ public sealed class AdministrationApiTests : IDisposable
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 2 }, Ct)).StatusCode);
         (await admin.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 2 }, Ct)).StatusCode);
-        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).StatusCode);
 
         using var scope = factory.Services.CreateScope();
@@ -157,11 +157,11 @@ public sealed class AdministrationApiTests : IDisposable
         (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
         (await admin.PutAsJsonAsync("/api/admin/users/6/access", new UpdateUserAccessRequest([new(1, 1, [5])]), Ct)).EnsureSuccessStatusCode();
         using var otherReviewer = Client("lucas.bennett");
-        Assert.Equal(HttpStatusCode.Forbidden, (await otherReviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 2 }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await otherReviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(1), level = 2 }, Ct)).StatusCode);
 
-        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).StatusCode);
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
@@ -179,13 +179,13 @@ public sealed class AdministrationApiTests : IDisposable
             Assert.Equal(MessageState.Assigned, audit.NewState);
         }
         (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
-        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).EnsureSuccessStatusCode();
         (await admin.PutAsJsonAsync("/api/admin/users/6/access", new UpdateUserAccessRequest([new(1, 1, [1])]), Ct)).EnsureSuccessStatusCode();
         (await admin.PostAsJsonAsync("/api/messages/1/reassign", new { assignedTo = 6 }, Ct)).EnsureSuccessStatusCode();
         using var nextReviewer = Client("lucas.bennett");
         (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
-        (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Forbidden, (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
+        (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).StatusCode);
         using var finalScope = factory.Services.CreateScope();
         var finalDb = finalScope.ServiceProvider.GetRequiredService<ORPDbContext>();
         Assert.Equal(3, await finalDb.Reviews.CountAsync(r => r.MessageId == 1, Ct));
@@ -201,7 +201,7 @@ public sealed class AdministrationApiTests : IDisposable
         (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync("/api/admin/users/1/access", new { assignments = Array.Empty<object>() }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync("/api/admin/roles/1/permissions", new { permissions = new[] { Permissions.MessageView } }, Ct)).StatusCode);
-        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { level = 1, comment = "Reviewed" }, Ct)).EnsureSuccessStatusCode();
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1, comment = "Reviewed" }, Ct)).EnsureSuccessStatusCode();
         (await admin.PutAsJsonAsync("/api/admin/users/1/access", new { assignments = Array.Empty<object>() }, Ct)).EnsureSuccessStatusCode();
         using var scope = factory.Services.CreateScope();
         Assert.Single(await scope.ServiceProvider.GetRequiredService<ORPDbContext>().AccessAuditEvents.ToListAsync(Ct));
@@ -288,7 +288,7 @@ public sealed class AdministrationApiTests : IDisposable
             await db.SaveChangesAsync(Ct);
         }
         var path = $"/api/messages/1/reviews/{decision}";
-        var body = new { level, comment = "Decision" };
+        var body = new { reviewId = await factory.LatestReviewIdAsync(1), level, comment = "Decision" };
         Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync(path, body, Ct)).StatusCode);
         (await admin.PutAsJsonAsync("/api/admin/users/6/access", new UpdateUserAccessRequest([new(1, 1, [5])]), Ct)).EnsureSuccessStatusCode();
         using var otherReviewer = Client("lucas.bennett");

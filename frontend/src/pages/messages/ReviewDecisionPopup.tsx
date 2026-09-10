@@ -45,7 +45,8 @@ export default function ReviewDecisionPopup({
   const [ready, setReady] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const startPromise = useRef<Promise<void> | null>(null);
+  const startPromise = useRef<ReturnType<typeof startReview> | null>(null);
+  const reviewId = useRef<Awaited<ReturnType<typeof startReview>> | null>(null);
   const changed = useEffectEvent(onChanged);
   const isStarting = reviewEnabled && !!level && !ready && !startError && !error;
   const isBusy = isStarting || isSubmitting;
@@ -55,8 +56,17 @@ export default function ReviewDecisionPopup({
     let active = true;
     // Reuse the in-flight request during StrictMode's effect replay.
     startPromise.current ??= startReview(message.id, level);
-    void startPromise.current.then(() => {
-      if (active) { setReady(true); changed(); }
+    void startPromise.current.then((id) => {
+      if (active) {
+        if (reviewId.current !== null && String(reviewId.current) !== String(id)) {
+          setStartError(null);
+          setError('This review attempt has changed. Close this window and reopen the message.');
+          setReady(false);
+          return;
+        }
+        reviewId.current = id;
+        setReady(true); changed();
+      }
     }, () => {
       if (active) setStartError('Unable to start or resume this review. Check your connection and access, then retry.');
     });
@@ -72,7 +82,7 @@ export default function ReviewDecisionPopup({
 
   async function submit(decision: ReviewAction) {
     const allowed = decision === 'cancel' ? reviewEnabled : decision === 'approve' ? canApprove : canReject;
-    if (!step || !ready || isSubmitting || !allowed ||
+    if (!step || !ready || reviewId.current === null || isSubmitting || !allowed ||
         (decision !== 'cancel' && !messageQuery.isSuccess)) {
       return;
     }
@@ -84,11 +94,11 @@ export default function ReviewDecisionPopup({
     try {
       const normalizedComment = comment.trim() || null;
       if (decision === 'cancel') {
-        await cancelReview(message.id, step.level);
+        await cancelReview(message.id, step.level, reviewId.current);
       } else if (decision === 'approve') {
-        await approveReview(message.id, step.level, normalizedComment);
+        await approveReview(message.id, step.level, normalizedComment, reviewId.current);
       } else {
-        await rejectReview(message.id, step.level, normalizedComment);
+        await rejectReview(message.id, step.level, normalizedComment, reviewId.current);
       }
 
       completed = true;
@@ -104,6 +114,11 @@ export default function ReviewDecisionPopup({
       setError(caught instanceof ApiError && caught.status === 409
         ? caught.message
         : `Unable to ${decision} ${decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`);
+      if (caught instanceof ApiError && caught.status === 409) {
+        setReady(false);
+        onChanged();
+        return;
+      }
       // The server may have committed the decision even if its response was lost.
       try {
         const current = await getMessage(message.id);
@@ -132,7 +147,7 @@ export default function ReviewDecisionPopup({
     <Popup
       className="review-decision-popup raw-message-popup"
       visible
-      title="Review message"
+      title={reviewEnabled ? 'Review message' : 'View message'}
       showTitle
       showCloseButton={!isBusy}
       hideOnOutsideClick={!isBusy}

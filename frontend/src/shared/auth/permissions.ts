@@ -11,10 +11,6 @@ export function canOpenMessagesPage(permissions: string[], isGlobalAdministrator
   return canAssignMessages(permissions, isGlobalAdministrator) || canManageWorkflows(permissions, isGlobalAdministrator);
 }
 
-export function canReviewMessages(permissions: string[], isGlobalAdministrator = false) {
-  return isGlobalAdministrator || ['review.level1', 'review.level2', 'review.level3'].some((permission) => permissions.includes(permission));
-}
-
 export function permissionsForScope(user: CurrentUserResponse | undefined, branchId: number | string, departmentId: number | string) {
   if (user?.isGlobalAdministrator) return user.permissions;
   return user?.scopes?.find((scope) => String(scope.branchId) === String(branchId) && String(scope.departmentId) === String(departmentId))?.permissions ?? [];
@@ -26,4 +22,8 @@ export function canViewAudit(permissions: string[], isGlobalAdministrator = fals
 
 export function canAssignMessages(permissions: string[], isGlobalAdministrator = false) {
   return isGlobalAdministrator || permissions.includes(MESSAGE_ASSIGN);
+}
+
+export function canOpenReviewQueue(permissions: string[], isGlobalAdministrator = false) {
+  return isGlobalAdministrator || permissions.includes('message.view');
 }

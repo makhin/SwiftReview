@@ -70,3 +70,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.message-stage__readiness {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.message-stage__readiness--ready {
+  color: var(--color-action-primary);
+  background: var(--color-surface-default);
+  border: 1px solid var(--color-action-primary);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  font-weight: 700;
+}
+
+.message-stage__assigned {
+  color: var(--color-action-primary);
+  background: var(--color-surface-default);
+  border: 1px solid var(--color-action-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
