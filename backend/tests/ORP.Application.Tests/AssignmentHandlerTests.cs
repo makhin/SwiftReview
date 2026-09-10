@@ -28,7 +28,7 @@ public sealed class AssignmentHandlerTests
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
-                "A", "B", null, null, null, null));
+                "A", "B"));
         access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "out-of-scope", "Out of scope",
             new HashSet<string> { Permissions.MessageView, Permissions.ReviewLevel1 },
             new HashSet<int> { 2 }, new HashSet<int> { 2 }));
@@ -56,7 +56,7 @@ public sealed class AssignmentHandlerTests
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B", null, null, null, null));
+            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B"));
         access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "assignee", "Assignee",
             new HashSet<string> { Permissions.MessageView, Permissions.ReviewLevel1 },
             new HashSet<int> { 1 }, new HashSet<int> { 1 }));
@@ -162,7 +162,7 @@ public sealed class AssignmentHandlerTests
         store.FindMessageAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
         store.FindMessageSourceAsync(message.Id, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
-                "A", "B", null, null, null, null));
+                "A", "B"));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
         access.GetByIdAsync(assigneeId, Arg.Any<CancellationToken>()).Returns(new UserAccess(assigneeId,
             "assignee", "Assignee", new HashSet<string> { Permissions.MessageView, reviewPermission },

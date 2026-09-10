@@ -41,5 +41,4 @@ public sealed class SwiftMessageRecord
     public SwiftMessageRoutingStatus RoutingStatus { get; init; }
     public string? RoutingError { get; init; }
     public DateTimeOffset LastSynchronizedAtUtc { get; init; }
-    public ICollection<SwiftMessageEntryRecord> Entries { get; init; } = [];
 }

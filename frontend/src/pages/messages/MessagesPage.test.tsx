@@ -36,9 +36,6 @@ vi.mock('devextreme-react/data-grid', () => {
     activeReviewId: null,
     activeReviewLevel: null,
     activeReviewerId: null,
-    account: null,
-    currency: null,
-    amount: null,
   };
   const childComponent = (name: string) =>
     (props: PropsWithChildren<Record<string, unknown>>) => {
@@ -286,7 +283,7 @@ describe('MessagesPage', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getAllByTestId('Column')).toHaveLength(8);
 
     const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
     expect(dataGridProps).toMatchObject({
@@ -309,9 +306,6 @@ describe('MessagesPage', () => {
       'Department',
       'Stage',
       'Received',
-      'Account',
-      'CCY',
-      'Amount',
       'Assignee',
       'Actions',
     ]);
@@ -395,7 +389,7 @@ describe('MessagesPage', () => {
   it('keeps numeric columns available while reference data is unavailable', () => {
     renderPage(false);
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getAllByTestId('Column')).toHaveLength(8);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
   });
 
@@ -432,7 +426,7 @@ describe('MessagesPage', () => {
     const view = renderPage(true, ['message.access.all-departments', 'audit.view']);
     view.container.id = 'root';
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
+    expect(screen.getAllByTestId('Column')).toHaveLength(8);
     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
 

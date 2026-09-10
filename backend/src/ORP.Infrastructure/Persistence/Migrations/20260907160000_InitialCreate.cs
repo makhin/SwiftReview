@@ -298,40 +298,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "SwiftMessageEntries",
-                schema: "orp",
-                columns: table => new
-                {
-                    MessageId = table.Column<long>(type: "bigint", nullable: false),
-                    Position = table.Column<int>(type: "int", nullable: false),
-                    Account = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    Currency = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: true),
-                    Amount = table.Column<decimal>(type: "decimal(19,4)", precision: 19, scale: 4, nullable: true),
-                    BeneficiaryCustomerAccount = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    BeneficiaryCustomerBank = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    BeneficiaryCustomerName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    OrderingCustomerAccount = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    OrderingCustomerBank = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    OrderingCustomerName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    SenderMessageReference = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    SettlementDate = table.Column<DateTime>(type: "date", nullable: true),
-                    TradeDealDate = table.Column<DateTime>(type: "date", nullable: true),
-                    UnitDataOwner = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    ValueDate = table.Column<DateTime>(type: "date", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SwiftMessageEntries", x => new { x.MessageId, x.Position });
-                    table.ForeignKey(
-                        name: "FK_SwiftMessageEntries_SwiftMessages_MessageId",
-                        column: x => x.MessageId,
-                        principalSchema: "orp",
-                        principalTable: "SwiftMessages",
-                        principalColumn: "MessageId",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Messages",
                 schema: "orp",
                 columns: table => new
@@ -339,8 +305,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     MessageId = table.Column<long>(type: "bigint", nullable: false),
                     State = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
                     CurrentAssigneeId = table.Column<int>(type: "int", nullable: true),
-                    WorkflowDefinitionId = table.Column<int>(type: "int", nullable: false),
-                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: true)
+                    WorkflowDefinitionId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -593,24 +558,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_SwiftMessageEntries_Account",
-                schema: "orp",
-                table: "SwiftMessageEntries",
-                column: "Account");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_SwiftMessageEntries_Amount",
-                schema: "orp",
-                table: "SwiftMessageEntries",
-                column: "Amount");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_SwiftMessageEntries_Currency",
-                schema: "orp",
-                table: "SwiftMessageEntries",
-                column: "Currency");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_SwiftMessages_BranchId",
                 schema: "orp",
                 table: "SwiftMessages",
@@ -705,10 +652,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "RolePermissions",
-                schema: "orp");
-
-            migrationBuilder.DropTable(
-                name: "SwiftMessageEntries",
                 schema: "orp");
 
             migrationBuilder.DropTable(

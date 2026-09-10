@@ -9,6 +9,15 @@ namespace ORP.Application.Tests;
 public sealed class ValidationTests
 {
     [Fact]
+    public async Task SearchRequest_RejectsRemovedAmountSort()
+    {
+        var result = await new MessageSearchValidator().ValidateAsync(new MessageSearchRequest(0, 20,
+            [new SortClause("amount", "asc")], null), TestContext.Current.CancellationToken);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, x => x.PropertyName.EndsWith("Field", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task GridRequest_RejectsUnboundedPageAndUnknownSort()
     {
         var result = await new MessageSearchValidator().ValidateAsync(new MessageSearchRequest(0, 501,

@@ -68,9 +68,6 @@ const baseMessage = {
   activeReviewId: null,
   activeReviewLevel: null,
   activeReviewerId: null,
-  account: null,
-  currency: null,
-  amount: null,
 };
 
 function render(ui: ReactElement, preload = true) {

@@ -97,25 +97,7 @@ export interface MessageDetailsDto {
   currentAssigneeId: number | string | null;
   sender: string;
   receiver: string;
-  account: string | null;
-  currency: string | null;
-  amount: number | string | null;
-  reference: string | null;
   body: string | null;
-  accounts: string[];
-  currencies: string[];
-  amounts: (number | string | null)[];
-  beneficiaryCustomerAccounts: string[];
-  beneficiaryCustomerBanks: string[];
-  beneficiaryCustomerNames: string[];
-  orderingCustomerAccounts: string[];
-  orderingCustomerBanks: string[];
-  orderingCustomerNames: string[];
-  senderMessageReferences: string[];
-  settlementDates: (string | null)[];
-  tradeDealDates: (string | null)[];
-  unitDataOwners: string[];
-  valueDates: (string | null)[];
 }
 
 export interface MessageFilter {
@@ -125,8 +107,6 @@ export interface MessageFilter {
   departments: (number | string)[] | null;
   dateFrom: string | null;
   dateTo: string | null;
-  account: string | null;
-  currency: string | null;
 }
 
 export interface MessageListItemDto {
@@ -141,9 +121,6 @@ export interface MessageListItemDto {
   activeReviewId: number | string | null;
   activeReviewLevel: number | string | null;
   activeReviewerId: number | string | null;
-  account: string | null;
-  currency: string | null;
-  amount: number | string | null;
 }
 
 export interface MessageSearchRequest {

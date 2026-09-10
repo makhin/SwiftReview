@@ -25,8 +25,7 @@ public interface IORPStore
 }
 
 public sealed record MessageSourceDto(long MessageId, string ExternalId, string MessageType, int BranchId,
-    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver, string? Account,
-    string? Currency, decimal? Amount, string? Reference);
+    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver);
 
 public interface IMessageQueries
 {

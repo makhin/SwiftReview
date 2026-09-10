@@ -49,9 +49,6 @@ const message = {
   activeReviewId: null,
   activeReviewLevel: null,
   activeReviewerId: null,
-  account: null,
-  currency: null,
-  amount: null,
 };
 
 describe('AssignmentPopup', () => {

@@ -5,7 +5,7 @@ namespace ORP.Application.Messages.Search;
 
 public sealed class MessageSearchValidator : AbstractValidator<MessageSearchRequest>
 {
-    private static readonly string[] Fields = ["receivedAt", "state", "messageType", "amount", "externalId"];
+    private static readonly string[] Fields = ["receivedAt", "state", "messageType", "externalId"];
     public MessageSearchValidator()
     {
         RuleFor(x => x.Skip).GreaterThanOrEqualTo(0);

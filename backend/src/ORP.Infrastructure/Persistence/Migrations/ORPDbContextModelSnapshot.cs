@@ -285,11 +285,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<int?>("CurrentAssigneeId")
                         .HasColumnType("int");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -416,78 +411,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("WorkflowSteps", "orp");
-                });
-
-            modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageEntryRecord", b =>
-                {
-                    b.Property<long>("MessageId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Account")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<decimal?>("Amount")
-                        .HasPrecision(19, 4)
-                        .HasColumnType("decimal(19,4)");
-
-                    b.Property<string>("BeneficiaryCustomerAccount")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("BeneficiaryCustomerBank")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("BeneficiaryCustomerName")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("Currency")
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<string>("OrderingCustomerAccount")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("OrderingCustomerBank")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("OrderingCustomerName")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("SenderMessageReference")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime?>("SettlementDate")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("TradeDealDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("UnitDataOwner")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime?>("ValueDate")
-                        .HasColumnType("date");
-
-                    b.HasKey("MessageId", "Position");
-
-                    b.HasIndex("Account");
-
-                    b.HasIndex("Amount");
-
-                    b.HasIndex("Currency");
-
-                    b.ToTable("SwiftMessageEntries", "orp");
                 });
 
             modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>
@@ -792,17 +715,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageEntryRecord", b =>
-                {
-                    b.HasOne("ORP.Infrastructure.Persistence.SwiftMessageRecord", "Message")
-                        .WithMany("Entries")
-                        .HasForeignKey("MessageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Message");
-                });
-
             modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>
                 {
                     b.HasOne("ORP.Domain.Identity.Branch", null)
@@ -835,10 +747,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Navigation("Steps");
                 });
 
-            modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>
-                {
-                    b.Navigation("Entries");
-                });
 #pragma warning restore 612, 618
         }
     }

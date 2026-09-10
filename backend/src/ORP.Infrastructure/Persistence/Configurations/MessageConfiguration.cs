@@ -15,7 +15,6 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
     {
         builder.ToTable("Messages"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).HasColumnName("MessageId").ValueGeneratedNever();
         builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
-        builder.Property<byte[]>("RowVersion").IsRowVersion();
         builder.HasOne<SwiftMessageRecord>().WithOne().HasForeignKey<Message>(x => x.Id).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
@@ -51,34 +50,6 @@ public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<S
         builder.Property(x => x.RoutingError).HasMaxLength(1000);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
-    }
-}
-
-public sealed class SwiftMessageEntryRecordConfiguration : IEntityTypeConfiguration<SwiftMessageEntryRecord>
-{
-    public void Configure(EntityTypeBuilder<SwiftMessageEntryRecord> builder)
-    {
-        builder.ToTable("SwiftMessageEntries", "orp");
-        builder.HasKey(x => new { x.MessageId, x.Position });
-        builder.Property(x => x.Amount).HasPrecision(19, 4);
-        builder.Property(x => x.Currency).HasMaxLength(3);
-        builder.Property(x => x.Account).HasMaxLength(100);
-        builder.Property(x => x.BeneficiaryCustomerAccount).HasMaxLength(255);
-        builder.Property(x => x.BeneficiaryCustomerBank).HasMaxLength(255);
-        builder.Property(x => x.BeneficiaryCustomerName).HasMaxLength(255);
-        builder.Property(x => x.OrderingCustomerAccount).HasMaxLength(255);
-        builder.Property(x => x.OrderingCustomerBank).HasMaxLength(255);
-        builder.Property(x => x.OrderingCustomerName).HasMaxLength(255);
-        builder.Property(x => x.SenderMessageReference).HasMaxLength(255);
-        builder.Property(x => x.UnitDataOwner).HasMaxLength(255);
-        builder.Property(x => x.SettlementDate).HasColumnType("date");
-        builder.Property(x => x.TradeDealDate).HasColumnType("date");
-        builder.Property(x => x.ValueDate).HasColumnType("date");
-        builder.HasIndex(x => x.Account);
-        builder.HasIndex(x => x.Currency);
-        builder.HasIndex(x => x.Amount);
-        builder.HasOne(x => x.Message).WithMany(x => x.Entries).HasForeignKey(x => x.MessageId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

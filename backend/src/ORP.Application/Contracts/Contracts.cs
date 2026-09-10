@@ -18,24 +18,17 @@ public sealed record CurrentUserResponse(int UserId, string UserName, string Dis
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
-    string? Account, string? Currency, decimal? Amount, string? Reference, string? Body,
-    IReadOnlyList<string?> Accounts, IReadOnlyList<string?> Currencies, IReadOnlyList<decimal?> Amounts,
-    IReadOnlyList<string?> BeneficiaryCustomerAccounts, IReadOnlyList<string?> BeneficiaryCustomerBanks,
-    IReadOnlyList<string?> BeneficiaryCustomerNames, IReadOnlyList<string?> OrderingCustomerAccounts,
-    IReadOnlyList<string?> OrderingCustomerBanks, IReadOnlyList<string?> OrderingCustomerNames,
-    IReadOnlyList<string?> SenderMessageReferences, IReadOnlyList<DateTime?> SettlementDates,
-    IReadOnlyList<DateTime?> TradeDealDates, IReadOnlyList<string?> UnitDataOwners,
-    IReadOnlyList<DateTime?> ValueDates);
+    string? Body);
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
-    int? ActiveReviewLevel, int? ActiveReviewerId, string? Account, string? Currency, decimal? Amount);
+    int? ActiveReviewLevel, int? ActiveReviewerId);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
 public sealed record AuditTrailRequest(int Skip = 0, int Take = 100);
 public sealed record SortClause([property: Required] string Field,
     [property: Required, RegularExpression("^(?i:asc|desc)$")] string Direction);
 public sealed record MessageFilter(IReadOnlyList<MessageState>? States, IReadOnlyList<int>? Branches,
     IReadOnlyList<string>? MessageTypes, IReadOnlyList<int>? Departments, DateTimeOffset? DateFrom,
-    DateTimeOffset? DateTo, string? Account, string? Currency);
+    DateTimeOffset? DateTo);
 public sealed record MessageSearchRequest([property: Range(0, int.MaxValue)] int Skip,
     [property: Range(1, 500)] int Take, IReadOnlyList<SortClause>? Sort, MessageFilter? Filter);
 public sealed record DashboardSummaryDto(int Total, int Pending, int WaitingForFirstReview,

@@ -25,11 +25,7 @@ public static class MockDataSeeder
             .CustomInstantiator(f => new MockMessageFields(
                 f.Random.AlphaNumeric(5).ToUpperInvariant(),
                 Bic(f),
-                Bic(f),
-                f.Finance.Account(12),
-                f.PickRandom("EUR", "GBP", "USD", "CHF", "JPY"),
-                f.Finance.Amount(500, 5_000_000, 2),
-                $"PAY-{f.Random.Number(10_000_000, 99_999_999)}-{f.Random.AlphaNumeric(4).ToUpperInvariant()}"))
+                Bic(f)))
             .UseSeed(20260902);
         var messages = Enumerable.Range(1, 75).Select(i => new Domain.Messages.Message(i,
             (i - 1) % MessageTypes.Length + 1)).ToList();
@@ -49,18 +45,7 @@ public static class MockDataSeeder
                 ReceiverResponder = fake.Receiver,
                 Body = $"{{1:F01MOCK{message.Id:0000000000}}}\n{{2:I{MessageTypes[typeIndex][2..]}MOCK}}",
                 RoutingStatus = SwiftMessageRoutingStatus.Routed,
-                LastSynchronizedAtUtc = DateTimeOffset.UtcNow,
-                Entries =
-                [
-                    new SwiftMessageEntryRecord
-                    {
-                        Position = 0,
-                        Account = fake.Account,
-                        Currency = fake.Currency,
-                        Amount = fake.Amount,
-                        SenderMessageReference = fake.Reference
-                    }
-                ]
+                LastSynchronizedAtUtc = DateTimeOffset.UtcNow
             };
         }).ToList();
         db.Messages.AddRange(messages);
@@ -168,6 +153,5 @@ public static class MockDataSeeder
     private static string Bic(Faker faker) =>
         $"{faker.Random.String2(4, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")}GB{faker.Random.Number(10, 99)}{faker.Random.String2(3, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")}";
 
-    private sealed record MockMessageFields(string IdSuffix, string Sender, string Receiver, string Account,
-        string Currency, decimal Amount, string Reference);
+    private sealed record MockMessageFields(string IdSuffix, string Sender, string Receiver);
 }

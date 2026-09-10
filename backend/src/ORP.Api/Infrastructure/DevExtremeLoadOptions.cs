@@ -36,19 +36,16 @@ public static class DevExtremeLoadOptions
         ["currentAssigneeId"] = "CurrentAssigneeId",
         ["activeReviewId"] = "ActiveReviewId",
         ["activeReviewLevel"] = "ActiveReviewLevel",
-        ["activeReviewerId"] = "ActiveReviewerId",
-        ["account"] = "Account",
-        ["currency"] = "Currency",
-        ["amount"] = "Amount"
+        ["activeReviewerId"] = "ActiveReviewerId"
     };
     private static readonly HashSet<string> StringFields = new(StringComparer.OrdinalIgnoreCase)
-    { "ExternalId", "MessageType", "Account", "Currency" };
+    { "ExternalId", "MessageType" };
     private static readonly HashSet<string> StringOperations = new(StringComparer.OrdinalIgnoreCase)
     { "startswith", "endswith", "contains", "notcontains" };
     private static readonly HashSet<string> FilterOperations = new(StringComparer.OrdinalIgnoreCase)
     { "=", "<>", ">", ">=", "<", "<=", "startswith", "endswith", "contains", "notcontains" };
     private static readonly HashSet<string> SummaryTypes = new(StringComparer.OrdinalIgnoreCase)
-    { "count", "sum", "avg", "min", "max" };
+    { "count", "min", "max" };
 
     public static DataSourceLoadOptionsBase Parse(IQueryCollection query)
         => Parse(key => query[key].FirstOrDefault() ?? string.Empty);
@@ -112,10 +109,6 @@ public static class DevExtremeLoadOptions
             if (!string.IsNullOrWhiteSpace(summary.Selector)) summary.Selector = NormalizeField(summary.Selector);
             else if (!string.Equals(summary.SummaryType, "count", StringComparison.OrdinalIgnoreCase))
                 throw new FormatException("A summary selector is required.");
-            if (summary.SummaryType is not null &&
-                (summary.SummaryType.Equals("sum", StringComparison.OrdinalIgnoreCase) || summary.SummaryType.Equals("avg", StringComparison.OrdinalIgnoreCase)) &&
-                summary.Selector != "Amount")
-                throw new FormatException("sum and avg summaries are supported only for amount.");
         }
         if (options.Select is not null)
             for (var i = 0; i < options.Select.Length; i++) options.Select[i] = NormalizeField(options.Select[i]);

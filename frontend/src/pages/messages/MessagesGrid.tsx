@@ -240,16 +240,6 @@ export default function MessagesGrid({
             format="dd MMM yyyy, HH:mm"
             minWidth={160}
           />
-          <Column dataField="account" caption="Account" minWidth={130} />
-          <Column dataField="currency" caption="CCY" width={64} />
-          <Column
-            dataField="amount"
-            caption="Amount"
-            dataType="number"
-            alignment="right"
-            format={{ type: 'fixedPoint', precision: 2 }}
-            minWidth={120}
-          />
           <Column
             dataField="currentAssigneeId"
             caption="Assignee"

@@ -22,9 +22,6 @@ const message = {
   activeReviewId: null,
   activeReviewLevel: null,
   activeReviewerId: null,
-  account: null,
-  currency: null,
-  amount: null,
 };
 
 function auditEvent(overrides: Partial<AuditEventDto> = {}): AuditEventDto {
