@@ -6,6 +6,7 @@ namespace ORP.Application.Abstractions;
 
 public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo);
 public sealed record StartReviewRequest([property: Range(1, 3)] int Level);
+public sealed record CancelReviewRequest([property: Range(1, 3)] int Level);
 public sealed record ApproveReviewRequest([property: Range(1, 3)] int Level,
     [property: StringLength(2000)] string? Comment);
 public sealed record RejectReviewRequest([property: Range(1, 3)] int Level,

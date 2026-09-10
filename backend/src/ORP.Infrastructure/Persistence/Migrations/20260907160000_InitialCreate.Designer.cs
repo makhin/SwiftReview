@@ -370,7 +370,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MessageId", "Level")
                         .IsUnique()
-                        .HasFilter("[Status] <> N'Undone'");
+                        .HasFilter("[Status] <> N'Undone' AND [Status] <> N'Cancelled'");
 
                     b.ToTable("Reviews", "orp");
                 });

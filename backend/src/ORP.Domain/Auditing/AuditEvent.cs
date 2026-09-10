@@ -14,7 +14,8 @@ public enum AuditEventType
     ReviewApproved,
     MessageCompleted,
     ReviewRejected,
-    ConfirmationUndone
+    ConfirmationUndone,
+    ReviewCancelled
 }
 
 public sealed class AuditEvent

@@ -47,7 +47,7 @@ public sealed class Message
             throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
         var expected = ExpectedLevel(workflow, reviews);
         if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
-        if (reviews.Any(x => x.Level == level && x.Status != ReviewStatus.Undone))
+        if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
             throw new DomainRuleViolationException("This review level has already been started.");
         if (preventReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
             throw new DomainRuleViolationException("Four-eyes principle: a reviewer cannot be reused.");
@@ -83,6 +83,25 @@ public sealed class Message
         EnsureCanFire(machine, MessageTrigger.Reject);
         review.Reject(comment, now);
         machine.Fire(MessageTrigger.Reject);
+    }
+
+    public void CancelReview(Review review, int actorId, DateTimeOffset now)
+    {
+        if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
+        if (review.ReviewerId != actorId)
+            throw new DomainRuleViolationException("Only the reviewer who started the review can cancel it.");
+        var activeState = review.Level switch
+        {
+            1 => MessageState.FirstReviewInProgress,
+            2 => MessageState.SecondReviewInProgress,
+            3 => MessageState.ThirdReviewInProgress,
+            _ => throw new DomainRuleViolationException("Unsupported review level.")
+        };
+        if (State != activeState) throw new DomainRuleViolationException("This review level is not currently active.");
+        var machine = CreateMachine();
+        EnsureCanFire(machine, MessageTrigger.CancelReview);
+        review.Cancel(now);
+        machine.Fire(MessageTrigger.CancelReview);
     }
 
     public void UndoLastApproval(Review review, WorkflowDefinition workflow,
@@ -126,7 +145,7 @@ public sealed class Message
                     .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.FirstReviewInProgress);
                 break;
             case MessageState.FirstReviewInProgress:
-                ConfigureReview(machine, State, approveTarget ?? MessageState.WaitingForSecondReview);
+                ConfigureReview(machine, State, approveTarget ?? MessageState.WaitingForSecondReview, MessageState.Assigned);
                 break;
             case MessageState.WaitingForSecondReview:
                 var second = machine.Configure(State).PermitReentry(MessageTrigger.Assign)
@@ -134,7 +153,7 @@ public sealed class Message
                 if (approveTarget is not null) second.Permit(MessageTrigger.Undo, approveTarget.Value);
                 break;
             case MessageState.SecondReviewInProgress:
-                ConfigureReview(machine, State, approveTarget ?? MessageState.Completed);
+                ConfigureReview(machine, State, approveTarget ?? MessageState.Completed, MessageState.WaitingForSecondReview);
                 break;
             case MessageState.WaitingForThirdReview:
                 var third = machine.Configure(State).PermitReentry(MessageTrigger.Assign)
@@ -142,7 +161,7 @@ public sealed class Message
                 if (approveTarget is not null) third.Permit(MessageTrigger.Undo, approveTarget.Value);
                 break;
             case MessageState.ThirdReviewInProgress:
-                ConfigureReview(machine, State, approveTarget ?? MessageState.Completed);
+                ConfigureReview(machine, State, approveTarget ?? MessageState.Completed, MessageState.WaitingForThirdReview);
                 break;
             case MessageState.Completed:
                 if (approveTarget is not null) machine.Configure(State).Permit(MessageTrigger.Undo, approveTarget.Value);
@@ -154,10 +173,12 @@ public sealed class Message
         return machine;
     }
 
-    private static void ConfigureReview(StateMachine<MessageState, MessageTrigger> machine, MessageState state, MessageState approveTarget) =>
+    private static void ConfigureReview(StateMachine<MessageState, MessageTrigger> machine, MessageState state,
+        MessageState approveTarget, MessageState cancelTarget) =>
         machine.Configure(state)
             .Permit(MessageTrigger.Approve, approveTarget)
-            .Permit(MessageTrigger.Reject, MessageState.Rejected);
+            .Permit(MessageTrigger.Reject, MessageState.Rejected)
+            .Permit(MessageTrigger.CancelReview, cancelTarget);
 
     private static void Fire(StateMachine<MessageState, MessageTrigger> machine, MessageTrigger trigger)
     {

@@ -1,3 +1,4 @@
+import GridRefreshButton from '../../shared/components/GridRefreshButton';
 import DataGrid, {
   Column,
   FilterRow,
@@ -163,6 +164,9 @@ export default function MessagesGrid({
 
   return (
     <>
+      <div className="app-toolbar">
+        <GridRefreshButton refresh={() => dataGridRef.current?.instance().refresh()} />
+      </div>
       <div className="app-table-shell">
         <DataGrid
           ref={dataGridRef}
@@ -303,6 +307,7 @@ export default function MessagesGrid({
       </div>
       {selectedReviewMessage && (
         <ReviewDecisionPopup
+          key={String(selectedReviewMessage.id)}
           message={selectedReviewMessage}
           canApprove={enableReviewActions && canShowReviewAction(selectedReviewMessage)}
           canReject={enableReviewActions && canShowReviewAction(selectedReviewMessage)}

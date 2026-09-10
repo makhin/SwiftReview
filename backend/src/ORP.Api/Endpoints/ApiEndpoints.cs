@@ -37,6 +37,7 @@ public static class ApiEndpoints
             .Produces<StartReviewResponse>(StatusCodes.Status201Created).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/approve", Approve).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/reviews/reject", Reject).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        messages.MapPost("/{id:long}/reviews/cancel", CancelReview).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapPost("/{id:long}/undo", Undo).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         messages.MapGet("/{id:long}/audit", Audit).Produces<PagedResult<AuditEventDto>>()
             .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404);
@@ -89,6 +90,9 @@ public static class ApiEndpoints
         ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
             async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
     private static Task<IResult> Reject(long id, RejectReviewRequest request, RejectReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
+        ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
+            async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
+    private static Task<IResult> CancelReview(long id, CancelReviewRequest request, CancelReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
         ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
             async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
     private static async Task<IResult> ReviewAction(long id, int level, IORPStore store,

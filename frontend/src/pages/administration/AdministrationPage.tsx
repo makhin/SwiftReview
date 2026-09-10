@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DataGrid, { Column, Pager, Paging } from 'devextreme-react/data-grid';
+import type { DataGridRef } from 'devextreme-react/data-grid';
 import SelectBox from 'devextreme-react/select-box';
 import TagBox from 'devextreme-react/tag-box';
 import Button from 'devextreme-react/button';
@@ -8,6 +9,7 @@ import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import type { AccessCatalogDto, RoleDetailsDto, ScopedRoleAssignmentDto, UserAccessDetailsDto } from '../../shared/api/generated/contracts.generated';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import PageError from '../../shared/components/feedback/PageError';
+import GridRefreshButton from '../../shared/components/GridRefreshButton';
 import { createAdminUsersStore, getAccessCatalog, getUserAccess, updateRolePermissions, updateUserAccess, type AdminUser } from './administrationApi';
 import './administration.css';
 
@@ -25,6 +27,7 @@ function Administration() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [dirty, setDirty] = useState(false);
+  const gridRef = useRef<DataGridRef<AdminUser, number>>(null);
   const catalog = useQuery({ queryKey: ['admin', 'catalog'], queryFn: ({ signal }) => getAccessCatalog(signal) });
   const details = useQuery({ queryKey: ['admin', 'user', selectedUser?.id], queryFn: ({ signal }) => getUserAccess(selectedUser!.id, signal), enabled: selectedUser !== null });
   const store = useMemo(() => createAdminUsersStore(appliedSearch), [appliedSearch]);
@@ -47,8 +50,9 @@ function Administration() {
         <form className="admin-toolbar" onSubmit={(e) => { e.preventDefault(); setAppliedSearch(search); }}>
           <label>Find user <input value={search} maxLength={100} onChange={(e) => setSearch(e.target.value)} placeholder="Name or username" /></label>
           <button type="submit">Search</button>
+          <GridRefreshButton refresh={() => gridRef.current?.instance().refresh()} />
         </form>
-        <DataGrid dataSource={store} remoteOperations={{ paging: true, sorting: true }} showBorders={false}
+        <DataGrid ref={gridRef} dataSource={store} remoteOperations={{ paging: true, sorting: true }} showBorders={false}
           columnAutoWidth elementAttr={{ 'aria-label': 'Users' }} noDataText="No users found">
           <Paging defaultPageSize={20} /><Pager visible showInfo />
           <Column dataField="displayName" caption="Name" /><Column dataField="userName" caption="Username" />

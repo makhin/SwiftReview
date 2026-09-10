@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<StartReviewHandler>();
         services.AddScoped<ApproveReviewHandler>();
         services.AddScoped<RejectReviewHandler>();
+        services.AddScoped<CancelReviewHandler>();
         services.AddScoped<UndoReviewHandler>();
         services.AddScoped<SearchMessagesHandler>();
         services.AddScoped<GetWorkflowsHandler>();

@@ -4,6 +4,7 @@ import { apiFetch } from '../../shared/api/client';
 import { ApiError } from '../../shared/api/errors';
 import type {
   ApproveReviewRequest,
+  CancelReviewRequest,
   AssignmentCandidateDto,
   MessageDetailsDto,
   MessageListItemDto,
@@ -99,8 +100,8 @@ export async function getMessageGrid(
 
 async function postReviewAction(
   messageId: MessageRow['id'],
-  action: 'start' | 'approve' | 'reject',
-  request: StartReviewRequest | ApproveReviewRequest | RejectReviewRequest,
+  action: 'start' | 'approve' | 'reject' | 'cancel',
+  request: StartReviewRequest | ApproveReviewRequest | RejectReviewRequest | CancelReviewRequest,
 ) {
   try {
     const response = await apiFetch(`/api/messages/${messageId}/reviews/${action}`, {
@@ -137,6 +138,10 @@ async function postReviewAction(
 
 export function startReview(messageId: MessageRow['id'], level: number) {
   return postReviewAction(messageId, 'start', { level });
+}
+
+export function cancelReview(messageId: MessageRow['id'], level: number) {
+  return postReviewAction(messageId, 'cancel', { level });
 }
 
 export function approveReview(

@@ -228,6 +228,72 @@ public sealed class MessageWorkflowTests
     }
 
     private static readonly DateTimeOffset Now = new(2026, 8, 22, 8, 0, 0, TimeSpan.Zero);
+
+    [Theory]
+    [InlineData(1, MessageState.Assigned)]
+    [InlineData(2, MessageState.WaitingForSecondReview)]
+    [InlineData(3, MessageState.WaitingForThirdReview)]
+    public void CancelReview_PreservesAssignmentAndEarlierApprovals_AndAllowsRestart(int level, MessageState waitingState)
+    {
+        var (message, workflow, reviews) = Create(1, 2, 3);
+        for (var previous = 1; previous < level; previous++)
+            CompleteLevel(message, workflow, reviews, previous, previous + 10);
+        message.Assign(20);
+        var review = message.StartReview(level, 20, workflow, reviews, Now);
+        reviews.Add(review);
+
+        message.CancelReview(review, 20, Now.AddMinutes(1));
+
+        Assert.Equal(waitingState, message.State);
+        Assert.Equal(20, message.CurrentAssigneeId);
+        Assert.Equal(ReviewStatus.Cancelled, review.Status);
+        Assert.Equal(Now.AddMinutes(1), review.CompletedAt);
+        Assert.All(reviews.Where(r => r.Level < level), r => Assert.Equal(ReviewStatus.Approved, r.Status));
+        var restarted = message.StartReview(level, 20, workflow, reviews, Now.AddMinutes(2));
+        reviews.Add(restarted);
+        Assert.NotSame(review, restarted);
+        message.CancelReview(restarted, 20, Now.AddMinutes(3));
+        message.Assign(21);
+        Assert.Equal(ReviewStatus.InProgress, message.StartReview(level, 21, workflow, reviews, Now.AddMinutes(4)).Status);
+    }
+
+    [Fact]
+    public void CancelReview_RejectsOtherActorsAndMessages_WithoutMutatingReview()
+    {
+        var (message, workflow, reviews) = Create(1, 2);
+        message.Assign(10);
+        var review = message.StartReview(1, 10, workflow, reviews, Now);
+        Assert.Throws<DomainRuleViolationException>(() => message.CancelReview(review, 11, Now));
+        Assert.Throws<DomainRuleViolationException>(() => message.CancelReview(new Review(2, 1, 10, Now), 10, Now));
+        Assert.Throws<DomainRuleViolationException>(() => message.CancelReview(new Review(message.Id, 2, 10, Now), 10, Now));
+        Assert.Equal(ReviewStatus.InProgress, review.Status);
+        Assert.Equal(MessageState.FirstReviewInProgress, message.State);
+    }
+
+    [Theory]
+    [InlineData("approve")]
+    [InlineData("reject")]
+    [InlineData("cancel")]
+    public void CancelReview_RejectsFinishedReviews(string action)
+    {
+        var (message, workflow, reviews) = Create(1);
+        message.Assign(10);
+        var review = message.StartReview(1, 10, workflow, reviews, Now);
+        reviews.Add(review);
+        if (action == "approve") message.Approve(review, workflow, reviews, 10, null, Now);
+        else if (action == "reject") message.Reject(review, 10, null, Now);
+        else
+        {
+            message.CancelReview(review, 10, Now);
+            reviews.Add(message.StartReview(1, 10, workflow, reviews, Now));
+        }
+        var state = message.State;
+        var status = review.Status;
+        Assert.Throws<DomainRuleViolationException>(() => message.CancelReview(review, 10, Now));
+        Assert.Equal(state, message.State);
+        Assert.Equal(status, review.Status);
+    }
+
     private static (Message Message, WorkflowDefinition Workflow, List<Review> Reviews) Create(params int[] levels)
     {
         var workflow = new WorkflowDefinition("Test", "MT199", 1);

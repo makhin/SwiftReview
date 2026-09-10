@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../shared/api/errors';
 import {
   approveReview,
+  cancelReview,
   assignMessage,
   getAssignmentCandidates,
   getMessage,
@@ -124,13 +125,14 @@ describe('review actions', () => {
 
   it.each([
     ['start', startReview, { level: 2 }],
+    ['cancel', cancelReview, { level: 2 }],
     ['approve', approveReview, { level: 2, comment: 'confirmed' }],
     ['reject', rejectReview, { level: 2, comment: null }],
   ] as const)('posts the %s review action', async (action, request, body) => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
     vi.stubGlobal('fetch', fetchMock);
 
-    if (action === 'start') {
+    if (action === 'start' || action === 'cancel') {
       await request(42, 2);
     } else {
       await request(42, 2, body.comment);

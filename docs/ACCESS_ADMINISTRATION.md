@@ -11,8 +11,8 @@ also enforces this restriction on every `/api/admin` endpoint.
   only within that pair. Separate branch and department lists are not access grants.
 - Viewing a message requires `message.view` in its pair. Assigning, auditing and
   reviewing additionally require the corresponding permission in the same pair.
-- `review.level1`, `review.level2` and `review.level3` each allow both approval
-  and rejection at that level, only by the active review's owner. There is no
+- `review.level1`, `review.level2` and `review.level3` each allow approval,
+  rejection and cancellation at that level, only by the active review's owner. There is no
   separate global rejection permission.
 - `Users.IsGlobalAdministrator` controls access administration independently of
   business roles. It neither grants message access nor bypasses review ownership.
@@ -42,7 +42,7 @@ business assignments; that demo access is not an implicit administrator bypass.
 Each saved user/role change appends an `AccessAuditEvents` record containing the
 actor, target, timestamp, before/after state and correlation ID in the same database
 transaction. Changes that remove the access needed to complete an active review
-are rejected with HTTP 409. Finish the review before revoking that access.
+are rejected with HTTP 409. Finish or cancel the review before revoking that access.
 Review start and administrative changes use serializable database transactions
 to coordinate permission reads with review creation. No row-version field is used.
 

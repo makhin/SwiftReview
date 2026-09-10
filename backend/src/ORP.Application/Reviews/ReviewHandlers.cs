@@ -19,6 +19,10 @@ public sealed class RejectReviewValidator : AbstractValidator<RejectReviewReques
 {
     public RejectReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); RuleFor(x => x.Comment).MaximumLength(2000); }
 }
+public sealed class CancelReviewValidator : AbstractValidator<CancelReviewRequest>
+{
+    public CancelReviewValidator() { RuleFor(x => x.Level).InclusiveBetween(1, 3); }
+}
 public sealed class UndoReviewValidator : AbstractValidator<UndoReviewRequest>
 {
     public UndoReviewValidator() { RuleFor(x => x.ReviewId).GreaterThan(0); }
@@ -31,6 +35,9 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
     {
         await validator.ValidateAndThrowAsync(request, cancellationToken);
         var (message, workflow, reviews) = await LoadAsync(store, messageId, cancellationToken);
+        var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
+        if (active is not null && active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)
+            return active.Id;
         var oldState = message.State;
         var now = clock.UtcNow;
         var review = message.StartReview(request.Level, user.UserId, workflow, reviews, now);
@@ -96,6 +103,24 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
         StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
             message.State, review, now, correlation.CorrelationId, request.Comment);
         await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, cancellationToken);
+        await store.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReviewRequest> validator,
+    ICurrentUser user, IClock clock, ICorrelationContext correlation)
+{
+    public async Task HandleAsync(long messageId, CancelReviewRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        var (message, _, reviews) = await StartReviewHandler.LoadAsync(store, messageId, cancellationToken);
+        var review = reviews.SingleOrDefault(x => x.Level == request.Level && x.Status == ReviewStatus.InProgress)
+            ?? throw new ResourceNotFoundException("Active review was not found.");
+        var oldState = message.State;
+        var now = clock.UtcNow;
+        message.CancelReview(review, user.UserId, now);
+        StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewCancelled, user.UserId, oldState,
+            message.State, review, now, correlation.CorrelationId);
         await store.SaveChangesAsync(cancellationToken);
     }
 }

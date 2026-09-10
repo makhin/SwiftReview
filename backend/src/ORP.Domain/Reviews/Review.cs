@@ -2,7 +2,7 @@ using ORP.Domain.Common;
 
 namespace ORP.Domain.Reviews;
 
-public enum ReviewStatus { InProgress, Approved, Rejected, Undone }
+public enum ReviewStatus { InProgress, Approved, Rejected, Undone, Cancelled }
 
 public sealed class Review
 {
@@ -40,6 +40,13 @@ public sealed class Review
         EnsureInProgress();
         Status = ReviewStatus.Rejected;
         Comment = comment;
+        CompletedAt = now;
+    }
+
+    public void Cancel(DateTimeOffset now)
+    {
+        EnsureInProgress();
+        Status = ReviewStatus.Cancelled;
         CompletedAt = now;
     }
 

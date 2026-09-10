@@ -59,7 +59,7 @@ public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
     {
         builder.ToTable("Reviews"); builder.HasKey(x => x.Id); builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.Comment).HasMaxLength(2000);
-        builder.HasIndex(x => new { x.MessageId, x.Level }).HasFilter("[Status] <> N'Undone'").IsUnique();
+        builder.HasIndex(x => new { x.MessageId, x.Level }).HasFilter("[Status] <> N'Undone' AND [Status] <> N'Cancelled'").IsUnique();
         builder.HasOne<Message>().WithMany().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.ReviewerId).OnDelete(DeleteBehavior.Restrict);
     }

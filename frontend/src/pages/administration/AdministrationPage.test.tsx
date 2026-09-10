@@ -1,17 +1,21 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 
 const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(), getAccessCatalog: vi.fn(), getUserAccess: vi.fn(),
   updateUserAccess: vi.fn(), updateRolePermissions: vi.fn(), createAdminUsersStore: vi.fn(),
+  refreshGrid: vi.fn(),
 }));
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock('./administrationApi', () => mocks);
 vi.mock('devextreme-react/data-grid', () => ({
-  default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  default: function MockDataGrid({ children, ref }: { children: ReactNode; ref?: Ref<unknown> }) {
+    useImperativeHandle(ref, () => ({ instance: () => ({ refresh: mocks.refreshGrid }) }));
+    return <div>{children}</div>;
+  },
   Column: ({ cellRender }: { cellRender?: (cell: { data: { id: number; userName: string; displayName: string } }) => ReactNode }) =>
     cellRender?.({ data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' } }),
   Pager: () => null, Paging: () => null,
@@ -79,6 +83,17 @@ describe('AdministrationPage', () => {
     }));
     expect(await screen.findByRole('status')).toHaveTextContent('Changes saved.');
     expect(screen.queryByLabelText('Global administrator')).not.toBeInTheDocument();
+  });
+
+  it('refreshes users without losing unsaved access edits', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
+    fireEvent.change(await screen.findByLabelText('Branch 1'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument());
+    expect(mocks.refreshGrid).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText('Branch 1')).toHaveValue('2');
+    expect(mocks.updateUserAccess).not.toHaveBeenCalled();
   });
 
   it('can remove business access entirely', async () => {

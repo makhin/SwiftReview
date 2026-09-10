@@ -544,7 +544,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
                 table: "Reviews",
                 columns: new[] { "MessageId", "Level" },
                 unique: true,
-                filter: "[Status] <> N'Undone'");
+                filter: "[Status] <> N'Undone' AND [Status] <> N'Cancelled'");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Reviews_ReviewerId",

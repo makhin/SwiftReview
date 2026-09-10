@@ -23,6 +23,7 @@ const eventLabels: Record<AuditEventType, string> = {
   ReviewApproved: 'Review approved',
   MessageCompleted: 'Message completed',
   ReviewRejected: 'Review rejected',
+  ReviewCancelled: 'Review cancelled',
   ConfirmationUndone: 'Confirmation undone',
 };
 

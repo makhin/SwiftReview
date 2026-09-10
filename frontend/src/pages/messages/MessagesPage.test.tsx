@@ -227,6 +227,13 @@ describe('MessagesPage', () => {
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
   });
 
+  it('refreshes the existing messages grid on request', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument());
+    expect(refreshGrid).toHaveBeenCalledOnce();
+  });
+
   it('retries a failed current-user request before granting access', async () => {
     getCurrentUser.mockRejectedValueOnce(new Error('Network unavailable'));
     renderPage(true, undefined, false);

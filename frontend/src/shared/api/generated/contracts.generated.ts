@@ -66,7 +66,12 @@ export type AuditEventType =
   | "ReviewApproved"
   | "MessageCompleted"
   | "ReviewRejected"
-  | "ConfirmationUndone";
+  | "ConfirmationUndone"
+  | "ReviewCancelled";
+
+export interface CancelReviewRequest {
+  level: number | string;
+}
 
 export interface CurrentUserResponse {
   userId: number | string;

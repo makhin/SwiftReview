@@ -6,6 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Abstractions;
 using ORP.Application.Administration;
 using ORP.Domain.Identity;
+using ORP.Domain.Auditing;
+using ORP.Domain.Messages;
+using ORP.Domain.Reviews;
 using ORP.Infrastructure.Persistence;
 using Xunit;
 
@@ -117,6 +120,74 @@ public sealed class AdministrationApiTests : IDisposable
         Assert.Empty(await db.AccessAuditEvents.ToListAsync(Ct));
         Assert.False((await db.Users.SingleAsync(u => u.Id == 1, Ct)).IsGlobalAdministrator);
         Assert.Single(await db.UserRoles.Where(r => r.UserId == 1).ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task StartingReviewAgain_ResumesSameReview_AndKeepsAssignmentLocked()
+    {
+        using var admin = Client();
+        using var reviewer = Client("amelia.hart");
+        (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 1 }, Ct)).EnsureSuccessStatusCode();
+        var first = await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct);
+        first.EnsureSuccessStatusCode();
+        var firstBody = await first.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var resumed = await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct);
+        resumed.EnsureSuccessStatusCode();
+        var resumedBody = await resumed.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal(firstBody.GetProperty("reviewId").GetInt64(), resumedBody.GetProperty("reviewId").GetInt64());
+
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 2 }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 2 }, Ct)).StatusCode);
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
+        Assert.Single(await db.Reviews.Where(r => r.MessageId == 1).ToListAsync(Ct));
+        Assert.Single(await db.AuditEvents.Where(e => e.MessageId == 1 && e.EventType == AuditEventType.ReviewStarted).ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task CancelReview_IsOwnerOnly_KeepsHistoryAndAssignment_AndUnlocksReassignment()
+    {
+        using var admin = Client();
+        using var reviewer = Client("amelia.hart");
+        (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 2 }, Ct)).StatusCode);
+
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
+            var message = await db.Messages.SingleAsync(m => m.Id == 1, Ct);
+            Assert.Equal(MessageState.Assigned, message.State);
+            Assert.Equal(1, message.CurrentAssigneeId);
+            var review = await db.Reviews.SingleAsync(r => r.MessageId == 1, Ct);
+            Assert.Equal(ReviewStatus.Cancelled, review.Status);
+            Assert.NotNull(review.CompletedAt);
+            Assert.Single(await db.Assignments.Where(a => a.MessageId == 1 && a.EndedAt == null).ToListAsync(Ct));
+            var audit = await db.AuditEvents.SingleAsync(e => e.MessageId == 1 && e.EventType == AuditEventType.ReviewCancelled, Ct);
+            Assert.Equal(review.Id, audit.ReviewId);
+            Assert.Equal(1, audit.UserId);
+            Assert.Equal(MessageState.FirstReviewInProgress, audit.OldState);
+            Assert.Equal(MessageState.Assigned, audit.NewState);
+        }
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await admin.PutAsJsonAsync("/api/admin/users/6/access", new UpdateUserAccessRequest([new(1, 1, [1])]), Ct)).EnsureSuccessStatusCode();
+        (await admin.PostAsJsonAsync("/api/messages/1/reassign", new { assignedTo = 6 }, Ct)).EnsureSuccessStatusCode();
+        using var nextReviewer = Client("lucas.bennett");
+        (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/approve", new { level = 1 }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await nextReviewer.PostAsJsonAsync("/api/messages/1/reviews/cancel", new { level = 1 }, Ct)).StatusCode);
+        using var finalScope = factory.Services.CreateScope();
+        var finalDb = finalScope.ServiceProvider.GetRequiredService<ORPDbContext>();
+        Assert.Equal(3, await finalDb.Reviews.CountAsync(r => r.MessageId == 1, Ct));
+        Assert.Equal(2, await finalDb.AuditEvents.CountAsync(e => e.MessageId == 1 && e.EventType == AuditEventType.ReviewCancelled, Ct));
     }
 
     [Fact]
