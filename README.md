@@ -28,7 +28,21 @@ SQL Server is only required when the backend is run with persistent storage. The
 
 ## Run locally
 
-Start the backend from the repository root:
+Start the backend and frontend together from the repository root on Linux or macOS:
+
+```bash
+./run-dev.sh
+```
+
+On Windows, run the PowerShell script:
+
+```powershell
+.\run-dev.ps1
+```
+
+Press `Ctrl+C` to stop both processes.
+
+Alternatively, start the processes separately. Start the backend from the repository root:
 
 ```bash
 dotnet run --project backend/src/ORP.Api
