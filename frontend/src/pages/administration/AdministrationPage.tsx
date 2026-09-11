@@ -5,6 +5,10 @@ import type { DataGridRef } from 'devextreme-react/data-grid';
 import SelectBox from 'devextreme-react/select-box';
 import TagBox from 'devextreme-react/tag-box';
 import Button from 'devextreme-react/button';
+import Tabs from 'devextreme-react/tabs';
+import TextBox from 'devextreme-react/text-box';
+import { confirm as confirmDialog } from 'devextreme/ui/dialog';
+import notify from 'devextreme/ui/notify';
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import type { AccessCatalogDto, RoleDetailsDto, ScopedRoleAssignmentDto, UserAccessDetailsDto } from '../../shared/api/generated/contracts.generated';
 import PageLoading from '../../shared/components/feedback/PageLoading';
@@ -12,6 +16,11 @@ import PageError from '../../shared/components/feedback/PageError';
 import GridRefreshButton from '../../shared/components/GridRefreshButton';
 import { createAdminUsersStore, getAccessCatalog, getUserAccess, updateRolePermissions, updateUserAccess, type AdminUser } from './administrationApi';
 import './administration.css';
+
+const administrationTabs = [
+  { id: 'users' as const, text: 'Users' },
+  { id: 'roles' as const, text: 'Roles' },
+];
 
 export default function AdministrationPage() {
   const user = useQuery(currentUserQueryOptions());
@@ -32,40 +41,56 @@ function Administration() {
   const details = useQuery({ queryKey: ['admin', 'user', selectedUser?.id], queryFn: ({ signal }) => getUserAccess(selectedUser!.id, signal), enabled: selectedUser !== null });
   const store = useMemo(() => createAdminUsersStore(appliedSearch), [appliedSearch]);
   const role = catalog.data?.roles.find((r) => Number(r.id) === selectedRole);
-  function leaveEditor() {
-    if (dirty && !window.confirm('Discard unsaved access changes?')) return false;
+  async function leaveEditor() {
+    if (dirty && !await confirmDialog('Discard unsaved access changes?', 'Unsaved changes')) return false;
     setDirty(false);
     return true;
   }
+  async function selectUser(nextUser: AdminUser) {
+    if (selectedUser?.id !== nextUser.id && await leaveEditor()) setSelectedUser(nextUser);
+  }
+  async function selectRole(roleId: number) {
+    if (await leaveEditor()) setSelectedRole(roleId);
+  }
+  async function closeUserEditor() {
+    if (await leaveEditor()) setSelectedUser(null);
+  }
   return <main className="app-content app-page administration">
-    <header className="app-page-header"><div><h1 className="app-page-title">Users & access</h1>
+    <header className="app-page-header"><div><h1 className="app-page-title">Users & Access</h1>
       <p className="app-page-subtitle">Permissions come only from roles, within each branch and department.</p></div></header>
-    <div className="admin-toolbar" role="tablist" aria-label="Administration sections">
-      {(['users', 'roles'] as const).map((value) => <button key={value} role="tab" aria-selected={tab === value}
-        onClick={() => { if (tab !== value && leaveEditor()) setTab(value); }}>{value === 'users' ? 'Users' : 'Roles'}</button>)}
-    </div>
+    <Tabs className="administration__tabs" items={administrationTabs} keyExpr="id" selectedIndex={tab === 'users' ? 0 : 1}
+      elementAttr={{ 'aria-label': 'Administration sections' }}
+      onSelectionChanging={(event) => { event.cancel = leaveEditor().then((canLeave) => !canLeave); }}
+      onSelectedIndexChange={(index) => { const nextTab = administrationTabs[index]; if (nextTab) setTab(nextTab.id); }} />
     {catalog.isPending ? <PageLoading message="Loading access catalog…" /> : catalog.error ?
       <PageError title="Unable to load access catalog" message={catalog.error.message} onAction={() => void catalog.refetch()} actionLabel="Retry" /> : catalog.data && <>
       {tab === 'users' ? <>
-        <form className="admin-toolbar" onSubmit={(e) => { e.preventDefault(); setAppliedSearch(search); }}>
-          <label>Find user <input value={search} maxLength={100} onChange={(e) => setSearch(e.target.value)} placeholder="Name or username" /></label>
-          <button type="submit">Search</button>
-          <GridRefreshButton refresh={() => gridRef.current?.instance().refresh()} />
+        <form className="admin-search-toolbar" onSubmit={(e) => { e.preventDefault(); setAppliedSearch(search); }}>
+          <div className="admin-search-field">
+            <label className="app-label" htmlFor="admin-user-search">Find user</label>
+            <TextBox value={search} height={36} maxLength={100} valueChangeEvent="input" placeholder="e.g. Amelia or amelia.hart…"
+              inputAttr={{ id: 'admin-user-search', name: 'user-search', autoComplete: 'off', spellCheck: 'false' }}
+              onValueChanged={(event) => setSearch(event.value)} />
+          </div>
+          <div className="admin-search-actions">
+            <Button text="Search" type="default" height={36} useSubmitBehavior />
+            <GridRefreshButton refresh={() => gridRef.current?.instance().refresh()} />
+          </div>
         </form>
         <DataGrid ref={gridRef} dataSource={store} remoteOperations={{ paging: true, sorting: true }} showBorders={false}
           columnAutoWidth elementAttr={{ 'aria-label': 'Users' }} noDataText="No users found">
           <Paging defaultPageSize={20} /><Pager visible showInfo />
           <Column dataField="displayName" caption="Name" /><Column dataField="userName" caption="Username" />
           <Column caption="Access" allowSorting={false} cellRender={({ data }: { data: AdminUser }) =>
-            <Button text="Edit access" onClick={() => { if (selectedUser?.id !== data.id && leaveEditor()) setSelectedUser(data); }} />} />
+            <Button text="Edit access" onClick={() => void selectUser(data)} />} />
         </DataGrid>
         {selectedUser && (details.isPending ? <PageLoading message="Loading user access…" /> : details.error ?
           <PageError title="Unable to load user access" message={details.error.message} onAction={() => void details.refetch()} actionLabel="Retry" /> : details.data &&
-          <UserEditor key={selectedUser.id} user={details.data} catalog={catalog.data} onDirty={setDirty} onClose={() => { if (leaveEditor()) setSelectedUser(null); }} />)}
+          <UserEditor key={selectedUser.id} user={details.data} catalog={catalog.data} onDirty={setDirty} onClose={() => void closeUserEditor()} />)}
       </> : <>
         <SelectBox items={catalog.data.roles} valueExpr="id" displayExpr="name" value={selectedRole}
           inputAttr={{ 'aria-label': 'Role' }} placeholder="Select a role"
-          onValueChanged={(e) => { if (leaveEditor()) setSelectedRole(e.value as number); }} />
+          onValueChanged={(e) => void selectRole(e.value as number)} />
         {role && <RoleEditor key={role.id} role={role} catalog={catalog.data} onDirty={setDirty} />}
       </>}
     </>}
@@ -78,7 +103,7 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
   const [assignments, setAssignments] = useState<ScopedRoleAssignmentDto[]>(user.assignments);
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => updateUserAccess(Number(user.userId), { assignments }), onSuccess: async () => {
-    onDirty(false); await queryClient.invalidateQueries();
+    onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
   } });
   function change(next: ScopedRoleAssignmentDto[]) { setAssignments(next); onDirty(true); mutation.reset(); }
   function update(index: number, patch: Partial<ScopedRoleAssignmentDto>) { change(assignments.map((a, i) => i === index ? { ...a, ...patch } : a)); }
@@ -100,7 +125,7 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
         <Button text={mutation.isPending ? 'Saving…' : 'Save access'} type="default" onClick={() => mutation.mutate()} />
         <Button text="Close" onClick={onClose} /></div>
     </fieldset>
-    <SaveStatus error={mutation.error} saved={mutation.isSuccess} />
+    <SaveError error={mutation.error} />
   </section>;
 }
 
@@ -108,7 +133,7 @@ function RoleEditor({ role, catalog, onDirty }: { role: RoleDetailsDto; catalog:
   const [permissions, setPermissions] = useState(role.permissions);
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => updateRolePermissions(Number(role.id), { permissions }), onSuccess: async () => {
-    onDirty(false); await queryClient.invalidateQueries();
+    onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
   } });
   return <section className="app-card admin-editor" aria-label="Role permissions editor"><h2>{role.name}</h2>
     <p>Changes affect every user assigned this role, in all of its scopes.</p>
@@ -117,10 +142,10 @@ function RoleEditor({ role, catalog, onDirty }: { role: RoleDetailsDto; catalog:
         onValueChanged={(e) => { setPermissions(e.value as string[]); onDirty(true); mutation.reset(); }} />
       <div className="admin-toolbar"><Button text={mutation.isPending ? 'Saving…' : 'Save permissions'} type="default" onClick={() => mutation.mutate()} />
         <Button text="Reset" onClick={() => { setPermissions(role.permissions); onDirty(false); mutation.reset(); }} /></div>
-    </fieldset><SaveStatus error={mutation.error} saved={mutation.isSuccess} />
+    </fieldset><SaveError error={mutation.error} />
   </section>;
 }
 
-function SaveStatus({ error, saved }: { error: Error | null; saved: boolean }) {
-  return error ? <p role="alert">{error.message}</p> : saved ? <p role="status">Changes saved.</p> : null;
+function SaveError({ error }: { error: Error | null }) {
+  return error ? <p role="alert">{error.message}</p> : null;
 }

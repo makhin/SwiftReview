@@ -265,4 +265,4 @@ Query ради унификации обработки ошибок.
 - [React: production error logging in `createRoot`](https://react.dev/reference/react-dom/client/createRoot#error-logging-in-production)
 - [TanStack Query: `QueryCache`](https://tanstack.com/query/latest/docs/reference/QueryCache)
 - [TanStack Query: `MutationCache`](https://tanstack.com/query/latest/docs/reference/MutationCache)
-- [DevExtreme DataGrid: `onDataErrorOccurred`](https://js.devexpress.com/React/Documentation/25_1/ApiReference/UI_Components/dxDataGrid/Configuration/#onDataErrorOccurred)
+- [DevExtreme DataGrid: `onDataErrorOccurred`](https://js.devexpress.com/React/Documentation/26_1/ApiReference/UI_Components/dxDataGrid/Configuration/#onDataErrorOccurred)

@@ -2,7 +2,7 @@
 
 **Version:** 0.2
 **Scope:** this React + TypeScript repository  
-**UI foundation:** DevExtreme 25.1, Fluent Blue Light Compact  
+**UI foundation:** DevExtreme 26.1.4, Fluent Blue Light Compact
 **Visual reference:** SMBC EMEA
 
 ## 1. Purpose

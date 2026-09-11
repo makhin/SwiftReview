@@ -1,10 +1,25 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useImperativeHandle, useRef, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getMessageAudit } = vi.hoisted(() => ({ getMessageAudit: vi.fn() }));
 
 vi.mock('./auditApi', () => ({ getMessageAudit }));
+vi.mock('devextreme-react/button', () => ({
+  default: function MockButton({ text, disabled, elementAttr, onClick, ref }: {
+    text?: string;
+    disabled?: boolean;
+    elementAttr?: { 'aria-label'?: string };
+    onClick: () => void;
+    ref?: Ref<{ instance: () => { focus: () => void } }>;
+  }) {
+    const elementRef = useRef<HTMLButtonElement>(null);
+    useImperativeHandle(ref, () => ({ instance: () => ({ focus: () => elementRef.current?.focus() }) }));
+    return <button ref={elementRef} type="button" disabled={disabled} aria-label={elementAttr?.['aria-label']}
+      onClick={onClick}>{text}</button>;
+  },
+}));
 
 import type { AuditEventDto } from '../../shared/api/generated/contracts.generated';
 import { createTestQueryClient } from '../../test/createTestQueryClient';

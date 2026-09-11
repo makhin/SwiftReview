@@ -1,3 +1,5 @@
+import Button from 'devextreme-react/button';
+
 type PageErrorProps = {
   title: string;
   message: string;
@@ -15,9 +17,7 @@ export default function PageError({
     <div className="app-callout app-callout--danger app-page-error" role="alert">
       <strong>{title}</strong>
       <p>{message}</p>
-      <button className="app-page-error__action" type="button" onClick={onAction}>
-        {actionLabel}
-      </button>
+      <Button text={actionLabel} stylingMode="outlined" onClick={onAction} />
     </div>
   );
 }

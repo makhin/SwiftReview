@@ -1,6 +1,21 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+
+vi.mock('devextreme-react/radio-group', () => ({
+  default: ({ items, value, name, elementAttr, onValueChanged, itemRender }: {
+    items: { selectionKey: number; label: string }[];
+    value: number | null;
+    name: string;
+    elementAttr: { 'aria-labelledby': string };
+    onValueChanged: (event: { value: number }) => void;
+    itemRender: (item: { selectionKey: number; label: string }) => ReactNode;
+  }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{items.map((item) =>
+    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
+      checked={value === item.selectionKey} onChange={() => onValueChanged({ value: item.selectionKey })} />
+      {itemRender(item)}</label>)}</div>,
+}));
+
 import GridStateCards from './GridStateCards';
 
 const items = [{ value: null, label: 'All', count: 12 }, { value: 'New', label: 'New', count: 12 }, { value: 'FutureState', label: 'Future state', count: 0 }];

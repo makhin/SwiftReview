@@ -321,6 +321,39 @@
   line-height: var(--line-height-tight);
 }
 
+/* Keep checkbox dropdowns readable when a TagBox editor spans a wide form. */
+.dx-tagbox-popup-wrapper .dx-overlay-content {
+  max-width: min(520px, calc(100vw - 2 * var(--space-4))) !important;
+}
+
+.dx-tagbox-popup-wrapper .dx-list-select-all {
+  align-items: center;
+  padding: var(--space-2);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+}
+
+.dx-tagbox-popup-wrapper
+  .dx-list.dx-list-select-decorator-enabled
+  .dx-list-select-all
+  .dx-list-select-all-label {
+  padding-inline: 0;
+  margin-inline-start: calc(-1 * var(--space-1));
+}
+
+.dx-tagbox-popup-wrapper .dx-list-item {
+  justify-content: flex-start;
+  padding-inline: var(--space-4);
+}
+
+.dx-tagbox-popup-wrapper .dx-list-item-content {
+  min-width: 0;
+  padding: var(--space-2);
+}
+
+.dx-tagbox-popup-wrapper .dx-list-item-selected {
+  background: var(--color-surface-selected);
+}
+
 /* Popup / dropdown surfaces */
 .dx-overlay-content,
 .dx-popup-wrapper > .dx-overlay-content {

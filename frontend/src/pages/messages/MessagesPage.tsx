@@ -41,6 +41,12 @@ export default function MessagesPage() {
 
   return (
     <main className="app-content app-page app-page--wide">
+      <header className="app-page-header">
+        <div className="app-page-header__main">
+          <h1 className="app-page-title">Messages</h1>
+          <p className="app-page-subtitle">Find, assign, and manage messages across your accessible scopes.</p>
+        </div>
+      </header>
       <MessagesGrid dataSource={messageDataSource} enableUndoActions enableWorkflowActions />
     </main>
   );

@@ -8,6 +8,7 @@ import {
   departmentsQueryOptions,
 } from '../../shared/api/referenceDataQueries';
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
+import './current-user.css';
 
 function getErrorContent(error: Error) {
   if (error instanceof ApiError && error.status === 401) {
@@ -66,20 +67,31 @@ export default function CurrentUserPage() {
             />
           ) : user ? (
             <>
-            <dl className="app-details">
-              <dt>User ID</dt>
-              <dd>{user.userId}</dd>
-              <dt>User name</dt>
-              <dd>{user.userName}</dd>
-              <dt>Global administrator</dt><dd>{user.isGlobalAdministrator ? 'Yes' : 'No'}</dd>
-            </dl>
-            <h2>Access by scope</h2>
-            {user.isGlobalAdministrator ? <p>Full access to all information and actions across all branches and departments.</p> : user.scopes?.length ? <table><thead><tr><th>Branch</th><th>Department</th><th>Permissions</th></tr></thead>
-              <tbody>{user.scopes.map((scope) => <tr key={`${scope.branchId}-${scope.departmentId}`}>
-                <td>{branches?.find((b) => String(b.id) === String(scope.branchId))?.name ?? scope.branchId}</td>
-                <td>{departments?.find((d) => String(d.id) === String(scope.departmentId))?.name ?? scope.departmentId}</td>
-                <td>{scope.permissions.join(', ') || 'None'}</td>
-              </tr>)}</tbody></table> : <p>No business access.</p>}
+              <dl className="app-details">
+                <dt>User ID</dt>
+                <dd>{user.userId}</dd>
+                <dt>User name</dt>
+                <dd>{user.userName}</dd>
+                <dt>Global administrator</dt>
+                <dd>{user.isGlobalAdministrator ? 'Yes' : 'No'}</dd>
+              </dl>
+              <section className="current-user-access" aria-labelledby="access-by-scope-title">
+                <h2 id="access-by-scope-title">Access by Scope</h2>
+                {user.isGlobalAdministrator ? (
+                  <p>Full access to all information and actions across all branches and departments.</p>
+                ) : user.scopes?.length ? (
+                  <div className="app-table-scroll" tabIndex={0} aria-label="Access by scope table">
+                    <table>
+                      <thead><tr><th>Branch</th><th>Department</th><th>Permissions</th></tr></thead>
+                      <tbody>{user.scopes.map((scope) => <tr key={`${scope.branchId}-${scope.departmentId}`}>
+                        <td>{branches?.find((b) => String(b.id) === String(scope.branchId))?.name ?? scope.branchId}</td>
+                        <td>{departments?.find((d) => String(d.id) === String(scope.departmentId))?.name ?? scope.departmentId}</td>
+                        <td>{scope.permissions.join(', ') || 'None'}</td>
+                      </tr>)}</tbody>
+                    </table>
+                  </div>
+                ) : <p>No business access.</p>}
+              </section>
             </>
           ) : (
             <PageLoading message="Loading current user…" />

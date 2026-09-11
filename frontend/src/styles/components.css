@@ -163,6 +163,31 @@
   border-radius: var(--radius-md);
 }
 
+.app-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.app-table-scroll:focus-visible {
+  outline: var(--outline-width) solid var(--focus-ring-color);
+  outline-offset: var(--outline-offset);
+}
+
+.app-table-scroll table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.app-table-scroll th,
+.app-table-scroll td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
+  text-align: left;
+  vertical-align: top;
+}
+
 .app-callout {
   padding: var(--space-3) var(--space-4);
   border-left: var(--border-width-emphasis) solid var(--color-action-primary);
@@ -191,15 +216,10 @@
   gap: var(--space-2);
 }
 
-.app-page-error__action {
-  min-height: 36px;
-  padding: var(--space-1) var(--space-3);
-  font: inherit;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  background: var(--color-surface-default);
-  border: var(--border-width-default) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+.app-page-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* Keeps embedded DevExtreme widgets visually integrated with cards/toolbars */

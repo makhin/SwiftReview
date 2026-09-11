@@ -1,4 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import Button from 'devextreme-react/button';
+import type { ButtonRef } from 'devextreme-react/button';
 import { useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 
@@ -124,16 +126,17 @@ export default function AuditTrailDrawer({
   onClose,
 }: AuditTrailDrawerProps) {
   const panelRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<ButtonRef>(null);
   const auditQuery = useInfiniteQuery(messageAuditQueryOptions(message.id));
   const events = auditQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const focusCloseButton = () => closeButtonRef.current?.instance().focus();
 
   useEffect(() => {
-    closeButtonRef.current?.focus();
+    focusCloseButton();
 
     const keepFocusInPanel = (event: FocusEvent) => {
       if (!panelRef.current?.contains(event.target as Node)) {
-        closeButtonRef.current?.focus();
+        focusCloseButton();
       }
     };
 
@@ -179,15 +182,16 @@ export default function AuditTrailDrawer({
           <h2 id="audit-drawer-title">Audit trail</h2>
           <p>{message.externalId}</p>
         </div>
-        <button
+        <Button
           ref={closeButtonRef}
           className="audit-drawer-panel__close"
-          type="button"
-          aria-label="Close audit trail"
+          icon="close"
+          stylingMode="text"
+          width={36}
+          height={36}
+          elementAttr={{ 'aria-label': 'Close audit trail' }}
           onClick={onClose}
-        >
-          ×
-        </button>
+        />
       </header>
 
       <div className="audit-drawer-panel__body">
@@ -222,21 +226,19 @@ export default function AuditTrailDrawer({
         {auditQuery.isFetchNextPageError && (
           <div className="audit-drawer-panel__load-error" role="alert">
             <span>Unable to load more events.</span>
-            <button type="button" onClick={() => void auditQuery.fetchNextPage()}>
-              Retry
-            </button>
+            <Button text="Retry" stylingMode="outlined" onClick={() => void auditQuery.fetchNextPage()} />
           </div>
         )}
 
         {auditQuery.hasNextPage && !auditQuery.isFetchNextPageError && (
-          <button
+          <Button
             className="audit-drawer-panel__load-more"
-            type="button"
+            text={auditQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            stylingMode="outlined"
+            width="100%"
             disabled={auditQuery.isFetchingNextPage}
             onClick={() => void auditQuery.fetchNextPage()}
-          >
-            {auditQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
-          </button>
+          />
         )}
       </div>
     </aside>

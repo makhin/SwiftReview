@@ -10,6 +10,10 @@ import { createTestQueryClient } from '../../test/createTestQueryClient';
 const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
 
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser }));
+vi.mock('devextreme-react/button', () => ({
+  default: ({ text, onClick }: { text: string; onClick: () => void }) =>
+    <button type="button" onClick={onClick}>{text}</button>,
+}));
 
 import CurrentUserPage from './CurrentUserPage';
 
@@ -67,6 +71,7 @@ describe('CurrentUserPage', () => {
     expect(screen.getByText('messages.read, messages.assign')).toBeInTheDocument();
     expect(screen.getByText('London')).toBeInTheDocument();
     expect(screen.getByText('Compliance')).toBeInTheDocument();
+    expect(screen.getByLabelText('Access by scope table')).toHaveAttribute('tabindex', '0');
   });
 
   it('shows no business access for empty scopes', async () => {

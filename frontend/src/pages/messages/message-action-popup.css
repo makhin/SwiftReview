@@ -5,6 +5,11 @@
   padding: var(--space-4);
 }
 
+.assignment-popup .dx-popup-content,
+.review-decision-popup .dx-popup-content {
+  overscroll-behavior: contain;
+}
+
 .review-decision-popup__actions {
   display: flex;
   flex-wrap: wrap;

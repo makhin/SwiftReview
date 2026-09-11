@@ -5,6 +5,7 @@ html {
   font-family: var(--font-sans);
   color: var(--color-text-primary);
   background: var(--color-page-background);
+  scroll-padding-top: calc(var(--global-header-height, 0px) + var(--space-4));
 }
 
 *, *::before, *::after {
@@ -23,6 +24,7 @@ body {
   background: var(--color-page-background);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: rgb(0 72 49 / 16%);
 }
 
 h1, h2, h3, h4, h5, h6, p {
@@ -32,6 +34,8 @@ h1, h2, h3, h4, h5, h6, p {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-sans);
   text-transform: none;
+  text-wrap: balance;
+  scroll-margin-top: calc(var(--global-header-height, 0px) + var(--space-4));
 }
 
 h1 {
@@ -80,6 +84,13 @@ a:focus-visible,
 button:focus-visible {
   outline: var(--outline-width) solid var(--focus-ring-color);
   outline-offset: var(--outline-offset);
+}
+
+a,
+button,
+[role="button"],
+.dx-widget {
+  touch-action: manipulation;
 }
 
 .app-muted {

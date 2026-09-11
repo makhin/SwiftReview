@@ -89,6 +89,19 @@ vi.mock('devextreme-react/button', () => ({
     );
   },
 }));
+vi.mock('devextreme-react/radio-group', () => ({
+  default: ({ items, value, name, elementAttr, onValueChanged, itemRender }: {
+    items: { selectionKey: number; label: string }[];
+    value: number | null;
+    name: string;
+    elementAttr: { 'aria-labelledby': string };
+    onValueChanged: (event: { value: number }) => void;
+    itemRender: (item: { selectionKey: number; label: string }) => React.ReactNode;
+  }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{items.map((item) =>
+    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
+      checked={value === item.selectionKey} onChange={() => onValueChanged({ value: item.selectionKey })} />
+      {itemRender(item)}</label>)}</div>,
+}));
 vi.mock('devextreme-react/drawer', () => ({
   default: ({
     children,
@@ -220,7 +233,7 @@ describe('MessagesPage', () => {
   it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)(
     'uses the shared stage colours in the administrator assignment grid: %s', (state, level) => {
       renderPage(true, [], true, true);
-      expect(screen.getByText('Review stage:')).toBeInTheDocument();
+      expect(screen.getByText('Messages that need your attention are marked with a green line.')).toBeInTheDocument();
       const prepare = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
       const rowElement = document.createElement('tr');
       prepare({ rowType: 'data', rowElement, data: { state, currentAssigneeId: 7 } });
@@ -273,6 +286,7 @@ describe('MessagesPage', () => {
 
   it('refreshes the existing messages grid on request', async () => {
     renderPage();
+    expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument());
     expect(refreshGrid).toHaveBeenCalledOnce();
@@ -335,7 +349,7 @@ describe('MessagesPage', () => {
   it('configures the remote messages grid', () => {
     renderPage();
 
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
     expect(screen.getAllByTestId('Column')).toHaveLength(8);
@@ -633,9 +647,6 @@ describe('workflow action', () => {
      componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared({ rowType: 'data', rowElement, data });
      expect(rowElement).toHaveClass('message-review-level-1');
      expect(rowElement).not.toHaveClass('message-assigned-to-you');
-     const stage = componentProps.mock.calls.find(([name, props]) => name === 'Column' && props.dataField === 'state')![1].cellRender({ data });
-     expect(stage.props.readyForReview).toBe(false);
-     expect(stage.props.assignedToYou).toBe(false);
    });
 
    it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)('colours %s even without review rights and separately marks personal assignments', (state, level) => {

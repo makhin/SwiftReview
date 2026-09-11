@@ -18,7 +18,7 @@ export default function AssignedMessagesPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
   const userQuery = useQuery(currentUserQueryOptions());
-  if (userQuery.isPending) return <main className="app-content app-page"><PageLoading message="Loading review queue…" /></main>;
+  if (userQuery.isPending) return <main className="app-content app-page"><PageLoading message="Loading message review…" /></main>;
   if (userQuery.error) return <main className="app-content app-page"><PageError
     title="Unable to verify access" message="Check your connection and try again."
     actionLabel="Retry" onAction={() => void userQuery.refetch()} /></main>;
@@ -27,5 +27,13 @@ export default function AssignedMessagesPage() {
     const destination = user && canOpenMessagesPage(user.permissions, user.isGlobalAdministrator) ? '/messages' : user?.isGlobalAdministrator ? '/admin' : '/me';
     return <UserPreservingNavigate to={destination} replace />;
   }
-  return <main className="app-content app-page app-page--wide"><MessagesGrid dataSource={messageDataSource} enableReviewActions /></main>;
+  return <main className="app-content app-page app-page--wide">
+    <header className="app-page-header">
+      <div className="app-page-header__main">
+        <h1 className="app-page-title">Message Review</h1>
+        <p className="app-page-subtitle">Review messages available across your accessible scopes.</p>
+      </div>
+    </header>
+    <MessagesGrid dataSource={messageDataSource} enableReviewActions />
+  </main>;
 }

@@ -10,6 +10,10 @@ import RouteErrorBoundary from './RouteErrorBoundary';
 vi.mock('../layout/GlobalHeader', () => ({
   default: () => <header>Application header</header>,
 }));
+vi.mock('devextreme-react/button', () => ({
+  default: ({ text, onClick }: { text: string; onClick: () => void }) =>
+    <button type="button" onClick={onClick}>{text}</button>,
+}));
 vi.mock('devextreme-react/drawer', () => ({
   default: ({ children, render: renderPanel }: React.PropsWithChildren<{
     render: () => React.ReactNode;

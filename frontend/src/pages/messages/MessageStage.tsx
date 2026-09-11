@@ -2,7 +2,6 @@ import Stepper from 'devextreme-react/stepper';
 
 import type { MessageState } from '../../shared/api/generated/contracts.generated';
 import './message-stage.css';
-import { getReviewStep } from './reviewDecision';
 
 const ordinals = ['1st', '2nd', '3rd'];
 
@@ -40,13 +39,9 @@ type MessageStageProps = {
   label: string;
   requiredLevels: number[];
   hasAssignee: boolean;
-  readyForReview?: boolean;
-  assignedToYou?: boolean;
 };
 
-export default function MessageStage({ state, label, requiredLevels, hasAssignee, readyForReview = false, assignedToYou = false }: MessageStageProps) {
-  const step = getReviewStep(state);
-  const level = step?.level ?? 1;
+export default function MessageStage({ state, label, requiredLevels, hasAssignee }: MessageStageProps) {
   const reviewSteps = requiredLevels.flatMap((level) => [
     { hint: `${ordinals[level - 1]} assignment` },
     { hint: `${ordinals[level - 1]} review` },
@@ -75,10 +70,6 @@ export default function MessageStage({ state, label, requiredLevels, hasAssignee
         }}
       />}
       <span className="message-stage__label">{label}</span>
-      {assignedToYou && <span className="message-stage__assigned">Assigned to you</span>}
-      {readyForReview && hasAssignee && step?.needsStart && <span className="message-stage__readiness message-stage__readiness--ready">
-        Ready for review · Level {level}
-      </span>}
     </div>
   );
 }

@@ -51,6 +51,7 @@ describe('AssignedMessagesPage', () => {
   beforeEach(() => { getMessageGrid.mockClear(); gridProps.mockClear(); });
   it.each([{ permissions: ['message.view'] }, { permissions: ['message.view', 'review.level1'] }, { permissions: ['message.view', 'message.assign'] }])('opens the complete queue with $permissions', async ({ permissions }) => {
     renderPage('/messages/assigned', permissions);
+    expect(screen.getByRole('heading', { level: 1, name: 'Message Review' })).toBeInTheDocument();
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     const props = gridProps.mock.calls.at(-1)![0];
@@ -69,7 +70,7 @@ describe('AssignedMessagesPage', () => {
   });
   it('waits for access verification', () => {
     render(<QueryClientProvider client={createTestQueryClient()}><MemoryRouter><AssignedMessagesPage /></MemoryRouter></QueryClientProvider>);
-    expect(screen.getByRole('status')).toHaveTextContent('Loading review queue');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading message review');
     expect(gridProps).not.toHaveBeenCalled();
   });
   it.each(['mine', 'departments', 'assignable'])('removes the old %s scope without dropping other parameters', async (scope) => {

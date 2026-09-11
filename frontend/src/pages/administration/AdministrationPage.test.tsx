@@ -7,7 +7,7 @@ import { createTestQueryClient } from '../../test/createTestQueryClient';
 const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(), getAccessCatalog: vi.fn(), getUserAccess: vi.fn(),
   updateUserAccess: vi.fn(), updateRolePermissions: vi.fn(), createAdminUsersStore: vi.fn(),
-  refreshGrid: vi.fn(),
+  refreshGrid: vi.fn(), confirmDialog: vi.fn(), notify: vi.fn(),
 }));
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock('./administrationApi', () => mocks);
@@ -21,7 +21,32 @@ vi.mock('devextreme-react/data-grid', () => ({
   Pager: () => null, Paging: () => null,
 }));
 vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick }: { text: string; onClick: () => void }) => <button type="button" onClick={onClick}>{text}</button>,
+  default: ({ text, onClick, useSubmitBehavior }: { text: string; onClick?: () => void; useSubmitBehavior?: boolean }) =>
+    <button type={useSubmitBehavior ? 'submit' : 'button'} onClick={onClick}>{text}</button>,
+}));
+vi.mock('devextreme/ui/dialog', () => ({ confirm: mocks.confirmDialog }));
+vi.mock('devextreme/ui/notify', () => ({ default: mocks.notify }));
+vi.mock('devextreme-react/tabs', () => ({
+  default: ({ items, selectedIndex, elementAttr, onSelectionChanging, onSelectedIndexChange }: {
+    items: { id: string; text: string }[];
+    selectedIndex: number;
+    elementAttr: { 'aria-label': string };
+    onSelectionChanging: (event: { cancel: boolean | PromiseLike<boolean> }) => void;
+    onSelectedIndexChange: (index: number) => void;
+  }) => <div role="tablist" aria-label={elementAttr['aria-label']}>{items.map((item, index) =>
+    <button key={item.id} type="button" role="tab" aria-selected={selectedIndex === index}
+      onClick={() => { const event = { cancel: false as boolean | PromiseLike<boolean> }; onSelectionChanging(event);
+        void Promise.resolve(event.cancel).then((cancelled) => { if (!cancelled) onSelectedIndexChange(index); }); }}>{item.text}</button>)}</div>,
+}));
+vi.mock('devextreme-react/text-box', () => ({
+  default: ({ value, maxLength, inputAttr, placeholder, onValueChanged }: {
+    value: string;
+    maxLength: number;
+    inputAttr: { id: string };
+    placeholder: string;
+    onValueChanged: (event: { value: string }) => void;
+  }) => <input id={inputAttr.id} value={value} maxLength={maxLength} placeholder={placeholder}
+    onChange={(event) => onValueChanged({ value: event.target.value })} />,
 }));
 type SelectProps = { items: (string | { id: number; name: string })[]; value: number | string | number[] | string[] | null;
   inputAttr: { 'aria-label': string }; onValueChanged: (event: { value: unknown }) => void };
@@ -61,6 +86,8 @@ describe('AdministrationPage', () => {
       assignments: [{ branchId: 1, departmentId: 1, roleIds: [1] }], scopes: [] });
     mocks.updateUserAccess.mockResolvedValue(undefined);
     mocks.updateRolePermissions.mockResolvedValue(undefined);
+    mocks.confirmDialog.mockReset().mockResolvedValue(true);
+    mocks.notify.mockReset();
   });
 
   it('does not load administrator data for ordinary users', async () => {
@@ -81,7 +108,8 @@ describe('AdministrationPage', () => {
     await waitFor(() => expect(mocks.updateUserAccess).toHaveBeenCalledWith(1, {
       assignments: [{ branchId: 2, departmentId: 1, roleIds: [1] }],
     }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Changes saved.');
+    await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith('Changes saved.', 'success', 4000));
+    expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Global administrator')).not.toBeInTheDocument();
   });
 
@@ -94,6 +122,13 @@ describe('AdministrationPage', () => {
     expect(mocks.refreshGrid).toHaveBeenCalledOnce();
     expect(screen.getByLabelText('Branch 1')).toHaveValue('2');
     expect(mocks.updateUserAccess).not.toHaveBeenCalled();
+  });
+
+  it('applies the user search through the DevExtreme editor form', async () => {
+    renderPage();
+    fireEvent.change(await screen.findByLabelText('Find user'), { target: { value: 'alex' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() => expect(mocks.createAdminUsersStore).toHaveBeenLastCalledWith('alex'));
   });
 
   it('can remove business access entirely', async () => {
@@ -113,27 +148,31 @@ describe('AdministrationPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('An active review');
     expect(screen.getByText('No business access. Add a scope to assign roles.')).toBeInTheDocument();
     expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
+    expect(mocks.notify).not.toHaveBeenCalled();
   });
 
   it('edits role permissions and warns about all affected assignments', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Edit access' });
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: '1' } });
-    expect(screen.getByText(/Changes affect every user/)).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
+    expect(await screen.findByText(/Changes affect every user/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Role permissions'), { target: { value: 'audit.view' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save permissions' }));
     await waitFor(() => expect(mocks.updateRolePermissions).toHaveBeenCalledWith(1, { permissions: ['audit.view'] }));
+    expect(mocks.notify).toHaveBeenCalledWith('Changes saved.', 'success', 4000);
   });
 
   it('asks before discarding unsaved edits when switching tabs', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    mocks.confirmDialog.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    expect(confirm).toHaveBeenCalledOnce();
+    await waitFor(() => expect(mocks.confirmDialog).toHaveBeenCalledOnce());
     expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true');
-    confirm.mockRestore();
+    fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+    expect(await screen.findByLabelText('Role')).toBeInTheDocument();
+    expect(mocks.confirmDialog).toHaveBeenCalledTimes(2);
   });
 });

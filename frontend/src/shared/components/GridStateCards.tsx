@@ -1,3 +1,4 @@
+import RadioGroup from 'devextreme-react/radio-group';
 import { useId, type CSSProperties } from 'react';
 import './grid-state-cards.css';
 
@@ -17,21 +18,21 @@ type Props = {
 };
 
 export default function GridStateCards({ items, value, onChange, label = 'Filter by state' }: Props) {
-  const name = useId();
+  const id = useId();
+  const selectableItems = items.map((item, selectionKey) => ({ ...item, selectionKey }));
+  const selectedKey = selectableItems.find((item) => item.value === value)?.selectionKey ?? null;
   return <fieldset className="grid-state-cards">
-    <legend>{label}</legend>
-    <div className="grid-state-cards__strip">
-      {items.map((item) => <label key={item.value ?? 'all'} className="grid-state-card"
-        style={{ '--card-surface': item.surface, '--card-accent': item.accent } as CSSProperties}>
-        <input type="radio" name={name} value={item.value ?? ''} checked={value === item.value}
-          onChange={() => onChange(item.value)} aria-label={item.label} aria-describedby={`${name}-${item.value ?? 'all'}-count`} />
-        <span className="grid-state-card__body">
+    <legend id={`${id}-label`}>{label}</legend>
+    <RadioGroup className="grid-state-cards__control" items={selectableItems} valueExpr="selectionKey" displayExpr="label"
+      value={selectedKey} name={id} layout="horizontal" elementAttr={{ 'aria-labelledby': `${id}-label` }}
+      onValueChanged={(event) => { const item = selectableItems[event.value as number]; if (item) onChange(item.value); }}
+      itemRender={(item: GridStateCard & { selectionKey: number }) =>
+        <span className={`grid-state-card__body${item.selectionKey === selectedKey ? ' grid-state-card__body--selected' : ''}`}
+          style={{ '--card-surface': item.surface, '--card-accent': item.accent } as CSSProperties}>
           <span className="grid-state-card__label">{item.label}</span>
-          <span className="grid-state-card__count" id={`${name}-${item.value ?? 'all'}-count`} aria-label={item.count === null ? 'Count unavailable' : `${item.count} messages`}>
+          <span className="grid-state-card__count" aria-label={item.count === null ? 'Count unavailable' : `${item.count} messages`}>
             {item.count === null ? '—' : item.count.toLocaleString()}
           </span>
-        </span>
-      </label>)}
-    </div>
+        </span>} />
   </fieldset>;
 }

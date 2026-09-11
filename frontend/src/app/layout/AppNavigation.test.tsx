@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -8,7 +9,9 @@ const { listProps } = vi.hoisted(() => ({ listProps: vi.fn() }));
 vi.mock('devextreme-react/list', () => ({
   default: (props: Record<string, unknown>) => {
     listProps(props);
-    return <div aria-label="Application pages" />;
+    const items = props.items as Array<{ path: string; text: string; icon: string }>;
+    const itemRender = props.itemRender as (item: typeof items[number]) => React.ReactNode;
+    return <div aria-label="Application pages">{items.map((item) => <div key={item.path}>{itemRender(item)}</div>)}</div>;
   },
 }));
 vi.mock('../../shared/api/currentUserApi', () => ({
@@ -70,6 +73,7 @@ describe('AppNavigation', () => {
 
   it('selects the current route and navigates through list items', async () => {
     const onNavigate = renderNavigation(['message.view', 'message.assign', 'review.level1']);
+    const user = userEvent.setup();
 
     expect(screen.getByRole('navigation', { name: 'Application navigation' }))
       .toBeInTheDocument();
@@ -79,32 +83,22 @@ describe('AppNavigation', () => {
           expect.objectContaining({ path: '/messages', text: 'Messages' }),
           expect.objectContaining({
             path: '/messages/assigned',
-            text: 'Review queue',
+            text: 'Message Review',
             icon: 'todo',
           }),
           expect.objectContaining({ path: '/me', text: 'User profile', icon: 'user' }),
         ]),
         keyExpr: 'path',
-        displayExpr: 'text',
-        selectedItemKeys: ['/messages'],
+        selectionMode: 'none',
       }),
     );
 
-    const props = listProps.mock.calls.at(-1)?.[0] as {
-      onItemClick: (event: { itemData: unknown }) => void;
-    };
-
-    await act(() =>
-      props.onItemClick({
-        itemData: { path: '/me', text: 'User profile', icon: 'user' },
-      }),
-    );
+    expect(screen.getByRole('link', { name: 'Messages' })).toHaveAttribute('aria-current', 'page');
+    await user.click(screen.getByRole('link', { name: 'User profile' }));
 
     expect(screen.getByTestId('location')).toHaveTextContent('/me');
     expect(onNavigate).toHaveBeenCalledOnce();
-    expect(listProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({ selectedItemKeys: ['/me'] }),
-    );
+    expect(screen.getByRole('link', { name: 'User profile' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('hides the assignment page from reviewers without assign permission', () => {
@@ -132,22 +126,11 @@ describe('AppNavigation', () => {
 
   it('preserves the URL user when navigating', async () => {
     const onNavigate = renderNavigation(
-      ['review.level1'],
+      ['message.view', 'review.level1'],
       '/messages?user=alex.morgan',
     );
-    const props = listProps.mock.calls.at(-1)?.[0] as {
-      onItemClick: (event: { itemData: unknown }) => void;
-    };
-
-    await act(() =>
-      props.onItemClick({
-        itemData: {
-          path: '/messages/assigned',
-          text: 'Review queue',
-          icon: 'todo',
-        },
-      }),
-    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('link', { name: 'Message Review' }));
 
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/messages/assigned?user=alex.morgan',

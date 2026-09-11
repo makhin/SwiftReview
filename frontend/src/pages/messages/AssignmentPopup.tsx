@@ -69,7 +69,7 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
     >
       <div className="review-decision-popup__content">
         <p>Select the reviewer for message <strong>{message.externalId}</strong>.</p>
-        {candidates === null && !error && <p>Loading reviewers…</p>}
+        {candidates === null && !error && <p role="status">Loading reviewers…</p>}
         {candidates && candidates.length === 0 && (
           <div className="app-callout app-callout--warning">No eligible reviewers are available.</div>
         )}

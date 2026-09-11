@@ -179,13 +179,6 @@ export default function MessagesGrid({
     return (enableReviewActions || currentUser.isGlobalAdministrator) && canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser.isGlobalAdministrator);
   }
 
-  function ownReviewLevel(message: MessageRow) {
-    if (!currentUser || !canShowReviewAction(message)) return null;
-    const step = getReviewStep(message.state);
-    const owner = step?.needsStart ? message.currentAssigneeId : message.activeReviewerId;
-    return String(owner) === String(currentUser.userId) ? step?.level : null;
-  }
-
   useEffect(() => {
     if (!selectedAuditMessage) {
       return undefined;
@@ -213,17 +206,21 @@ export default function MessagesGrid({
 
   return (
     <>
-      <GridStateCards items={stateCards} value={selectedState} onChange={selectState} />
-      <p className="message-counts-note">Counts include all accessible messages, before grid filters.</p>
-      {stateCounts.isError && <p role="alert">Unable to load counts. <button type="button" onClick={() => void stateCounts.refetch()}>Retry counts</button></p>}
-      <div className="app-toolbar">
-        <GridRefreshButton refresh={refreshMessages} />
-      </div>
-      <p className="message-review-legend">
-        Review stage:
-        {[1, 2, 3].map((level) => <span key={level} style={{ borderInlineStart: `4px solid var(--color-review-level-${level})` }}>Level {level}</span>)}
-      </p>
-      <div className="app-table-shell">
+      <section className="message-state-filters" aria-label="Message state filters">
+        <GridStateCards items={stateCards} value={selectedState} onChange={selectState} />
+        <p className="message-counts-note">Counts include all accessible messages, before grid filters.</p>
+        {stateCounts.isError && <div className="message-counts-error" role="alert"><span>Unable to load counts. Check your connection and retry.</span>
+          <Button text="Retry counts" stylingMode="outlined" onClick={() => void stateCounts.refetch()} /></div>}
+      </section>
+      <section className="message-grid-results" aria-label="Message results">
+        <div className="message-grid-toolbar">
+          <p className="message-attention-legend">
+            <span className="message-attention-legend__marker" aria-hidden="true" />
+            Messages that need your attention are marked with a green line.
+          </p>
+          <GridRefreshButton refresh={refreshMessages} />
+        </div>
+        <div className="app-table-shell">
         <DataGrid
           ref={dataGridRef}
           dataSource={dataSource}
@@ -291,8 +288,6 @@ export default function MessagesGrid({
                   label={label}
                   requiredLevels={message.requiredReviewLevels ?? []}
                   hasAssignee={message.currentAssigneeId != null}
-                  assignedToYou={currentUser != null && message.currentAssigneeId != null && String(message.currentAssigneeId) === String(currentUser.userId)}
-                  readyForReview={ownReviewLevel(message) != null && getReviewStep(message.state)?.needsStart === true}
                 />
               );
             }}
@@ -380,7 +375,8 @@ export default function MessagesGrid({
             }}
           />
         </DataGrid>
-      </div>
+        </div>
+      </section>
       {selectedReviewMessage && (
         <ReviewDecisionPopup
           key={String(selectedReviewMessage.id)}

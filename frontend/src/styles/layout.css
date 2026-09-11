@@ -26,16 +26,33 @@
 }
 
 .app-sidebar .dx-list-item-content {
-  padding: var(--space-2) var(--space-4);
+  padding: 0;
   font-size: var(--font-size-lg);
 }
 
-.app-sidebar .dx-list-item-icon-container {
-  width: var(--space-8);
-  height: var(--space-5);
+.app-sidebar .app-navigation__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-inverse);
 }
 
-.app-sidebar .dx-list-item .dx-list-item-icon {
+.app-sidebar .app-navigation__link:hover {
+  color: var(--color-text-inverse);
+  text-decoration: none;
+  background: var(--color-navigation-hover);
+}
+
+.app-navigation__link--active {
+  background: var(--color-navigation-active);
+  box-shadow: inset var(--border-width-emphasis) 0 0 var(--color-action-accent);
+}
+
+.app-navigation__link i {
+  flex: 0 0 var(--space-5);
   width: var(--space-5);
   height: var(--space-5);
   color: var(--color-text-inverse);
