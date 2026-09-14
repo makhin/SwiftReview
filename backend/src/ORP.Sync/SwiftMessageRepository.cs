@@ -83,7 +83,7 @@ internal sealed class SwiftMessageRepository
             }
         }
 
-        RegisterNewMessages(connection, transaction, correlationId);
+        RegisterEligibleMessages(connection, transaction, correlationId);
         SaveWatermark(connection, transaction, toUtc);
         transaction.Commit();
         return result;
@@ -193,11 +193,107 @@ internal sealed class SwiftMessageRepository
         return command.ExecuteScalar() != null;
     }
 
-    private void RegisterNewMessages(SqlConnection connection, SqlTransaction transaction, string correlationId)
+    private void RegisterEligibleMessages(SqlConnection connection, SqlTransaction transaction, string correlationId)
     {
-        using var command = Command(connection, "EXEC [orp].[RegisterNewMessages] @CorrelationId;", transaction);
-        command.Parameters.Add("@CorrelationId", SqlDbType.NVarChar, 100).Value = correlationId;
-        command.ExecuteNonQuery();
+        var candidates = LoadRegistrationCandidates(connection, transaction);
+        if (candidates.Count == 0) return;
+
+        var workflows = LoadRegistrationWorkflows(connection, transaction);
+        var registeredAt = DateTimeOffset.UtcNow;
+        var effectiveCorrelationId = string.IsNullOrWhiteSpace(correlationId)
+            ? $"registration-{Guid.NewGuid()}"
+            : Clip(correlationId, 100);
+
+        foreach (var candidate in candidates)
+        {
+            var workflow = MessageRegistration.Resolve(candidate, workflows);
+            if (workflow == null) continue;
+
+            using var command = Command(connection,
+                """
+                INSERT INTO [orp].[Messages]
+                    ([MessageId],[State],[CurrentAssigneeId],[WorkflowDefinitionId])
+                VALUES (@MessageId,N'New',NULL,@WorkflowDefinitionId);
+
+                INSERT INTO [orp].[AuditEvents]
+                    ([MessageId],[EventType],[UserId],[Timestamp],[OldState],[NewState],
+                     [DetailsJson],[CorrelationId],[ReviewId])
+                VALUES
+                    (@MessageId,N'MessageRegistered',NULL,@RegisteredAt,NULL,N'New',
+                     @DetailsJson,@CorrelationId,NULL);
+                """, transaction);
+            Add(command, "@MessageId", candidate.MessageId);
+            Add(command, "@WorkflowDefinitionId", workflow.Id);
+            Add(command, "@RegisteredAt", registeredAt);
+            Add(command, "@DetailsJson", $"{{\"workflowDefinitionId\":{workflow.Id.ToString(CultureInfo.InvariantCulture)}}}");
+            Add(command, "@CorrelationId", effectiveCorrelationId);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private List<RegistrationCandidate> LoadRegistrationCandidates(
+        SqlConnection connection, SqlTransaction transaction)
+    {
+        using var command = Command(connection,
+            """
+            SELECT source.[MessageId],source.[MessageType],source.[BranchId],source.[DepartmentId]
+            FROM [orp].[SwiftMessages] AS source
+            WHERE source.[RoutingStatus]=N'Routed'
+              AND source.[BranchId] IS NOT NULL
+              AND source.[DepartmentId] IS NOT NULL
+              AND NOT EXISTS
+              (
+                  SELECT 1 FROM [orp].[Messages] AS existing WITH (UPDLOCK,HOLDLOCK)
+                  WHERE existing.[MessageId]=source.[MessageId]
+              );
+            """, transaction);
+        using var reader = command.ExecuteReader();
+        var candidates = new List<RegistrationCandidate>();
+        while (reader.Read())
+        {
+            candidates.Add(new RegistrationCandidate(
+                reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3)));
+        }
+
+        return candidates;
+    }
+
+    private List<RegistrationWorkflow> LoadRegistrationWorkflows(
+        SqlConnection connection, SqlTransaction transaction)
+    {
+        using var command = Command(connection,
+            """
+            SELECT workflow.[Id],workflow.[MessageType],workflow.[DepartmentId],workflow.[BranchId],
+                   step.[Order],step.[ReviewLevel],step.[Required]
+            FROM [orp].[WorkflowDefinitions] AS workflow
+            LEFT JOIN [orp].[WorkflowSteps] AS step
+                ON step.[WorkflowDefinitionId]=workflow.[Id]
+            WHERE workflow.[IsActive]=1
+            ORDER BY workflow.[Id],step.[Order];
+            """, transaction);
+        using var reader = command.ExecuteReader();
+        var workflowsById = new Dictionary<int, RegistrationWorkflow>();
+        while (reader.Read())
+        {
+            var workflowId = reader.GetInt32(0);
+            if (!workflowsById.TryGetValue(workflowId, out var workflow))
+            {
+                workflow = new RegistrationWorkflow(
+                    workflowId,
+                    reader.GetString(1),
+                    reader.GetInt32(2),
+                    reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3));
+                workflowsById.Add(workflowId, workflow);
+            }
+
+            if (!reader.IsDBNull(4))
+            {
+                workflow.Steps.Add(new RegistrationStep(
+                    reader.GetInt32(4), reader.GetInt32(5), reader.GetBoolean(6)));
+            }
+        }
+
+        return workflowsById.Values.ToList();
     }
 
     private void SaveWatermark(SqlConnection connection, SqlTransaction transaction, DateTime toUtc)

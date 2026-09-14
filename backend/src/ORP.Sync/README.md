@@ -12,8 +12,8 @@ loads `SwiftMessage` objects, routes them in C#, inserts new rows into `[orp].[S
 - Set the protected `ORP` SQL Server connection string in `ORP.Sync.exe.config`.
 - Configure `RoutingRules` with production BIC/message-type mappings.
 - Ensure the runtime identity can select/insert in the message synchronization tables, update
-  `[orp].[SyncState]`, read routing/workflow data, execute `[orp].[RegisterNewMessages]`, and acquire
-  an app lock.
+  `[orp].[SyncState]`, read routing/workflow data, insert registered messages and audit events, and
+  acquire an app lock.
 
 ## Configuration
 

@@ -21,7 +21,10 @@ public static class DependencyInjection
         {
             var connection = configuration.GetConnectionString("ORP") ?? throw new InvalidOperationException("Connection string 'ORP' is required.");
             services.AddDbContext<ORPDbContext>(options => options.UseSqlServer(connection, sql =>
-                sql.EnableRetryOnFailure()));
+            {
+                sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp");
+                sql.EnableRetryOnFailure();
+            }));
         }
         services.AddScoped<IORPStore, ORPStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();

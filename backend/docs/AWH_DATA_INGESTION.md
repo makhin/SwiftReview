@@ -12,7 +12,6 @@ Swift library and writes only to `[orp]`; it does not create, read, or update `[
 | `[orp].[SwiftMessageEntries]` | Positional rows for all parallel `List<>` properties except `History` |
 | `[orp].[SyncState]` | Successful upper watermark for the Swift query window |
 | `[orp].[Messages]` | ORP workflow state linked to `SwiftMessages.MessageId` |
-| `[orp].[RegisterNewMessages]` | Idempotently registers routed source messages and creates audit events |
 
 `SwiftMessages.MessageId` is an identity primary key. `WarehouseId` is the immutable unique external
 key used to recognize retries. Source rows are retained for at least as long as their ORP workflow.
@@ -33,7 +32,7 @@ persisted. Entry rows are written only when their parent message is first insert
 2. Query from watermark minus the configured overlap (five minutes by default) to current UTC.
 3. Normalize all Swift `DateTime` values as UTC and map the message plus positional entries.
 4. Resolve Branch/Department using the first matching configured C# routing rule.
-5. Insert previously unseen `WarehouseId` values, register eligible messages, and advance the watermark atomically.
+5. Insert previously unseen `WarehouseId` values, resolve and register eligible messages in C#, and advance the watermark atomically.
 
 Messages without a usable `WarehouseId` are skipped with a sanitized warning. Messages without a
 routing match remain in `SwiftMessages` as `Unroutable` and are not registered.
