@@ -74,6 +74,38 @@ public sealed class SyncTests
         Assert.Equal(0, new SwiftMessageData().EntryCount);
     }
 
+    [Fact]
+    public void Registration_PrefersBranchWorkflowOverFallback()
+    {
+        var candidate = new RegistrationCandidate(10, "MT103", 1, 2);
+        var fallback = Workflow(1, "MT103", 2, null, new RegistrationStep(1, 1, true));
+        var branch = Workflow(2, "MT103", 2, 1, new RegistrationStep(1, 1, true));
+
+        Assert.Same(branch, MessageRegistration.Resolve(candidate, new[] { fallback, branch }));
+    }
+
+    [Fact]
+    public void Registration_RejectsInvalidWorkflowAndUsesValidFallback()
+    {
+        var candidate = new RegistrationCandidate(10, "MT103", 1, 2);
+        var invalid = Workflow(1, "MT103", 2, 1,
+            new RegistrationStep(1, 2, true),
+            new RegistrationStep(2, 1, true));
+        var fallback = Workflow(2, "mt103", 2, null,
+            new RegistrationStep(1, 1, true),
+            new RegistrationStep(2, 2, true));
+
+        Assert.Same(fallback, MessageRegistration.Resolve(candidate, new[] { invalid, fallback }));
+    }
+
+    private static RegistrationWorkflow Workflow(
+        int id, string messageType, int departmentId, int? branchId, params RegistrationStep[] steps)
+    {
+        var workflow = new RegistrationWorkflow(id, messageType, departmentId, branchId);
+        workflow.Steps.AddRange(steps);
+        return workflow;
+    }
+
     private sealed class Settings : IDisposable
     {
         private readonly string _key;

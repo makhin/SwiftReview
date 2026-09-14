@@ -31,7 +31,8 @@ public sealed class ORPDbContextFactory : IDesignTimeDbContextFactory<ORPDbConte
         var connectionString = configuration["ConnectionStrings:ORP"]
             ?? throw new InvalidOperationException("Connection string 'ORP' is required.");
         var options = new DbContextOptionsBuilder<ORPDbContext>()
-            .UseSqlServer(connectionString)
+            .UseSqlServer(connectionString, sql =>
+                sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp"))
             .Options;
         return new ORPDbContext(options);
     }
