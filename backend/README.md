@@ -58,6 +58,38 @@ To subsequently run the API against these persisted samples:
 dotnet run --project src/ORP.Api -- --UseMockData=false --BootstrapDatabase=false
 ```
 
+## Run SQL Server and API in Docker
+
+Create an ignored `backend/.env` with a strong local SQL password and these settings:
+
+```dotenv
+COMPOSE_PROJECT_NAME=swiftreview-sql-dev
+MSSQL_SA_PASSWORD=REPLACE_WITH_A_STRONG_LOCAL_PASSWORD
+DOCKER_CONNECTION_STRING="Server=sqlserver,1433;Database=SwiftReviewDev;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True"
+```
+
+From `backend`, start the services:
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+SQL Server listens on `127.0.0.1:1433`; the API listens on `http://localhost:5080`.
+The API uses SQL Server (`UseMockData=false`) and applies migrations at startup.
+After the API health endpoint responds successfully, load the samples:
+
+```bash
+docker compose exec -T sqlserver bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -d SwiftReviewDev' < scripts/seed-test-data.sql
+curl -f -H 'X-Debug-User: admin' http://localhost:5080/api/dashboard/summary
+```
+
+Run `npm run dev -- --host 127.0.0.1` from `frontend`, then open
+`http://localhost:5173/messages?user=admin`. The Vite proxy sends API calls to port 5080.
+Use `docker compose stop` to stop the services and `docker compose up -d` to start them.
+SQL data persists in the Compose project's `sqlserver-data` volume across restarts.
+The `.env` file is excluded from Git and the Docker build context.
+
 ## Development authentication
 
 The API uses the `X-Debug-User` request header in Development. It accepts either the numeric
@@ -131,6 +163,18 @@ dotnet restore ORP.sln --configfile NuGet.Config
 dotnet build ORP.sln --no-restore
 dotnet test ORP.sln --no-build --no-restore
 ```
+
+### SQL Server regression test
+
+Set `ORP_TEST_SQL_CONNECTION` to a connection string for a migrated database loaded
+with `scripts/seed-test-data.sql`, then run:
+
+```bash
+dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter FullyQualifiedName~SqlServerAdministrationTests
+```
+
+This read-only test checks SQL-backed administration grid sorting, search and paging.
+It is skipped when the connection variable is not set.
 
 ## Legacy synchronization host
 

@@ -7,7 +7,12 @@ using ORP.Infrastructure.Persistence;
 
 namespace ORP.Api.Endpoints;
 
-public sealed record AdminUserGridRow(int Id, string UserName, string DisplayName);
+public sealed record AdminUserGridRow
+{
+    public int Id { get; init; }
+    public string UserName { get; init; } = null!;
+    public string DisplayName { get; init; } = null!;
+}
 
 public static class AdministrationEndpoints
 {
@@ -80,7 +85,7 @@ public static class AdministrationEndpoints
             var text = search.Trim();
             query = query.Where(u => u.UserName.Contains(text) || u.DisplayName.Contains(text));
         }
-        return DataSourceLoader.LoadAsync(query.Select(u => new AdminUserGridRow(u.Id, u.UserName, u.DisplayName)),
+        return DataSourceLoader.LoadAsync(query.Select(u => new AdminUserGridRow { Id = u.Id, UserName = u.UserName, DisplayName = u.DisplayName }),
             new DataSourceLoadOptionsBase { Skip = skip, Take = take, RequireTotalCount = true,
                 Sort = sorts.Count == 0 ? [new SortingInfo { Selector = "DisplayName" }] : sorts.ToArray(),
                 PrimaryKey = ["Id"], SortByPrimaryKey = true }, ct);
