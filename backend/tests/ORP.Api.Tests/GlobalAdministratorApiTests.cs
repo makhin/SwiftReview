@@ -90,7 +90,7 @@ public sealed class GlobalAdministratorApiTests : IDisposable
         Assert.Equal(1, (await db.Reviews.SingleAsync(r => r.Id == reviewId, Ct)).ReviewerId);
         if (action == "approve")
         {
-            (await admin.PostAsJsonAsync("/api/messages/1/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
+            (await admin.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
             Assert.Equal(5, (await db.AuditEvents.SingleAsync(e => e.MessageId == 1 && e.EventType == AuditEventType.ConfirmationUndone, Ct)).UserId);
         }
         if (action == "cancel")
@@ -112,14 +112,14 @@ public sealed class GlobalAdministratorApiTests : IDisposable
         var start = await admin.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct);
         var reviewId = (await start.Content.ReadFromJsonAsync<StartReviewResponse>(Ct))!.ReviewId;
         (await admin.PostAsJsonAsync("/api/messages/1/reviews/approve", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1, comment = "Original approval" }, Ct)).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/messages/1/undo", new { reviewId, comment = new string('x', 2001) }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId, comment = new string('x', 2001) }, Ct)).StatusCode);
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
             Assert.Equal(MessageState.Completed, (await db.Messages.SingleAsync(m => m.Id == 1, Ct)).State);
             Assert.False(await db.AuditEvents.AnyAsync(e => e.MessageId == 1 && e.EventType == AuditEventType.ConfirmationUndone, Ct));
         }
-        (await admin.PostAsJsonAsync("/api/messages/1/undo", new { reviewId, comment }, Ct)).EnsureSuccessStatusCode();
+        (await admin.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId, comment }, Ct)).EnsureSuccessStatusCode();
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
         var trail = await admin.GetFromJsonAsync<PagedResult<AuditEventDto>>("/api/messages/1/audit", options, Ct);
         Assert.Equal(expected, trail!.Items.Single(e => e.EventType == AuditEventType.ConfirmationUndone).Details.Comment);
@@ -144,9 +144,9 @@ public sealed class GlobalAdministratorApiTests : IDisposable
         Assert.Equal(reviewId, row.GetProperty("undoReviewId").GetInt64());
         var ordinaryGrid = await reviewer.GetFromJsonAsync<JsonElement>(path, Ct);
         Assert.Equal(JsonValueKind.Null, ordinaryGrid.GetProperty("data").EnumerateArray().Single(r => r.GetProperty("id").GetInt64() == 1).GetProperty("undoReviewId").ValueKind);
-        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/undo", new { reviewId }, Ct)).StatusCode);
-        (await admin.PostAsJsonAsync("/api/messages/1/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/messages/1/undo", new { reviewId }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reviewer.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId }, Ct)).StatusCode);
+        (await admin.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId }, Ct)).StatusCode);
         var refreshed = await admin.GetFromJsonAsync<JsonElement>(path, Ct);
         var updated = refreshed.GetProperty("data").EnumerateArray().Single(r => r.GetProperty("id").GetInt64() == 1);
         Assert.Equal("Assigned", updated.GetProperty("state").GetString());
@@ -175,9 +175,9 @@ public sealed class GlobalAdministratorApiTests : IDisposable
             Assert.Equal(latestId, (await Row()).GetProperty("undoReviewId").GetInt64());
         }
         (await admin.PostAsJsonAsync($"/api/messages/{id}/reviews/start", new { level = 3 }, Ct)).EnsureSuccessStatusCode();
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/messages/{id}/undo", new { reviewId = latestId }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/api/messages/{id}/reviews/undo", new { reviewId = latestId }, Ct)).StatusCode);
         (await admin.PostAsJsonAsync($"/api/messages/{id}/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(id), level = 3 }, Ct)).EnsureSuccessStatusCode();
-        (await admin.PostAsJsonAsync($"/api/messages/{id}/undo", new { reviewId = latestId }, Ct)).EnsureSuccessStatusCode();
+        (await admin.PostAsJsonAsync($"/api/messages/{id}/reviews/undo", new { reviewId = latestId }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal("WaitingForSecondReview", (await Row()).GetProperty("state").GetString());
         Assert.Equal(JsonValueKind.Null, (await Row()).GetProperty("currentAssigneeId").ValueKind);
     }

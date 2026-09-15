@@ -123,7 +123,7 @@ describe('review actions', () => {
   it('posts the selected approval ID to the undo endpoint', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204 }));
     await undoReview(42, '9007199254740993', 'Review again');
-    expect(fetch).toHaveBeenCalledWith('/api/messages/42/undo', expect.objectContaining({
+    expect(fetch).toHaveBeenCalledWith('/api/messages/42/reviews/undo', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ reviewId: '9007199254740993', comment: 'Review again' }),
     }));
   });
@@ -137,7 +137,7 @@ describe('review actions', () => {
     ['approve', approveReview, { level: 2, comment: 'confirmed', reviewId: '9007199254740993' }],
     ['reject', rejectReview, { level: 2, comment: null, reviewId: '9007199254740993' }],
   ] as const)('posts the %s review action', async (action, request, body) => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: action === 'start' ? 201 : 204, json: async () => ({ reviewId: '9007199254740993' }) });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: action === 'start' ? 200 : 204, json: async () => ({ reviewId: '9007199254740993' }) });
     vi.stubGlobal('fetch', fetchMock);
 
     if (action === 'start') {

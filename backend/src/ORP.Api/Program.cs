@@ -59,7 +59,6 @@ app.MapHealthChecks("/health");
 app.MapOpenApi();
 app.MapScalarApiReference("/scalar", options => options.WithTitle("ORP API"));
 app.MapApiEndpoints();
-app.MapAdministrationEndpoints();
 
 if (app.Configuration.GetValue<bool>("UseMockData"))
 {

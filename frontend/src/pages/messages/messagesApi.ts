@@ -171,7 +171,7 @@ export function cancelReview(messageId: MessageRow['id'], level: number, reviewI
 
 export async function undoReview(messageId: MessageRow['id'], reviewId: UndoReviewRequest['reviewId'], comment: string | null = null) {
   const request: UndoReviewRequest = { reviewId, comment };
-  const response = await apiFetch(`/api/messages/${messageId}/undo`, {
+  const response = await apiFetch(`/api/messages/${messageId}/reviews/undo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),

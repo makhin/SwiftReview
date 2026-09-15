@@ -43,7 +43,7 @@ public sealed class MessageWorkflowApiTests : IDisposable
             if (action != "active")
                 (await client.PostAsJsonAsync($"/api/messages/1/reviews/{(action == "undo" ? "approve" : action)}", new { reviewId = await factory.LatestReviewIdAsync(1), level = 1 }, Ct)).EnsureSuccessStatusCode();
             if (action == "undo")
-                (await client.PostAsJsonAsync("/api/messages/1/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
+                (await client.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
         }
         var grid = await client.GetFromJsonAsync<JsonElement>("/api/messages/grid?skip=0&take=100", Ct);
         Assert.Equal(allowed, grid.GetProperty("data").EnumerateArray().Single(r => r.GetProperty("id").GetInt64() == 1).GetProperty("canChangeWorkflow").GetBoolean());
@@ -79,7 +79,7 @@ public sealed class MessageWorkflowApiTests : IDisposable
         (await client.PostAsJsonAsync("/api/messages/3/reviews/start", new { level = 2 }, Ct)).EnsureSuccessStatusCode();
         (await client.PostAsJsonAsync("/api/messages/3/reviews/cancel", new { reviewId = await factory.LatestReviewIdAsync(3), level = 2 }, Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/messages/3/workflow", new { workflowDefinitionId = 1 }, Ct)).StatusCode);
-        (await client.PostAsJsonAsync("/api/messages/3/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/messages/3/reviews/undo", new { reviewId }, Ct)).EnsureSuccessStatusCode();
         (await client.PutAsJsonAsync("/api/messages/3/workflow", new { workflowDefinitionId = 1 }, Ct)).EnsureSuccessStatusCode();
     }
 

@@ -1,23 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
-using DevExtreme.AspNet.Data.ResponseModel;
-using ORP.Api.Authorization;
-using ORP.Api.Infrastructure;
-using ORP.Application.Abstractions;
-using ORP.Application.Assignments.Assign;
-using ORP.Application.Assignments.GetCandidates;
-using ORP.Application.Assignments.Reassign;
-using ORP.Application.Audit.GetAuditTrail;
-using ORP.Application.Dashboard.GetSummary;
-using ORP.Application.Messages.Get;
-using ORP.Application.Messages.ChangeWorkflow;
-using ORP.Application.Messages.Search;
-using ORP.Application.Reviews;
-using ORP.Application.ReferenceData;
-using ORP.Domain.Identity;
-using ORP.Domain.Messages;
-using ORP.Infrastructure.Persistence;
-
 namespace ORP.Api.Endpoints;
 
 public static class ApiEndpoints
@@ -25,123 +5,14 @@ public static class ApiEndpoints
     public static IEndpointRouteBuilder MapApiEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var api = endpoints.MapGroup("/api").RequireAuthorization();
-        var messages = api.MapGroup("/messages");
-
-        messages.MapGet("/state-counts", async (MessageGridQueries queries, IUserAccessService users, ICurrentUser current, CancellationToken ct) =>
-            await queries.StateCountsAsync(await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException(), ct))
-            .Produces<IReadOnlyList<MessageStateCountDto>>();
-        messages.MapGet("/grid", Grid).Produces<LoadResult>().ProducesProblem(400).ProducesProblem(403);
-        messages.MapGet("/{id:long}", GetMessage).Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(403);
-        messages.MapPut("/{id:long}/workflow", ChangeWorkflow).AddEndpointFilter<StartReviewTransactionFilter>()
-            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/search", Search).Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
-        messages.MapPost("/{id:long}/assign", Assign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reassign", Reassign).Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapGet("/{id:long}/assignment-candidates", AssignmentCandidates)
-            .Produces<IReadOnlyList<AssignmentCandidateDto>>().ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/start", StartReview).AddEndpointFilter<StartReviewTransactionFilter>()
-            .Produces<StartReviewResponse>(StatusCodes.Status201Created).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/approve", Approve).AddEndpointFilter<StartReviewTransactionFilter>().Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/reject", Reject).AddEndpointFilter<StartReviewTransactionFilter>().Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/reviews/cancel", CancelReview).AddEndpointFilter<StartReviewTransactionFilter>().Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapPost("/{id:long}/undo", Undo).RequireAuthorization("GlobalAdministrator")
-            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        messages.MapGet("/{id:long}/audit", Audit).Produces<PagedResult<AuditEventDto>>()
-            .ProducesProblem(400).ProducesProblem(403).ProducesProblem(404);
-        api.MapGet("/dashboard/summary", Dashboard).Produces<DashboardSummaryDto>();
-        api.MapGet("/me", Me).Produces<CurrentUserResponse>();
-        api.MapGet("/workflows", Workflows).Produces<IReadOnlyList<WorkflowSummaryDto>>().ProducesProblem(403);
-        api.MapGet("/users", Users).Produces<IReadOnlyList<UserSummaryDto>>().ProducesProblem(403);
-        api.MapGet("/branches", Branches).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
-        api.MapGet("/departments", Departments).Produces<IReadOnlyList<ReferenceItemDto>>().ProducesProblem(403);
-        api.MapGet("/message-types", MessageTypes).Produces<IReadOnlyList<string>>().ProducesProblem(403);
-        api.MapGet("/message-states", MessageStates).Produces<IReadOnlyList<MessageStateReferenceDto>>().ProducesProblem(403);
+        api.ProducesProblem(StatusCodes.Status401Unauthorized);
+        api.ProducesProblem(StatusCodes.Status403Forbidden);
+        api.MapMessageEndpoints();
+        api.MapReviewEndpoints();
+        api.MapReferenceDataEndpoints();
+        api.MapDashboardEndpoints();
+        api.MapCurrentUserEndpoints();
+        api.MapAdministrationEndpoints();
         return endpoints;
     }
-
-    private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
-    private static async Task<IResult> ChangeWorkflow(long id, ChangeMessageWorkflowRequest request, ChangeMessageWorkflowHandler handler,
-        IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct)
-    {
-        var resource = await AuthorizationResource(id, store, ct);
-        var result = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.WorkflowManage));
-        if (!result.Succeeded) return Forbidden();
-        await handler.HandleAsync(id, request, ct);
-        return Results.NoContent();
-    }
-    private static async Task<LoadResult> Grid([AsParameters] DevExtremeGridRequest request, MessageGridQueries queries, ICurrentUser currentUser,
-        IUserAccessService accessService, CancellationToken ct)
-    {
-        var access = await accessService.GetByIdAsync(currentUser.UserId, ct) ?? throw new UnauthorizedAccessException();
-        if (request.AssignmentScope == MessageAssignmentScopes.Assignable &&
-            !access.Permissions.Contains(Permissions.MessageAssign))
-            throw new UnauthorizedAccessException("The current user is not allowed to assign messages.");
-        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(request), access, request.AssignmentScope, ct);
-    }
-    private static Task<PagedResult<MessageListItemDto>> Search(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);
-    private static async Task<IResult> Assign(long id, AssignMessageRequest request, AssignMessageHandler handler, IORPStore store, IAuthorizationService authorization, HttpContext context, CancellationToken ct)
-    {
-        var resource = await AuthorizationResource(id, store, ct);
-        var result = await authorization.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.MessageAssign));
-        if (!result.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent();
-    }
-    private static async Task<IResult> Reassign(long id, AssignMessageRequest request, ReassignMessageHandler handler, IORPStore store, IAuthorizationService authorization, HttpContext context, CancellationToken ct)
-    {
-        var resource = await AuthorizationResource(id, store, ct);
-        var result = await authorization.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.MessageAssign));
-        if (!result.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent();
-    }
-    private static async Task<IResult> AssignmentCandidates(long id, GetAssignmentCandidatesHandler handler,
-        IORPStore store, IAuthorizationService authorization, HttpContext context, CancellationToken ct)
-    {
-        var resource = await AuthorizationResource(id, store, ct);
-        var result = await authorization.AuthorizeAsync(context.User, resource,
-            new MessageActionRequirement(Permissions.MessageAssign));
-        return result.Succeeded ? Results.Ok(await handler.HandleAsync(id, ct)) : Forbidden();
-    }
-    private static Task<IResult> StartReview(long id, StartReviewRequest request, StartReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
-        ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.Assignee,
-            async () => { var reviewId = await handler.HandleAsync(id, request, ct); return Results.Created($"/api/messages/{id}", new StartReviewResponse(reviewId)); });
-    private static Task<IResult> Approve(long id, ApproveReviewRequest request, ApproveReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
-        ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
-            async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
-    private static Task<IResult> Reject(long id, RejectReviewRequest request, RejectReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
-        ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
-            async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
-    private static Task<IResult> CancelReview(long id, CancelReviewRequest request, CancelReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct) =>
-        ReviewAction(id, request.Level, store, auth, context, ct, MessageActionOwnership.ActiveReviewer,
-            async () => { await handler.HandleAsync(id, request, ct); return Results.NoContent(); });
-    private static async Task<IResult> ReviewAction(long id, int level, IORPStore store,
-        IAuthorizationService auth, HttpContext context, CancellationToken ct,
-        MessageActionOwnership ownership, Func<Task<IResult>> action)
-    { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(ReviewPermissions.ForLevel(level), level, ownership)); return ok.Succeeded ? await action() : Forbidden(); }
-    private static async Task<IResult> Undo(long id, UndoReviewRequest request, UndoReviewHandler handler, IORPStore store, IAuthorizationService auth, HttpContext context, CancellationToken ct)
-    { var resource = await AuthorizationResource(id, store, ct); var ok = await auth.AuthorizeAsync(context.User, resource, new MessageActionRequirement(Permissions.ReviewUndo)); if (!ok.Succeeded) return Forbidden(); await handler.HandleAsync(id, request, ct); return Results.NoContent(); }
-    private static Task<PagedResult<AuditEventDto>> Audit(long id, GetAuditTrailHandler handler,
-        CancellationToken ct, int skip = 0, int take = 100) =>
-        handler.HandleAsync(id, new AuditTrailRequest(skip, take), ct);
-    private static async Task<DashboardSummaryDto> Dashboard(GetDashboardSummaryHandler handler, CancellationToken ct) => await handler.HandleAsync(ct);
-    private static async Task<CurrentUserResponse> Me(ICurrentUser current, IUserAccessService users, CancellationToken ct)
-    {
-        var access = await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException();
-        return new CurrentUserResponse(access.UserId, access.UserName, access.DisplayName,
-            access.Permissions.Order().ToArray(), access.BranchIds.Order().ToArray(),
-            access.DepartmentIds.Order().ToArray(), access.IsGlobalAdministrator, access.Scopes);
-    }
-    private static Task<IReadOnlyList<WorkflowSummaryDto>> Workflows(GetWorkflowsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-    private static Task<IReadOnlyList<UserSummaryDto>> Users(GetUsersHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-    private static Task<IReadOnlyList<ReferenceItemDto>> Branches(GetBranchesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-    private static Task<IReadOnlyList<ReferenceItemDto>> Departments(GetDepartmentsHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-    private static Task<IReadOnlyList<string>> MessageTypes(GetMessageTypesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-    private static Task<IReadOnlyList<MessageStateReferenceDto>> MessageStates(GetMessageStatesHandler handler, CancellationToken ct) => handler.HandleAsync(ct);
-
-    private static async Task<MessageAuthorizationResource> AuthorizationResource(long id, IORPStore store, CancellationToken ct)
-    {
-        var message = await store.FindMessageAsync(id, ct) ?? throw new ResourceNotFoundException("Message not found.");
-        var source = await store.FindMessageSourceAsync(id, ct) ?? throw new ResourceNotFoundException("SWIFT message not found.");
-        return new MessageAuthorizationResource(message, source.BranchId, source.DepartmentId, await store.GetReviewsAsync(id, ct));
-    }
-
-    private static IResult Forbidden() => Results.Problem(statusCode: StatusCodes.Status403Forbidden,
-        title: "Forbidden", detail: "The current user is not allowed to perform this action.");
 }

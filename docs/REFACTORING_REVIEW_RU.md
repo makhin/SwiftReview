@@ -33,7 +33,7 @@ P1 — исправить в ближайшем цикле: штатная оп�
 | Сообщение 2, последовательность | Пользователь | Ответ |
 | --- | --- | --- |
 | `assign {assignedTo: 2}` | admin | 204 |
-| `reviews/start {level: 1}` | theo.mercer | 201 |
+| `reviews/start {level: 1}` | theo.mercer | 200 |
 | `reviews/approve {level: 1}` | theo.mercer | 204 |
 | `reassign {assignedTo: 2}` | admin | 204 |
 | `reviews/start {level: 2}` | theo.mercer | 403 |

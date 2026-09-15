@@ -50,8 +50,8 @@ Mock mode supplies demo reference data and an `admin` identity with explicit
 business assignments; its global-administrator flag provides the same bypass even if those assignments are removed.
 
 The assignment grid exposes **Undo** only to global administrators. The API also
-requires a global administrator for `/api/messages/{id}/undo` at this stage;
-`review.undo` alone does not grant access yet. The button undoes the latest approved
+requires a global administrator for `/api/messages/{id}/reviews/undo`;
+`review.undo` alone does not grant access. The button undoes the latest approved
 level, requires confirmation with an optional comment (up to 2,000 characters), closes the current assignment and refreshes the grid.
 The undo comment is stored in its audit event; the original approval comment is preserved.
 It is disabled while a review is active or no approval can be undone. The selected

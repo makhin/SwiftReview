@@ -23,7 +23,8 @@ public sealed class ReviewAttemptApiTests : IDisposable
     private static async Task<long> Start(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/messages/1/reviews/start", new { level = 1 }, Ct);
-        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(response.Headers.Location);
         return (await response.Content.ReadFromJsonAsync<StartReviewResponse>(Ct))!.ReviewId;
     }
 
@@ -50,7 +51,7 @@ public sealed class ReviewAttemptApiTests : IDisposable
         (await admin.PostAsJsonAsync($"/api/messages/1/reviews/{(undo ? "approve" : "cancel")}", new { level = 1, reviewId = oldId }, Ct)).EnsureSuccessStatusCode();
         if (undo)
         {
-            (await admin.PostAsJsonAsync("/api/messages/1/undo", new { reviewId = oldId }, Ct)).EnsureSuccessStatusCode();
+            (await admin.PostAsJsonAsync("/api/messages/1/reviews/undo", new { reviewId = oldId }, Ct)).EnsureSuccessStatusCode();
             (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 1 }, Ct)).EnsureSuccessStatusCode();
         }
         var newId = await Start(owner);

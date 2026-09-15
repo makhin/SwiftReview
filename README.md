@@ -62,6 +62,7 @@ Useful backend endpoints:
 
 - Scalar API reference: <http://localhost:5080/scalar>
 - OpenAPI document: <http://localhost:5080/openapi/v1.json>
+- [API routes and contracts](docs/API.md)
 - Health check: <http://localhost:5080/health>
 
 ## Configuration
