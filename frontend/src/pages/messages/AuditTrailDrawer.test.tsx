@@ -70,8 +70,8 @@ function renderDrawer(onClose = vi.fn()) {
             },
           ]}
           messageStates={[
-            { code: 'New', label: 'New' },
-            { code: 'Assigned', label: 'Assigned' },
+            { code: 'New', label: 'New', description: 'Waiting for first review assignment', reviewLevel: 1, phase: 'Waiting', assignedDescription: null },
+            { code: 'Assigned', label: 'Assigned', description: 'Waiting for first review assignment', reviewLevel: 1, phase: 'Assigned', assignedDescription: 'Assigned for first review' },
           ]}
           onClose={onClose}
         />

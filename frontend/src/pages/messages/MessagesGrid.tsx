@@ -280,12 +280,11 @@ export default function MessagesGrid({
             minWidth={180}
             cellRender={(cell) => {
               const message = cell.data as MessageRow;
-              const label = messageStates?.find((item) => item.code === message.state)?.label ??
-                message.state;
+              const metadata = messageStates?.find((item) => item.code === message.state);
               return (
                 <MessageStage
                   state={message.state}
-                  label={label}
+                  metadata={metadata}
                   requiredLevels={message.requiredReviewLevels ?? []}
                   hasAssignee={message.currentAssigneeId != null}
                 />

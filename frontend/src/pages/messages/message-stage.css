@@ -1,9 +1,15 @@
 .message-stage {
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
 }
 
 .message-stage__stepper.dx-stepper {
@@ -64,7 +70,7 @@
 .message-stage__label {
   overflow: hidden;
   max-width: 100%;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-tight);
   text-overflow: ellipsis;

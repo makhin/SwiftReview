@@ -4,6 +4,13 @@
 
 This document describes the message workflow states and every transition currently implemented by ORP. A workflow can require one, two, or three review levels. Optional levels are skipped.
 
+The cached `GET /api/message-states` dictionary supplies each state's `code`, `label`,
+`description`, `reviewLevel`, `phase`, and nullable `assignedDescription`. The Stage
+cell uses `assignedDescription` when an assignee is present, falling back to
+`description`. It calculates progress from the dictionary metadata and the message's
+required review levels; styling remains in the frontend. Terminal states have no
+review level. These definitions are maintained in backend code.
+
 ## Complete message flow
 
 ```mermaid

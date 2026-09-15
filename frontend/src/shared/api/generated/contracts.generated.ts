@@ -151,6 +151,13 @@ export interface MessageSearchRequest {
   filter: MessageFilter | null;
 }
 
+export type MessageStagePhase =
+  | "Waiting"
+  | "Assigned"
+  | "Reviewing"
+  | "Completed"
+  | "Rejected";
+
 export type MessageState =
   | "New"
   | "Assigned"
@@ -170,6 +177,10 @@ export interface MessageStateCountDto {
 export interface MessageStateReferenceDto {
   code: string;
   label: string;
+  description: string;
+  reviewLevel: number | string | null;
+  phase: MessageStagePhase;
+  assignedDescription: string | null;
 }
 
 export interface PagedResultOfAuditEventDto {

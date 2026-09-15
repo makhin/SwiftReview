@@ -53,4 +53,8 @@ public sealed record UserSummaryDto(int Id, string UserName, string DisplayName,
 public sealed record AssignmentCandidateDto(int Id, string UserName, string DisplayName);
 public sealed record ReferenceItemDto(int Id, string Name);
 public sealed record MessageStateCountDto(MessageState State, int Count);
-public sealed record MessageStateReferenceDto(string Code, string Label);
+public enum MessageStagePhase { Waiting, Assigned, Reviewing, Completed, Rejected }
+
+// AssignedDescription overrides Description when the message has an assignee.
+public sealed record MessageStateReferenceDto(string Code, string Label, string Description,
+    int? ReviewLevel, MessageStagePhase Phase, string? AssignedDescription);

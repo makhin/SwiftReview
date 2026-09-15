@@ -26,8 +26,13 @@ public sealed class MessageStateCountsApiTests : IDisposable
         using var user = Client("amelia.hart"); using var admin = Client("admin");
         var counts = await Counts(user);
         Assert.Equal(Enum.GetValues<MessageState>(), counts.Select(c => c.State));
-        var states = await user.GetFromJsonAsync<MessageStateReferenceDto[]>("/api/message-states", Ct);
-        Assert.Equal(Enum.GetNames<MessageState>(), states!.Select(s => s.Code));
+        var states = await user.GetFromJsonAsync<MessageStateReferenceDto[]>("/api/message-states", Json, Ct);
+        Assert.NotNull(states);
+        Assert.Equal(Enum.GetNames<MessageState>(), states.Select(s => s.Code));
+        var secondReview = Assert.Single(states, state => state.Code == "SecondReviewInProgress");
+        Assert.Equal(2, secondReview.ReviewLevel);
+        Assert.Equal(MessageStagePhase.Reviewing, secondReview.Phase);
+        Assert.Equal("Second review in progress", secondReview.Description);
         var grid = await user.GetFromJsonAsync<JsonElement>("/api/messages/grid?skip=0&take=1&requireTotalCount=true", Ct);
         Assert.Equal(grid.GetProperty("totalCount").GetInt32(), counts.Sum(c => c.Count));
         Assert.True(counts.Sum(c => c.Count) > 1);
