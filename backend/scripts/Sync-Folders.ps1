@@ -5,6 +5,7 @@ Synchronizes files from Source to Dest, deleting destination-only entries.
 Relative paths are resolved against the caller's current PowerShell directory.
 Paths containing symbolic links or junctions (including ancestors) are rejected.
 Use -Preview to list changes without applying them. Requires Windows Robocopy.
+Use -NoDelete to preserve destination-only files and directories.
 #>
 param(
     [Parameter(Mandatory)]
@@ -13,7 +14,9 @@ param(
     [Parameter(Mandatory)]
     [string]$Dest,
 
-    [switch]$Preview
+    [switch]$Preview,
+
+    [switch]$NoDelete
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,7 +60,6 @@ if ($sourcePrefix.StartsWith($destPrefix, $comparison) -or
 
 $options = @(
     '/E'         # Include all subdirectories, including empty ones
-    '/PURGE'     # Delete destination entries missing from source
     '/XO'        # Skip source files older than destination files
     '/XC'        # Skip files with equal timestamps but different sizes
     '/COPY:DAT'  # Copy data, attributes, and timestamps
@@ -65,6 +67,10 @@ $options = @(
     '/R:2'       # Retry failed copies twice
     '/W:1'       # Wait one second between retries
 )
+
+if (-not $NoDelete) {
+    $options += '/PURGE' # Delete destination entries missing from source
+}
 
 if ($Preview) {
     $options += '/L' # List planned changes without modifying files
