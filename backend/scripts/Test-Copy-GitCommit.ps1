@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $copyScript = Join-Path $PSScriptRoot 'Copy-GitCommit.ps1'
@@ -41,6 +41,28 @@ try {
     Invoke-FixtureGit @('config', 'user.email', 'script-test@example.invalid')
     Invoke-FixtureGit @('config', 'core.autocrlf', 'false')
     Invoke-FixtureGit @('config', 'commit.gpgsign', 'false')
+
+    Test-Case 'Native arguments preserve quotes, spaces, Unicode, and trailing backslashes' {
+        # Load only the process helpers so their arguments can be checked by real Git.
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($copyScript, [ref]$tokens, [ref]$parseErrors)
+        Assert-True ($parseErrors.Count -eq 0) 'Script contains parse errors.'
+        foreach ($name in @('ConvertTo-NativeArgument', 'Invoke-Git')) {
+            $function = $ast.Find({ param($node)
+                $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
+            }, $false)
+            . ([scriptblock]::Create($function.Extent.Text))
+        }
+        $Source = $repo
+        $git = (Get-Command git -CommandType Application | Select-Object -First 1).Source
+        foreach ($value in @('', 'two words', 'C:\work dir\', 'say "hello"', 'prefix\"suffix',
+            'two\\"slashes', '$literal & value;', "unicode $([char]0xE9)", "line one`nline two")) {
+            $actual = Invoke-Git @('-c', "test.value=$value", 'config', '--null', '--get', 'test.value')
+            Assert-True ($actual -ceq ($value + [char]0)) "Native argument changed: $value"
+        }
+    }
+
     Write-File (Join-Path $repo 'updated.txt') 'base'
     Write-File (Join-Path $repo 'deleted.txt') 'delete me'
     Write-File (Join-Path $repo 'old name.txt') 'rename me'
@@ -148,7 +170,7 @@ try {
         $null = [IO.Directory]::CreateDirectory($outside)
         $null = [IO.Directory]::CreateDirectory($dest)
         $link = Join-Path $dest 'nested folder'
-        $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+        $linkType = if ([IO.Path]::DirectorySeparatorChar -eq '\') { 'Junction' } else { 'SymbolicLink' }
         New-Item -ItemType $linkType -Path $link -Target $outside | Out-Null
         try {
             Assert-Rejected { & $copyScript -Source $repo -Dest $dest -Commit $selected } 'Paths must not contain symbolic links*'

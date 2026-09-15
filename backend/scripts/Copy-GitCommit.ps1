@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 5.1
 <#
 .SYNOPSIS
 Copies the files changed by one Git commit into a destination directory.
@@ -14,9 +14,9 @@ Relative arguments resolve from the caller's current PowerShell directory.
 Symbolic links, junctions, submodules, and destination file/directory conflicts
 are rejected before applying changes. Use -Preview to print the plan only.
 .EXAMPLE
-pwsh -File scripts/Copy-GitCommit.ps1 -Source ../repo -Dest ../output -Preview
+powershell.exe -NoProfile -File scripts/Copy-GitCommit.ps1 -Source ../repo -Dest ../output -Preview
 .EXAMPLE
-pwsh -File scripts/Copy-GitCommit.ps1 -Source ../repo -Dest ../output -Commit HEAD~2
+powershell.exe -NoProfile -File scripts/Copy-GitCommit.ps1 -Source ../repo -Dest ../output -Commit HEAD~2
 #>
 param(
     [Parameter(Mandatory)] [string]$Source,
@@ -29,6 +29,14 @@ param(
 $ErrorActionPreference = 'Stop'
 $git = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 
+function ConvertTo-NativeArgument([string]$Value) {
+    # .NET Framework lacks ArgumentList. Quote for the Windows C runtime:
+    # double backslashes before quotes and before the closing delimiter.
+    $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
 function Invoke-Git([string[]]$GitArguments, [string]$OutputFile) {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = $git
@@ -36,9 +44,8 @@ function Invoke-Git([string[]]$GitArguments, [string]$OutputFile) {
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
     $start.StandardOutputEncoding = [Text.UTF8Encoding]::new($false, $true)
-    foreach ($argument in @('--no-replace-objects', '-C', $Source) + $GitArguments) {
-        $start.ArgumentList.Add($argument)
-    }
+    $start.Arguments = ((@('--no-replace-objects', '-C', $Source) + $GitArguments |
+        ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' ')
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $start
     try {
@@ -81,7 +88,7 @@ Assert-NoLinks $Dest
 if (Test-Path -LiteralPath $Dest -PathType Leaf) { throw "Destination is a file: $Dest" }
 
 $separator = [IO.Path]::DirectorySeparatorChar
-$comparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$comparison = if ($separator -eq '\') { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
 $sourcePrefix = $Source.TrimEnd($separator) + $separator
 $destPrefix = $Dest.TrimEnd($separator) + $separator
 if ($sourcePrefix.StartsWith($destPrefix, $comparison) -or $destPrefix.StartsWith($sourcePrefix, $comparison)) {
