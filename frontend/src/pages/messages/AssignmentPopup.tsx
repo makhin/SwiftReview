@@ -1,6 +1,7 @@
 import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import SelectBox from 'devextreme-react/select-box';
+import notify from 'devextreme/ui/notify';
 import { useEffect, useState } from 'react';
 
 import type { AssignmentCandidateDto } from '../../shared/api/generated/contracts.generated';
@@ -42,10 +43,13 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
     setIsSubmitting(true);
     try {
       await assignMessage(message.id, selectedId, reassign);
+      notify(`Message ${message.externalId} ${reassign ? 'reassigned' : 'assigned'}.`, 'success', 4000);
       onChanged();
       onClose();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : `Unable to ${action.toLowerCase()} the message.`);
+      const errorMessage = caught instanceof ApiError ? caught.message : `Unable to ${action.toLowerCase()} the message.`;
+      setError(errorMessage);
+      notify(errorMessage, 'error', 4000);
       setIsSubmitting(false);
     }
   }

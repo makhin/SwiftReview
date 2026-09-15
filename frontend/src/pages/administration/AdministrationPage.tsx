@@ -104,7 +104,7 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => updateUserAccess(Number(user.userId), { assignments }), onSuccess: async () => {
     onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
-  } });
+  }, onError: (error) => { notify(error.message, 'error', 4000); } });
   function change(next: ScopedRoleAssignmentDto[]) { setAssignments(next); onDirty(true); mutation.reset(); }
   function update(index: number, patch: Partial<ScopedRoleAssignmentDto>) { change(assignments.map((a, i) => i === index ? { ...a, ...patch } : a)); }
   return <section className="app-card admin-editor" aria-label="User access editor">
@@ -134,7 +134,7 @@ function RoleEditor({ role, catalog, onDirty }: { role: RoleDetailsDto; catalog:
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => updateRolePermissions(Number(role.id), { permissions }), onSuccess: async () => {
     onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
-  } });
+  }, onError: (error) => { notify(error.message, 'error', 4000); } });
   return <section className="app-card admin-editor" aria-label="Role permissions editor"><h2>{role.name}</h2>
     <p>Changes affect every user assigned this role, in all of its scopes.</p>
     <fieldset disabled={mutation.isPending}>

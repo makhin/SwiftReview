@@ -148,7 +148,7 @@ describe('AdministrationPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('An active review');
     expect(screen.getByText('No business access. Add a scope to assign roles.')).toBeInTheDocument();
     expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
-    expect(mocks.notify).not.toHaveBeenCalled();
+    expect(mocks.notify).toHaveBeenCalledExactlyOnceWith('An active review must be completed first.', 'error', 4000);
   });
 
   it('edits role permissions and warns about all affected assignments', async () => {
@@ -161,6 +161,19 @@ describe('AdministrationPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save permissions' }));
     await waitFor(() => expect(mocks.updateRolePermissions).toHaveBeenCalledWith(1, { permissions: ['audit.view'] }));
     expect(mocks.notify).toHaveBeenCalledWith('Changes saved.', 'success', 4000);
+  });
+
+  it('shows an error toast and preserves edits when saving role permissions fails', async () => {
+    mocks.updateRolePermissions.mockRejectedValue(new Error('Unable to save permissions.'));
+    renderPage();
+    await screen.findByRole('button', { name: 'Edit access' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+    fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
+    fireEvent.change(await screen.findByLabelText('Role permissions'), { target: { value: 'audit.view' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save permissions' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to save permissions.');
+    expect(screen.getByLabelText('Role permissions')).toHaveValue(['audit.view']);
+    expect(mocks.notify).toHaveBeenCalledExactlyOnceWith('Unable to save permissions.', 'error', 4000);
   });
 
   it('asks before discarding unsaved edits when switching tabs', async () => {

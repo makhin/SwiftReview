@@ -32,7 +32,9 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
       onChanged(); onClose();
       notify('Workflow changed.', 'success', 4000);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Unable to confirm the workflow change. Refresh the grid and check the audit trail.');
+      const errorMessage = caught instanceof ApiError ? caught.message : 'Unable to confirm the workflow change. Refresh the grid and check the audit trail.';
+      setError(errorMessage);
+      notify(errorMessage, 'error', 4000);
       onChanged();
     } finally { setPending(false); }
   }

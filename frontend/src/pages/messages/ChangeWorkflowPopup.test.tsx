@@ -1,3 +1,4 @@
+import notify from 'devextreme/ui/notify';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -43,6 +44,7 @@ describe('ChangeWorkflowPopup', () => {
     resolve();
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(onChanged).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledExactlyOnceWith('Workflow changed.', 'success', 4000);
   });
   it('shows the server refusal and refreshes stale grid data', async () => {
     changeMessageWorkflow.mockRejectedValue(new ApiError('All review attempts must be cancelled or undone.', 409));
@@ -51,6 +53,7 @@ describe('ChangeWorkflowPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save workflow' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('All review attempts must be cancelled or undone.');
     expect(onClose).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledExactlyOnceWith('All review attempts must be cancelled or undone.', 'error', 4000);
     expect(onChanged).toHaveBeenCalledOnce();
   });
   it('cancels without changing the workflow', () => {

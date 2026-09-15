@@ -112,6 +112,7 @@ describe('ReviewDecisionPopup', () => {
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel review' })).toBeDisabled();
+    expect(notify).not.toHaveBeenCalled();
     resolve(73);
     await ready();
     expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled();
@@ -119,6 +120,7 @@ describe('ReviewDecisionPopup', () => {
     expect(screen.getByLabelText('Comment (optional)')).toHaveAttribute('placeholder', '');
     expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '90vw');
     expect(screen.getByRole('dialog')).toHaveAttribute('data-max-width', '900');
+    expect(notify).toHaveBeenCalledExactlyOnceWith('Review for message MSG-0042 started.', 'success', 4000);
     expect(props.onChanged).toHaveBeenCalledOnce();
     expect(approveReview).not.toHaveBeenCalled();
     expect(rejectReview).not.toHaveBeenCalled();
@@ -128,6 +130,7 @@ describe('ReviewDecisionPopup', () => {
     open({ canApprove: false, canReject: false });
     expect(await screen.findByLabelText('Raw message content')).toBeInTheDocument();
     expect(startReview).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel review' })).toBeDisabled();
@@ -137,12 +140,14 @@ describe('ReviewDecisionPopup', () => {
     open({}, true);
     await ready();
     expect(startReview).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledExactlyOnceWith('Review for message MSG-0042 started.', 'success', 4000);
   });
 
   it('retries an uncertain start before enabling decisions', async () => {
     startReview.mockRejectedValueOnce(new Error('Response lost')).mockResolvedValueOnce(73);
     open();
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to start or resume');
+    expect(notify).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('Unable to start or resume'), 'error', 4000);
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Retry review' }));
     await ready();
@@ -177,9 +182,11 @@ describe('ReviewDecisionPopup', () => {
   it('resumes and rejects an active third-level review', async () => {
     const props = open({ message: { ...baseMessage, state: 'ThirdReviewInProgress' } });
     await ready();
+    expect(notify).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
     await waitFor(() => expect(rejectReview).toHaveBeenCalledWith(42, 3, null, 73));
     expect(startReview).toHaveBeenCalledExactlyOnceWith(42, 3);
+    expect(notify).toHaveBeenCalledExactlyOnceWith('Message MSG-0042 rejected.', 'success', 4000);
     expect(props.onClose).toHaveBeenCalledOnce();
   });
 
@@ -200,6 +207,7 @@ describe('ReviewDecisionPopup', () => {
     'does not repeat a decision after a lost response when the server state is %s', async (state) => {
       const props = open();
       await ready();
+      notify.mockClear();
       getMessage.mockResolvedValue({ body: 'RAW', state });
       approveReview.mockRejectedValue(new Error('Response lost'));
       fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
@@ -207,7 +215,7 @@ describe('ReviewDecisionPopup', () => {
       expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
       expect(props.onChanged).toHaveBeenCalledTimes(2);
-      expect(notify).not.toHaveBeenCalled();
+      expect(notify).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('Unable to approve'), 'error', 4000);
     },
   );
 
@@ -351,6 +359,7 @@ describe('ReviewDecisionPopup', () => {
     await ready();
     fireEvent.click(screen.getByRole('button', { name: button }));
     expect(await screen.findByRole('alert')).toHaveTextContent('no longer active');
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('no longer active'), 'error', 4000);
     for (const name of ['Approve', 'Reject', 'Cancel review']) expect(screen.getByRole('button', { name })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Retry review' })).not.toBeInTheDocument();

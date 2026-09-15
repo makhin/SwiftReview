@@ -42,6 +42,7 @@ export default function ReviewDecisionPopup({
   const step = getReviewStep(message.state);
   const reviewEnabled = canApprove || canReject;
   const level = step?.level;
+  const needsStart = step?.needsStart;
   const [ready, setReady] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -60,18 +61,27 @@ export default function ReviewDecisionPopup({
       if (active) {
         if (reviewId.current !== null && String(reviewId.current) !== String(id)) {
           setStartError(null);
-          setError('This review attempt has changed. Close this window and reopen the message.');
+          const errorMessage = 'This review attempt has changed. Close this window and reopen the message.';
+          setError(errorMessage);
+          notify(errorMessage, 'error', 4000);
           setReady(false);
           return;
+        }
+        if (reviewId.current === null && needsStart) {
+          notify(`Review for message ${message.externalId} started.`, 'success', 4000);
         }
         reviewId.current = id;
         setReady(true); changed();
       }
     }, () => {
-      if (active) setStartError('Unable to start or resume this review. Check your connection and access, then retry.');
+      if (active) {
+        const errorMessage = 'Unable to start or resume this review. Check your connection and access, then retry.';
+        setStartError(errorMessage);
+        notify(errorMessage, 'error', 4000);
+      }
     });
     return () => { active = false; };
-  }, [message.id, level, reviewEnabled, attempt]);
+  }, [message.id, message.externalId, level, needsStart, reviewEnabled, attempt]);
 
   function retryStart() {
     startPromise.current = null;
@@ -111,9 +121,11 @@ export default function ReviewDecisionPopup({
         4000,
       );
     } catch (caught) {
-      setError(caught instanceof ApiError && caught.status === 409
+      const errorMessage = caught instanceof ApiError && caught.status === 409
         ? caught.message
-        : `Unable to ${decision} ${decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`);
+        : `Unable to ${decision} ${decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`;
+      setError(errorMessage);
+      notify(errorMessage, 'error', 4000);
       if (caught instanceof ApiError && caught.status === 409) {
         setReady(false);
         onChanged();
