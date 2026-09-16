@@ -12,7 +12,7 @@ public sealed class AssignMessageValidator : AbstractValidator<AssignMessageRequ
     public AssignMessageValidator() { RuleFor(x => x.AssignedTo).GreaterThan(0); }
 }
 
-public sealed class AssignMessageHandler(IORPStore store, IUserAccessService accessService,
+public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQueries accessService,
     IValidator<AssignMessageRequest> validator, ICurrentUser user, ICorrelationContext correlation,
     AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
@@ -28,18 +28,19 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAccessService acc
         {
             var access = await authorization.RequireAsync(messageId, Permissions.MessageAssign, ct);
             await validator.ValidateAndThrowAsync(request, ct);
-            var message = await store.FindMessageAsync(messageId, ct) ?? throw new ResourceNotFoundException("Message was not found.");
+            var message = access.Message;
             if (reassign && message.CurrentAssigneeId is null)
                 throw new DomainRuleViolationException("An unassigned message must be assigned before it can be reassigned.");
             if (!reassign && message.CurrentAssigneeId is not null)
                 throw new DomainRuleViolationException("An assigned message must be reassigned instead of assigned.");
             var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
                 ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
-            var source = await store.FindMessageSourceAsync(messageId, ct) ?? throw new ResourceNotFoundException("SWIFT message was not found.");
-            var target = await accessService.GetByIdAsync(request.AssignedTo, ct)
+            var source = access.Source;
+            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, source.DepartmentId,
+                ReviewAssignmentRules.PermissionForLevel(reviewLevel), ct)
                 ?? throw new ResourceNotFoundException("Assignee was not found.");
-            var reviews = await store.GetReviewsAsync(messageId, ct);
-            if (!ReviewAssignmentRules.IsEligible(target, source, reviewLevel,
+            var reviews = access.Reviews;
+            if (!ReviewAssignmentRules.IsEligible(request.AssignedTo, target,
                     ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
                 throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
             await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,

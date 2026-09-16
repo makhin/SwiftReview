@@ -13,7 +13,7 @@ public sealed class ChangeMessageWorkflowValidator : AbstractValidator<ChangeMes
 }
 
 public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<ChangeMessageWorkflowRequest> validator,
-    IReferenceDataQueries references, ICurrentUser user, IClock clock, ICorrelationContext correlation,
+    IUserAuthorizationQueries users, ICurrentUser user, IClock clock, ICorrelationContext correlation,
     ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
     public Task HandleAsync(long messageId, ChangeMessageWorkflowRequest request, CancellationToken ct)
@@ -21,11 +21,11 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
         {
             var access = await authorization.RequireAsync(messageId, Permissions.WorkflowManage, ct);
             await validator.ValidateAndThrowAsync(request, ct);
-            var message = await store.FindMessageAsync(messageId, ct) ?? throw new ResourceNotFoundException("Message was not found.");
+            var message = access.Message;
             var workflow = await store.FindWorkflowAsync(request.WorkflowDefinitionId, ct) ?? throw new ResourceNotFoundException("Workflow was not found.");
-            if (!access.IsGlobalAdministrator && !(await references.GetWorkflowsAsync(access, ct)).Any(w => w.Id == workflow.Id))
+            if (!access.IsGlobalAdministrator && !await users.CanAccessWorkflowAsync(user.UserId, workflow.Id, ct))
                 throw new UnauthorizedAccessException("The selected workflow is outside your access scope.");
-            var reviews = await store.GetReviewsAsync(messageId, ct);
+            var reviews = access.Reviews;
             var previous = message.WorkflowDefinitionId;
             message.ChangeWorkflow(workflow, reviews);
             if (previous == workflow.Id) return;

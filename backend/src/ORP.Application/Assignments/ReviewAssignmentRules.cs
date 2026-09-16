@@ -29,11 +29,11 @@ public static class ReviewAssignmentRules
             .Distinct()
             .ToArray();
 
-    public static bool IsEligible(UserAccess target, MessageSourceDto source, int reviewLevel,
+    public static bool IsEligible(int targetId, UserPermissionCheck target,
         IReadOnlyCollection<int> approvedReviewerIds, int actorId, int? currentAssigneeId) =>
-        target.UserId != currentAssigneeId && (target.IsGlobalAdministrator || (
-        target.UserId != actorId &&
-        target.HasPermission(PermissionForLevel(reviewLevel), source.BranchId, source.DepartmentId) &&
-        target.CanAccess(source.BranchId, source.DepartmentId) &&
-        !approvedReviewerIds.Contains(target.UserId)));
+        targetId != currentAssigneeId && (target.IsGlobalAdministrator || (
+        targetId != actorId &&
+        target.HasPermission &&
+        target.CanView &&
+        !approvedReviewerIds.Contains(targetId)));
 }

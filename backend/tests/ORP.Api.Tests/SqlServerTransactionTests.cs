@@ -153,6 +153,57 @@ public sealed class SqlServerTransactionTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UpdateUserAsync(reviewer, new UpdateUserAccessRequest([]), Ct));
     }
 
+    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    public async Task AuthorizationQueries_UseOneStatement_AndPreserveScopedPermissions()
+    {
+        await using var fixture = await SqlFixture.CreateAsync();
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var connection = scope.ServiceProvider.GetRequiredService<ORPDbContext>().Database.GetConnectionString();
+        var commands = new ReadCommands();
+        await using var db = new ORPDbContext(new DbContextOptionsBuilder<ORPDbContext>()
+            .UseSqlServer(connection).AddInterceptors(commands).Options);
+        var queries = new UserAuthorizationQueries(db);
+        var identity = await queries.GetIdentityAsync("amelia.hart", Ct);
+        Assert.NotNull(identity);
+        Assert.DoesNotContain("UserRoles", Assert.Single(commands.Statements));
+        var access = await new UserAccessService(db).GetByIdAsync(identity.UserId, Ct);
+        Assert.NotNull(access);
+        var pairs = access.Scopes.Select(s => (s.BranchId, s.DepartmentId)).Append((int.MaxValue, int.MaxValue));
+        foreach (var (branch, department) in pairs)
+        foreach (var permission in new[] { ORP.Domain.Identity.Permissions.ReviewLevel1, ORP.Domain.Identity.Permissions.WorkflowManage })
+        {
+            commands.Statements.Clear();
+            var check = await queries.CheckAsync(identity.UserId, branch, department, permission, Ct);
+            Assert.NotNull(check);
+            Assert.Single(commands.Statements);
+            Assert.Equal(access.IsGlobalAdministrator, check.IsGlobalAdministrator);
+            Assert.Equal(access.CanAccess(branch, department), check.CanView);
+            Assert.Equal(access.HasPermission(permission, branch, department), check.HasPermission);
+        }
+        commands.Statements.Clear();
+        Assert.Null(await queries.CheckAsync(int.MaxValue, 1, 1, "message.view", Ct));
+        Assert.Single(commands.Statements);
+        var visibleWorkflows = await new ReferenceDataQueries(db).GetWorkflowsAsync(access, Ct);
+        var workflows = await db.WorkflowDefinitions.Select(w => w.Id).ToListAsync(Ct);
+        foreach (var id in workflows)
+        {
+            commands.Statements.Clear();
+            Assert.Equal(visibleWorkflows.Any(w => w.Id == id), await queries.CanAccessWorkflowAsync(identity.UserId, id, Ct));
+            Assert.Single(commands.Statements);
+        }
+    }
+
+    private sealed class ReadCommands : DbCommandInterceptor
+    {
+        public List<string> Statements { get; } = [];
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Statements.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
+    }
+
     private static async Task<long> AssignFirstMessageAsync(SqlFixture fixture, IServiceProvider services)
     {
         var db = services.GetRequiredService<ORPDbContext>();
@@ -177,17 +228,19 @@ public sealed class SqlServerTransactionTests
         public string CorrelationId => "transaction-test";
     }
 
-    private sealed class CheckedAccess(ORPDbContext db) : IUserAccessService
+    private sealed class CheckedAccess(ORPDbContext db) : IUserAuthorizationQueries
     {
-        private readonly UserAccessService inner = new(db);
+        private readonly UserAuthorizationQueries inner = new(db);
         public int Reads { get; private set; }
-        public Task<UserAccess?> GetByIdAsync(int userId, CancellationToken ct)
+        public Task<UserPermissionCheck?> CheckAsync(int userId, int branchId, int departmentId, string permission, CancellationToken ct)
         {
             Assert.Equal(IsolationLevel.Serializable, db.Database.CurrentTransaction?.GetDbTransaction().IsolationLevel);
             Reads++;
-            return inner.GetByIdAsync(userId, ct);
+            return inner.CheckAsync(userId, branchId, departmentId, permission, ct);
         }
-        public Task<UserAccess?> GetByUserNameAsync(string userName, CancellationToken ct) => inner.GetByUserNameAsync(userName, ct);
+        public Task<UserIdentity?> GetIdentityAsync(int userId, CancellationToken ct) => inner.GetIdentityAsync(userId, ct);
+        public Task<UserIdentity?> GetIdentityAsync(string userName, CancellationToken ct) => inner.GetIdentityAsync(userName, ct);
+        public Task<bool> CanAccessWorkflowAsync(int userId, int workflowId, CancellationToken ct) => inner.CanAccessWorkflowAsync(userId, workflowId, ct);
     }
 
     private sealed class FailureAfterSave : SaveChangesInterceptor
@@ -250,7 +303,7 @@ public sealed class SqlServerTransactionTests
             services.AddApplication();
             services.AddInfrastructure(configuration);
             services.AddScoped<CheckedAccess>();
-            services.AddScoped<IUserAccessService>(sp => sp.GetRequiredService<CheckedAccess>());
+            services.AddScoped<IUserAuthorizationQueries>(sp => sp.GetRequiredService<CheckedAccess>());
             services.AddDbContext<ORPDbContext>(options => options.AddInterceptors(failure, beforeTransaction));
             var fixture = new SqlFixture(services.BuildServiceProvider(), current, failure, beforeTransaction);
             try

@@ -6,7 +6,6 @@ namespace ORP.Infrastructure.Identity;
 
 public sealed class UserAccessService(ORPDbContext db) : IUserAccessService
 {
-    public async Task<UserAccess?> GetByUserNameAsync(string name, CancellationToken ct) => Map(await BaseQuery().SingleOrDefaultAsync(x => x.UserName == name, ct));
     public async Task<UserAccess?> GetByIdAsync(int id, CancellationToken ct) => Map(await BaseQuery().SingleOrDefaultAsync(x => x.Id == id, ct));
 
     private IQueryable<Domain.Identity.User> BaseQuery() => db.Users.AsNoTracking()

@@ -38,7 +38,6 @@ public interface IMessageQueries
 
 public interface IUserAccessService
 {
-    Task<UserAccess?> GetByUserNameAsync(string userName, CancellationToken cancellationToken);
     Task<UserAccess?> GetByIdAsync(int userId, CancellationToken cancellationToken);
 }
 

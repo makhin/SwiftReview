@@ -7,7 +7,7 @@ using ORP.Application.Abstractions;
 namespace ORP.Api.Authentication;
 
 public sealed class DebugAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
-    UrlEncoder encoder, IUserAccessService users, IWebHostEnvironment environment) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    UrlEncoder encoder, IUserAuthorizationQueries users, IWebHostEnvironment environment) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -15,8 +15,8 @@ public sealed class DebugAuthenticationHandler(IOptionsMonitor<AuthenticationSch
         if (!Context.Request.Headers.TryGetValue("X-Debug-User", out var value)) return AuthenticateResult.NoResult();
         var requestedUser = value.ToString().Trim();
         var access = int.TryParse(requestedUser, out var userId)
-            ? await users.GetByIdAsync(userId, Context.RequestAborted)
-            : await users.GetByUserNameAsync(requestedUser, Context.RequestAborted);
+            ? await users.GetIdentityAsync(userId, Context.RequestAborted)
+            : await users.GetIdentityAsync(requestedUser, Context.RequestAborted);
         if (access is null) return AuthenticateResult.Fail("Unknown development user.");
         var claims = new List<Claim>
         {
@@ -24,9 +24,6 @@ public sealed class DebugAuthenticationHandler(IOptionsMonitor<AuthenticationSch
             new(ClaimTypes.Name, access.UserName),
             new("display_name", access.DisplayName)
         };
-        claims.AddRange(access.Permissions.Select(x => new Claim("permission", x)));
-        claims.AddRange(access.BranchIds.Select(x => new Claim("branch", x.ToString())));
-        claims.AddRange(access.DepartmentIds.Select(x => new Claim("department", x.ToString())));
         if (access.IsGlobalAdministrator) claims.Add(new Claim("global_admin", "true"));
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name));
     }

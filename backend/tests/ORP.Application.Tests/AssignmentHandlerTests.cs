@@ -21,7 +21,7 @@ public sealed class AssignmentHandlerTests
     public async Task AssigneeOutsideMessageScope_IsRejected()
     {
         var store = Substitute.For<IORPStore>();
-        var access = Substitute.For<IUserAccessService>();
+        var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
@@ -31,11 +31,9 @@ public sealed class AssignmentHandlerTests
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
                 "A", "B"));
-        access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "out-of-scope", "Out of scope",
-            false, [new UserScopeAccess(2, 2, [], [Permissions.MessageView, Permissions.ReviewLevel1])]));
+        access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, false, false));
         user.UserId.Returns(5);
-        access.GetByIdAsync(5, Arg.Any<CancellationToken>()).Returns(new UserAccess(5, "manager", "Manager",
-            false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, Permissions.MessageAssign])]));
+        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
 
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
@@ -50,7 +48,7 @@ public sealed class AssignmentHandlerTests
     public async Task SuccessfulAssignment_WritesCompleteAuditEvent()
     {
         var store = Substitute.For<IORPStore>();
-        var access = Substitute.For<IUserAccessService>();
+        var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
@@ -61,11 +59,9 @@ public sealed class AssignmentHandlerTests
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B"));
-        access.GetByIdAsync(2, Arg.Any<CancellationToken>()).Returns(new UserAccess(2, "assignee", "Assignee",
-            false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, Permissions.ReviewLevel1])]));
+        access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         user.UserId.Returns(5);
-        access.GetByIdAsync(5, Arg.Any<CancellationToken>()).Returns(new UserAccess(5, "manager", "Manager",
-            false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, Permissions.MessageAssign])]));
+        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         clock.UtcNow.Returns(now);
         correlation.CorrelationId.Returns("assign-correlation");
         store.When(x => x.AddAudit(Arg.Any<AuditEvent>())).Do(x => audit = x.Arg<AuditEvent>());
@@ -75,6 +71,9 @@ public sealed class AssignmentHandlerTests
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
         await handler.HandleAsync(1, new AssignMessageRequest(2), TestContext.Current.CancellationToken);
 
+        await store.Received(1).FindMessageAsync(1, Arg.Any<CancellationToken>());
+        await store.Received(1).FindMessageSourceAsync(1, Arg.Any<CancellationToken>());
+        await store.Received(1).GetReviewsAsync(1, Arg.Any<CancellationToken>());
         Assert.NotNull(audit);
         Assert.Equal(AuditEventType.MessageAssigned, audit.EventType);
         Assert.Equal(MessageState.New, audit.OldState);
@@ -150,23 +149,22 @@ public sealed class AssignmentHandlerTests
         await store.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    private static (IORPStore Store, IUserAccessService Access, ICurrentUser User, IClock Clock,
+    private static (IORPStore Store, IUserAuthorizationQueries Access, ICurrentUser User, IClock Clock,
         ICorrelationContext Correlation) Dependencies()
     {
         var store = Substitute.For<IORPStore>();
-        var access = Substitute.For<IUserAccessService>();
+        var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
         user.UserId.Returns(5);
-        access.GetByIdAsync(5, Arg.Any<CancellationToken>()).Returns(new UserAccess(5, "manager", "Manager",
-            false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, Permissions.MessageAssign])]));
+        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         correlation.CorrelationId.Returns("assignment-test");
         return (store, access, user, clock, correlation);
     }
 
-    private static void ConfigureAssignment(IORPStore store, IUserAccessService access, Message message,
+    private static void ConfigureAssignment(IORPStore store, IUserAuthorizationQueries access, Message message,
         List<Review> reviews, int assigneeId, string reviewPermission)
     {
         store.FindMessageAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
@@ -174,8 +172,7 @@ public sealed class AssignmentHandlerTests
             new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
                 "A", "B"));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
-        access.GetByIdAsync(assigneeId, Arg.Any<CancellationToken>()).Returns(new UserAccess(assigneeId,
-            "assignee", "Assignee", false, [new UserScopeAccess(1, 1, [], [Permissions.MessageView, reviewPermission])]));
+        access.CheckAsync(assigneeId, 1, 1, reviewPermission, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
     }
     private sealed class InlineTransactions : ITransactionExecutor
     {

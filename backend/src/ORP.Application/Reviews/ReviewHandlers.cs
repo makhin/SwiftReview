@@ -40,7 +40,10 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
                 ct, request.Level, MessageActionOwnership.Assignee);
             await validator.ValidateAndThrowAsync(request, ct);
-            var (message, workflow, reviews) = await LoadAsync(store, messageId, ct);
+            var message = access.Message;
+            var reviews = access.Reviews;
+            var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
+                ?? throw new ResourceNotFoundException("Workflow was not found.");
             var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
             if (active is not null && (access.IsGlobalAdministrator ||
                 (active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)))
@@ -59,15 +62,6 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             return review.Id;
         }, cancellationToken);
 
-    internal static async Task<(Domain.Messages.Message Message, Domain.Workflows.WorkflowDefinition Workflow, List<Review> Reviews)> LoadAsync(
-        IORPStore store, long messageId, CancellationToken cancellationToken)
-    {
-        var message = await store.FindMessageAsync(messageId, cancellationToken) ?? throw new ResourceNotFoundException("Message was not found.");
-        var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, cancellationToken) ?? throw new ResourceNotFoundException("Workflow was not found.");
-        var reviews = await store.GetReviewsAsync(messageId, cancellationToken);
-        return (message, workflow, reviews);
-    }
-
     internal static void AddEvent(IORPStore store, long messageId, AuditEventType type, int userId,
         Domain.Messages.MessageState oldState, Domain.Messages.MessageState newState, Review review,
         DateTimeOffset now, string correlationId, string? comment = null) =>
@@ -85,7 +79,10 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
                 ct, request.Level, MessageActionOwnership.ActiveReviewer);
             await validator.ValidateAndThrowAsync(request, ct);
-            var (message, workflow, reviews) = await StartReviewHandler.LoadAsync(store, messageId, ct);
+            var message = access.Message;
+            var reviews = access.Reviews;
+            var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
+                ?? throw new ResourceNotFoundException("Workflow was not found.");
             var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
                 ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
             var oldState = message.State;
@@ -111,7 +108,8 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
                 ct, request.Level, MessageActionOwnership.ActiveReviewer);
             await validator.ValidateAndThrowAsync(request, ct);
-            var (message, _, reviews) = await StartReviewHandler.LoadAsync(store, messageId, ct);
+            var message = access.Message;
+            var reviews = access.Reviews;
             var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
                 ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
             var oldState = message.State;
@@ -133,7 +131,8 @@ public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReview
             var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
                 ct, request.Level, MessageActionOwnership.ActiveReviewer);
             await validator.ValidateAndThrowAsync(request, ct);
-            var (message, _, reviews) = await StartReviewHandler.LoadAsync(store, messageId, ct);
+            var message = access.Message;
+            var reviews = access.Reviews;
             var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
                 ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
             var oldState = message.State;
@@ -154,8 +153,8 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
         {
             var access = await authorization.RequireAsync(messageId, Permissions.ReviewUndo, ct);
             await validator.ValidateAndThrowAsync(request, ct);
-            var message = await store.FindMessageAsync(messageId, ct) ?? throw new ResourceNotFoundException("Message was not found.");
-            var reviews = await store.GetReviewsAsync(messageId, ct);
+            var message = access.Message;
+            var reviews = access.Reviews;
             var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
                 ?? throw new ResourceNotFoundException("Workflow was not found.");
             var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId) ?? throw new ResourceNotFoundException("Review was not found.");

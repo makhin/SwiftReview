@@ -176,6 +176,10 @@ Serializable transaction, including when handlers are called without HTTP. Admin
 and role updates use the same executor. EF Core retries the entire operation and clears tracked
 state before each attempt, so access is read again. Callers must load mutable state inside the
 operation; the executor owns the transaction and handlers explicitly save their changes.
+Authorization checks project only the administrator flag and the two scoped permission checks in one SQL
+statement. Development authentication loads identity fields only. Full access snapshots remain available
+for `/me` and access-management screens. Authorization returns the loaded message, source and reviews
+to the handler, so they are reused within that attempt and reloaded on retry.
 InMemory mock mode executes the operation without a database transaction.
 
 SQL transaction tests create, migrate, seed and delete a unique database per test. Set
