@@ -10,22 +10,22 @@ namespace ORP.Infrastructure.Persistence;
 
 public sealed class MessageGridRowDto
 {
-    public long Id { get; init; }
-    public string ExternalId { get; init; } = null!;
-    public string MessageType { get; init; } = null!;
-    public int BranchId { get; init; }
-    public int DepartmentId { get; init; }
-    public MessageState State { get; init; }
-    public DateTimeOffset ReceivedAt { get; init; }
-    public int? CurrentAssigneeId { get; init; }
-    public long? ActiveReviewId { get; init; }
-    public int? ActiveReviewLevel { get; init; }
-    public int? ActiveReviewerId { get; init; }
-    public long? UndoReviewId { get; init; }
-    public int WorkflowDefinitionId { get; init; }
-    public bool CanReview { get; init; }
-    public bool CanChangeWorkflow { get; init; }
-    public int[] RequiredReviewLevels { get; init; } = [];
+    public required long Id { get; init; }
+    public required string ExternalId { get; init; }
+    public required string MessageType { get; init; }
+    public required int BranchId { get; init; }
+    public required int DepartmentId { get; init; }
+    public required MessageState State { get; init; }
+    public required DateTimeOffset ReceivedAt { get; init; }
+    public required int? CurrentAssigneeId { get; init; }
+    public required long? ActiveReviewId { get; init; }
+    public required int? ActiveReviewLevel { get; init; }
+    public required int? ActiveReviewerId { get; init; }
+    public required long? UndoReviewId { get; init; }
+    public required int WorkflowDefinitionId { get; init; }
+    public required bool CanReview { get; init; }
+    public required bool CanChangeWorkflow { get; init; }
+    public required int[] RequiredReviewLevels { get; init; }
 }
 
 public sealed class MessageGridQueries(ORPDbContext db)

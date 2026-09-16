@@ -62,6 +62,39 @@ public sealed class EndpointContractTests(MessageApiFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task MessageGrid_OpenApiDescribesCompleteRequiredRowsMatchingRuntime()
+    {
+        using var client = factory.CreateClient();
+        var ct = TestContext.Current.CancellationToken;
+        var document = await client.GetFromJsonAsync<JsonElement>("/openapi/v1.json", ct);
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+        var response = document.GetProperty("paths").GetProperty("/api/messages/grid").GetProperty("get")
+            .GetProperty("responses").GetProperty("200").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        Assert.Equal("#/components/schemas/MessageGridLoadResultDto", response.GetProperty("anyOf")[0].GetProperty("$ref").GetString());
+        Assert.True(JsonElement.DeepEquals(schemas.GetProperty("LoadResult").GetProperty("properties"),
+            response.GetProperty("anyOf")[1].GetProperty("properties")));
+        var envelope = schemas.GetProperty("MessageGridLoadResultDto");
+        Assert.Equal("#/components/schemas/MessageGridRowDto", envelope.GetProperty("properties")
+            .GetProperty("data").GetProperty("items").GetProperty("$ref").GetString());
+        var rowSchema = schemas.GetProperty("MessageGridRowDto");
+        var properties = rowSchema.GetProperty("properties");
+        var names = properties.EnumerateObject().Select(p => p.Name).Order().ToArray();
+        Assert.Equal(names, rowSchema.GetProperty("required").EnumerateArray().Select(p => p.GetString()).Order());
+        Assert.Equal("boolean", properties.GetProperty("canReview").GetProperty("type").GetString());
+        Assert.Equal("boolean", properties.GetProperty("canChangeWorkflow").GetProperty("type").GetString());
+        Assert.True(properties.TryGetProperty("workflowDefinitionId", out _));
+        Assert.True(properties.TryGetProperty("undoReviewId", out _));
+        Assert.Equal("array", properties.GetProperty("requiredReviewLevels").GetProperty("type").GetString());
+
+        client.DefaultRequestHeaders.Add("X-Debug-User", "admin");
+        var result = await client.GetFromJsonAsync<JsonElement>("/api/messages/grid?skip=0&take=10&requireTotalCount=true", ct);
+        Assert.NotEmpty(result.GetProperty("data").EnumerateArray());
+        foreach (var row in result.GetProperty("data").EnumerateArray())
+            Assert.Equal(names, row.EnumerateObject().Select(p => p.Name).Order());
+    }
+
+    [Fact]
     public async Task OpenApi_DescribesOperationsSuccessAndProblemResponses()
     {
         using var client = factory.CreateClient();

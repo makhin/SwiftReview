@@ -25,7 +25,8 @@ import UndoReviewButton from './UndoReviewButton';
 
 const message: MessageRow = { id: 42, externalId: 'MSG-42', messageType: 'MT199', branchId: 1, departmentId: 1,
   receivedAt: '2026-09-10T10:00:00Z', state: 'Completed', currentAssigneeId: null,
-  activeReviewId: null, activeReviewLevel: null, activeReviewerId: null, undoReviewId: 73 };
+  activeReviewId: null, activeReviewLevel: null, activeReviewerId: null, undoReviewId: 73,
+  workflowDefinitionId: 1, canReview: false, canChangeWorkflow: false, requiredReviewLevels: [1] };
 
 describe('UndoReviewButton', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.resetAllMocks(); });

@@ -26,7 +26,8 @@ public static class MessageEndpoints
             .Produces<IReadOnlyList<MessageStateCountDto>>();
         group.MapGet("/grid", GetMessagesGrid)
             .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages using DevExtreme options.")
-            .Produces<LoadResult>().ProducesProblem(400);
+            .Produces<MessageGridLoadResultDto>().ProducesProblem(400)
+            .AddOpenApiOperationTransformer(MessageGridOpenApi.DescribeResponse);
         group.MapGet("/{id:long}", GetMessage)
             .WithName(nameof(GetMessage)).WithSummary("Get an accessible message.")
             .Produces<MessageDetailsDto>().ProducesProblem(404);

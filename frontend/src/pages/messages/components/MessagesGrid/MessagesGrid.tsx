@@ -285,7 +285,7 @@ export default function MessagesGrid({
                 <MessageStage
                   state={message.state}
                   metadata={metadata}
-                  requiredLevels={message.requiredReviewLevels ?? []}
+                  requiredLevels={message.requiredReviewLevels.map(Number)}
                   hasAssignee={message.currentAssigneeId != null}
                 />
               );

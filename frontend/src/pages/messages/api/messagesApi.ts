@@ -8,7 +8,7 @@ import type {
   AssignmentCandidateDto,
   MessageDetailsDto,
   MessageStateCountDto,
-  MessageListItemDto,
+  MessageGridRowDto,
   RejectReviewRequest,
   StartReviewRequest,
   StartReviewResponse,
@@ -16,13 +16,7 @@ import type {
   ChangeMessageWorkflowRequest,
 } from '../../../shared/api/generated/contracts.generated';
 
-export type MessageRow = MessageListItemDto & {
-  requiredReviewLevels?: number[];
-  undoReviewId?: number | string | null;
-  workflowDefinitionId?: number | string;
-  canChangeWorkflow?: boolean;
-  canReview?: boolean;
-};
+export type MessageRow = MessageGridRowDto;
 
 export function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: number | string) {
   const body: ChangeMessageWorkflowRequest = { workflowDefinitionId };

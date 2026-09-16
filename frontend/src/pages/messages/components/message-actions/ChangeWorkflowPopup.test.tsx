@@ -23,7 +23,8 @@ vi.mock('devextreme-react/select-box', () => ({ default: ({ items, value, disabl
 import ChangeWorkflowPopup from './ChangeWorkflowPopup';
 const message: MessageRow = { id: 42, externalId: 'MSG-42', messageType: 'MT199', branchId: 1, departmentId: 1,
   receivedAt: '2026-09-10T10:00:00Z', state: 'Assigned', currentAssigneeId: 1,
-  activeReviewId: null, activeReviewLevel: null, activeReviewerId: null, workflowDefinitionId: 1, canChangeWorkflow: true };
+  activeReviewId: null, activeReviewLevel: null, activeReviewerId: null, workflowDefinitionId: 1, canChangeWorkflow: true,
+  undoReviewId: null, canReview: true, requiredReviewLevels: [1] };
 function setup() {
   const client = createTestQueryClient();
   client.setQueryData(referenceDataKeys.workflows, [1, 2, 3].map((id) => ({ id, name: `Workflow ${id}`, messageType: 'MT199', isActive: id !== 3, steps: [{ order: 1, reviewLevel: 1, required: true }] })));

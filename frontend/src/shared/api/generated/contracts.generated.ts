@@ -130,6 +130,32 @@ export interface MessageFilter {
   dateTo: string | null;
 }
 
+export interface MessageGridLoadResultDto {
+  data: MessageGridRowDto[];
+  totalCount?: number | string;
+  groupCount?: number | string;
+  summary?: unknown[] | null;
+}
+
+export interface MessageGridRowDto {
+  id: number | string;
+  externalId: string;
+  messageType: string;
+  branchId: number | string;
+  departmentId: number | string;
+  state: MessageState;
+  receivedAt: string;
+  currentAssigneeId: number | string | null;
+  activeReviewId: number | string | null;
+  activeReviewLevel: number | string | null;
+  activeReviewerId: number | string | null;
+  undoReviewId: number | string | null;
+  workflowDefinitionId: number | string;
+  canReview: boolean;
+  canChangeWorkflow: boolean;
+  requiredReviewLevels: (number | string)[];
+}
+
 export interface MessageListItemDto {
   id: number | string;
   externalId: string;

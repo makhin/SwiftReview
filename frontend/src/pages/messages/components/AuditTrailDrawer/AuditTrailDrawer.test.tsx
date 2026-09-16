@@ -37,6 +37,11 @@ const message = {
   activeReviewId: null,
   activeReviewLevel: null,
   activeReviewerId: null,
+  undoReviewId: null,
+  workflowDefinitionId: 1,
+  canReview: false,
+  canChangeWorkflow: false,
+  requiredReviewLevels: [1, 2, 3],
 };
 
 function auditEvent(overrides: Partial<AuditEventDto> = {}): AuditEventDto {

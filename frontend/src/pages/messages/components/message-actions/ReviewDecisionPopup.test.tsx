@@ -69,6 +69,11 @@ const baseMessage = {
   activeReviewId: null,
   activeReviewLevel: null,
   activeReviewerId: null,
+  undoReviewId: null,
+  workflowDefinitionId: 1,
+  canReview: true,
+  canChangeWorkflow: false,
+  requiredReviewLevels: [1, 2, 3],
 };
 
 function render(ui: ReactElement, preload = true) {

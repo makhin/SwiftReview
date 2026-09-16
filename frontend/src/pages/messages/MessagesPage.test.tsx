@@ -32,6 +32,10 @@ vi.mock('devextreme-react/data-grid', () => {
   const rowData = {
     id: 42,
     canReview: true,
+    canChangeWorkflow: false,
+    workflowDefinitionId: 1,
+    undoReviewId: null,
+    requiredReviewLevels: [1, 2, 3],
     externalId: 'MSG-0042',
     messageType: 'MT103',
     branchId: 10,
