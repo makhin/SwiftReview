@@ -1,10 +1,10 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createTestQueryClient } from '../../test/createTestQueryClient';
+import { createTestQueryClient } from '../../../../test/createTestQueryClient';
 import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
 import { StrictMode, type PropsWithChildren, type ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../../shared/api/errors';
+import { ApiError } from '../../../../shared/api/errors';
 
 const { approveReview, cancelReview, getMessage, notify, rejectReview, startReview } = vi.hoisted(() => ({
   approveReview: vi.fn(),
@@ -16,7 +16,7 @@ const { approveReview, cancelReview, getMessage, notify, rejectReview, startRevi
 }));
 
 vi.mock('devextreme/ui/notify', () => ({ default: notify }));
-vi.mock('./messagesApi', () => ({ approveReview, cancelReview, getMessage, rejectReview, startReview }));
+vi.mock('../../api/messagesApi', () => ({ approveReview, cancelReview, getMessage, rejectReview, startReview }));
 vi.mock('devextreme-react/popup', () => ({
   default: ({ children, title, width, maxWidth }: PropsWithChildren<{
     title: string;

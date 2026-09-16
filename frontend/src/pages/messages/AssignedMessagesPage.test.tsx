@@ -8,9 +8,9 @@ const { getMessageGrid, gridProps } = vi.hoisted(() => ({
   gridProps: vi.fn(),
 }));
 
-vi.mock('./messagesApi', () => ({ getMessageGrid }));
+vi.mock('./api/messagesApi', () => ({ getMessageGrid }));
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser: vi.fn(() => new Promise(() => undefined)) }));
-vi.mock('./MessagesGrid', () => ({
+vi.mock('./components/MessagesGrid/MessagesGrid', () => ({
   default: (props: Record<string, unknown>) => {
     gridProps(props);
     return <div aria-label="Messages" />;

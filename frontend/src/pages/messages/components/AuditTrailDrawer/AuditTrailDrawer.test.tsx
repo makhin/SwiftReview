@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getMessageAudit } = vi.hoisted(() => ({ getMessageAudit: vi.fn() }));
 
-vi.mock('./auditApi', () => ({ getMessageAudit }));
+vi.mock('../../api/auditApi', () => ({ getMessageAudit }));
 vi.mock('devextreme-react/button', () => ({
   default: function MockButton({ text, disabled, elementAttr, onClick, ref }: {
     text?: string;
@@ -21,8 +21,8 @@ vi.mock('devextreme-react/button', () => ({
   },
 }));
 
-import type { AuditEventDto } from '../../shared/api/generated/contracts.generated';
-import { createTestQueryClient } from '../../test/createTestQueryClient';
+import type { AuditEventDto } from '../../../../shared/api/generated/contracts.generated';
+import { createTestQueryClient } from '../../../../test/createTestQueryClient';
 import AuditTrailDrawer from './AuditTrailDrawer';
 
 const message = {

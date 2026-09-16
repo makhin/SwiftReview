@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PropsWithChildren } from 'react';
-import type { MessageRow } from './messagesApi';
+import type { MessageRow } from '../../api/messagesApi';
 
 const { undoReview, notify } = vi.hoisted(() => ({ undoReview: vi.fn(), notify: vi.fn() }));
-vi.mock('./messagesApi', () => ({ undoReview }));
+vi.mock('../../api/messagesApi', () => ({ undoReview }));
 vi.mock('devextreme/ui/notify', () => ({ default: notify }));
 vi.mock('devextreme-react/popup', () => ({
   default: ({ children }: PropsWithChildren) => <section role="dialog" aria-label="Undo approval">{children}</section>,

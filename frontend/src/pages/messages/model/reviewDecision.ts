@@ -1,4 +1,4 @@
-import type { MessageRow } from './messagesApi';
+import type { MessageRow } from '../api/messagesApi';
 
 export type ReviewDecision = 'approve' | 'reject';
 

@@ -1,7 +1,7 @@
 import type { LoadOptions, LoadResultObject } from 'devextreme/common/data';
 
-import { apiFetch } from '../../shared/api/client';
-import { ApiError } from '../../shared/api/errors';
+import { apiFetch } from '../../../shared/api/client';
+import { ApiError } from '../../../shared/api/errors';
 import type {
   ApproveReviewRequest,
   CancelReviewRequest,
@@ -14,7 +14,7 @@ import type {
   StartReviewResponse,
   UndoReviewRequest,
   ChangeMessageWorkflowRequest,
-} from '../../shared/api/generated/contracts.generated';
+} from '../../../shared/api/generated/contracts.generated';
 
 export type MessageRow = MessageListItemDto & {
   requiredReviewLevels?: number[];

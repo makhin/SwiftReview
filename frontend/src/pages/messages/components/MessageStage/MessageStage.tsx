@@ -1,6 +1,6 @@
 import Stepper from 'devextreme-react/stepper';
 
-import type { MessageState, MessageStateReferenceDto } from '../../shared/api/generated/contracts.generated';
+import type { MessageState, MessageStateReferenceDto } from '../../../../shared/api/generated/contracts.generated';
 import './message-stage.css';
 
 const ordinals = ['1st', '2nd', '3rd'];

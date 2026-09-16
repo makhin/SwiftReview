@@ -5,8 +5,8 @@ import { canOpenMessagesPage, canOpenReviewQueue } from '../../shared/auth/permi
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
-import { messageDataSource } from './messageDataSource';
-import MessagesGrid from './MessagesGrid';
+import { messageDataSource } from './api/messageDataSource';
+import MessagesGrid from './components/MessagesGrid/MessagesGrid';
 
 export default function MessagesPage() {
   const currentUserQuery = useQuery(currentUserQueryOptions());

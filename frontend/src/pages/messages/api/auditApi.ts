@@ -1,6 +1,6 @@
-import { apiClient } from '../../shared/api/client';
-import { ApiError } from '../../shared/api/errors';
-import type { PagedResultOfAuditEventDto } from '../../shared/api/generated/contracts.generated';
+import { apiClient } from '../../../shared/api/client';
+import { ApiError } from '../../../shared/api/errors';
+import type { PagedResultOfAuditEventDto } from '../../../shared/api/generated/contracts.generated';
 
 export async function getMessageAudit(
   messageId: number | string,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../../shared/api/errors';
+import { ApiError } from '../../../shared/api/errors';
 import {
   approveReview,
   cancelReview,

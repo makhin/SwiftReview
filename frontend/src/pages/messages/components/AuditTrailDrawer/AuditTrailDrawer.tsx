@@ -9,11 +9,11 @@ import type {
   AuditEventType,
   MessageStateReferenceDto,
   UserSummaryDto,
-} from '../../shared/api/generated/contracts.generated';
-import PageError from '../../shared/components/feedback/PageError';
-import PageLoading from '../../shared/components/feedback/PageLoading';
-import { messageAuditQueryOptions } from './auditQueries';
-import type { MessageRow } from './messagesApi';
+} from '../../../../shared/api/generated/contracts.generated';
+import PageError from '../../../../shared/components/feedback/PageError';
+import PageLoading from '../../../../shared/components/feedback/PageLoading';
+import { messageAuditQueryOptions } from '../../api/auditQueries';
+import type { MessageRow } from '../../api/messagesApi';
 import './audit-trail-drawer.css';
 
 const eventLabels: Record<AuditEventType, string> = {

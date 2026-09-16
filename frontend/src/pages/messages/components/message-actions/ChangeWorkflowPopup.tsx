@@ -4,10 +4,10 @@ import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import SelectBox from 'devextreme-react/select-box';
 import notify from 'devextreme/ui/notify';
-import { workflowsQueryOptions } from '../../shared/api/referenceDataQueries';
-import { ApiError } from '../../shared/api/errors';
-import PageError from '../../shared/components/feedback/PageError';
-import { changeMessageWorkflow, type MessageRow } from './messagesApi';
+import { workflowsQueryOptions } from '../../../../shared/api/referenceDataQueries';
+import { ApiError } from '../../../../shared/api/errors';
+import PageError from '../../../../shared/components/feedback/PageError';
+import { changeMessageWorkflow, type MessageRow } from '../../api/messagesApi';
 import './message-action-popup.css';
 
 export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {

@@ -1,4 +1,4 @@
-import type { MessageState } from '../../shared/api/generated/contracts.generated';
+import type { MessageState } from '../../../shared/api/generated/contracts.generated';
 import { getReviewStep } from './reviewDecision';
 
 export function messageStateCardColours(state: string) {

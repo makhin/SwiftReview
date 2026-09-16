@@ -6,8 +6,8 @@ import PageLoading from '../../shared/components/feedback/PageLoading';
 import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { messageDataSource } from './messageDataSource';
-import MessagesGrid from './MessagesGrid';
+import { messageDataSource } from './api/messageDataSource';
+import MessagesGrid from './components/MessagesGrid/MessagesGrid';
 
 export default function AssignedMessagesPage() {
   const [searchParams, setSearchParams] = useSearchParams();

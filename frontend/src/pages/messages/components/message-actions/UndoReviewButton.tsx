@@ -3,8 +3,8 @@ import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import TextArea from 'devextreme-react/text-area';
 import notify from 'devextreme/ui/notify';
-import { ApiError } from '../../shared/api/errors';
-import { undoReview, type MessageRow } from './messagesApi';
+import { ApiError } from '../../../../shared/api/errors';
+import { undoReview, type MessageRow } from '../../api/messagesApi';
 import './message-action-popup.css';
 
 export default function UndoReviewButton({ message, onChanged }: { message: MessageRow; onChanged: () => void }) {

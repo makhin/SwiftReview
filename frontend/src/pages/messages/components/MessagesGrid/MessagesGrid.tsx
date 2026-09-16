@@ -1,4 +1,4 @@
-import GridRefreshButton from '../../shared/components/GridRefreshButton';
+import GridRefreshButton from '../../../../shared/components/GridRefreshButton';
 import DataGrid, {
   Column,
   FilterRow,
@@ -15,24 +15,24 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canAssignMessages, canManageWorkflows, canViewAudit, permissionsForScope } from '../../shared/auth/permissions';
+import { currentUserQueryOptions } from '../../../../shared/api/currentUserQueries';
+import { canAssignMessages, canManageWorkflows, canViewAudit, permissionsForScope } from '../../../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
   messageStatesQueryOptions,
   usersQueryOptions,
-} from '../../shared/api/referenceDataQueries';
-import AuditTrailDrawer from './AuditTrailDrawer';
-import AssignmentPopup from './AssignmentPopup';
-import MessageStage from './MessageStage';
-import { getMessageStateCounts, type MessageRow } from './messagesApi';
-import GridStateCards from '../../shared/components/GridStateCards';
-import { messageStateCardColours } from './messageStateCards';
-import ReviewDecisionPopup from './ReviewDecisionPopup';
-import UndoReviewButton from './UndoReviewButton';
-import ChangeWorkflowPopup from './ChangeWorkflowPopup';
-import { canReviewMessage, getReviewStep } from './reviewDecision';
+} from '../../../../shared/api/referenceDataQueries';
+import AuditTrailDrawer from '../AuditTrailDrawer/AuditTrailDrawer';
+import AssignmentPopup from '../message-actions/AssignmentPopup';
+import MessageStage from '../MessageStage/MessageStage';
+import { getMessageStateCounts, type MessageRow } from '../../api/messagesApi';
+import GridStateCards from '../../../../shared/components/GridStateCards';
+import { messageStateCardColours } from '../../model/messageStateCards';
+import ReviewDecisionPopup from '../message-actions/ReviewDecisionPopup';
+import UndoReviewButton from '../message-actions/UndoReviewButton';
+import ChangeWorkflowPopup from '../message-actions/ChangeWorkflowPopup';
+import { canReviewMessage, getReviewStep } from '../../model/reviewDecision';
 import './messages-grid.css';
 
 type MessagesGridProps = {

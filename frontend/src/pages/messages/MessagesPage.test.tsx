@@ -14,7 +14,7 @@ const { componentProps, refreshGrid, getCurrentUser, rowOverrides, stateCounts, 
   rowOverrides: {} as Record<string, unknown>,
 }));
 
-vi.mock('./messagesApi', async (original) => ({ ...await original<typeof import('./messagesApi')>(), getMessageStateCounts: stateCounts }));
+vi.mock('./api/messagesApi', async (original) => ({ ...await original<typeof import('./api/messagesApi')>(), getMessageStateCounts: stateCounts }));
 
 vi.mock('../../shared/api/referenceDataApi', () => ({
   getBranches: vi.fn(() => new Promise(() => undefined)),
@@ -117,7 +117,7 @@ vi.mock('devextreme-react/drawer', () => ({
     );
   },
 }));
-vi.mock('./AuditTrailDrawer', () => ({
+vi.mock('./components/AuditTrailDrawer/AuditTrailDrawer', () => ({
   default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
     <aside aria-label="Audit trail">
       {message.externalId}
@@ -125,7 +125,7 @@ vi.mock('./AuditTrailDrawer', () => ({
     </aside>
   ),
 }));
-vi.mock('./AssignmentPopup', () => ({
+vi.mock('./components/message-actions/AssignmentPopup', () => ({
   default: ({ message, onClose, onChanged }: {
     message: { externalId: string };
     onClose: () => void;
@@ -139,7 +139,7 @@ vi.mock('./AssignmentPopup', () => ({
   ),
 }));
 
-vi.mock('./ReviewDecisionPopup', () => ({
+vi.mock('./components/message-actions/ReviewDecisionPopup', () => ({
   default: ({ message, canApprove, canReject, onClose, onChanged }: {
     message: { externalId: string };
     canApprove: boolean;
@@ -157,8 +157,8 @@ vi.mock('./ReviewDecisionPopup', () => ({
   ),
 }));
 
-import MessagesGrid from './MessagesGrid';
-import { messageDataSource } from './messageDataSource';
+import MessagesGrid from './components/MessagesGrid/MessagesGrid';
+import { messageDataSource } from './api/messageDataSource';
 import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 import MessagesPage from './MessagesPage';

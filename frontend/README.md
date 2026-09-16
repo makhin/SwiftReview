@@ -83,6 +83,13 @@ are allowed. Both message routes belong to the same `pages/messages` slice.
 New page directories are included automatically in these checks. Update the ESLint
 import prefix if module aliases are introduced. Tests are colocated with the code they cover.
 
+Within `src/pages/messages`, the two route components stay at the slice root.
+`api/` owns message and audit requests, audit query options, and the grid's
+`CustomStore`; `model/` owns review rules and state-card presentation helpers.
+`components/` groups the grid, stage indicator, and audit drawer with their local
+styles and tests. Related message-action dialogs and buttons share
+`components/message-actions/`, including their common popup styles.
+
 The optional `features` layer is reserved for business actions that need independent
 reuse across page slices. It is not used yet; keep current message workflows in
 `pages/messages` until that need appears.

@@ -52,6 +52,15 @@ src/
   pages/
     current-user/
     messages/
+      MessagesPage.tsx
+      AssignedMessagesPage.tsx
+      api/
+      model/
+      components/
+        MessagesGrid/
+        MessageStage/
+        AuditTrailDrawer/
+        message-actions/
   shared/
     api/
     components/
@@ -105,6 +114,14 @@ and re-exports, including types, with these rules:
 New page directories are discovered automatically by the ESLint configuration.
 The checks cover relative imports and source-root paths; update the configured
 prefix if module aliases are introduced.
+
+Within `pages/messages`, route components and their tests stay at the slice root.
+`api/` contains endpoint access, audit query options, and the grid's `CustomStore`.
+`model/` contains review rules and state-card presentation helpers. Component
+directories keep their implementation, styles, and existing tests together;
+related action dialogs and buttons share `components/message-actions/` and its
+popup styles. API and model tests stay beside the modules they cover. Small page
+slices do not need these subdirectories until grouping their files is useful.
 
 Current-user API access and query options belong to `shared/api`, because the
 application shell and multiple pages consume them. Only the profile screen belongs

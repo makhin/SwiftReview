@@ -18,7 +18,7 @@ vi.mock('devextreme-react/stepper', () => ({
   ),
 }));
 
-import type { MessageState, MessageStateReferenceDto } from '../../shared/api/generated/contracts.generated';
+import type { MessageState, MessageStateReferenceDto } from '../../../../shared/api/generated/contracts.generated';
 import MessageStage from './MessageStage';
 
 const definitions: Record<MessageState, MessageStateReferenceDto> = Object.fromEntries([

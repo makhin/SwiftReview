@@ -9,7 +9,7 @@ const { assignMessage, getAssignmentCandidates, notify } = vi.hoisted(() => ({
 }));
 
 vi.mock('devextreme/ui/notify', () => ({ default: notify }));
-vi.mock('./messagesApi', () => ({ assignMessage, getAssignmentCandidates }));
+vi.mock('../../api/messagesApi', () => ({ assignMessage, getAssignmentCandidates }));
 vi.mock('devextreme-react/popup', () => ({
   default: ({ children, title, width, maxWidth }: PropsWithChildren<{
     title: string;

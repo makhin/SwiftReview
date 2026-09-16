@@ -5,12 +5,12 @@ import TextArea from 'devextreme-react/text-area';
 import notify from 'devextreme/ui/notify';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-import { ApiError } from '../../shared/api/errors';
-import PageError from '../../shared/components/feedback/PageError';
-import PageLoading from '../../shared/components/feedback/PageLoading';
-import { approveReview, cancelReview, getMessage, rejectReview, startReview } from './messagesApi';
-import type { MessageRow } from './messagesApi';
-import { getReviewStep, type ReviewDecision } from './reviewDecision';
+import { ApiError } from '../../../../shared/api/errors';
+import PageError from '../../../../shared/components/feedback/PageError';
+import PageLoading from '../../../../shared/components/feedback/PageLoading';
+import { approveReview, cancelReview, getMessage, rejectReview, startReview } from '../../api/messagesApi';
+import type { MessageRow } from '../../api/messagesApi';
+import { getReviewStep, type ReviewDecision } from '../../model/reviewDecision';
 import './message-action-popup.css';
 import './raw-message-popup.css';
 
