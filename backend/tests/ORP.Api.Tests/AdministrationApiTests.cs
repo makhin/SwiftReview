@@ -231,6 +231,37 @@ public sealed class AdministrationApiTests : IDisposable
     }
 
     [Fact]
+    public async Task AdminUserGrid_AppliesRemoteSortAndPagingWithTotalCount()
+    {
+        using var admin = Client();
+        var sort = Uri.EscapeDataString("[{\"selector\":\"userName\",\"desc\":true}]");
+        var all = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/users/grid?take=100&sort={sort}", Ct);
+        var rows = all.GetProperty("data").EnumerateArray().ToArray();
+        Assert.True(rows.Length > 1);
+        var names = rows.Select(r => r.GetProperty("userName").GetString()!).ToArray();
+        Assert.Equal(names.OrderDescending(StringComparer.Ordinal), names);
+        var page = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/users/grid?skip=1&take=1&sort={sort}", Ct);
+        Assert.Equal(all.GetProperty("totalCount").GetInt32(), page.GetProperty("totalCount").GetInt32());
+        var row = Assert.Single(page.GetProperty("data").EnumerateArray());
+        Assert.Equal(rows[1].GetProperty("id").GetInt32(), row.GetProperty("id").GetInt32());
+        Assert.Equal(new[] { "displayName", "id", "userName" }, row.EnumerateObject().Select(p => p.Name).Order());
+    }
+
+    [Theory]
+    [InlineData("{")]
+    [InlineData("{}")]
+    [InlineData("[null]")]
+    [InlineData("[{}]")]
+    [InlineData("[{\"selector\":\"userName\",\"desc\":\"yes\"}]")]
+    [InlineData("[{\"selector\":\"userName\"},{\"selector\":\"id\"},{\"selector\":\"displayName\"},{\"selector\":\"id\"}]")]
+    public async Task AdminUserGrid_RejectsMalformedOrExcessiveSort(string sort)
+    {
+        using var admin = Client();
+        using var response = await admin.GetAsync($"/api/admin/users/grid?sort={Uri.EscapeDataString(sort)}", Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task SeparateRoles_CombineOnlyWithinOnePair_ForReviewEligibility()
     {
         using var admin = Client();
