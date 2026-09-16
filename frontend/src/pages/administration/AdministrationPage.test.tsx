@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
@@ -21,8 +21,13 @@ vi.mock('devextreme-react/data-grid', () => ({
   Pager: () => null, Paging: () => null,
 }));
 vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick, useSubmitBehavior }: { text: string; onClick?: () => void; useSubmitBehavior?: boolean }) =>
-    <button type={useSubmitBehavior ? 'submit' : 'button'} onClick={onClick}>{text}</button>,
+  default: ({ text, onClick, useSubmitBehavior, disabled = false }: {
+    text: string; onClick?: () => void; useSubmitBehavior?: boolean; disabled?: boolean;
+  }) => useSubmitBehavior
+    ? <button type="submit" disabled={disabled} onClick={onClick}>{text}</button>
+    // DevExtreme buttons are divs: a disabled fieldset does not disable them.
+    : <div role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled}
+        onClick={() => { if (!disabled) onClick?.(); }}>{text}</div>,
 }));
 vi.mock('devextreme/ui/dialog', () => ({ confirm: mocks.confirmDialog }));
 vi.mock('devextreme/ui/notify', () => ({ default: mocks.notify }));
@@ -187,5 +192,52 @@ describe('AdministrationPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
     expect(await screen.findByLabelText('Role')).toBeInTheDocument();
     expect(mocks.confirmDialog).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['access', 'success'], ['access', 'error'],
+    ['permissions', 'success'], ['permissions', 'error'],
+  ] as const)('prevents duplicate %s saves and unlocks after %s', async (editor, outcome) => {
+    const update = editor === 'access' ? mocks.updateUserAccess : mocks.updateRolePermissions;
+    let resolveSave!: () => void;
+    let rejectSave!: (error: Error) => void;
+    update.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+      resolveSave = resolve;
+      rejectSave = reject;
+    }));
+    renderPage();
+    const editAccess = await screen.findByRole('button', { name: 'Edit access' });
+    if (editor === 'access') {
+      fireEvent.click(editAccess);
+    } else {
+      fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+      fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
+    }
+    const saveName = editor === 'access' ? 'Save access' : 'Save permissions';
+    const save = await screen.findByRole('button', { name: saveName });
+    act(() => {
+      fireEvent.click(save);
+      fireEvent.click(save);
+    });
+    const saving = await screen.findByRole('button', { name: 'Saving…' });
+    expect(saving).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(saving);
+    const editingActions = editor === 'access' ? ['Add scope', 'Remove scope', 'Close'] : ['Reset'];
+    for (const name of editingActions) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(button);
+    }
+    expect(update).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      if (outcome === 'error') rejectSave(new Error('Save failed.'));
+      else resolveSave();
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: saveName })).toHaveAttribute('aria-disabled', 'false'));
+    if (outcome === 'error') expect(screen.getByRole('alert')).toHaveTextContent('Save failed.');
+    fireEvent.click(screen.getByRole('button', { name: saveName }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('button', { name: saveName })).toHaveAttribute('aria-disabled', 'false'));
   });
 });

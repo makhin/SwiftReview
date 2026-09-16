@@ -101,29 +101,39 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
   user: UserAccessDetailsDto; catalog: AccessCatalogDto; onDirty: (dirty: boolean) => void; onClose: () => void;
 }) {
   const [assignments, setAssignments] = useState<ScopedRoleAssignmentDto[]>(user.assignments);
+  const saving = useRef(false);
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => updateUserAccess(Number(user.userId), { assignments }), onSuccess: async () => {
     onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
-  }, onError: (error) => { notify(error.message, 'error', 4000); } });
-  function change(next: ScopedRoleAssignmentDto[]) { setAssignments(next); onDirty(true); mutation.reset(); }
+  }, onError: (error) => { notify(error.message, 'error', 4000); },
+    onSettled: () => { saving.current = false; } });
+  function save() {
+    if (saving.current) return;
+    saving.current = true;
+    mutation.mutate();
+  }
+  function change(next: ScopedRoleAssignmentDto[]) {
+    if (saving.current) return;
+    setAssignments(next); onDirty(true); mutation.reset();
+  }
   function update(index: number, patch: Partial<ScopedRoleAssignmentDto>) { change(assignments.map((a, i) => i === index ? { ...a, ...patch } : a)); }
   return <section className="app-card admin-editor" aria-label="User access editor">
     <h2>{user.displayName}</h2><p>{user.userName}</p>
     <fieldset disabled={mutation.isPending}>
       {assignments.map((assignment, index) => <div className="admin-scope" key={index}>
-        <SelectBox items={catalog.branches} valueExpr="id" displayExpr="name" value={assignment.branchId || null}
+        <SelectBox items={catalog.branches} valueExpr="id" displayExpr="name" value={assignment.branchId || null} disabled={mutation.isPending}
           inputAttr={{ 'aria-label': `Branch ${index + 1}` }} placeholder="Branch" onValueChanged={(e) => update(index, { branchId: e.value as number })} />
-        <SelectBox items={catalog.departments} valueExpr="id" displayExpr="name" value={assignment.departmentId || null}
+        <SelectBox items={catalog.departments} valueExpr="id" displayExpr="name" value={assignment.departmentId || null} disabled={mutation.isPending}
           inputAttr={{ 'aria-label': `Department ${index + 1}` }} placeholder="Department" onValueChanged={(e) => update(index, { departmentId: e.value as number })} />
-        <TagBox items={catalog.roles} valueExpr="id" displayExpr="name" value={assignment.roleIds} showSelectionControls
+        <TagBox items={catalog.roles} valueExpr="id" displayExpr="name" value={assignment.roleIds} showSelectionControls disabled={mutation.isPending}
           inputAttr={{ 'aria-label': `Roles ${index + 1}` }} onValueChanged={(e) => update(index, { roleIds: e.value as number[] })} />
-        <Button text="Remove scope" onClick={() => change(assignments.filter((_, i) => i !== index))} />
+        <Button text="Remove scope" disabled={mutation.isPending} onClick={() => change(assignments.filter((_, i) => i !== index))} />
         <p className="admin-permissions">Effective permissions: {[...new Set(catalog.roles.filter((r) => assignment.roleIds.includes(r.id)).flatMap((r) => r.permissions))].sort().join(', ') || 'None'}</p>
       </div>)}
       {!assignments.length && <p>No business access. Add a scope to assign roles.</p>}
-      <div className="admin-toolbar"><Button text="Add scope" onClick={() => change([...assignments, { branchId: 0, departmentId: 0, roleIds: [] }])} />
-        <Button text={mutation.isPending ? 'Saving…' : 'Save access'} type="default" onClick={() => mutation.mutate()} />
-        <Button text="Close" onClick={onClose} /></div>
+      <div className="admin-toolbar"><Button text="Add scope" disabled={mutation.isPending} onClick={() => change([...assignments, { branchId: 0, departmentId: 0, roleIds: [] }])} />
+        <Button text={mutation.isPending ? 'Saving…' : 'Save access'} type="default" disabled={mutation.isPending} onClick={save} />
+        <Button text="Close" disabled={mutation.isPending} onClick={() => { if (!saving.current) onClose(); }} /></div>
     </fieldset>
     <SaveError error={mutation.error} />
   </section>;
@@ -131,17 +141,24 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
 
 function RoleEditor({ role, catalog, onDirty }: { role: RoleDetailsDto; catalog: AccessCatalogDto; onDirty: (dirty: boolean) => void }) {
   const [permissions, setPermissions] = useState(role.permissions);
+  const saving = useRef(false);
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => updateRolePermissions(Number(role.id), { permissions }), onSuccess: async () => {
     onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
-  }, onError: (error) => { notify(error.message, 'error', 4000); } });
+  }, onError: (error) => { notify(error.message, 'error', 4000); },
+    onSettled: () => { saving.current = false; } });
+  function save() {
+    if (saving.current) return;
+    saving.current = true;
+    mutation.mutate();
+  }
   return <section className="app-card admin-editor" aria-label="Role permissions editor"><h2>{role.name}</h2>
     <p>Changes affect every user assigned this role, in all of its scopes.</p>
     <fieldset disabled={mutation.isPending}>
-      <TagBox items={catalog.permissions} value={permissions} showSelectionControls inputAttr={{ 'aria-label': 'Role permissions' }}
-        onValueChanged={(e) => { setPermissions(e.value as string[]); onDirty(true); mutation.reset(); }} />
-      <div className="admin-toolbar"><Button text={mutation.isPending ? 'Saving…' : 'Save permissions'} type="default" onClick={() => mutation.mutate()} />
-        <Button text="Reset" onClick={() => { setPermissions(role.permissions); onDirty(false); mutation.reset(); }} /></div>
+      <TagBox items={catalog.permissions} value={permissions} showSelectionControls disabled={mutation.isPending} inputAttr={{ 'aria-label': 'Role permissions' }}
+        onValueChanged={(e) => { if (saving.current) return; setPermissions(e.value as string[]); onDirty(true); mutation.reset(); }} />
+      <div className="admin-toolbar"><Button text={mutation.isPending ? 'Saving…' : 'Save permissions'} type="default" disabled={mutation.isPending} onClick={save} />
+        <Button text="Reset" disabled={mutation.isPending} onClick={() => { if (saving.current) return; setPermissions(role.permissions); onDirty(false); mutation.reset(); }} /></div>
     </fieldset><SaveError error={mutation.error} />
   </section>;
 }

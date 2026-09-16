@@ -107,7 +107,7 @@ vi.mock('devextreme-react/drawer', () => ({
     children,
     render: renderPanel,
     ...props
-  }: PropsWithChildren<Record<string, unknown>>) => {
+  }: PropsWithChildren<Record<string, unknown> & { opened: boolean }>) => {
     componentProps('Drawer', props);
     return (
       <div>
