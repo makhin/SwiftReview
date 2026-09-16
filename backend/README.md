@@ -152,7 +152,11 @@ All application endpoints are under `/api` and require authentication. The API e
 `take` (default `100`, maximum `500`) and requires the `audit.view` permission plus access to the message's
 branch and department.
 
-`GET /api/messages/grid` accepts DevExtreme remote load options. Data loading remains server-side through `DevExtreme.AspNet.Data`; the frontend consumes it through a DevExtreme `CustomStore`.
+`GET /api/messages/grid` accepts DevExtreme remote load options. HTTP query parameters are parsed by
+`DataSourceLoadOptionsParser` and applied to the authorized DTO query by `DataSourceLoader`.
+DevExtreme owns filter syntax and summary operations; the API only bounds request size and restricts
+available fields. Follow the [DevExtreme server configuration](https://github.com/DevExpress/DevExtreme.AspNet.Data/blob/master/docs/server-side-configuration.md)
+when extending grid loading. Data loading remains server-side through `DevExtreme.AspNet.Data`; the frontend consumes it through a DevExtreme `CustomStore`.
 
 Request and response schemas, status codes, and Problem Details payloads are documented in OpenAPI. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export the configured traces and metrics through OTLP.
 

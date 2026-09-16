@@ -68,14 +68,14 @@ public static class MessageEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<LoadResult> GetMessagesGrid([AsParameters] DevExtremeGridRequest request, MessageGridQueries queries, ICurrentUser currentUser,
+    private static async Task<LoadResult> GetMessagesGrid([AsParameters] DevExtremeGridRequest request, HttpRequest httpRequest, MessageGridQueries queries, ICurrentUser currentUser,
         IUserAccessService accessService, CancellationToken ct)
     {
         var access = await accessService.GetByIdAsync(currentUser.UserId, ct) ?? throw new UnauthorizedAccessException();
         if (request.AssignmentScope == MessageAssignmentScopes.Assignable &&
             !access.Permissions.Contains(Permissions.MessageAssign))
             throw new UnauthorizedAccessException("The current user is not allowed to assign messages.");
-        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(request), access, request.AssignmentScope, ct);
+        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(httpRequest.Query), access, request.AssignmentScope, ct);
     }
 
     private static Task<PagedResult<MessageListItemDto>> SearchMessages(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);

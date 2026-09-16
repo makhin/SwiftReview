@@ -6,6 +6,7 @@ import type { MessageAssignmentScope, MessageRow } from './messagesApi';
 export function createMessageDataSource(assignmentScope?: MessageAssignmentScope) {
   return new CustomStore<MessageRow, MessageRow['id']>({
     key: 'id',
+    loadMode: 'processed',
     load: (loadOptions) => {
       if (!assignmentScope) {
         return getMessageGrid(loadOptions);

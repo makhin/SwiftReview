@@ -37,7 +37,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
         return Enum.GetValues<MessageState>().Select(state => new MessageStateCountDto(state, counts.GetValueOrDefault(state))).ToArray();
     }
 
-    public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access,
+    public async Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access,
         string? assignmentScope, CancellationToken ct)
     {
         var query = db.ReadAccessibleMessages(access.UserId, assignmentScope == MessageAssignmentScopes.Assignable
@@ -95,7 +95,14 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     .OrderBy(step => step.Order)
                     .Select(step => step.ReviewLevel).ToArray()
             });
-        return DataSourceLoader.LoadAsync(rows, options, ct);
+        try
+        {
+            return await DataSourceLoader.LoadAsync(rows, options, ct);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IndexOutOfRangeException)
+        {
+            throw new FormatException("Invalid DevExtreme load options.", ex);
+        }
     }
 }
 

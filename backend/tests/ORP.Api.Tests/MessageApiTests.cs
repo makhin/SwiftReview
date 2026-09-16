@@ -49,11 +49,13 @@ public sealed class MessageApiTests(MessageApiFactory factory) : IClassFixture<M
         foreach (var row in search.GetProperty("items").EnumerateArray()) AssertNoEntryFields(row);
     }
 
-    [Fact]
-    public async Task Grid_ReturnsRowsAndTotalWithoutEntryFields()
+    [Theory]
+    [InlineData("")]
+    [InlineData("&filter=%5B%5D")]
+    public async Task Grid_ReturnsRowsAndTotalWithoutEntryFields(string filterQuery)
     {
         using var client = CreateClient();
-        using var response = await client.GetAsync("/api/messages/grid?skip=0&take=10&requireTotalCount=true",
+        using var response = await client.GetAsync($"/api/messages/grid?skip=0&take=10&requireTotalCount=true{filterQuery}",
             TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -86,6 +88,49 @@ public sealed class MessageApiTests(MessageApiFactory factory) : IClassFixture<M
         using var response = await client.GetAsync($"/api/messages/grid?skip=0&take=10&totalSummary={summary}",
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("[\"id\",1]")]
+    [InlineData("[\"id\",\"=\",1]")]
+    [InlineData("[[\"id\",\">=\",1],[\"id\",\"<\",2]]")]
+    [InlineData("[\"!\",[\"id\",\"<>\",1]]")]
+    [InlineData("[[\"id\",1],\"or\",[[\"id\",2],\"and\",[\"id\",3]]]")]
+    public async Task Grid_AcceptsDevExtremeFilterSyntax(string expression)
+    {
+        using var client = CreateClient();
+        var filter = Uri.EscapeDataString(expression);
+        var result = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/messages/grid?skip=0&take=10&requireTotalCount=true&filter={filter}", TestContext.Current.CancellationToken);
+        Assert.Equal(1, result.GetProperty("totalCount").GetInt32());
+        Assert.Equal(1, Assert.Single(result.GetProperty("data").EnumerateArray()).GetProperty("id").GetInt64());
+    }
+
+    [Theory]
+    [InlineData("[\"id\"]")]
+    [InlineData("[\"id\",\"unsupported\",1]")]
+    [InlineData("[\"!\",[\"currency\",\"EUR\"]]")]
+    public async Task Grid_InvalidFiltersReturnBadRequest(string expression)
+    {
+        using var client = CreateClient();
+        var filter = Uri.EscapeDataString(expression);
+        using var response = await client.GetAsync($"/api/messages/grid?skip=0&take=10&filter={filter}",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Grid_UsesDevExtremeSummariesAndSelection()
+    {
+        using var client = CreateClient();
+        var filter = Uri.EscapeDataString("[[\"id\",1],\"or\",[\"id\",2]]");
+        var summary = Uri.EscapeDataString("[{\"selector\":\"id\",\"summaryType\":\"sum\"},{\"selector\":\"id\",\"summaryType\":\"avg\"}]");
+        var select = Uri.EscapeDataString("[\"id\"]");
+        var result = await client.GetFromJsonAsync<JsonElement>(
+            $"/api/messages/grid?skip=0&take=10&filter={filter}&totalSummary={summary}&select={select}", TestContext.Current.CancellationToken);
+        Assert.Equal(3, result.GetProperty("summary")[0].GetDecimal());
+        Assert.Equal(1.5m, result.GetProperty("summary")[1].GetDecimal());
+        Assert.All(result.GetProperty("data").EnumerateArray(), row => Assert.Equal("id", Assert.Single(row.EnumerateObject()).Name));
     }
 
     private HttpClient CreateClient()
