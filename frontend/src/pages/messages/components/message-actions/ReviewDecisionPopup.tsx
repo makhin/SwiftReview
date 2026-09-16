@@ -2,15 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import TextArea from 'devextreme-react/text-area';
-import notify from 'devextreme/ui/notify';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useState } from 'react';
 
-import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import PageError from '../../../../shared/components/feedback/PageError';
 import PageLoading from '../../../../shared/components/feedback/PageLoading';
-import { approveReview, cancelReview, getMessage, rejectReview, startReview } from '../../api/messagesApi';
+import { getMessage } from '../../api/messagesApi';
 import type { MessageRow } from '../../api/messagesApi';
-import { getReviewStep, type ReviewDecision } from '../../model/reviewDecision';
+import { useReviewSession } from '../../model/useReviewSession';
 import './message-action-popup.css';
 import './raw-message-popup.css';
 
@@ -22,8 +20,6 @@ type ReviewDecisionPopupProps = {
   onChanged: () => void;
 };
 
-type ReviewAction = ReviewDecision | 'cancel';
-
 export default function ReviewDecisionPopup({
   canApprove,
   canReject,
@@ -32,130 +28,22 @@ export default function ReviewDecisionPopup({
   onChanged,
 }: ReviewDecisionPopupProps) {
   const [comment, setComment] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [pendingDecision, setPendingDecision] = useState<ReviewAction | null>(null);
-  const isSubmitting = pendingDecision !== null;
   const messageQuery = useQuery({
     queryKey: ['messages', message.id],
     queryFn: ({ signal }) => getMessage(message.id, signal),
   });
-  const step = getReviewStep(message.state);
   const reviewEnabled = canApprove || canReject;
-  const level = step?.level;
-  const needsStart = step?.needsStart;
-  const [ready, setReady] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const startPromise = useRef<ReturnType<typeof startReview> | null>(null);
-  const reviewId = useRef<Awaited<ReturnType<typeof startReview>> | null>(null);
-  const changed = useEffectEvent(onChanged);
-  const isStarting = reviewEnabled && !!level && !ready && !startError && !error;
-  const isBusy = isStarting || isSubmitting;
-
-  useEffect(() => {
-    if (!reviewEnabled || !level) return;
-    let active = true;
-    // Reuse the in-flight request during StrictMode's effect replay.
-    startPromise.current ??= startReview(message.id, level);
-    void startPromise.current.then((id) => {
-      if (active) {
-        if (reviewId.current !== null && String(reviewId.current) !== String(id)) {
-          setStartError(null);
-          const errorMessage = 'This review attempt has changed. Close this window and reopen the message.';
-          setError(errorMessage);
-          notify(errorMessage, 'error', 4000);
-          setReady(false);
-          return;
-        }
-        if (reviewId.current === null && needsStart) {
-          notify(`Review for message ${message.externalId} started.`, 'success', 4000);
-        }
-        reviewId.current = id;
-        setReady(true); changed();
-      }
-    }, (caught: unknown) => {
-      if (active) {
-        const errorMessage = caught instanceof ApiError || caught instanceof ApiRequestError
-          ? caught.message
-          : 'Unable to start or resume this review. Check your connection and access, then retry.';
-        setStartError(errorMessage);
-        notify(errorMessage, 'error', 4000);
-      }
-    });
-    return () => { active = false; };
-  }, [message.id, message.externalId, level, needsStart, reviewEnabled, attempt]);
-
-  function retryStart() {
-    startPromise.current = null;
-    setStartError(null);
-    setError(null);
-    setAttempt((value) => value + 1);
-  }
-
-  async function submit(decision: ReviewAction) {
-    const allowed = decision === 'cancel' ? reviewEnabled : decision === 'approve' ? canApprove : canReject;
-    if (!step || !ready || reviewId.current === null || isSubmitting || !allowed ||
-        (decision !== 'cancel' && !messageQuery.isSuccess)) {
-      return;
-    }
-
-    setError(null);
-    setPendingDecision(decision);
-    let completed = false;
-
-    try {
-      const normalizedComment = comment.trim() || null;
-      if (decision === 'cancel') {
-        await cancelReview(message.id, step.level, reviewId.current);
-      } else if (decision === 'approve') {
-        await approveReview(message.id, step.level, normalizedComment, reviewId.current);
-      } else {
-        await rejectReview(message.id, step.level, normalizedComment, reviewId.current);
-      }
-
-      completed = true;
-      onChanged();
-      onClose();
-      notify(
-        decision === 'cancel' ? `Review for message ${message.externalId} cancelled.`
-          : `Message ${message.externalId} ${decision === 'approve' ? 'approved' : 'rejected'}.`,
-        'success',
-        4000,
-      );
-    } catch (caught) {
-      const errorMessage = caught instanceof ApiError || caught instanceof ApiRequestError
-        ? caught.message
-        : `Unable to ${decision} ${decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`;
-      setError(errorMessage);
-      notify(errorMessage, 'error', 4000);
-      if (caught instanceof ApiError && caught.status === 409) {
-        setReady(false);
-        onChanged();
-        return;
-      }
-      // The server may have committed the decision even if its response was lost.
-      try {
-        const current = await getMessage(message.id);
-        const currentStep = getReviewStep(current.state);
-        if (!currentStep || currentStep.needsStart || currentStep.level !== step.level) {
-          setReady(false);
-          setError('This review is no longer active. Close this window and check the updated message and audit trail.');
-        }
-      } catch {
-        setReady(false);
-        if (decision === 'cancel') {
-          setError('Unable to verify cancellation. Close this window and refresh the grid before reopening the review.');
-        } else {
-          setStartError('Unable to verify the review state. Retry to resume before making another decision.');
-        }
-      }
-      onChanged();
-    } finally {
-      if (!completed) {
-        setPendingDecision(null);
-      }
-    }
-  }
+  const { state, submit, retry } = useReviewSession({
+    message, canApprove, canReject, hasMessage: messageQuery.isSuccess, onChanged, onClose,
+  });
+  const ready = state.status === 'active';
+  const isStarting = state.status === 'starting';
+  const isSubmitting = state.status === 'submitting' || state.status === 'verifying';
+  const isBusy = isStarting || isSubmitting || state.status === 'completed';
+  const pendingDecision = isSubmitting ? state.decision : null;
+  const startError = state.status === 'blocked' && state.recovery === 'resume' ? state.error : null;
+  const error = 'error' in state && !startError ? state.error : null;
+  const showMessage = !reviewEnabled || ready || isSubmitting;
 
   return (
     <Popup
@@ -192,16 +80,16 @@ export default function ReviewDecisionPopup({
         )}
 
         {isStarting && <PageLoading message="Starting review…" />}
-        {startError && <PageError title="Review unavailable" message={startError} actionLabel="Retry review" onAction={retryStart} />}
+        {startError && <PageError title="Review unavailable" message={startError} actionLabel="Retry review" onAction={retry} />}
         {ready && reviewEnabled && <p role="status">Review in progress. Closing this window leaves the review and assignment active. Cancel review stops this review and allows reassignment.</p>}
 
-        {messageQuery.isSuccess && (!reviewEnabled || ready) && messageQuery.data.body && (
+        {messageQuery.isSuccess && showMessage && messageQuery.data.body && (
           <pre className="raw-message-popup__body" aria-label="Raw message content">
             {messageQuery.data.body}
           </pre>
         )}
 
-        {messageQuery.isSuccess && (!reviewEnabled || ready) && !messageQuery.data.body && (
+        {messageQuery.isSuccess && showMessage && !messageQuery.data.body && (
           <p className="raw-message-popup__empty">No raw message content available.</p>
         )}
 
@@ -229,21 +117,21 @@ export default function ReviewDecisionPopup({
             text={pendingDecision === 'approve' ? 'Approve…' : 'Approve'}
             type="success"
             stylingMode="contained"
-            disabled={!step || !ready || !canApprove || !messageQuery.isSuccess || isSubmitting}
-            onClick={() => void submit('approve')}
+            disabled={!ready || !canApprove || !messageQuery.isSuccess || isSubmitting}
+            onClick={() => submit('approve', comment)}
           />
           <Button
             text={pendingDecision === 'reject' ? 'Reject…' : 'Reject'}
             type="danger"
             stylingMode="contained"
-            disabled={!step || !ready || !canReject || !messageQuery.isSuccess || isSubmitting}
-            onClick={() => void submit('reject')}
+            disabled={!ready || !canReject || !messageQuery.isSuccess || isSubmitting}
+            onClick={() => submit('reject', comment)}
           />
           <Button
             text={pendingDecision === 'cancel' ? 'Cancelling…' : 'Cancel review'}
             stylingMode="outlined"
-            disabled={!step || !ready || !reviewEnabled || isSubmitting}
-            onClick={() => void submit('cancel')}
+            disabled={!ready || !reviewEnabled || isSubmitting}
+            onClick={() => submit('cancel', comment)}
           />
           <Button
             text="Close"
