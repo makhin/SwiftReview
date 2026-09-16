@@ -1,4 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test/createTestQueryClient';
+import type { ReactElement } from 'react';
+import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -133,3 +136,7 @@ describe('AssignmentPopup', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+function render(ui: ReactElement) {
+  return renderComponent(<QueryClientProvider client={createTestQueryClient()}>{ui}</QueryClientProvider>);
+}

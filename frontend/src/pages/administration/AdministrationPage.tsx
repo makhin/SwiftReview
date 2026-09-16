@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import DataGrid, { Column, Pager, Paging } from 'devextreme-react/data-grid';
 import type { DataGridRef } from 'devextreme-react/data-grid';
 import SelectBox from 'devextreme-react/select-box';
@@ -14,7 +14,8 @@ import type { AccessCatalogDto, RoleDetailsDto, ScopedRoleAssignmentDto, UserAcc
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import PageError from '../../shared/components/feedback/PageError';
 import GridRefreshButton from '../../shared/components/GridRefreshButton';
-import { createAdminUsersStore, getAccessCatalog, getUserAccess, updateRolePermissions, updateUserAccess, type AdminUser } from './administrationApi';
+import { createAdminUsersStore, type AdminUser } from './administrationApi';
+import { accessCatalogQueryOptions, userAccessQueryOptions, useUpdateUserAccess, useUpdateRolePermissions } from './administrationQueries';
 import './administration.css';
 
 const administrationTabs = [
@@ -37,8 +38,8 @@ function Administration() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [dirty, setDirty] = useState(false);
   const gridRef = useRef<DataGridRef<AdminUser, number>>(null);
-  const catalog = useQuery({ queryKey: ['admin', 'catalog'], queryFn: ({ signal }) => getAccessCatalog(signal) });
-  const details = useQuery({ queryKey: ['admin', 'user', selectedUser?.id], queryFn: ({ signal }) => getUserAccess(selectedUser!.id, signal), enabled: selectedUser !== null });
+  const catalog = useQuery(accessCatalogQueryOptions());
+  const details = useQuery(userAccessQueryOptions(selectedUser?.id));
   const store = useMemo(() => createAdminUsersStore(appliedSearch), [appliedSearch]);
   const role = catalog.data?.roles.find((r) => Number(r.id) === selectedRole);
   async function leaveEditor() {
@@ -101,19 +102,15 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
   user: UserAccessDetailsDto; catalog: AccessCatalogDto; onDirty: (dirty: boolean) => void; onClose: () => void;
 }) {
   const [assignments, setAssignments] = useState<ScopedRoleAssignmentDto[]>(user.assignments);
-  const saving = useRef(false);
-  const queryClient = useQueryClient();
-  const mutation = useMutation({ mutationFn: () => updateUserAccess(Number(user.userId), { assignments }), onSuccess: async () => {
-    onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
-  }, onError: (error) => { notify(error.message, 'error', 4000); },
-    onSettled: () => { saving.current = false; } });
+  const mutation = useUpdateUserAccess(Number(user.userId), {
+    onSuccess: () => { onDirty(false); notify('Changes saved.', 'success', 4000); },
+    onError: (error) => notify(error.message, 'error', 4000),
+  });
   function save() {
-    if (saving.current) return;
-    saving.current = true;
-    mutation.mutate();
+    mutation.mutate({ assignments });
   }
   function change(next: ScopedRoleAssignmentDto[]) {
-    if (saving.current) return;
+    if (mutation.isLocked()) return;
     setAssignments(next); onDirty(true); mutation.reset();
   }
   function update(index: number, patch: Partial<ScopedRoleAssignmentDto>) { change(assignments.map((a, i) => i === index ? { ...a, ...patch } : a)); }
@@ -133,7 +130,7 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
       {!assignments.length && <p>No business access. Add a scope to assign roles.</p>}
       <div className="admin-toolbar"><Button text="Add scope" disabled={mutation.isPending} onClick={() => change([...assignments, { branchId: 0, departmentId: 0, roleIds: [] }])} />
         <Button text={mutation.isPending ? 'Saving…' : 'Save access'} type="default" disabled={mutation.isPending} onClick={save} />
-        <Button text="Close" disabled={mutation.isPending} onClick={() => { if (!saving.current) onClose(); }} /></div>
+        <Button text="Close" disabled={mutation.isPending} onClick={() => { if (!mutation.isLocked()) onClose(); }} /></div>
     </fieldset>
     <SaveError error={mutation.error} />
   </section>;
@@ -141,24 +138,20 @@ function UserEditor({ user, catalog, onDirty, onClose }: {
 
 function RoleEditor({ role, catalog, onDirty }: { role: RoleDetailsDto; catalog: AccessCatalogDto; onDirty: (dirty: boolean) => void }) {
   const [permissions, setPermissions] = useState(role.permissions);
-  const saving = useRef(false);
-  const queryClient = useQueryClient();
-  const mutation = useMutation({ mutationFn: () => updateRolePermissions(Number(role.id), { permissions }), onSuccess: async () => {
-    onDirty(false); notify('Changes saved.', 'success', 4000); await queryClient.invalidateQueries();
-  }, onError: (error) => { notify(error.message, 'error', 4000); },
-    onSettled: () => { saving.current = false; } });
+  const mutation = useUpdateRolePermissions(Number(role.id), {
+    onSuccess: () => { onDirty(false); notify('Changes saved.', 'success', 4000); },
+    onError: (error) => notify(error.message, 'error', 4000),
+  });
   function save() {
-    if (saving.current) return;
-    saving.current = true;
-    mutation.mutate();
+    mutation.mutate({ permissions });
   }
   return <section className="app-card admin-editor" aria-label="Role permissions editor"><h2>{role.name}</h2>
     <p>Changes affect every user assigned this role, in all of its scopes.</p>
     <fieldset disabled={mutation.isPending}>
       <TagBox items={catalog.permissions} value={permissions} showSelectionControls disabled={mutation.isPending} inputAttr={{ 'aria-label': 'Role permissions' }}
-        onValueChanged={(e) => { if (saving.current) return; setPermissions(e.value as string[]); onDirty(true); mutation.reset(); }} />
+        onValueChanged={(e) => { if (mutation.isLocked()) return; setPermissions(e.value as string[]); onDirty(true); mutation.reset(); }} />
       <div className="admin-toolbar"><Button text={mutation.isPending ? 'Saving…' : 'Save permissions'} type="default" disabled={mutation.isPending} onClick={save} />
-        <Button text="Reset" disabled={mutation.isPending} onClick={() => { if (saving.current) return; setPermissions(role.permissions); onDirty(false); mutation.reset(); }} /></div>
+        <Button text="Reset" disabled={mutation.isPending} onClick={() => { if (mutation.isLocked()) return; setPermissions(role.permissions); onDirty(false); mutation.reset(); }} /></div>
     </fieldset><SaveError error={mutation.error} />
   </section>;
 }

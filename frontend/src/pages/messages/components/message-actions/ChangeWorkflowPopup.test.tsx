@@ -42,7 +42,7 @@ describe('ChangeWorkflowPopup', () => {
     expect(screen.queryByRole('option', { name: /Workflow 3/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Workflow'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save workflow' }));
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled());
     expect(screen.getByLabelText('Workflow')).toBeDisabled();
     expect(changeMessageWorkflow).toHaveBeenCalledExactlyOnceWith(42, 2);
     resolve();

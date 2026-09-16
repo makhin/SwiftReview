@@ -1,12 +1,14 @@
 import { infiniteQueryOptions } from '@tanstack/react-query';
 
+import { messageKeys } from '../../../shared/api/queryKeys';
+
 import { getMessageAudit } from './auditApi';
 
 export const AUDIT_PAGE_SIZE = 50;
 
 export function messageAuditQueryOptions(messageId: number | string) {
   return infiniteQueryOptions({
-    queryKey: ['messages', messageId, 'audit'],
+    queryKey: messageKeys.audit(messageId),
     queryFn: ({ pageParam, signal }) =>
       getMessageAudit(messageId, pageParam, AUDIT_PAGE_SIZE, signal),
     initialPageParam: 0,

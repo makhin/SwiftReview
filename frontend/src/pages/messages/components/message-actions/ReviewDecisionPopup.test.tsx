@@ -111,7 +111,7 @@ describe('ReviewDecisionPopup', () => {
     let resolve!: (id: number) => void;
     startReview.mockReturnValue(new Promise<number>((done) => { resolve = done; }));
     const props = open();
-    expect(startReview).toHaveBeenCalledWith(42, 1);
+    await waitFor(() => expect(startReview).toHaveBeenCalledWith(42, 1));
     expect(screen.queryByLabelText('Raw message content')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
@@ -234,17 +234,19 @@ describe('ReviewDecisionPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(await screen.findByText(/Unable to verify the review state/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    getMessage.mockResolvedValue({ body: 'RAW', state: 'FirstReviewInProgress' });
     fireEvent.click(screen.getByRole('button', { name: 'Retry review' }));
     await ready();
     expect(startReview).toHaveBeenCalledTimes(2);
   });
 
   it('keeps decisions disabled if loading the message fails and supports retry', async () => {
-    getMessage.mockRejectedValueOnce(new Error('Network')).mockResolvedValueOnce({ body: 'RAW', state: 'FirstReviewInProgress' });
+    getMessage.mockRejectedValue(new Error('Network'));
     render(<ReviewDecisionPopup canApprove canReject message={{ ...baseMessage, state: 'Assigned' }}
       onClose={vi.fn()} onChanged={vi.fn()} />, false);
     expect(await screen.findByText('Unable to load raw message')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    getMessage.mockResolvedValue({ body: 'RAW', state: 'FirstReviewInProgress' });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await ready();
     expect(startReview).toHaveBeenCalledOnce();
@@ -283,7 +285,7 @@ describe('ReviewDecisionPopup', () => {
     for (const name of ['Cancelling…', 'Approve', 'Reject', 'Close'])
       expect(screen.getByRole('button', { name })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Cancelling…' }));
-    expect(cancelReview).toHaveBeenCalledOnce();
+    await waitFor(() => expect(cancelReview).toHaveBeenCalledOnce());
   });
 
   it('does not restart a cancelled review when the cancellation response is lost', async () => {
@@ -383,9 +385,23 @@ describe('ReviewDecisionPopup', () => {
     await screen.findByText(/Unable to verify the review state/);
     startReview.mockResolvedValue(74);
     fireEvent.click(screen.getByRole('button', { name: 'Retry review' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('This review attempt has changed');
+    expect(await screen.findByText(/This review attempt has changed/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(approveReview).toHaveBeenCalledExactlyOnceWith(42, 1, null, 73);
+  });
+
+  it('reports a saved decision separately from a failed grid refresh', async () => {
+    const onChanged = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Grid offline'));
+    const props = open({ onChanged });
+    await ready();
+    notify.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.stringContaining('Changes saved'), 'warning', 6000));
+    expect(notify).toHaveBeenCalledWith('Message MSG-0042 approved.', 'success', 4000);
+    expect(notify.mock.calls.some((call) => call[1] === 'error')).toBe(false);
+    expect(approveReview).toHaveBeenCalledExactlyOnceWith(42, 1, null, 73);
+    expect(props.onClose).toHaveBeenCalledOnce();
+    expect(onChanged).toHaveBeenCalledTimes(2);
   });
 
 });

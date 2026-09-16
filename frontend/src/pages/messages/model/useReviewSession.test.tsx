@@ -1,3 +1,5 @@
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test/createTestQueryClient';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, type PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,8 +28,12 @@ function deferred<T>() {
 
 function setup(strict = false) {
   const options = { message, canApprove: true, canReject: true, hasMessage: true, onChanged: vi.fn(), onClose: vi.fn() };
-  const hook = renderHook(() => useReviewSession(options), strict
-    ? { wrapper: ({ children }: PropsWithChildren) => <StrictMode>{children}</StrictMode> } : undefined);
+  const client = createTestQueryClient();
+  const hook = renderHook(() => useReviewSession(options), {
+    wrapper: ({ children }: PropsWithChildren) => <QueryClientProvider client={client}>
+      {strict ? <StrictMode>{children}</StrictMode> : children}
+    </QueryClientProvider>,
+  });
   return { ...hook, ...options };
 }
 
@@ -84,7 +90,7 @@ describe('useReviewSession', () => {
       result.current.submit('cancel', '');
     });
     expect(result.current.state.status).toBe('submitting');
-    expect(approveReview).toHaveBeenCalledExactlyOnceWith(42, 1, 'confirmed', 73);
+    await waitFor(() => expect(approveReview).toHaveBeenCalledExactlyOnceWith(42, 1, 'confirmed', 73));
     expect(rejectReview).not.toHaveBeenCalled();
     expect(cancelReview).not.toHaveBeenCalled();
   });

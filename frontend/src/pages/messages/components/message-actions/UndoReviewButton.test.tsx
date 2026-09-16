@@ -1,4 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test/createTestQueryClient';
+import type { ReactElement } from 'react';
+import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PropsWithChildren } from 'react';
 import type { MessageRow } from '../../api/messagesApi';
@@ -41,7 +44,7 @@ describe('UndoReviewButton', () => {
     expect(undoReview).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Comment (optional)'), { target: { value: '  Please check again  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
-    const button = screen.getByRole('button', { name: 'Undoing…' });
+    const button = await screen.findByRole('button', { name: 'Undoing…' });
     expect(button).toBeDisabled();
     fireEvent.click(button);
     expect(undoReview).toHaveBeenCalledExactlyOnceWith(42, 73, 'Please check again');
@@ -109,3 +112,7 @@ describe('UndoReviewButton', () => {
     expect(undoReview).toHaveBeenCalledOnce();
   });
 });
+
+function render(ui: ReactElement) {
+  return renderComponent(<QueryClientProvider client={createTestQueryClient()}>{ui}</QueryClientProvider>);
+}

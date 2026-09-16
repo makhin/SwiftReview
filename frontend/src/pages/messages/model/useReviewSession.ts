@@ -1,7 +1,9 @@
 import { useEffect, useEffectEvent, useReducer, useRef } from 'react';
 import notify from 'devextreme/ui/notify';
 import { ApiError, ApiRequestError } from '../../../shared/api/errors';
-import { approveReview, cancelReview, getMessage, rejectReview, startReview, type MessageRow } from '../api/messagesApi';
+import { getMessage, type startReview, type MessageRow } from '../api/messagesApi';
+import { useRefreshMessage, useReviewOperations } from '../api/messageMutations';
+import type { RefreshData } from '../../../shared/api/refreshAfterMutation';
 import { getReviewStep, type ReviewDecision } from './reviewDecision';
 
 type ReviewId = Awaited<ReturnType<typeof startReview>>;
@@ -69,7 +71,7 @@ type Options = {
   canApprove: boolean;
   canReject: boolean;
   hasMessage: boolean;
-  onChanged: () => void;
+  onChanged: RefreshData;
   onClose: () => void;
 };
 
@@ -88,7 +90,11 @@ export function useReviewSession({ message, canApprove, canReject, hasMessage, o
   // Cache the operation for this state, including StrictMode's effect replay.
   // Session data (review ID, errors and recovery) lives exclusively in the reducer.
   const request = useRef<{ state: ReviewSessionState; promise: Promise<Event> } | null>(null);
-  const changed = useEffectEvent(onChanged);
+  const refresh = useRefreshMessage(message.id, onChanged);
+  const changed = useEffectEvent((saved: boolean) => { void refresh(saved); });
+  const operations = useReviewOperations(message.id);
+  const start = useEffectEvent(operations.start);
+  const decide = useEffectEvent(operations.decide);
   const closed = useEffectEvent(onClose);
 
   useEffect(() => {
@@ -96,15 +102,13 @@ export function useReviewSession({ message, canApprove, canReject, hasMessage, o
     let active = true;
     async function run(): Promise<Event> {
       if (state.status === 'starting') {
-        try { return { type: 'started', reviewId: await startReview(message.id, level!) }; }
+        try { return { type: 'started', reviewId: await start(level!) }; }
         catch (caught) { return { type: 'startFailed', error: errorText(caught,
           'Unable to start or resume this review. Check your connection and access, then retry.') }; }
       }
       if (state.status === 'submitting') {
         try {
-          if (state.decision === 'cancel') await cancelReview(message.id, level!, state.reviewId);
-          else if (state.decision === 'approve') await approveReview(message.id, level!, state.comment, state.reviewId);
-          else await rejectReview(message.id, level!, state.comment, state.reviewId);
+          await decide({ action: state.decision, level: level!, reviewId: state.reviewId, comment: state.comment });
           return { type: 'completed' };
         } catch (caught) {
           return { type: 'failed', conflict: caught instanceof ApiError && caught.status === 409,
@@ -130,15 +134,15 @@ export function useReviewSession({ message, canApprove, canReject, hasMessage, o
           notify(changedAttempt, 'error', 4000);
         } else {
           if (state.expectedReviewId === null && needsStart) notify(`Review for message ${message.externalId} started.`, 'success', 4000);
-          changed();
+          changed(true);
         }
       } else if (event.type === 'startFailed' || event.type === 'failed') {
         notify(event.error, 'error', 4000);
-        if (event.type === 'failed' && event.conflict) changed();
+        if (event.type === 'failed' && event.conflict) changed(false);
       } else if (event.type === 'verified' || event.type === 'verificationFailed') {
-        changed();
+        changed(false);
       } else if (event.type === 'completed' && state.status === 'submitting') {
-        changed();
+        changed(true);
         closed();
         notify(state.decision === 'cancel' ? `Review for message ${message.externalId} cancelled.`
           : `Message ${message.externalId} ${state.decision === 'approve' ? 'approved' : 'rejected'}.`, 'success', 4000);

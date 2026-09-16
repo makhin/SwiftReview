@@ -4,9 +4,10 @@ import Popup from 'devextreme-react/popup';
 import TextArea from 'devextreme-react/text-area';
 import { useState } from 'react';
 
+import type { RefreshData } from '../../../../shared/api/refreshAfterMutation';
 import PageError from '../../../../shared/components/feedback/PageError';
 import PageLoading from '../../../../shared/components/feedback/PageLoading';
-import { getMessage } from '../../api/messagesApi';
+import { messageQueryOptions } from '../../api/messageQueries';
 import type { MessageRow } from '../../api/messagesApi';
 import { useReviewSession } from '../../model/useReviewSession';
 import './message-action-popup.css';
@@ -17,7 +18,7 @@ type ReviewDecisionPopupProps = {
   canReject: boolean;
   message: MessageRow;
   onClose: () => void;
-  onChanged: () => void;
+  onChanged: RefreshData;
 };
 
 export default function ReviewDecisionPopup({
@@ -28,10 +29,7 @@ export default function ReviewDecisionPopup({
   onChanged,
 }: ReviewDecisionPopupProps) {
   const [comment, setComment] = useState('');
-  const messageQuery = useQuery({
-    queryKey: ['messages', message.id],
-    queryFn: ({ signal }) => getMessage(message.id, signal),
-  });
+  const messageQuery = useQuery(messageQueryOptions(message.id));
   const reviewEnabled = canApprove || canReject;
   const { state, submit, retry } = useReviewSession({
     message, canApprove, canReject, hasMessage: messageQuery.isSuccess, onChanged, onClose,

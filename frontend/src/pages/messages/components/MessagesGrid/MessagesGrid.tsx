@@ -26,7 +26,8 @@ import {
 import AuditTrailDrawer from '../AuditTrailDrawer/AuditTrailDrawer';
 import AssignmentPopup from '../message-actions/AssignmentPopup';
 import MessageStage from '../MessageStage/MessageStage';
-import { getMessageStateCounts, type MessageRow } from '../../api/messagesApi';
+import { type MessageRow } from '../../api/messagesApi';
+import { messageCountsQueryOptions } from '../../api/messageQueries';
 import GridStateCards from '../../../../shared/components/GridStateCards';
 import { messageStateCardColours } from '../../model/messageStateCards';
 import ReviewDecisionPopup from '../message-actions/ReviewDecisionPopup';
@@ -73,11 +74,7 @@ export default function MessagesGrid({
 }: MessagesGridProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const [selectedState, setSelectedState] = useState<string | null>(null);
-  const stateCounts = useQuery({
-    queryKey: ['message-state-counts', currentUser?.userId, currentUser?.scopes, currentUser?.isGlobalAdministrator],
-    queryFn: ({ signal }) => getMessageStateCounts(signal), enabled: currentUser != null,
-    refetchInterval: 30_000,
-  });
+  const stateCounts = useQuery(messageCountsQueryOptions(currentUser));
   const counts = stateCounts.isError ? undefined : stateCounts.data;
   const { data: users } = useQuery(usersQueryOptions());
   const { data: branches } = useQuery(branchesQueryOptions());
@@ -116,7 +113,7 @@ export default function MessagesGrid({
   });
 
   async function refreshMessages() {
-    await Promise.all([dataGridRef.current?.instance().refresh(), stateCounts.refetch()]);
+    await Promise.all([dataGridRef.current?.instance().refresh(), stateCounts.refetch({ throwOnError: true })]);
   }
 
   function selectState(value: string | null) {
@@ -210,7 +207,7 @@ export default function MessagesGrid({
         <GridStateCards items={stateCards} value={selectedState} onChange={selectState} />
         <p className="message-counts-note">Counts include all accessible messages, before grid filters.</p>
         {stateCounts.isError && <div className="message-counts-error" role="alert"><span>Unable to load counts. Check your connection and retry.</span>
-          <Button text="Retry counts" stylingMode="outlined" onClick={() => void stateCounts.refetch()} /></div>}
+          <Button text="Retry counts" stylingMode="outlined" onClick={() => void stateCounts.refetch({ throwOnError: true })} /></div>}
       </section>
       <section className="message-grid-results" aria-label="Message results">
         <div className="message-grid-toolbar">
@@ -332,7 +329,7 @@ export default function MessagesGrid({
                         onClick={() => { if (message.canChangeWorkflow) setSelectedWorkflowMessage(message); }} />
                     </span>}
                   {showUndo && <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message}
-                    onChanged={() => void refreshMessages()} />}
+                    onChanged={() => dataGridRef.current?.instance().refresh()} />}
                   {canShowAssignment(message, false) && (
                     <Button
                       text="Assign"
@@ -383,16 +380,16 @@ export default function MessagesGrid({
           canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
           canReject={!readOnly && canShowReviewAction(selectedReviewMessage)}
           onClose={closeReviewAction}
-          onChanged={() => void refreshMessages()}
+          onChanged={() => dataGridRef.current?.instance().refresh()}
         />
       )}
       {selectedWorkflowMessage && <ChangeWorkflowPopup key={String(selectedWorkflowMessage.id)} message={selectedWorkflowMessage}
-        onClose={() => setSelectedWorkflowMessage(null)} onChanged={() => void refreshMessages()} />}
+        onClose={() => setSelectedWorkflowMessage(null)} onChanged={() => dataGridRef.current?.instance().refresh()} />}
       {selectedAssignmentMessage && (
         <AssignmentPopup
           message={selectedAssignmentMessage}
           onClose={closeAssignment}
-          onChanged={() => void refreshMessages()}
+          onChanged={() => dataGridRef.current?.instance().refresh()}
         />
       )}
       {selectedAuditMessage &&
