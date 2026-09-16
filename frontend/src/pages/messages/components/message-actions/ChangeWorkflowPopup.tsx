@@ -5,7 +5,7 @@ import Popup from 'devextreme-react/popup';
 import SelectBox from 'devextreme-react/select-box';
 import notify from 'devextreme/ui/notify';
 import { workflowsQueryOptions } from '../../../../shared/api/referenceDataQueries';
-import { ApiError } from '../../../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import PageError from '../../../../shared/components/feedback/PageError';
 import { changeMessageWorkflow, type MessageRow } from '../../api/messagesApi';
 import './message-action-popup.css';
@@ -32,7 +32,7 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
       onChanged(); onClose();
       notify('Workflow changed.', 'success', 4000);
     } catch (caught) {
-      const errorMessage = caught instanceof ApiError ? caught.message : 'Unable to confirm the workflow change. Refresh the grid and check the audit trail.';
+      const errorMessage = (caught instanceof ApiError || caught instanceof ApiRequestError) ? caught.message : 'Unable to confirm the workflow change. Refresh the grid and check the audit trail.';
       setError(errorMessage);
       notify(errorMessage, 'error', 4000);
       onChanged();

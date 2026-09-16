@@ -1,8 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }));
-
-vi.mock('./client', () => ({ apiClient: { GET: get } }));
+const get = vi.fn();
 
 import { ApiError } from './errors';
 import { getCurrentUser } from './currentUserApi';
@@ -16,20 +14,22 @@ const currentUser = {
 };
 
 describe('getCurrentUser', () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     get.mockReset();
+    vi.stubGlobal('fetch', get);
   });
 
   it('returns the current user and forwards the abort signal', async () => {
     const controller = new AbortController();
-    get.mockResolvedValue({ data: currentUser, response: { status: 200 } });
+    get.mockResolvedValue(new Response(JSON.stringify(currentUser)));
 
     await expect(getCurrentUser(controller.signal)).resolves.toEqual(currentUser);
-    expect(get).toHaveBeenCalledWith('/api/me', { signal: controller.signal });
+    expect(get).toHaveBeenCalledWith('/api/me', expect.objectContaining({ signal: controller.signal }));
   });
 
   it('throws an ApiError containing the response status', async () => {
-    get.mockResolvedValue({ data: undefined, response: { status: 403 } });
+    get.mockResolvedValue(new Response(null, { status: 403 }));
 
     await expect(getCurrentUser()).rejects.toEqual(
       new ApiError('Unable to load the current user (403).', 403),
@@ -58,9 +58,9 @@ describe('getCurrentUser', () => {
   it('preserves abort errors', async () => {
     const controller = new AbortController();
     const abortError = new DOMException('aborted', 'AbortError');
-    controller.abort();
+    controller.abort(abortError);
     get.mockRejectedValue(abortError);
 
-    await expect(getCurrentUser(controller.signal)).rejects.toBe(abortError);
+    await expect(getCurrentUser(controller.signal)).rejects.toMatchObject({ name: 'AbortError', kind: 'aborted', cause: abortError, outcomeUnknown: false });
   });
 });

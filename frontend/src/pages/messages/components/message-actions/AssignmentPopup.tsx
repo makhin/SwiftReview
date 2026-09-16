@@ -5,7 +5,7 @@ import notify from 'devextreme/ui/notify';
 import { useEffect, useState } from 'react';
 
 import type { AssignmentCandidateDto } from '../../../../shared/api/generated/contracts.generated';
-import { ApiError } from '../../../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import { assignMessage, getAssignmentCandidates, type MessageRow } from '../../api/messagesApi';
 import './message-action-popup.css';
 
@@ -29,7 +29,7 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
       .then(setCandidates)
       .catch((caught) => {
         if (!controller.signal.aborted) {
-          setError(caught instanceof ApiError ? caught.message : 'Unable to load reviewers.');
+          setError((caught instanceof ApiError || caught instanceof ApiRequestError) ? caught.message : 'Unable to load reviewers.');
         }
       });
     return () => controller.abort();
@@ -47,7 +47,7 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
       onChanged();
       onClose();
     } catch (caught) {
-      const errorMessage = caught instanceof ApiError ? caught.message : `Unable to ${action.toLowerCase()} the message.`;
+      const errorMessage = (caught instanceof ApiError || caught instanceof ApiRequestError) ? caught.message : `Unable to ${action.toLowerCase()} the message.`;
       setError(errorMessage);
       notify(errorMessage, 'error', 4000);
       setIsSubmitting(false);

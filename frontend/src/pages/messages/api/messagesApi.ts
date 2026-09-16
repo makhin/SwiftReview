@@ -1,7 +1,7 @@
 import type { LoadOptions, LoadResultObject } from 'devextreme/common/data';
 
-import { apiFetch } from '../../../shared/api/client';
-import { ApiError } from '../../../shared/api/errors';
+import { apiRequest } from '../../../shared/api/client';
+import { ApiRequestError } from '../../../shared/api/errors';
 import type {
   ApproveReviewRequest,
   CancelReviewRequest,
@@ -24,37 +24,17 @@ export type MessageRow = MessageListItemDto & {
   canReview?: boolean;
 };
 
-export async function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: number | string) {
-  const request: ChangeMessageWorkflowRequest = { workflowDefinitionId };
-  const response = await apiFetch(`/api/messages/${messageId}/workflow`, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
+export function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: number | string) {
+  const body: ChangeMessageWorkflowRequest = { workflowDefinitionId };
+  return apiRequest(`/api/messages/${messageId}/workflow`, {
+    method: 'PUT', body, responseType: 'none', errorMessage: 'Unable to change workflow',
   });
-  if (!response.ok) {
-    const problem = await response.json().catch(() => null) as { detail?: string } | null;
-    throw new ApiError(problem?.detail ?? 'Unable to change workflow. Refresh the grid and check your access and review history.', response.status);
-  }
 }
+
 export type MessageAssignmentScope = 'mine' | 'departments' | 'assignable';
 
-export async function getMessage(
-  messageId: MessageRow['id'],
-  signal?: AbortSignal,
-): Promise<MessageDetailsDto> {
-  try {
-    const response = await apiFetch(`/api/messages/${messageId}`, { signal });
-
-    if (!response.ok) {
-      throw new ApiError(`Unable to load message (${response.status}).`, response.status);
-    }
-
-    return (await response.json()) as MessageDetailsDto;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    throw new Error('Unable to load message.', { cause: error });
-  }
+export function getMessage(messageId: MessageRow['id'], signal?: AbortSignal): Promise<MessageDetailsDto> {
+  return apiRequest(`/api/messages/${messageId}`, { signal, errorMessage: 'Unable to load message' });
 }
 
 const loadOptionNames = [
@@ -96,72 +76,36 @@ function buildQuery(
   return query;
 }
 
-export async function getMessageGrid(
+export function getMessageGrid(
   loadOptions: LoadOptions<MessageRow>,
   assignmentScope?: MessageAssignmentScope,
 ): Promise<LoadResultObject<MessageRow>> {
-  try {
-    const response = await apiFetch(
-      `/api/messages/grid?${buildQuery(loadOptions, assignmentScope)}`,
-    );
-
-    if (!response.ok) {
-      throw new ApiError(`Unable to load messages (${response.status}).`, response.status);
-    }
-
-    return (await response.json()) as LoadResultObject<MessageRow>;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    throw new Error('Unable to load messages.', { cause: error });
-  }
+  return apiRequest(`/api/messages/grid?${buildQuery(loadOptions, assignmentScope)}`, {
+    errorMessage: 'Unable to load messages',
+  });
 }
 
-async function postReviewAction(
+function postReviewAction(
   messageId: MessageRow['id'],
-  action: 'start' | 'approve' | 'reject' | 'cancel',
-  request: StartReviewRequest | ApproveReviewRequest | RejectReviewRequest | CancelReviewRequest,
+  action: 'approve' | 'reject' | 'cancel' | 'undo',
+  body: ApproveReviewRequest | RejectReviewRequest | CancelReviewRequest | UndoReviewRequest,
 ) {
-  try {
-    const response = await apiFetch(`/api/messages/${messageId}/reviews/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      let detail: string | undefined;
-      if (response.status === 409) {
-        try {
-          const problem = (await response.json()) as { detail?: unknown };
-          if (typeof problem.detail === 'string' && problem.detail.trim()) {
-            detail = problem.detail;
-          }
-        } catch {
-          // Fall back to the stable action error when the response is not Problem Details.
-        }
-      }
-      throw new ApiError(
-        detail ?? `Unable to ${action} review (${response.status}).`,
-        response.status,
-      );
-    }
-    return response;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    throw new Error(`Unable to ${action} review.`, { cause: error });
-  }
+  return apiRequest(`/api/messages/${messageId}/reviews/${action}`, {
+    method: 'POST', body, responseType: 'none', errorMessage: `Unable to ${action} review`,
+  });
 }
 
 export async function startReview(messageId: MessageRow['id'], level: number) {
-  const response = await postReviewAction(messageId, 'start', { level });
-  const result = await response.json() as StartReviewResponse;
-  if (result.reviewId == null || !/^[1-9][0-9]*$/.test(String(result.reviewId))) throw new Error('Invalid review ID returned by the server.');
+  const body: StartReviewRequest = { level };
+  const result = await apiRequest<StartReviewResponse>(`/api/messages/${messageId}/reviews/start`, {
+    method: 'POST', body, errorMessage: 'Unable to start review',
+  });
+  if (result?.reviewId == null || !/^[1-9][0-9]*$/.test(String(result.reviewId))) {
+    throw new ApiRequestError(
+      'Invalid review ID returned by the server. The result is unknown. Refresh the data before trying again.',
+      'invalid-response', { outcomeUnknown: true },
+    );
+  }
   return result.reviewId;
 }
 
@@ -169,91 +113,37 @@ export function cancelReview(messageId: MessageRow['id'], level: number, reviewI
   return postReviewAction(messageId, 'cancel', { level, reviewId });
 }
 
-export async function undoReview(messageId: MessageRow['id'], reviewId: UndoReviewRequest['reviewId'], comment: string | null = null) {
-  const request: UndoReviewRequest = { reviewId, comment };
-  const response = await apiFetch(`/api/messages/${messageId}/reviews/undo`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  if (!response.ok) throw new ApiError('Unable to undo the approval. Refresh the grid and check the message state.', response.status);
+export function undoReview(messageId: MessageRow['id'], reviewId: UndoReviewRequest['reviewId'], comment: string | null = null) {
+  return postReviewAction(messageId, 'undo', { reviewId, comment });
 }
 
 export function approveReview(
-  messageId: MessageRow['id'],
-  level: number,
-  comment: string | null,
-  reviewId: ApproveReviewRequest['reviewId'],
+  messageId: MessageRow['id'], level: number, comment: string | null, reviewId: ApproveReviewRequest['reviewId'],
 ) {
   return postReviewAction(messageId, 'approve', { level, comment, reviewId });
 }
 
 export function rejectReview(
-  messageId: MessageRow['id'],
-  level: number,
-  comment: string | null,
-  reviewId: ApproveReviewRequest['reviewId'],
+  messageId: MessageRow['id'], level: number, comment: string | null, reviewId: RejectReviewRequest['reviewId'],
 ) {
   return postReviewAction(messageId, 'reject', { level, comment, reviewId });
 }
 
-export async function getAssignmentCandidates(
-  messageId: MessageRow['id'],
-  signal?: AbortSignal,
+export function getAssignmentCandidates(
+  messageId: MessageRow['id'], signal?: AbortSignal,
 ): Promise<AssignmentCandidateDto[]> {
-  try {
-    const response = await apiFetch(`/api/messages/${messageId}/assignment-candidates`, {
-      signal,
-    });
-    if (!response.ok) {
-      throw new ApiError(
-        `Unable to load assignment candidates (${response.status}).`,
-        response.status,
-      );
-    }
-    return (await response.json()) as AssignmentCandidateDto[];
-  } catch (error) {
-    if (error instanceof ApiError || signal?.aborted) {
-      throw error;
-    }
-    throw new Error('Unable to load assignment candidates.', { cause: error });
-  }
+  return apiRequest(`/api/messages/${messageId}/assignment-candidates`, {
+    signal, errorMessage: 'Unable to load assignment candidates',
+  });
 }
 
-export async function assignMessage(
-  messageId: MessageRow['id'],
-  assignedTo: number | string,
-  reassign: boolean,
-) {
+export function assignMessage(messageId: MessageRow['id'], assignedTo: number | string, reassign: boolean) {
   const action = reassign ? 'reassign' : 'assign';
-  try {
-    const response = await apiFetch(`/api/messages/${messageId}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignedTo }),
-    });
-    if (!response.ok) {
-      let detail: string | undefined;
-      try {
-        const problem = (await response.json()) as { detail?: unknown };
-        if (typeof problem.detail === 'string' && problem.detail.trim()) {
-          detail = problem.detail;
-        }
-      } catch {
-        // Fall back to the stable assignment error.
-      }
-      throw new ApiError(detail ?? `Unable to ${action} message (${response.status}).`, response.status);
-    }
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new Error(`Unable to ${action} message.`, { cause: error });
-  }
+  return apiRequest(`/api/messages/${messageId}/${action}`, {
+    method: 'POST', body: { assignedTo }, responseType: 'none', errorMessage: `Unable to ${action} message`,
+  });
 }
 
-export async function getMessageStateCounts(signal?: AbortSignal): Promise<MessageStateCountDto[]> {
-  const response = await apiFetch('/api/messages/state-counts', { signal });
-  if (!response.ok) throw new ApiError('Unable to load message counts.', response.status);
-  return response.json() as Promise<MessageStateCountDto[]>;
+export function getMessageStateCounts(signal?: AbortSignal): Promise<MessageStateCountDto[]> {
+  return apiRequest('/api/messages/state-counts', { signal, errorMessage: 'Unable to load message counts' });
 }

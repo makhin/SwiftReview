@@ -4,7 +4,7 @@ import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-
 import { StrictMode, type PropsWithChildren, type ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../../../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 
 const { approveReview, cancelReview, getMessage, notify, rejectReview, startReview } = vi.hoisted(() => ({
   approveReview: vi.fn(),
@@ -209,7 +209,9 @@ describe('ReviewDecisionPopup', () => {
       await ready();
       notify.mockClear();
       getMessage.mockResolvedValue({ body: 'RAW', state });
-      approveReview.mockRejectedValue(new Error('Response lost'));
+      approveReview.mockRejectedValue(new ApiRequestError(
+        'Unable to approve review. The result is unknown.', 'network', { outcomeUnknown: true },
+      ));
       fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
       expect(await screen.findByText(/This review is no longer active/)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();

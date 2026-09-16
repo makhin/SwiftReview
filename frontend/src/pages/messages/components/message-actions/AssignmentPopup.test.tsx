@@ -38,6 +38,7 @@ vi.mock('devextreme-react/select-box', () => ({
 }));
 
 import AssignmentPopup from './AssignmentPopup';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 
 const message = {
   id: 42,
@@ -99,5 +100,31 @@ describe('AssignmentPopup', () => {
 
     expect(await screen.findByText('No eligible reviewers are available.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Assign' })).toBeDisabled();
+  });
+
+  it.each([
+    new ApiError('Reviewer access denied.', 403),
+    new ApiRequestError('Unable to load assignment candidates.', 'network'),
+  ])('shows a typed reviewer-loading error: %s', async (error) => {
+    getAssignmentCandidates.mockRejectedValue(error);
+    render(<AssignmentPopup message={message} onClose={vi.fn()} onChanged={vi.fn()} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(error.message);
+    expect(screen.getByRole('button', { name: 'Assign' })).toBeDisabled();
+    expect(assignMessage).not.toHaveBeenCalled();
+  });
+
+  it('shows an unknown outcome without claiming success after a lost response', async () => {
+    const error = new ApiRequestError(
+      'Unable to assign message. The result is unknown. Refresh the data before trying again.',
+      'network', { outcomeUnknown: true },
+    );
+    assignMessage.mockRejectedValue(error);
+    const onClose = vi.fn();
+    render(<AssignmentPopup message={message} onClose={onClose} onChanged={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText('Reviewer'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(error.message);
+    expect(notify).toHaveBeenCalledExactlyOnceWith(error.message, 'error', 4000);
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

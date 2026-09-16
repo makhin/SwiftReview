@@ -5,7 +5,7 @@ import TextArea from 'devextreme-react/text-area';
 import notify from 'devextreme/ui/notify';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-import { ApiError } from '../../../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import PageError from '../../../../shared/components/feedback/PageError';
 import PageLoading from '../../../../shared/components/feedback/PageLoading';
 import { approveReview, cancelReview, getMessage, rejectReview, startReview } from '../../api/messagesApi';
@@ -73,9 +73,11 @@ export default function ReviewDecisionPopup({
         reviewId.current = id;
         setReady(true); changed();
       }
-    }, () => {
+    }, (caught: unknown) => {
       if (active) {
-        const errorMessage = 'Unable to start or resume this review. Check your connection and access, then retry.';
+        const errorMessage = caught instanceof ApiError || caught instanceof ApiRequestError
+          ? caught.message
+          : 'Unable to start or resume this review. Check your connection and access, then retry.';
         setStartError(errorMessage);
         notify(errorMessage, 'error', 4000);
       }
@@ -121,7 +123,7 @@ export default function ReviewDecisionPopup({
         4000,
       );
     } catch (caught) {
-      const errorMessage = caught instanceof ApiError && caught.status === 409
+      const errorMessage = caught instanceof ApiError || caught instanceof ApiRequestError
         ? caught.message
         : `Unable to ${decision} ${decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`;
       setError(errorMessage);

@@ -110,6 +110,22 @@ to verify the checked-in contracts without modifying them.
 
 The messages grid is intentionally different: it uses a DevExtreme `CustomStore` backed by the server's `DevExtreme.AspNet.Data` endpoint. Do not route grid load operations through TanStack Query.
 
+All endpoints use `apiRequest<T>`: pass the URL, method, JSON body, optional abort signal,
+and a fallback error message. JSON results are returned directly; commands explicitly use
+`responseType: 'none'` to accept empty successful responses (including 204).
+Missing or malformed required JSON is an error, not a successful `undefined` value.
+The generic result type is a TypeScript contract, not runtime schema validation.
+
+- `ApiError` means an HTTP error response was received. It preserves the HTTP status
+  and Problem Details (including validation extensions); detail/title supply the message.
+- `ApiRequestError` distinguishes network failures, cancellation, and invalid responses.
+  `outcomeUnknown` is true when a dispatched mutation has no usable confirmation.
+  Cancellation does not roll back a server operation. Check current state before retrying;
+  review decisions retain their state-reconciliation flow.
+
+The transport never retries requests. An HTTP error (especially 5xx) is not a guarantee
+that the server rolled back an operation. A pre-aborted signal prevents dispatch.
+
 ## Styling and theme generation
 
 `src/theme/tokens.css` is the source of truth for colours, typography, spacing, radii, shadows, and motion. Global styles are loaded in this order:

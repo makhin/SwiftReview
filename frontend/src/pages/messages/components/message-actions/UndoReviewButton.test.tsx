@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PropsWithChildren } from 'react';
 import type { MessageRow } from '../../api/messagesApi';
+import { ApiRequestError } from '../../../../shared/api/errors';
 
 const { undoReview, notify } = vi.hoisted(() => ({ undoReview: vi.fn(), notify: vi.fn() }));
 vi.mock('../../api/messagesApi', () => ({ undoReview }));
@@ -93,5 +94,17 @@ describe('UndoReviewButton', () => {
     expect(notify).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('check the audit trail'), 'error', 4000);
     expect(undoReview).toHaveBeenCalledOnce();
     expect(screen.getByLabelText('Comment (optional)')).toHaveValue('Check this approval');
+  });
+
+  it('preserves the typed unknown-outcome message', async () => {
+    const error = new ApiRequestError('Unable to undo review. The result is unknown.', 'network', { outcomeUnknown: true });
+    undoReview.mockRejectedValue(error);
+    const onChanged = vi.fn();
+    render(<UndoReviewButton message={message} onChanged={onChanged} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+    expect(notify).toHaveBeenCalledExactlyOnceWith(error.message, 'error', 4000);
+    expect(undoReview).toHaveBeenCalledOnce();
   });
 });

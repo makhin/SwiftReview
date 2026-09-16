@@ -1,8 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }));
-
-vi.mock('./client', () => ({ apiClient: { GET: get } }));
+const get = vi.fn();
 
 import { ApiError } from './errors';
 import {
@@ -15,8 +13,10 @@ import {
 } from './referenceDataApi';
 
 describe('reference data API', () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     get.mockReset();
+    vi.stubGlobal('fetch', get);
   });
 
   it.each([
@@ -28,14 +28,14 @@ describe('reference data API', () => {
     ['/api/workflows', getWorkflows],
   ] as const)('loads %s and forwards the abort signal', async (path, load) => {
     const controller = new AbortController();
-    get.mockResolvedValue({ data: [], response: { status: 200 } });
+    get.mockResolvedValue(new Response(JSON.stringify([])));
 
     await expect(load(controller.signal)).resolves.toEqual([]);
-    expect(get).toHaveBeenCalledWith(path, { signal: controller.signal });
+    expect(get).toHaveBeenCalledWith(path, expect.objectContaining({ signal: controller.signal }));
   });
 
   it('throws an ApiError containing the response status', async () => {
-    get.mockResolvedValue({ data: undefined, response: { status: 403 } });
+    get.mockResolvedValue(new Response(null, { status: 403 }));
 
     await expect(getBranches()).rejects.toEqual(
       new ApiError('Unable to load branches (403).', 403),
@@ -55,9 +55,9 @@ describe('reference data API', () => {
   it('preserves abort errors', async () => {
     const controller = new AbortController();
     const abortError = new DOMException('aborted', 'AbortError');
-    controller.abort();
+    controller.abort(abortError);
     get.mockRejectedValue(abortError);
 
-    await expect(getUsers(controller.signal)).rejects.toBe(abortError);
+    await expect(getUsers(controller.signal)).rejects.toMatchObject({ name: 'AbortError', kind: 'aborted', cause: abortError, outcomeUnknown: false });
   });
 });

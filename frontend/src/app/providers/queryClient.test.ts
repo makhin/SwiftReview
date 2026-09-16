@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiError } from '../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../shared/api/errors';
 import queryClient from './queryClient';
 
 function getRetryPolicy() {
@@ -14,6 +14,10 @@ function getRetryPolicy() {
 }
 
 describe('queryClient', () => {
+  it('does not retry cancelled requests', () => {
+    expect(getRetryPolicy()(0, new ApiRequestError('Cancelled', 'aborted'))).toBe(false);
+  });
+
   it('does not retry client errors', () => {
     const error = new ApiError('Forbidden', 403);
 

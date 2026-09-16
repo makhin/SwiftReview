@@ -5,10 +5,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PropsWithChildren } from 'react';
 import { createTestQueryClient } from '../../../../test/createTestQueryClient';
 import { referenceDataKeys } from '../../../../shared/api/referenceDataQueries';
-import { ApiError } from '../../../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import type { MessageRow } from '../../api/messagesApi';
-const { changeMessageWorkflow } = vi.hoisted(() => ({ changeMessageWorkflow: vi.fn() }));
+const { changeMessageWorkflow, getWorkflows } = vi.hoisted(() => ({
+  changeMessageWorkflow: vi.fn(), getWorkflows: vi.fn(),
+}));
 vi.mock('../../api/messagesApi', () => ({ changeMessageWorkflow }));
+vi.mock('../../../../shared/api/referenceDataApi', () => ({ getWorkflows }));
 vi.mock('devextreme/ui/notify', () => ({ default: vi.fn() }));
 vi.mock('devextreme-react/popup', () => ({ default: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }));
 vi.mock('devextreme-react/button', () => ({ default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{text}</button> }));
@@ -61,5 +64,30 @@ describe('ChangeWorkflowPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(changeMessageWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('recovers workflow loading after a transport failure', async () => {
+    getWorkflows.mockRejectedValueOnce(new ApiRequestError('Connection lost.', 'network'))
+      .mockResolvedValueOnce([{ id: 2, name: 'Alternative', messageType: 'MT199', isActive: true,
+        steps: [{ order: 2, reviewLevel: 2, required: true }, { order: 1, reviewLevel: 1, required: true }] }]);
+    const client = createTestQueryClient();
+    render(<QueryClientProvider client={client}><ChangeWorkflowPopup
+      message={message} onClose={vi.fn()} onChanged={vi.fn()} /></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('option', { name: 'Alternative — MT199 — levels 1, 2' })).toBeInTheDocument();
+    expect(getWorkflows).toHaveBeenCalledTimes(2);
+    expect(changeMessageWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('shows an unknown mutation outcome and refreshes the grid', async () => {
+    const error = new ApiRequestError('Unable to change workflow. The result is unknown.', 'network', { outcomeUnknown: true });
+    changeMessageWorkflow.mockRejectedValue(error);
+    const { onClose, onChanged } = setup();
+    fireEvent.change(screen.getByLabelText('Workflow'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save workflow' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(error.message);
+    expect(onChanged).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(changeMessageWorkflow).toHaveBeenCalledOnce();
   });
 });

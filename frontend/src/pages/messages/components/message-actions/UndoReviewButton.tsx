@@ -3,7 +3,7 @@ import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import TextArea from 'devextreme-react/text-area';
 import notify from 'devextreme/ui/notify';
-import { ApiError } from '../../../../shared/api/errors';
+import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import { undoReview, type MessageRow } from '../../api/messagesApi';
 import './message-action-popup.css';
 
@@ -23,7 +23,7 @@ export default function UndoReviewButton({ message, onChanged }: { message: Mess
       setOpen(false);
       notify('Approval undone. Assign the message to a reviewer to continue.', 'success', 4000);
     } catch (error) {
-      notify(error instanceof ApiError ? error.message : 'Unable to confirm the undo result. Refresh the grid and check the audit trail.', 'error', 4000);
+      notify((error instanceof ApiError || error instanceof ApiRequestError) ? error.message : 'Unable to confirm the undo result. Refresh the grid and check the audit trail.', 'error', 4000);
     } finally {
       onChanged();
       setPending(false);

@@ -11,6 +11,8 @@ import {
   rejectReview,
   startReview,
   undoReview,
+  changeMessageWorkflow,
+  getMessageStateCounts,
 } from './messagesApi';
 
 describe('getMessageGrid', () => {
@@ -22,10 +24,7 @@ describe('getMessageGrid', () => {
 
   it('serializes paging and remote operations into the request', async () => {
     const result = { data: [{ id: 1 }], totalCount: 1 };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue(result),
-    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(result)));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
@@ -56,10 +55,7 @@ describe('getMessageGrid', () => {
   });
 
   it('uses default paging values', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({ data: [] }),
-    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [] })));
     vi.stubGlobal('fetch', fetchMock);
 
     await getMessageGrid({});
@@ -70,7 +66,7 @@ describe('getMessageGrid', () => {
   });
 
   it('normalizes unsuccessful responses into ApiError', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
 
     await expect(getMessageGrid({})).rejects.toEqual(
       new ApiError('Unable to load messages (503).', 503),
@@ -95,10 +91,7 @@ describe('getMessage', () => {
 
   it('loads message details with the request signal', async () => {
     const details = { id: 42, externalId: 'MSG-0042', body: '{1:F01RAW}' };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue(details),
-    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(details)));
     vi.stubGlobal('fetch', fetchMock);
     const controller = new AbortController();
 
@@ -111,7 +104,7 @@ describe('getMessage', () => {
   });
 
   it('normalizes unsuccessful responses into ApiError', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
 
     await expect(getMessage(42)).rejects.toEqual(
       new ApiError('Unable to load message (404).', 404),
@@ -120,8 +113,21 @@ describe('getMessage', () => {
 });
 
 describe('review actions', () => {
+  it.each([null, {}, { reviewId: 0 }, { reviewId: 'invalid' }])('rejects an unusable review identity: %j', async (result) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
+    await expect(startReview(42, 1)).rejects.toMatchObject({
+      kind: 'invalid-response', outcomeUnknown: true,
+    });
+  });
+
+  it('distinguishes an unknown decision result from an HTTP rejection', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Response lost')));
+    await expect(approveReview(42, 1, null, 73)).rejects.toMatchObject({
+      kind: 'network', outcomeUnknown: true, message: expect.stringContaining('The result is unknown'),
+    });
+  });
   it('posts the selected approval ID to the undo endpoint', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     await undoReview(42, '9007199254740993', 'Review again');
     expect(fetch).toHaveBeenCalledWith('/api/messages/42/reviews/undo', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ reviewId: '9007199254740993', comment: 'Review again' }),
@@ -137,7 +143,7 @@ describe('review actions', () => {
     ['approve', approveReview, { level: 2, comment: 'confirmed', reviewId: '9007199254740993' }],
     ['reject', rejectReview, { level: 2, comment: null, reviewId: '9007199254740993' }],
   ] as const)('posts the %s review action', async (action, request, body) => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: action === 'start' ? 200 : 204, json: async () => ({ reviewId: '9007199254740993' }) });
+    const fetchMock = vi.fn().mockResolvedValue(action === 'start' ? new Response(JSON.stringify({ reviewId: '9007199254740993' })) : new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
 
     if (action === 'start') {
@@ -158,7 +164,7 @@ describe('review actions', () => {
   });
 
   it('normalizes an unsuccessful review response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 409 })));
 
     await expect(approveReview(42, 1, null, 73)).rejects.toEqual(
       new ApiError('Unable to approve review (409).', 409),
@@ -171,8 +177,30 @@ describe('review actions', () => {
     }), { status: 409, headers: { 'Content-Type': 'application/problem+json' } })));
 
     await expect(approveReview(42, 1, null, 73)).rejects.toEqual(
-      new ApiError('No eligible reviewer is available for review level 2.', 409),
+      new ApiError('No eligible reviewer is available for review level 2.', 409, {
+        detail: 'No eligible reviewer is available for review level 2.',
+      }),
     );
+  });
+});
+
+describe('workflow and state counts', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('updates the workflow without requiring a response body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    await expect(changeMessageWorkflow(42, 7)).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('/api/messages/42/workflow', expect.objectContaining({
+      method: 'PUT', body: '{"workflowDefinitionId":7}',
+    }));
+  });
+
+  it('loads counts and forwards cancellation', async () => {
+    const result = [{ state: 'New', count: 2 }];
+    const signal = new AbortController().signal;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
+    await expect(getMessageStateCounts(signal)).resolves.toEqual(result);
+    expect(fetch).toHaveBeenCalledWith('/api/messages/state-counts', expect.objectContaining({ signal }));
   });
 });
 
@@ -197,7 +225,7 @@ describe('manual assignment', () => {
     [false, 'assign'],
     [true, 'reassign'],
   ])('posts the correct assignment action', async (reassign, action) => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
 
     await assignMessage(42, 2, reassign);
@@ -212,7 +240,7 @@ describe('manual assignment', () => {
     }), { status: 400, headers: { 'Content-Type': 'application/problem+json' } })));
 
     await expect(assignMessage(42, 2, false)).rejects.toEqual(
-      new ApiError('The assignee is not eligible.', 400),
+      new ApiError('The assignee is not eligible.', 400, { detail: 'The assignee is not eligible.' }),
     );
   });
 });

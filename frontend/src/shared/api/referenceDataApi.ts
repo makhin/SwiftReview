@@ -1,83 +1,28 @@
-import { apiClient } from './client';
-import { ApiError } from './errors';
+import { apiRequest } from './client';
 import type {
-  MessageStateReferenceDto,
-  ReferenceItemDto,
-  UserSummaryDto,
-  WorkflowSummaryDto,
+  MessageStateReferenceDto, ReferenceItemDto, UserSummaryDto, WorkflowSummaryDto,
 } from './generated/contracts.generated';
 
-type ReferenceItem = ReferenceItemDto;
-type MessageStateReference = MessageStateReferenceDto;
-type UserSummary = UserSummaryDto;
-type WorkflowSummary = WorkflowSummaryDto;
-
-async function getReferenceData<T>(
-  name: string,
-  request: () => Promise<{ data?: T; response: Response }>,
-  signal?: AbortSignal,
-): Promise<T> {
-  try {
-    const { data, response } = await request();
-
-    if (!data) {
-      throw new ApiError(`Unable to load ${name} (${response.status}).`, response.status);
-    }
-
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError || signal?.aborted) {
-      throw error;
-    }
-
-    throw new Error(`Unable to load ${name}.`, { cause: error });
-  }
+export function getUsers(signal?: AbortSignal): Promise<UserSummaryDto[]> {
+  return apiRequest('/api/users', { signal, errorMessage: 'Unable to load users' });
 }
 
-export function getUsers(signal?: AbortSignal): Promise<UserSummary[]> {
-  return getReferenceData(
-    'users',
-    () => apiClient.GET<UserSummary[]>('/api/users', { signal }),
-    signal,
-  );
+export function getBranches(signal?: AbortSignal): Promise<ReferenceItemDto[]> {
+  return apiRequest('/api/branches', { signal, errorMessage: 'Unable to load branches' });
 }
 
-export function getBranches(signal?: AbortSignal): Promise<ReferenceItem[]> {
-  return getReferenceData(
-    'branches',
-    () => apiClient.GET<ReferenceItem[]>('/api/branches', { signal }),
-    signal,
-  );
-}
-
-export function getDepartments(signal?: AbortSignal): Promise<ReferenceItem[]> {
-  return getReferenceData(
-    'departments',
-    () => apiClient.GET<ReferenceItem[]>('/api/departments', { signal }),
-    signal,
-  );
+export function getDepartments(signal?: AbortSignal): Promise<ReferenceItemDto[]> {
+  return apiRequest('/api/departments', { signal, errorMessage: 'Unable to load departments' });
 }
 
 export function getMessageTypes(signal?: AbortSignal): Promise<string[]> {
-  return getReferenceData(
-    'message types',
-    () => apiClient.GET<string[]>('/api/message-types', { signal }),
-    signal,
-  );
+  return apiRequest('/api/message-types', { signal, errorMessage: 'Unable to load message types' });
 }
 
-export function getMessageStates(signal?: AbortSignal): Promise<MessageStateReference[]> {
-  return getReferenceData(
-    'message states',
-    () => apiClient.GET<MessageStateReference[]>('/api/message-states', { signal }),
-    signal,
-  );
+export function getMessageStates(signal?: AbortSignal): Promise<MessageStateReferenceDto[]> {
+  return apiRequest('/api/message-states', { signal, errorMessage: 'Unable to load message states' });
 }
 
-export function getWorkflows(signal?: AbortSignal): Promise<WorkflowSummary[]> {
-  return getReferenceData(
-    'workflows',
-    () => apiClient.GET<WorkflowSummary[]>('/api/workflows', { signal }),
-    signal,
-  );
+export function getWorkflows(signal?: AbortSignal): Promise<WorkflowSummaryDto[]> {
+  return apiRequest('/api/workflows', { signal, errorMessage: 'Unable to load workflows' });
 }
