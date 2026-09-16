@@ -1,4 +1,5 @@
 using FluentValidation;
+using ORP.Application.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Assignments;
 using ORP.Application.Assignments.Assign;
@@ -19,6 +20,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddValidatorsFromAssemblyContaining<MessageSearchValidator>();
+        services.AddScoped<MessageAuthorizationService>();
         services.AddScoped<GetMessageHandler>();
         services.AddScoped<ChangeMessageWorkflowHandler>();
         services.AddScoped<GetAuditTrailHandler>();

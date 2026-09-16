@@ -6,5 +6,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <None Include="../../scripts/seed-test-data.sql" Link="seed-test-data.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

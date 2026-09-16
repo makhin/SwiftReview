@@ -168,6 +168,27 @@ dotnet build ORP.sln --no-restore
 dotnet test ORP.sln --no-build --no-restore
 ```
 
+### Transaction boundaries
+
+Message mutation handlers execute through `ITransactionExecutor`, implemented by the scoped
+`TransactionExecutor` in Infrastructure. Authorization reads and writes run together in a
+Serializable transaction, including when handlers are called without HTTP. Administrative access
+and role updates use the same executor. EF Core retries the entire operation and clears tracked
+state before each attempt, so access is read again. Callers must load mutable state inside the
+operation; the executor owns the transaction and handlers explicitly save their changes.
+InMemory mock mode executes the operation without a database transaction.
+
+SQL transaction tests create, migrate, seed and delete a unique database per test. Set
+`ORP_TEST_SQL_SERVER` to a disposable SQL Server connection with database creation permission, then run:
+
+```bash
+dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter FullyQualifiedName~SqlServerTransactionTests
+```
+
+These tests call application handlers directly and verify authorization within the transaction,
+rollback after a save, retry without duplicate review/audit records, and rejection when permissions
+are revoked between attempts.
+
 ### SQL Server regression test
 
 Set `ORP_TEST_SQL_CONNECTION` to a connection string for a migrated database loaded

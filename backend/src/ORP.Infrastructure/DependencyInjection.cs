@@ -26,6 +26,7 @@ public static class DependencyInjection
                 sql.EnableRetryOnFailure();
             }));
         }
+        services.AddScoped<ITransactionExecutor, TransactionExecutor>();
         services.AddScoped<IORPStore, ORPStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();
         services.AddScoped<MessageGridQueries>();

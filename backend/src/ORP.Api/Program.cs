@@ -29,7 +29,6 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAuthorization(options => options.AddPolicy("GlobalAdministrator",
     policy => policy.RequireAuthenticatedUser().RequireClaim("global_admin", "true")));
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDetailsAuthorizationResultHandler>();
-builder.Services.AddScoped<IAuthorizationHandler, MessageActionAuthorizationHandler>();
 builder.Services.AddAuthentication("Debug").AddScheme<AuthenticationSchemeOptions, DebugAuthenticationHandler>("Debug", _ => { });
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>

@@ -1,4 +1,6 @@
 using FluentValidation;
+using ORP.Application.Authorization;
+using ORP.Domain.Identity;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
 using ORP.Domain.Common;
@@ -12,7 +14,7 @@ public sealed class AssignMessageValidator : AbstractValidator<AssignMessageRequ
 
 public sealed class AssignMessageHandler(IORPStore store, IUserAccessService accessService,
     IValidator<AssignMessageRequest> validator, ICurrentUser user, ICorrelationContext correlation,
-    AssignmentCoordinator assignments)
+    AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
     public async Task HandleAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
         => await HandleCoreAsync(messageId, request, false, cancellationToken);
@@ -20,26 +22,28 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAccessService acc
     public async Task ReassignAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
         => await HandleCoreAsync(messageId, request, true, cancellationToken);
 
-    private async Task HandleCoreAsync(long messageId, AssignMessageRequest request, bool reassign,
+    private Task HandleCoreAsync(long messageId, AssignMessageRequest request, bool reassign,
         CancellationToken cancellationToken)
-    {
-        await validator.ValidateAndThrowAsync(request, cancellationToken);
-        var message = await store.FindMessageAsync(messageId, cancellationToken) ?? throw new ResourceNotFoundException("Message was not found.");
-        if (reassign && message.CurrentAssigneeId is null)
-            throw new DomainRuleViolationException("An unassigned message must be assigned before it can be reassigned.");
-        if (!reassign && message.CurrentAssigneeId is not null)
-            throw new DomainRuleViolationException("An assigned message must be reassigned instead of assigned.");
-        var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
-            ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
-        var source = await store.FindMessageSourceAsync(messageId, cancellationToken) ?? throw new ResourceNotFoundException("SWIFT message was not found.");
-        var target = await accessService.GetByIdAsync(request.AssignedTo, cancellationToken)
-            ?? throw new ResourceNotFoundException("Assignee was not found.");
-        var reviews = await store.GetReviewsAsync(messageId, cancellationToken);
-        if (!ReviewAssignmentRules.IsEligible(target, source, reviewLevel,
-                ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
-            throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
-        await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
-            cancellationToken, user.IsGlobalAdministrator);
-        await store.SaveChangesAsync(cancellationToken);
-    }
+        => transactions.ExecuteAsync(async ct =>
+        {
+            var access = await authorization.RequireAsync(messageId, Permissions.MessageAssign, ct);
+            await validator.ValidateAndThrowAsync(request, ct);
+            var message = await store.FindMessageAsync(messageId, ct) ?? throw new ResourceNotFoundException("Message was not found.");
+            if (reassign && message.CurrentAssigneeId is null)
+                throw new DomainRuleViolationException("An unassigned message must be assigned before it can be reassigned.");
+            if (!reassign && message.CurrentAssigneeId is not null)
+                throw new DomainRuleViolationException("An assigned message must be reassigned instead of assigned.");
+            var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
+                ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
+            var source = await store.FindMessageSourceAsync(messageId, ct) ?? throw new ResourceNotFoundException("SWIFT message was not found.");
+            var target = await accessService.GetByIdAsync(request.AssignedTo, ct)
+                ?? throw new ResourceNotFoundException("Assignee was not found.");
+            var reviews = await store.GetReviewsAsync(messageId, ct);
+            if (!ReviewAssignmentRules.IsEligible(target, source, reviewLevel,
+                    ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
+                throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
+            await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
+                ct, access.IsGlobalAdministrator);
+            await store.SaveChangesAsync(ct);
+        }, cancellationToken);
 }

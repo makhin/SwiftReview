@@ -1,4 +1,3 @@
-using System.Data;
 using System.Text.Json;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +13,7 @@ using ORP.Infrastructure.Persistence;
 namespace ORP.Infrastructure.Identity;
 
 public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser current,
-    IUserAccessService accessService, IClock clock, ICorrelationContext correlation) : IUserAdministrationService
+    IUserAccessService accessService, IClock clock, ICorrelationContext correlation, ITransactionExecutor transactions) : IUserAdministrationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -46,7 +45,7 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
     }
 
     public Task UpdateUserAsync(int userId, UpdateUserAccessRequest request, CancellationToken ct) =>
-        InTransactionAsync(async () =>
+        transactions.ExecuteAsync(async ct =>
         {
             await RequireAdminAsync(ct);
             if (!await db.Users.AnyAsync(u => u.Id == userId, ct)) throw new ResourceNotFoundException("User was not found.");
@@ -81,7 +80,7 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
         }, ct);
 
     public Task UpdateRoleAsync(int roleId, UpdateRolePermissionsRequest request, CancellationToken ct) =>
-        InTransactionAsync(async () =>
+        transactions.ExecuteAsync(async ct =>
         {
             await RequireAdminAsync(ct);
             if (request.Permissions is null || request.Permissions.Count > Permissions.All.Length ||
@@ -126,19 +125,6 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
                 !permissions.Contains(ReviewAssignmentRules.PermissionForLevel(review.Level)))
                 throw new DomainRuleViolationException("These changes would prevent a reviewer from completing an active review.");
         }
-    }
-
-    private async Task InTransactionAsync(Func<Task> action, CancellationToken ct)
-    {
-        if (!db.Database.IsRelational()) { await action(); return; }
-        await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
-        {
-            // Retry attempts must reload state rather than reuse tracked mutations.
-            db.ChangeTracker.Clear();
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-            await action();
-            await transaction.CommitAsync(ct);
-        });
     }
 
     private void AddAudit(int? userId, int? roleId, object before, object after) => db.AccessAuditEvents.Add(new AccessAuditEvent
