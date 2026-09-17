@@ -1,6 +1,5 @@
 using DevExtreme.AspNet.Data;
 using DevExtreme.AspNet.Data.ResponseModel;
-using Microsoft.EntityFrameworkCore;
 using ORP.Application.Abstractions;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -32,8 +31,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
 {
     public async Task<IReadOnlyList<MessageStateCountDto>> StateCountsAsync(UserAccess access, CancellationToken ct)
     {
-        var counts = await db.ReadAccessibleMessages(access.UserId).GroupBy(x => x.State)
-            .Select(g => new { State = g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.State, x => x.Count, ct);
+        var counts = await db.ReadAccessibleMessages(access.UserId).CountByStateAsync(ct);
         return Enum.GetValues<MessageState>().Select(state => new MessageStateCountDto(state, counts.GetValueOrDefault(state))).ToArray();
     }
 

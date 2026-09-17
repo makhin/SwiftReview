@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
 
 namespace ORP.Infrastructure.Persistence;
@@ -23,6 +24,11 @@ internal sealed class MessageReadRow
 
 internal static class MessageReadModels
 {
+    public static Task<Dictionary<MessageState, int>> CountByStateAsync(this IQueryable<MessageReadRow> query,
+        CancellationToken ct) => query.GroupBy(x => x.State)
+        .Select(g => new { State = g.Key, Count = g.Count() })
+        .ToDictionaryAsync(x => x.State, x => x.Count, ct);
+
     public static IQueryable<MessageReadRow> ReadAccessibleMessages(this ORPDbContext db, int userId,
         string permission = Domain.Identity.Permissions.MessageView) => db.ReadMessages().Where(message =>
         db.Users.Any(user => user.Id == userId && user.IsGlobalAdministrator) ||

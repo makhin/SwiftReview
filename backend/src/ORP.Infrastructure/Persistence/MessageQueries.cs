@@ -48,14 +48,16 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     public async Task<DashboardSummaryDto> DashboardAsync(UserAccess access, CancellationToken ct)
     {
         if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0, 0);
-        var counts = await Accessible(access).GroupBy(x => x.State)
-            .Select(g => new { State = g.Key, Count = g.Count() }).ToListAsync(ct);
-        return new(counts.Sum(x => x.Count),
-            counts.Where(x => x.State != MessageState.Completed && x.State != MessageState.Rejected).Sum(x => x.Count),
-            counts.Where(x => x.State == MessageState.New || x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress).Sum(x => x.Count),
-            counts.Where(x => x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress).Sum(x => x.Count),
-            counts.Where(x => x.State == MessageState.WaitingForThirdReview || x.State == MessageState.ThirdReviewInProgress).Sum(x => x.Count),
-            counts.Where(x => x.State == MessageState.Completed).Sum(x => x.Count));
+        var counts = await Accessible(access).CountByStateAsync(ct);
+        var total = counts.Values.Sum();
+        var completed = counts.GetValueOrDefault(MessageState.Completed);
+        return new(total,
+            total - completed - counts.GetValueOrDefault(MessageState.Rejected),
+            counts.GetValueOrDefault(MessageState.New) + counts.GetValueOrDefault(MessageState.Assigned) +
+                counts.GetValueOrDefault(MessageState.FirstReviewInProgress),
+            counts.GetValueOrDefault(MessageState.WaitingForSecondReview) + counts.GetValueOrDefault(MessageState.SecondReviewInProgress),
+            counts.GetValueOrDefault(MessageState.WaitingForThirdReview) + counts.GetValueOrDefault(MessageState.ThirdReviewInProgress),
+            completed);
     }
 
     public async Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request,
