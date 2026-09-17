@@ -54,12 +54,7 @@ Start the API and frontend together:
 ```
 
 Or start the API from Visual Studio and run `npm run dev` in `frontend`.
-On Linux/macOS with an external SQL Server, `./run-dev.sh` starts both processes.
 Press `Ctrl+C` to stop them. The API listens on <http://localhost:5080>.
-
-The Docker environment is local only: `backend/ORP.Docker.sln`, Compose configuration,
-and `*.docker.sh` / `*.docker.ps1` launchers are excluded from Git. Both solutions share
-the same API source projects.
 
 Useful backend endpoints:
 
@@ -87,7 +82,7 @@ Backend configuration follows standard ASP.NET Core configuration rules. See the
 
 Azure CI uses separate backend and frontend pipelines. See [Azure Pipelines setup](docs/AZURE_PIPELINES.md) for creation steps, triggers, and PR validation.
 
-Run the backend unit tests without SQL Server or Docker. The main solution contains Domain and Application unit tests:
+Run the backend tests without SQL Server or Docker. The main solution contains Domain, Application, and Infrastructure tests:
 
 ```bash
 dotnet restore backend/ORP.sln --configfile backend/NuGet.Config

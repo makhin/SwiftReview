@@ -57,7 +57,7 @@ To subsequently run the API against these persisted samples:
 dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 ```
 
-## Environment separation
+## Windows / Visual Studio
 
 `ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
 Its Domain, Application, and Infrastructure tests require no SQL connection or database creation permissions.
@@ -65,10 +65,6 @@ It has no Docker project or Docker startup dependency. Select the API's `SqlServ
 launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
 or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
 migrations; database preparation is explicit.
-
-`ORP.Docker.sln` and the Docker launchers/Compose configuration are local, ignored files.
-They use the same API projects.
-Docker setup is documented locally in `README.Docker.local.md` and is not shipped in Git.
 
 ## Development authentication
 
@@ -183,24 +179,21 @@ produces one blank page. Line spacing is increased to the font's measured height
 needed to avoid overlap. Input should use characters supported by DejaVu Sans Mono;
 this service targets fixed-column reports, not emoji/CJK or complex-script layout.
 
-DevExpress 26.1.4 packages restore from nuget.org. The implementation uses
-`DevExpress.Document.Processor`, `DevExpress.Pdf.Drawing`, and
-`DevExpress.Drawing.Skia` for Windows/Linux support. The font and its redistribution
-license are bundled in `src/ORP.Infrastructure/Documents/Fonts`.
-On Debian/Ubuntu, DevExpress's Linux prerequisites are `libc6`, `libicu-dev`, and
-`libfontconfig1`; see the [Linux setup guide](https://docs.devexpress.com/OfficeFileAPI/401441/installation-guide/use-office-file-api-on-linux).
-No Office installation or Windows-only drawing API is required by the converter.
+The versioned `ORP.sln` targets Windows and uses DevExpress 26.1.4 packages
+`DevExpress.Document.Processor` and `DevExpress.Pdf.Drawing` with the default GDI+
+drawing engine. It does not require `DevExpress.Drawing.Skia` or SkiaSharp, including
+during NuGet restore. No Office installation is required. The font and its
+redistribution license are bundled in `src/ORP.Infrastructure/Documents/Fonts`.
 
 Register a matching Office File API/Universal license on the build machine:
-`%AppData%\DevExpress\DevExpress_License.txt` on Windows or
-`~/.config/DevExpress/DevExpress_License.txt` on Linux. Never commit license keys.
+`%AppData%\DevExpress\DevExpress_License.txt`. Never commit license keys.
 Without a registered key, local evaluation builds keep `DX1000`/`DX1001` warnings
 visible (these two warnings are not promoted to errors); generated PDFs can carry
 DevExpress evaluation notices. Production builds must use the registered license.
 
 `ORP.Infrastructure.Tests` converts four checked-in text fixtures and reads the PDFs
 with PdfPig to verify content, column coordinates, blank lines, tab stops, wide-line
-fitting, and page breaks. It runs in both solutions without SQL Server.
+fitting, and page breaks. It runs in `ORP.sln` without SQL Server.
 
 ### Transaction boundaries
 

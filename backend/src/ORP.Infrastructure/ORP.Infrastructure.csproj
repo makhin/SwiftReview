@@ -5,7 +5,6 @@
     <PackageReference Include="DevExtreme.AspNet.Data" />
     <PackageReference Include="DevExpress.Pdf.Drawing" />
     <PackageReference Include="DevExpress.Document.Processor" />
-    <PackageReference Include="DevExpress.Drawing.Skia" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />

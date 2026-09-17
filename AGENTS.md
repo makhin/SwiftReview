@@ -23,6 +23,12 @@ Use the matching environment without asking the user to choose again. Follow the
 SDK pinned in `backend/global.json`; execute solution build/test commands from
 `backend` so that SDK selection uses this file.
 
+`ORP.sln` uses Windows GDI+ and must not restore SkiaSharp. The ignored
+`backend/Directory.Build.local.props` enables Skia for `ORP.Docker.sln` and keeps
+Linux outputs in `bin/linux/` and `obj/linux/`. For direct project build/test/run
+commands in this Linux workspace, pass `-p:ORPUseSkia=true`; local Docker launchers
+set it for API startup. Keep this local props file out of Git.
+
 `ORP.Docker.sln`, `compose.sql.yml`, `README.Docker.local.md`, Docker launchers and
 local database helpers are intentionally ignored by Git. Keep them local; never
 force-add them. `backend/tests/ORP.Api.Tests/` is also temporarily local-only and
