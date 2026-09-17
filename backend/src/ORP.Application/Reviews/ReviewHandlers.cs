@@ -3,10 +3,8 @@ using ORP.Application.Authorization;
 using ORP.Domain.Identity;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
-using ORP.Application.Audit;
 using ORP.Domain.Auditing;
 using ORP.Domain.Reviews;
-using ORP.Domain.Common;
 
 namespace ORP.Application.Reviews;
 
@@ -42,8 +40,7 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
-            var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
-                ?? throw new ResourceNotFoundException("Workflow was not found.");
+            var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
             var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
             if (active is not null && (access.IsGlobalAdministrator ||
                 (active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)))
@@ -56,17 +53,11 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             var now = clock.UtcNow;
             var review = message.StartReview(request.Level, user.UserId, workflow, reviews, now, isGlobalAdministrator: access.IsGlobalAdministrator);
             store.AddReview(review);
-            AddEvent(store, messageId, AuditEventType.ReviewStarted, user.UserId, oldState, message.State,
+            ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewStarted, user.UserId, oldState, message.State,
                 review, now, correlation.CorrelationId);
             await store.SaveChangesAsync(ct);
             return review.Id;
         }, cancellationToken);
-
-    internal static void AddEvent(IORPStore store, long messageId, AuditEventType type, int userId,
-        Domain.Messages.MessageState oldState, Domain.Messages.MessageState newState, Review review,
-        DateTimeOffset now, string correlationId, string? comment = null) =>
-        store.AddAudit(AuditEventFactory.Create(messageId, type, userId, now, oldState, newState,
-            new AuditEventDetailsDto(ReviewLevel: review.Level, Comment: comment), correlationId, review));
 }
 
 public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveReviewRequest> validator,
@@ -81,18 +72,16 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
-            var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
-                ?? throw new ResourceNotFoundException("Workflow was not found.");
-            var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
-                ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
+            var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
             message.Approve(review, workflow, reviews, user.UserId, request.Comment, now, access.IsGlobalAdministrator);
-            StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
+            ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
             await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             if (message.State == Domain.Messages.MessageState.Completed)
-                StartReviewHandler.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId, oldState,
+                ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId, oldState,
                     message.State, review, now, correlation.CorrelationId, request.Comment);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
@@ -110,12 +99,11 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
-            var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
-                ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
+            var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
             message.Reject(review, user.UserId, request.Comment, now, access.IsGlobalAdministrator);
-            StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
+            ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
             await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
@@ -133,12 +121,11 @@ public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReview
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
-            var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId && x.Level == request.Level && x.Status == ReviewStatus.InProgress)
-                ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");
+            var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
             message.CancelReview(review, user.UserId, now, access.IsGlobalAdministrator);
-            StartReviewHandler.AddEvent(store, messageId, AuditEventType.ReviewCancelled, user.UserId, oldState,
+            ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewCancelled, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
@@ -155,14 +142,13 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
-            var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
-                ?? throw new ResourceNotFoundException("Workflow was not found.");
+            var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
             var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId) ?? throw new ResourceNotFoundException("Review was not found.");
             var oldState = message.State;
             var now = clock.UtcNow;
             message.UndoLastApproval(review, workflow, reviews, user.UserId, now, access.IsGlobalAdministrator);
             var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
-            StartReviewHandler.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
+            ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, comment);
             if (message.CurrentAssigneeId is not null)
                 await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
