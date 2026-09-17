@@ -11,7 +11,7 @@ namespace ORP.Infrastructure.Tests;
 
 public sealed class TextToPdfConverterTests
 {
-    private readonly ITextToPdfConverter _converter = new DevExpressTextToPdfConverter();
+    private readonly ITextToPdfConverter _converter = new ITextTextToPdfConverter();
 
     [Theory]
     [InlineData("columns.txt", 1, "ACCOUNT", "BETA")]
@@ -85,7 +85,8 @@ public sealed class TextToPdfConverterTests
         AssertClose(left.StartBaseLine.Y, right.StartBaseLine.Y);
         AssertClose(left.FontSize, shortLine.FontSize);
         Assert.True(left.FontSize < options.FontSize);
-        Assert.True(right.BoundingBox.Right <= options.PageWidth - options.Margin + 0.1);
+        Assert.True(right.BoundingBox.Right <= options.PageWidth - options.Margin + 0.1,
+            $"Right edge {right.BoundingBox.Right} exceeds margin {options.PageWidth - options.Margin}; font size {left.FontSize}.");
     }
 
     [Fact]
@@ -141,6 +142,18 @@ public sealed class TextToPdfConverterTests
     }
 
     [Fact]
+    public void ReusesConverterWithoutSharingDocumentState()
+    {
+        using var first = PdfDocument.Open(_converter.Convert("FIRST DOCUMENT"));
+        using var second = PdfDocument.Open(_converter.Convert("SECOND DOCUMENT"));
+
+        Assert.Equal(1, first.NumberOfPages);
+        Assert.Equal(1, second.NumberOfPages);
+        Assert.Equal("FIRST DOCUMENT", first.GetPage(1).Text);
+        Assert.Equal("SECOND DOCUMENT", second.GetPage(1).Text);
+    }
+
+    [Fact]
     public void ResolvesThroughApplicationAbstractionWithoutDatabaseAccess()
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -148,7 +161,7 @@ public sealed class TextToPdfConverterTests
             ["ConnectionStrings:ORP"] = "Server=unused;Database=unused"
         }).Build();
         using var services = new ServiceCollection().AddInfrastructure(configuration).BuildServiceProvider();
-        Assert.IsType<DevExpressTextToPdfConverter>(services.GetRequiredService<ITextToPdfConverter>());
+        Assert.IsType<ITextTextToPdfConverter>(services.GetRequiredService<ITextToPdfConverter>());
     }
 
     private static Letter Find(IReadOnlyList<Letter> letters, string value) => Assert.Single(letters, l => l.Value == value);

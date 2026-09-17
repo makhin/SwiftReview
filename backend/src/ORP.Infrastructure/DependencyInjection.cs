@@ -34,7 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<ITextToPdfConverter, DevExpressTextToPdfConverter>();
+        services.AddSingleton<ITextToPdfConverter, ITextTextToPdfConverter>();
         return services;
     }
 }

@@ -1,20 +1,22 @@
-using System.Drawing;
 using System.Text;
-using DevExpress.Drawing;
-using DevExpress.Pdf;
+using iText.IO.Font;
+using iText.Kernel.Font;
+using iText.Kernel.Geom;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas;
 using ORP.Application.Abstractions;
 
 namespace ORP.Infrastructure.Documents;
 
-public sealed class DevExpressTextToPdfConverter : ITextToPdfConverter
+public sealed class ITextTextToPdfConverter : ITextToPdfConverter
 {
-    private const string FontName = "DejaVu Sans Mono";
-    private static readonly Lazy<bool> FontLoaded = new(() =>
+    private static readonly Lazy<byte[]> FontData = new(() =>
     {
-        using var stream = typeof(DevExpressTextToPdfConverter).Assembly.GetManifestResourceStream(
+        using var stream = typeof(ITextTextToPdfConverter).Assembly.GetManifestResourceStream(
             "ORP.Infrastructure.Documents.Fonts.DejaVuSansMono.ttf")!;
-        DXFontRepository.Instance.AddFont(stream);
-        return true;
+        using var data = new MemoryStream();
+        stream.CopyTo(data);
+        return data.ToArray();
     });
 
     public byte[] Convert(string text, TextPdfOptions? options = null)
@@ -22,56 +24,66 @@ public sealed class DevExpressTextToPdfConverter : ITextToPdfConverter
         ArgumentNullException.ThrowIfNull(text);
         options ??= new TextPdfOptions();
         Validate(options);
-        _ = FontLoaded.Value;
 
         var sections = text.Split('\f').Select(section => ReadLines(section, options.TabSize)).ToList();
         // A terminal form feed finishes the last page rather than creating another one.
         if (sections.Count > 1 && sections[^1].Count == 0)
             sections.RemoveAt(sections.Count - 1);
 
-        using var processor = new PdfDocumentProcessor();
-        processor.CreateEmptyDocument();
-        using var measuringGraphics = processor.CreateGraphicsWorldSystem(72, 72);
-        var requestedFont = new DXFont(FontName, options.FontSize);
-        var format = new PdfStringFormat
-        {
-            FormatFlags = PdfStringFormatFlags.NoWrap | PdfStringFormatFlags.MeasureTrailingSpaces
-        };
-
+        // PdfFont belongs to one PDF document; only the immutable font bytes are shared.
+        var font = PdfFontFactory.CreateFont(FontData.Value, PdfEncodings.IDENTITY_H,
+            PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
         var width = options.PageWidth - 2 * options.Margin;
         var widest = sections.SelectMany(lines => lines)
             .Where(line => line.Length > 0)
-            .Select(line => measuringGraphics.MeasureString(line, requestedFont, format).Width)
+            .Select(line => font.GetWidth(line, options.FontSize))
             .DefaultIfEmpty(0).Max();
         var scale = widest > width ? width / widest : 1;
-        var font = new DXFont(FontName, options.FontSize * scale);
-        using var brush = new DXSolidBrush(Color.Black);
-        var textHeight = measuringGraphics.MeasureString("Mg", font, format).Height;
+        var fontSize = options.FontSize * scale;
+        var metrics = font.GetFontProgram().GetFontMetrics();
+        var ascent = metrics.GetAscender() * fontSize / 1000;
+        var descent = metrics.GetDescender() * fontSize / 1000;
+        // Include the actual glyph extents, including accents and box-drawing characters.
+        foreach (var line in sections.SelectMany(lines => lines))
+        {
+            ascent = Math.Max(ascent, font.GetAscent(line, fontSize));
+            descent = Math.Min(descent, font.GetDescent(line, fontSize));
+        }
+        var textHeight = ascent - descent;
         var spacing = Math.Max(options.LineSpacing * scale, textHeight);
         var availableHeight = options.PageHeight - 2 * options.Margin;
         if (textHeight > availableHeight)
             throw new ArgumentException("The page must have room for at least one line of text.", nameof(options));
         var linesPerPage = (int)Math.Min(int.MaxValue, Math.Floor((availableHeight - textHeight) / spacing) + 1);
 
-        foreach (var lines in sections)
+        using var output = new MemoryStream();
+        using (var writer = new PdfWriter(output))
         {
-            // Even an empty section represents a page (including blank pages between form feeds).
-            for (var start = 0; start < Math.Max(1, lines.Count); start += linesPerPage)
+            writer.SetCloseStream(false);
+            using var document = new PdfDocument(writer);
+            foreach (var lines in sections)
             {
-                using var graphics = processor.CreateGraphicsWorldSystem(72, 72);
-                var count = Math.Min(linesPerPage, lines.Count - start);
-                for (var i = 0; i < count; i++)
+                // Even an empty section represents a page (including blank pages between form feeds).
+                for (var start = 0; start < Math.Max(1, lines.Count); start += linesPerPage)
                 {
-                    if (lines[start + i].Length > 0)
-                        graphics.DrawString(lines[start + i], font, brush,
-                            new PointF(options.Margin, options.Margin + i * spacing), format);
+                    var page = document.AddNewPage(new PageSize(options.PageWidth, options.PageHeight));
+                    var canvas = new PdfCanvas(page);
+                    // Default two-decimal font-size rounding can push a fitted line past the margin.
+                    canvas.GetContentStream().GetOutputStream().SetLocalHighPrecision(true);
+                    var count = Math.Min(linesPerPage, lines.Count - start);
+                    canvas.BeginText().SetFontAndSize(font, fontSize);
+                    for (var i = 0; i < count; i++)
+                    {
+                        if (lines[start + i].Length > 0)
+                            canvas.SetTextMatrix(1, 0, 0, 1, options.Margin,
+                                    options.PageHeight - options.Margin - ascent - i * spacing)
+                                .ShowText(lines[start + i]);
+                    }
+                    canvas.EndText();
+                    canvas.Release();
                 }
-                processor.RenderNewPage(new PdfRectangle(0, 0, options.PageWidth, options.PageHeight), graphics);
             }
         }
-
-        using var output = new MemoryStream();
-        processor.SaveDocument(output);
         return output.ToArray();
     }
 

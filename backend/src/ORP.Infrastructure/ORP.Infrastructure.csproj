@@ -3,8 +3,8 @@
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Domain/ORP.Domain.csproj" />
     <PackageReference Include="DevExtreme.AspNet.Data" />
-    <PackageReference Include="DevExpress.Pdf.Drawing" />
-    <PackageReference Include="DevExpress.Document.Processor" />
+    <PackageReference Include="itext" />
+    <PackageReference Include="itext.bouncy-castle-adapter" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />

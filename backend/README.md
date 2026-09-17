@@ -158,7 +158,7 @@ dotnet test tests/ORP.Infrastructure.Tests/ORP.Infrastructure.Tests.csproj
 ### Preformatted text to PDF
 
 Inject `ORP.Application.Abstractions.ITextToPdfConverter`. `AddInfrastructure` registers
-`DevExpressTextToPdfConverter`; DevExpress types stay inside Infrastructure so another
+`ITextTextToPdfConverter`; iText types stay inside Infrastructure so another
 PDF library can replace it without changing callers. The service accepts decoded text
 and returns PDF bytes, keeping filesystem access and encoding decisions with the caller:
 
@@ -179,17 +179,14 @@ produces one blank page. Line spacing is increased to the font's measured height
 needed to avoid overlap. Input should use characters supported by DejaVu Sans Mono;
 this service targets fixed-column reports, not emoji/CJK or complex-script layout.
 
-The versioned `ORP.sln` targets Windows and uses DevExpress 26.1.4 packages
-`DevExpress.Document.Processor` and `DevExpress.Pdf.Drawing` with the default GDI+
-drawing engine. It does not require `DevExpress.Drawing.Skia` or SkiaSharp, including
-during NuGet restore. No Office installation is required. The font and its
-redistribution license are bundled in `src/ORP.Infrastructure/Documents/Fonts`.
+The converter uses NuGet packages `itext` and `itext.bouncy-castle-adapter`, both
+version 9.7.0. The modern package is named `itext`, not the legacy `iTextSharp`.
+It writes text directly into PDF using the embedded font, without DevExpress,
+SkiaSharp, GDI+, or an Office installation. The font and its redistribution license
+are bundled in `src/ORP.Infrastructure/Documents/Fonts`.
 
-Register a matching Office File API/Universal license on the build machine:
-`%AppData%\DevExpress\DevExpress_License.txt`. Never commit license keys.
-Without a registered key, local evaluation builds keep `DX1000`/`DX1001` warnings
-visible (these two warnings are not promoted to errors); generated PDFs can carry
-DevExpress evaluation notices. Production builds must use the registered license.
+iText is offered under [AGPLv3 or a commercial license](https://itextpdf.com/how-buy).
+The former DevExpress license is not used by this converter.
 
 `ORP.Infrastructure.Tests` converts four checked-in text fixtures and reads the PDFs
 with PdfPig to verify content, column coordinates, blank lines, tab stops, wide-line

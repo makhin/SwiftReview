@@ -4,8 +4,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- Allow local evaluation builds while keeping DevExpress license warnings visible. -->
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);DX1000;DX1001</WarningsNotAsErrors>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
   <!-- Optional workstation settings; not required by the versioned Windows solution. -->
