@@ -95,14 +95,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     .OrderBy(step => step.Order)
                     .Select(step => step.ReviewLevel).ToArray()
             });
-        try
-        {
-            return await DataSourceLoader.LoadAsync(rows, options, ct);
-        }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or IndexOutOfRangeException)
-        {
-            throw new FormatException("Invalid DevExtreme load options.", ex);
-        }
+        return await DataSourceLoader.LoadAsync(rows, options, ct);
     }
 }
 

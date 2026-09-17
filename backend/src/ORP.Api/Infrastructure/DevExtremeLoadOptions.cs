@@ -89,9 +89,14 @@ public static class DevExtremeLoadOptions
         if (filter is null) return;
         if (depth > MaxFilterDepth) throw new FormatException($"Filter depth cannot exceed {MaxFilterDepth}.");
 
-        // DevExtreme owns the filter grammar and operators. Only enforce our field and size policy.
+        // Reject known input errors here; execution/provider failures must remain server errors.
         if (filter.Count > 0 && filter[0] is string field && field != "!")
         {
+            if (filter.Count is not (2 or 3))
+                throw new FormatException("A filter condition must contain a field, an optional operator and a value.");
+            if (filter.Count == 3 && filter[1] is not ("=" or "<>" or ">" or ">=" or "<" or "<=" or
+                "startswith" or "endswith" or "contains" or "notcontains"))
+                throw new FormatException("Unsupported filter operator.");
             if (++conditions > MaxFilterConditions) throw new FormatException($"A filter cannot contain more than {MaxFilterConditions} conditions.");
             filter[0] = NormalizeField(field);
             return;
