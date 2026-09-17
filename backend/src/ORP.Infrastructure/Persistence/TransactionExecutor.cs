@@ -1,32 +1,53 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using ORP.Application.Abstractions;
+using ORP.Infrastructure.Logging;
 
 namespace ORP.Infrastructure.Persistence;
 
-public sealed class TransactionExecutor(ORPDbContext db) : ITransactionExecutor
+public sealed class TransactionExecutor(ORPDbContext db, BusinessActionLog businessActions) : ITransactionExecutor
 {
     public Task ExecuteAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken) =>
         ExecuteAsync(async ct => { await operation(ct); return true; }, cancellationToken);
 
-    public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
+    public async Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
-        return db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+        var commitStarted = false;
+        try
         {
-            // Each attempt must read fresh state, including permissions, after acquiring the transaction.
-            db.ChangeTracker.Clear();
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-            try
+            var result = await db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
             {
-                var result = await operation(ct);
-                await transaction.CommitAsync(ct);
-                return result;
-            }
-            catch
-            {
+                // Never replay a mutation once commit might have reached the server.
+                if (commitStarted)
+                    throw new InvalidOperationException("Transaction commit outcome is unknown. Reload persisted state before retrying.");
+                businessActions.Clear();
+                // Each attempt must read fresh state, including permissions, after acquiring the transaction.
                 db.ChangeTracker.Clear();
-                throw;
-            }
-        }, cancellationToken);
+                await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+                var value = await operation(ct);
+                commitStarted = true;
+                try
+                {
+                    await transaction.CommitAsync(ct);
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidOperationException("Transaction commit outcome is unknown. Reload persisted state before retrying.", exception);
+                }
+                return value;
+            }, cancellationToken);
+            // Keep logging outside the retry delegate so a logging failure cannot replay a mutation.
+            businessActions.Committed();
+            return result;
+        }
+        catch
+        {
+            db.ChangeTracker.Clear();
+            throw;
+        }
+        finally
+        {
+            businessActions.Clear();
+        }
     }
 }

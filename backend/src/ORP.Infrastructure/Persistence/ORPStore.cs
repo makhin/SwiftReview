@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
 using ORP.Application.Abstractions;
 using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
@@ -11,7 +10,7 @@ using ORP.Infrastructure.Logging;
 
 namespace ORP.Infrastructure.Persistence;
 
-public sealed class ORPStore(ORPDbContext db, ILogger<ORPStore> logger) : IORPStore
+public sealed class ORPStore(ORPDbContext db, BusinessActionLog businessActions) : IORPStore
 {
     public Task<Message?> FindMessageAsync(long id, CancellationToken ct) => db.Messages.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken ct) => db.ReadMessages()
@@ -34,10 +33,9 @@ public sealed class ORPStore(ORPDbContext db, ILogger<ORPStore> logger) : IORPSt
         try
         {
             var changes = await db.SaveChangesAsync(ct);
-            foreach (var auditEvent in pendingAuditEvents)
-                InfrastructureLog.BusinessActionCommitted(logger, auditEvent.EventType, auditEvent.Id,
-                    auditEvent.MessageId, auditEvent.UserId, auditEvent.OldState, auditEvent.NewState,
-                    auditEvent.CorrelationId);
+            businessActions.Add(pendingAuditEvents);
+            if (db.Database.CurrentTransaction is null)
+                businessActions.Committed();
             return changes;
         }
         catch (DbUpdateConcurrencyException exception)

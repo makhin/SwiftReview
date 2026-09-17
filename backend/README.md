@@ -167,13 +167,21 @@ The Sync test project targets .NET Framework 4.7.2 and requires a compatible run
 Message mutation handlers execute through `ITransactionExecutor`, implemented by the scoped
 `TransactionExecutor` in Infrastructure. Authorization reads and writes run together in a
 Serializable transaction, including when handlers are called without HTTP. Administrative access
-and role updates use the same executor. EF Core retries the entire operation and clears tracked
+and role updates use the same executor. Before commit, EF Core retries the entire operation and clears tracked
 state before each attempt, so access is read again. Callers must load mutable state inside the
 operation; the executor owns the transaction and handlers explicitly save their changes.
 Authorization checks project only the administrator flag and the two scoped permission checks in one SQL
 statement. Development authentication loads identity fields only. Full access snapshots remain available
 for `/me` and access-management screens. Authorization returns the loaded message, source and reviews
 to the handler, so they are reused within that attempt and reloaded on retry.
+
+`BusinessActionCommitted` is emitted only after the outer transaction commit is acknowledged.
+Events from failed attempts are discarded. If commit throws (including cancellation or connection
+loss), the outcome is unknown: no success event is emitted and the mutation is not automatically
+replayed. The request fails; reload persisted state before deciding whether to submit it again.
+This does not provide exactly-once logging: a process failure after commit can leave a committed
+SQL audit event without a corresponding application log entry. See
+[EF Core commit failures](https://learn.microsoft.com/en-us/ef/core/miscellaneous/connection-resiliency#transaction-commit-failure-and-the-idempotency-issue).
 
 ## Legacy synchronization host
 

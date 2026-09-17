@@ -20,6 +20,7 @@ public static class DependencyInjection
             sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp");
             sql.EnableRetryOnFailure();
         }));
+        services.AddScoped<ORP.Infrastructure.Logging.BusinessActionLog>();
         services.AddScoped<ITransactionExecutor, TransactionExecutor>();
         services.AddScoped<IORPStore, ORPStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();
