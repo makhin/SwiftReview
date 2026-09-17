@@ -8,7 +8,7 @@ The backend implements the Operations Reporting and Processing domain, REST API,
 - `src/ORP.Application` — use-case handlers, contracts, validation, and persistence abstractions.
 - `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, and SQL Server queries.
 - `src/ORP.Api` — ASP.NET Core endpoints, authentication, authorization, OpenAPI, health checks, and telemetry.
-- `tests` — domain and application unit tests.
+- `tests` — domain, application, and database-free infrastructure tests.
 
 Dependencies point inward: the Domain project has no persistence or API dependency, Application depends on Domain contracts, and Infrastructure provides the external implementations used by the API.
 
@@ -60,7 +60,7 @@ dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 ## Environment separation
 
 `ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
-Its Domain and Application unit tests require no SQL connection or database creation permissions.
+Its Domain, Application, and Infrastructure tests require no SQL connection or database creation permissions.
 It has no Docker project or Docker startup dependency. Select the API's `SqlServer`
 launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
 or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
@@ -141,7 +141,7 @@ Request and response schemas, status codes, and Problem Details payloads are doc
 
 ## Build and test
 
-The versioned solution runs Domain and Application unit tests. No SQL Server
+The versioned solution runs Domain, Application, and Infrastructure tests. No SQL Server
 or Docker is required. From the repository root on
 Windows, `./test-backend.ps1` runs this suite. Alternatively, from `backend`:
 
@@ -156,7 +156,51 @@ Unit tests can be run without SQL Server:
 ```bash
 dotnet test tests/ORP.Domain.Tests/ORP.Domain.Tests.csproj
 dotnet test tests/ORP.Application.Tests/ORP.Application.Tests.csproj
+dotnet test tests/ORP.Infrastructure.Tests/ORP.Infrastructure.Tests.csproj
 ```
+
+### Preformatted text to PDF
+
+Inject `ORP.Application.Abstractions.ITextToPdfConverter`. `AddInfrastructure` registers
+`DevExpressTextToPdfConverter`; DevExpress types stay inside Infrastructure so another
+PDF library can replace it without changing callers. The service accepts decoded text
+and returns PDF bytes, keeping filesystem access and encoding decisions with the caller:
+
+```csharp
+var text = await File.ReadAllTextAsync(inputPath, Encoding.UTF8, cancellationToken);
+var pdf = converter.Convert(text);
+await File.WriteAllBytesAsync(outputPath, pdf, cancellationToken);
+```
+
+Defaults are A4 portrait, 36-point margins, 10-point embedded DejaVu Sans Mono,
+14-point line spacing, and eight-column tab stops. `TextPdfOptions` overrides page
+dimensions, margin, font size, line spacing, and tab size; all dimensions use points
+(72 per inch). The widest line determines a uniform font reduction when needed;
+lines never wrap. Very wide inputs can therefore become small: choose a larger or
+landscape page for readability. Spaces, blank lines, CR/LF/CRLF, and form feeds are
+preserved. A trailing newline or form feed does not create an extra page. Empty text
+produces one blank page. Line spacing is increased to the font's measured height if
+needed to avoid overlap. Input should use characters supported by DejaVu Sans Mono;
+this service targets fixed-column reports, not emoji/CJK or complex-script layout.
+
+DevExpress 26.1.4 packages restore from nuget.org. The implementation uses
+`DevExpress.Document.Processor`, `DevExpress.Pdf.Drawing`, and
+`DevExpress.Drawing.Skia` for Windows/Linux support. The font and its redistribution
+license are bundled in `src/ORP.Infrastructure/Documents/Fonts`.
+On Debian/Ubuntu, DevExpress's Linux prerequisites are `libc6`, `libicu-dev`, and
+`libfontconfig1`; see the [Linux setup guide](https://docs.devexpress.com/OfficeFileAPI/401441/installation-guide/use-office-file-api-on-linux).
+No Office installation or Windows-only drawing API is required by the converter.
+
+Register a matching Office File API/Universal license on the build machine:
+`%AppData%\DevExpress\DevExpress_License.txt` on Windows or
+`~/.config/DevExpress/DevExpress_License.txt` on Linux. Never commit license keys.
+Without a registered key, local evaluation builds keep `DX1000`/`DX1001` warnings
+visible (these two warnings are not promoted to errors); generated PDFs can carry
+DevExpress evaluation notices. Production builds must use the registered license.
+
+`ORP.Infrastructure.Tests` converts four checked-in text fixtures and reads the PDFs
+with PdfPig to verify content, column coordinates, blank lines, tab stops, wide-line
+fitting, and page breaks. It runs in both solutions without SQL Server.
 
 ### Transaction boundaries
 

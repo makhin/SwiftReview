@@ -1,0 +1,2 @@
+# Preserve the CRLF bytes used by this encoding/newline fixture.
+tabs-unicode.txt -text whitespace=cr-at-eol
