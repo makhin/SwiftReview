@@ -87,6 +87,8 @@ Backend configuration follows standard ASP.NET Core configuration rules. See the
 
 ## Verification
 
+Azure CI uses separate backend and frontend pipelines. See [Azure Pipelines setup](docs/AZURE_PIPELINES.md) for creation steps, triggers, and PR validation.
+
 Run the backend unit tests without SQL Server or Docker. The main solution contains Domain, Application and Sync unit tests. The legacy Sync test project targets .NET Framework 4.7.2 and requires a compatible Windows runtime:
 
 ```bash

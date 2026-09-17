@@ -1,0 +1,50 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - '*'
+  paths:
+    include:
+      - backend/**
+      - azure-pipelines-backend.yml
+
+# Azure Repos PR validation is configured through branch policies.
+pool:
+  vmImage: windows-latest
+
+variables:
+  buildConfiguration: Release
+
+steps:
+  - checkout: self
+
+  - task: UseDotNet@2
+    displayName: Install .NET SDK from global.json
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+      workingDirectory: '$(Build.SourcesDirectory)/backend'
+
+  - script: dotnet restore ORP.sln --configfile NuGet.Config
+    displayName: Restore backend dependencies
+    workingDirectory: '$(Build.SourcesDirectory)/backend'
+
+  - script: dotnet build ORP.sln --configuration $(buildConfiguration) --no-restore -p:ContinuousIntegrationBuild=true
+    displayName: Build backend (warnings are errors)
+    workingDirectory: '$(Build.SourcesDirectory)/backend'
+
+  - script: dotnet test ORP.sln --configuration $(buildConfiguration) --no-build --no-restore --logger trx --results-directory "$(Agent.TempDirectory)/backend-test-results"
+    displayName: Run Domain and Application unit tests
+    workingDirectory: '$(Build.SourcesDirectory)/backend'
+
+  - task: PublishTestResults@2
+    displayName: Publish backend test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: '**/*.trx'
+      searchFolder: '$(Agent.TempDirectory)/backend-test-results'
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+      testRunTitle: Backend unit tests

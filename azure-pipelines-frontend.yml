@@ -1,0 +1,53 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - '*'
+  paths:
+    include:
+      - frontend/**
+      - .env.example
+      - azure-pipelines-frontend.yml
+
+# Azure Repos PR validation is configured through branch policies.
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: UseNode@1
+    displayName: Install Node.js 24
+    inputs:
+      version: '24.x'
+
+  - script: npm ci
+    displayName: Install frontend dependencies
+    workingDirectory: '$(Build.SourcesDirectory)/frontend'
+
+  - script: npm run lint
+    displayName: Lint frontend
+    workingDirectory: '$(Build.SourcesDirectory)/frontend'
+
+  - script: npm run typecheck
+    displayName: Check TypeScript
+    workingDirectory: '$(Build.SourcesDirectory)/frontend'
+
+  - script: npm test -- --reporter=default --reporter=junit --outputFile.junit="$(Agent.TempDirectory)/frontend-test-results/junit.xml"
+    displayName: Run frontend tests
+    workingDirectory: '$(Build.SourcesDirectory)/frontend'
+
+  - script: npm run build
+    displayName: Build frontend
+    workingDirectory: '$(Build.SourcesDirectory)/frontend'
+
+  - task: PublishTestResults@2
+    displayName: Publish frontend test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: junit.xml
+      searchFolder: '$(Agent.TempDirectory)/frontend-test-results'
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+      testRunTitle: Frontend tests
