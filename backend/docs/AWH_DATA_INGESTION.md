@@ -2,9 +2,10 @@
 
 ## Ownership
 
-ORP owns the complete ingestion schema. `ORP.Sync` obtains `SwiftMessage` objects from the approved
-Swift library and writes only to `[orp]`; it does not create, read, or update `[swift]` or
-`[dbo].[Messages]`.
+ORP owns the ingestion schema in `[orp]`. The repository currently contains no production
+importer. Source integration and routing must be implemented separately; the API reads
+source records without modifying them. Sample development data can be loaded with
+[`seed-test-data.sql`](../scripts/seed-test-data.sql).
 
 | Object | Purpose |
 |---|---|
@@ -22,44 +23,7 @@ All list values at a common zero-based index are stored in one `SwiftMessageEntr
 include account, currency, amount, beneficiary and ordering customer fields, sender reference,
 settlement/trade/value dates, and unit data owner. The primary key is `(MessageId, Position)`.
 
-The importer uses the greatest returned list length. When list lengths differ, absent values are
-stored as `NULL` and a warning is emitted. Order and duplicates are preserved. `History` is not
-persisted. Entry rows are written only when their parent message is first inserted.
-
-## Import sequence
-
-1. Read the last successful watermark. With no watermark, query the previous 24 hours.
-2. Query from watermark minus the configured overlap (five minutes by default) to current UTC.
-3. Normalize all Swift `DateTime` values as UTC and map the message plus positional entries.
-4. Resolve Branch/Department using the first matching configured C# routing rule.
-5. Insert previously unseen `WarehouseId` values, resolve and register eligible messages in C#, and advance the watermark atomically.
-
-Messages without a usable `WarehouseId` are skipped with a sanitized warning. Messages without a
-routing match remain in `SwiftMessages` as `Unroutable` and are not registered.
-
-## Routing
-
-Routing rules are ordered configuration entries with this shape:
-
-```text
-priority|bicField|bic-or-prefix*|direction(optional)|messageTypes(comma-separated)|branchId|departmentId
-```
-
-`bicField` is `OwnBic`, `SenderRequestor`, or `ReceiverResponder`. Matching is trimmed and
-case-insensitive; an eight-character BIC matches the corresponding BIC8. Rule priorities must be
-unique and all referenced Branch/Department IDs must exist.
-
-Repeated Warehouse IDs are skipped before routing. Existing payload fields, normalized entries,
-Branch/Department values, and workflow state are never updated by synchronization.
-
-## Operational guarantees
-
-- The SQL write, collection insertion, registration, audit events, and watermark update use one
-  serializable transaction.
-- `sp_getapplock` prevents overlapping writers.
-- A library or SQL failure returns a non-zero exit code and does not advance the watermark.
-- Raw message bodies and credentials are never written to console output.
-- A repeated query window is safe because `WarehouseId` is unique and registration is idempotent.
-
-The Swift assembly is resolved at runtime by `SwiftAssemblyName`/`SwiftQueryTypeName`. Deployment
-must install the approved private NuGet package so its assembly is present next to `ORP.Sync.exe`.
+The schema retains source data and synchronization metadata for external ingestion.
+The database objects remain managed by the existing migrations. Import scheduling,
+source-library configuration, routing and watermark advancement are not implemented
+by the current application.

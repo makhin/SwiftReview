@@ -129,7 +129,7 @@ caption('Illustrative event sequence on the left; actual decision detail with sy
 slide('One workspace. A shared review record.',
  'Source integration, business rules and the user interface have clear responsibilities.', 'Architecture at a glance',
  'At a high level, the architecture has five parts. The existing SWIFT source is read by a scheduled integration component. That component registers new messages in the application’s shared database. The application service reads and updates that same store while enforcing workflow and access rules. Users work in the browser. This is a modular application, rather than a fleet of independent microservices. The underlying technologies are React for the interface, .NET for the service, and SQL Server for persistent storage. Repeated imports are designed to avoid registering duplicate source messages and to preserve existing review progress. For deployment, the approved source connector, corporate sign-in, routing configuration and operational arrangements must be completed and verified.',
- 'backend/README.md; backend/src/ORP.Sync/README.md; backend/docs/AWH_DATA_INGESTION.md; frontend/package.json');
+ 'backend/README.md; backend/docs/AWH_DATA_INGESTION.md; frontend/package.json');
 pill('Scheduled intake',.64,2.61,2.02);pill('Shared application data',5.3,2.61,2.38);pill('Interactive review',10.11,2.61,2.18);
 const nodes=[['SWIFT\nsource','Existing environment'],['Scheduled\nintegration','Import + routing'],['Review\ndata store','SQL Server'],['Application\nservice','Workflow + access'],['Browser\nworkspace','React interface']];
 nodes.forEach((n,i)=>{let x=.6+i*2.53;box(x,3.38,2.04,1.77,i===2?C.green:C.white);txt(n[0],x+.18,3.66,1.68,.76,20,i===2?C.white:C.ink,true);txt(n[1],x+.18,4.65,1.7,.26,11,i===2?'D5E4E1':C.muted);if(i<4)line(x+2.11,4.22,x+2.43,4.22,C.green,1.8,true);if(i>=2&&i<4)line(x+2.43,4.43,x+2.11,4.43,C.green,1.8,true);});
@@ -140,7 +140,7 @@ caption('High-level design for persistent deployment; the screenshots use an in-
 slide('A working workflow, with a clear path to pilot',
  'Demonstrated functionality and deployment preparation are separate milestones.', 'Current scope and readiness',
  'The repository demonstrates message queues, manual assignment, multi-level review, organisational access rules and audit history. These are the functions you have seen today. A pilot in the organisation’s environment still needs preparation. The current sign-in is a development mechanism, so corporate authentication must be integrated. The source integration requires the approved library and the organisation’s routing rules. We also need agreed roles, review-level mappings and a process for handling unassigned or rejected messages. Finally, deployment, recovery and usability should be exercised with the people who will operate the system. Automatic assignment, workload balancing and SLA escalation are not demonstrated capabilities of the current version.',
- 'backend/src/ORP.Api/Authentication/DebugAuthenticationHandler.cs; backend/src/ORP.Sync/README.md; docs/BUSINESS_WORKFLOW_DECISIONS.md');
+ 'backend/src/ORP.Api/Authentication/DebugAuthenticationHandler.cs; docs/BUSINESS_WORKFLOW_DECISIONS.md');
 box(.6,2.59,5.91,3.66,C.white);box(6.84,2.59,5.89,3.66,C.mint);
 pill('Demonstrated today',.88,2.87,2.23);pill('Prepare for the pilot',7.13,2.87,2.31,C.green,C.white);
 const today=['Team and personal message queues','Manual assignment and review decisions','One to three review levels','Access rules and message audit history'];

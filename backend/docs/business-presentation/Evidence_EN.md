@@ -14,8 +14,8 @@ The downloaded Anthropic PPTX skill was used for slide creation and QA; it was l
 - Slide 6: backend/src/ORP.Domain/Workflows/WorkflowDefinition.cs; backend/docs/MESSAGE_STATE_MACHINE.md; docs/BUSINESS_WORKFLOW_DECISIONS.md
 - Slide 7: frontend/src/pages/messages/ReviewDecisionPopup.tsx; reviewDecision.ts; backend/docs/MESSAGE_STATE_MACHINE.md
 - Slide 8: frontend/src/pages/messages/AuditTrailDrawer.tsx; backend/docs/MESSAGE_STATE_MACHINE.md; assets/audit-panel.png
-- Slide 9: backend/README.md; backend/src/ORP.Sync/README.md; backend/docs/AWH_DATA_INGESTION.md; frontend/package.json
-- Slide 10: backend/src/ORP.Api/Authentication/DebugAuthenticationHandler.cs; backend/src/ORP.Sync/README.md; docs/BUSINESS_WORKFLOW_DECISIONS.md
+- Slide 9: backend/README.md; backend/docs/AWH_DATA_INGESTION.md; frontend/package.json
+- Slide 10: backend/src/ORP.Api/Authentication/DebugAuthenticationHandler.cs; docs/BUSINESS_WORKFLOW_DECISIONS.md
 - Slide 11: Recommendation based on the confirmed workflow; no observed business-performance dataset supplied.
 - Slide 12: Proposed next steps derived from the current product scope and outstanding business decisions.
 

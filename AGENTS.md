@@ -12,10 +12,9 @@ There are two solutions using the same application projects, with different test
 
 - **Current Linux workspace / Docker:** `backend/ORP.Docker.sln`. SQL Server runs in
   Docker; API and frontend run on the host. This solution includes local-only API/SQL
-  integration tests in `backend/tests/ORP.Api.Tests/`. It excludes the legacy
-  `ORP.Sync` and `ORP.Sync.Tests` projects targeting .NET Framework 4.7.2.
+  integration tests in `backend/tests/ORP.Api.Tests/`.
 - **Windows / Visual Studio / external SQL Server:** `backend/ORP.sln`. This is the
-  versioned solution, including Domain, Application and legacy Sync unit tests.
+  versioned solution, including Domain and Application unit tests.
   It does not include API/SQL integration tests. Its tests need no SQL connection
   or CREATE/DROP DATABASE permissions. Docker is not required
   and must not be invoked by the external-environment launchers.
@@ -81,7 +80,7 @@ or skipped tests; do not claim completion while relevant tests are failing.
   sets `ORP_TEST_SQL_SERVER`, and builds/tests `ORP.Docker.sln`. Do not pass
   `--no-build` after code changes unless the same changes were already built.
 - **Backend, Windows:** run `./test-backend.ps1`. It builds/tests `ORP.sln` with
-  Domain, Application and Sync unit tests. Neither this launcher nor Visual Studio
+  Domain and Application unit tests. Neither this launcher nor Visual Studio
   unit-test runs require `ORP_TEST_SQL_SERVER`, Docker or a database connection.
 - **Frontend:** `npm --prefix frontend test`, `npm --prefix frontend run typecheck`,
   and `npm --prefix frontend run build`. Run lint when changing frontend code.
@@ -106,7 +105,3 @@ must synchronize requests explicitly and verify persisted state, not merely laun
 several tasks and assume they overlapped. If the ignored integration suite is absent
 (e.g. a Windows Git clone), run the versioned unit tests and explicitly report SQL
 integration tests as unavailable; do not ask for database creation permissions.
-
-Legacy Sync tests require Windows/.NET Framework 4.7.2 and are intentionally outside
-the Linux Docker solution. Report their exclusion explicitly. If Sync code changes,
-its Windows tests remain required; a Docker-suite pass does not verify them.

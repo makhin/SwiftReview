@@ -8,8 +8,7 @@ The backend implements the Operations Reporting and Processing domain, REST API,
 - `src/ORP.Application` — use-case handlers, contracts, validation, and persistence abstractions.
 - `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, and SQL Server queries.
 - `src/ORP.Api` — ASP.NET Core endpoints, authentication, authorization, OpenAPI, health checks, and telemetry.
-- `src/ORP.Sync` — one-shot .NET Framework 4.7.2 host for registering messages produced by a legacy SWIFT synchronization process.
-- `tests` — domain, application, and synchronization unit tests.
+- `tests` — domain and application unit tests.
 
 Dependencies point inward: the Domain project has no persistence or API dependency, Application depends on Domain contracts, and Infrastructure provides the external implementations used by the API.
 
@@ -17,7 +16,6 @@ Dependencies point inward: the Domain project has no persistence or API dependen
 
 - .NET SDK 10.0.400, as pinned in `global.json`.
 - SQL Server to run the API. Unit tests in `ORP.sln` do not require a database.
-- A Windows environment with .NET Framework 4.7.2 when deploying `ORP.Sync.exe`.
 
 ## Run with sample data
 
@@ -62,14 +60,14 @@ dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 ## Environment separation
 
 `ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
-Its Domain, Application and Sync unit tests require no SQL connection or database creation permissions.
+Its Domain and Application unit tests require no SQL connection or database creation permissions.
 It has no Docker project or Docker startup dependency. Select the API's `SqlServer`
 launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
 or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
 migrations; database preparation is explicit.
 
 `ORP.Docker.sln` and the Docker launchers/Compose configuration are local, ignored files.
-They use the same API projects and omit the legacy .NET Framework Sync projects.
+They use the same API projects.
 Docker setup is documented locally in `README.Docker.local.md` and is not shipped in Git.
 
 ## Development authentication
@@ -143,7 +141,7 @@ Request and response schemas, status codes, and Problem Details payloads are doc
 
 ## Build and test
 
-The versioned solution runs Domain, Application and Sync unit tests. No SQL Server
+The versioned solution runs Domain and Application unit tests. No SQL Server
 or Docker is required. From the repository root on
 Windows, `./test-backend.ps1` runs this suite. Alternatively, from `backend`:
 
@@ -159,8 +157,6 @@ Unit tests can be run without SQL Server:
 dotnet test tests/ORP.Domain.Tests/ORP.Domain.Tests.csproj
 dotnet test tests/ORP.Application.Tests/ORP.Application.Tests.csproj
 ```
-
-The Sync test project targets .NET Framework 4.7.2 and requires a compatible runtime.
 
 ### Transaction boundaries
 
@@ -182,12 +178,3 @@ replayed. The request fails; reload persisted state before deciding whether to s
 This does not provide exactly-once logging: a process failure after commit can leave a committed
 SQL audit event without a corresponding application log entry. See
 [EF Core commit failures](https://learn.microsoft.com/en-us/ef/core/miscellaneous/connection-resiliency#transaction-commit-failure-and-the-idempotency-issue).
-
-## Legacy synchronization host
-
-`ORP.Sync` is intended to run once per schedule. It reads `SwiftMessage` objects through the approved
-legacy library, routes and inserts new `WarehouseId` values into `[orp]`, then registers eligible messages in C#.
-Registration is idempotent and does not reset workflow state for existing messages. Deployment
-prerequisites and routing configuration are documented in [`src/ORP.Sync/README.md`](src/ORP.Sync/README.md).
-Both API and sync operational events use structured `Microsoft.Extensions.Logging`; application source does
-not write directly through `System.Console`.

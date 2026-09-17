@@ -1,6 +1,6 @@
 # ORP business presentation
 
-English presentation for leadership and future users, based on the current SwiftReview implementation. Twelve slides; allow around 12–15 minutes plus discussion.
+English presentation for leadership and future users, capturing the SwiftReview implementation at the time of creation. The saved slides, PDF and speaker notes describe a scheduled importer that is no longer included in the repository. Twelve slides; allow around 12–15 minutes plus discussion.
 
 - `SwiftReview_Business_EN.pptx` — editable slides, diagrams and embedded speaker notes.
 - `SwiftReview_Business_EN.pdf` — portable viewing copy exported from the PowerPoint file.
