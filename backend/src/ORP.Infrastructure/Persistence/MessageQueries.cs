@@ -38,22 +38,24 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         if (f?.DateTo is not null) query = query.Where(x => x.ReceivedAt <= f.DateTo);
         var count = await query.CountAsync(ct);
         query = ApplySort(query, request.Sort);
-        var rows = await query.Skip(request.Skip).Take(request.Take).ToListAsync(ct);
-        var items = rows.Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
+        var items = await query.Skip(request.Skip).Take(request.Take)
+            .Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
             x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
-            x.ActiveReviewerId)).ToList();
+            x.ActiveReviewerId)).ToListAsync(ct);
         return new(items, count);
     }
 
     public async Task<DashboardSummaryDto> DashboardAsync(UserAccess access, CancellationToken ct)
     {
         if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0, 0);
-        var q = Accessible(access);
-        return new(await q.CountAsync(ct), await q.CountAsync(x => x.State != MessageState.Completed && x.State != MessageState.Rejected, ct),
-            await q.CountAsync(x => x.State == MessageState.New || x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress, ct),
-            await q.CountAsync(x => x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress, ct),
-            await q.CountAsync(x => x.State == MessageState.WaitingForThirdReview || x.State == MessageState.ThirdReviewInProgress, ct),
-            await q.CountAsync(x => x.State == MessageState.Completed, ct));
+        var counts = await Accessible(access).GroupBy(x => x.State)
+            .Select(g => new { State = g.Key, Count = g.Count() }).ToListAsync(ct);
+        return new(counts.Sum(x => x.Count),
+            counts.Where(x => x.State != MessageState.Completed && x.State != MessageState.Rejected).Sum(x => x.Count),
+            counts.Where(x => x.State == MessageState.New || x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress).Sum(x => x.Count),
+            counts.Where(x => x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress).Sum(x => x.Count),
+            counts.Where(x => x.State == MessageState.WaitingForThirdReview || x.State == MessageState.ThirdReviewInProgress).Sum(x => x.Count),
+            counts.Where(x => x.State == MessageState.Completed).Sum(x => x.Count));
     }
 
     public async Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request,
