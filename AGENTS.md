@@ -8,13 +8,16 @@ For server-backed DevExtreme grids, keep data loading in `CustomStore` backed by
 
 ## Environment selection
 
-There are two solutions using the same application and API-test projects:
+There are two solutions using the same application projects, with different test sets:
 
 - **Current Linux workspace / Docker:** `backend/ORP.Docker.sln`. SQL Server runs in
-  Docker; API and frontend run on the host. The solution excludes the legacy
+  Docker; API and frontend run on the host. This solution includes local-only API/SQL
+  integration tests in `backend/tests/ORP.Api.Tests/`. It excludes the legacy
   `ORP.Sync` and `ORP.Sync.Tests` projects targeting .NET Framework 4.7.2.
 - **Windows / Visual Studio / external SQL Server:** `backend/ORP.sln`. This is the
-  versioned solution, including the legacy Sync projects. Docker is not required
+  versioned solution, including Domain, Application and legacy Sync unit tests.
+  It does not include API/SQL integration tests. Its tests need no SQL connection
+  or CREATE/DROP DATABASE permissions. Docker is not required
   and must not be invoked by the external-environment launchers.
 
 Use the matching environment without asking the user to choose again. Follow the
@@ -23,8 +26,10 @@ SDK pinned in `backend/global.json`; execute solution build/test commands from
 
 `ORP.Docker.sln`, `compose.sql.yml`, `README.Docker.local.md`, Docker launchers and
 local database helpers are intentionally ignored by Git. Keep them local; never
-force-add them. Shared application code and regression tests belong in the
-versioned projects so both solutions receive the changes.
+force-add them. `backend/tests/ORP.Api.Tests/` is also temporarily local-only and
+ignored by Git; retain it in the Docker solution but do not restore it to `ORP.sln`
+or force-add it without an explicit user request. Application code and unit tests
+remain versioned. A Git clone intentionally does not contain the SQL integration suite.
 
 `backend/ORP-with-IntegrationTests.sln` and `backend/tests/ORP.IntegrationTests/`
 are obsolete, ignored local artifacts. Do not use them for builds or validation.
@@ -75,9 +80,9 @@ or skipped tests; do not claim completion while relevant tests are failing.
 - **Backend, local Docker:** `./test-backend.docker.sh -m:1`. It waits for SQL Server,
   sets `ORP_TEST_SQL_SERVER`, and builds/tests `ORP.Docker.sln`. Do not pass
   `--no-build` after code changes unless the same changes were already built.
-- **Backend, Windows:** set `ORP_TEST_SQL_SERVER` to the external SQL Server test
-  connection, then run `./test-backend.ps1`. It builds/tests `ORP.sln`, including
-  Sync tests. Visual Studio test runs require the same environment setting.
+- **Backend, Windows:** run `./test-backend.ps1`. It builds/tests `ORP.sln` with
+  Domain, Application and Sync unit tests. Neither this launcher nor Visual Studio
+  unit-test runs require `ORP_TEST_SQL_SERVER`, Docker or a database connection.
 - **Frontend:** `npm --prefix frontend test`, `npm --prefix frontend run typecheck`,
   and `npm --prefix frontend run build`. Run lint when changing frontend code.
 - **HTTP contracts changed:** with the current API on port 5080, run
@@ -86,18 +91,21 @@ or skipped tests; do not claim completion while relevant tests are failing.
 - **Only documentation changed:** check referenced commands/paths and run
   `git diff --check`; there is no need to repeat unaffected test suites.
 
-API tests always use real SQL Server. `ORP_TEST_SQL_SERVER` needs permission to
+The local-only API tests use real SQL Server. `ORP_TEST_SQL_SERVER` needs permission to
 create and delete databases. The fixture replaces the input catalog with its own
 `ORP_Tests_<Guid>`, applies migrations, loads the SQL seed and deletes that database
 on disposal or failed initialization. Missing configuration must fail clearly;
 do not restore EF Core InMemory or silently skip SQL tests.
 
-For transaction/concurrency/grid changes, retain and run
+In the prepared local Docker workspace, for transaction/concurrency/grid changes,
+retain and run
 `SqlServerTransactionTests`, `SqlServerHttpTransactionTests`,
 `SqlServerMessageGridTests` and `SqlServerAdministrationTests`. Targeted tests may
 be used during development; finish with the relevant full suite. Concurrent tests
 must synchronize requests explicitly and verify persisted state, not merely launch
-several tasks and assume they overlapped.
+several tasks and assume they overlapped. If the ignored integration suite is absent
+(e.g. a Windows Git clone), run the versioned unit tests and explicitly report SQL
+integration tests as unavailable; do not ask for database creation permissions.
 
 Legacy Sync tests require Windows/.NET Framework 4.7.2 and are intentionally outside
 the Linux Docker solution. Report their exclusion explicitly. If Sync code changes,

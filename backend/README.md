@@ -16,7 +16,7 @@ Dependencies point inward: the Domain project has no persistence or API dependen
 ## Prerequisites
 
 - .NET SDK 10.0.400, as pinned in `global.json`.
-- SQL Server for the API and API integration tests.
+- SQL Server to run the API. Unit tests in `ORP.sln` do not require a database.
 - A Windows environment with .NET Framework 4.7.2 when deploying `ORP.Sync.exe`.
 
 ## Run with sample data
@@ -62,6 +62,7 @@ dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 ## Environment separation
 
 `ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
+Its Domain, Application and Sync unit tests require no SQL connection or database creation permissions.
 It has no Docker project or Docker startup dependency. Select the API's `SqlServer`
 launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
 or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
@@ -142,16 +143,9 @@ Request and response schemas, status codes, and Problem Details payloads are doc
 
 ## Build and test
 
-Set `ORP_TEST_SQL_SERVER` in the environment to a SQL Server connection with permission
-to create and delete databases (use `Database=master`). Tests replace the catalog with
-a unique `ORP_Tests_<Guid>` name, apply migrations and load `scripts/seed-test-data.sql`.
-Each mutable API test has its own database; read-only class fixtures share only their own database.
-Databases are deleted after disposal or failed initialization. Existing databases are not reset.
-Missing configuration fails integration tests instead of skipping them. The versioned solution and test launcher never invoke Docker.
-
-```bash
-export ORP_TEST_SQL_SERVER='Server=localhost,1433;Database=master;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True;Encrypt=True'
-```
+The versioned solution runs Domain, Application and Sync unit tests. No SQL Server
+or Docker is required. From the repository root on
+Windows, `./test-backend.ps1` runs this suite. Alternatively, from `backend`:
 
 ```bash
 dotnet restore ORP.sln --configfile NuGet.Config
@@ -180,44 +174,6 @@ Authorization checks project only the administrator flag and the two scoped perm
 statement. Development authentication loads identity fields only. Full access snapshots remain available
 for `/me` and access-management screens. Authorization returns the loaded message, source and reviews
 to the handler, so they are reused within that attempt and reloaded on retry.
-
-SQL transaction tests create, migrate, seed and delete a unique database per test. Set
-`ORP_TEST_SQL_SERVER` to a disposable SQL Server connection with database creation and deletion permission, then run:
-
-```bash
-dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter FullyQualifiedName~SqlServerTransactionTests
-```
-
-These tests call application handlers directly and verify authorization within the transaction,
-rollback after a save, retry without duplicate review/audit records, and rejection when permissions
-are revoked between attempts.
-
-### HTTP transaction and concurrency regressions
-
-`SqlServerHttpTransactionTests` uses the same SQL-backed `MessageApiFactory` as the API suite.
-It checks Serializable transactions through HTTP, rollback after a post-save failure,
-concurrent starts returning one review, and competing approve/reject requests producing
-one committed decision and one HTTP 409. A separate connection verifies the writer's
-uncommitted SQL lock (error 1222). Controlled overlapping reads also force a real SQL
-deadlock (error 1205) and verify retry without duplicate reviews or audit events.
-Synchronization uses interceptor signals rather than timing-dependent request bursts.
-
-`SqlServerMessageGridTests` verifies scoped filtering, descending sorting and paging,
-and inspects the executed SQL for server-side predicates, ordering, OFFSET/FETCH and count.
-
-```bash
-dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter "FullyQualifiedName~SqlServerHttpTransactionTests|FullyQualifiedName~SqlServerMessageGridTests"
-```
-
-### SQL Server regression test
-
-Use the same `ORP_TEST_SQL_SERVER` setting, then run:
-
-```bash
-dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter FullyQualifiedName~SqlServerAdministrationTests
-```
-
-This test checks SQL-backed administration grid sorting, search and paging in its own temporary database.
 
 ## Legacy synchronization host
 

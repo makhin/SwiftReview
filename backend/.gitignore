@@ -11,3 +11,6 @@
 /ORP.Docker.sln
 /compose.sql.yml
 /README.Docker.local.md
+
+# API/SQL integration tests are currently local-only (used by ORP.Docker.sln)
+/tests/ORP.Api.Tests/

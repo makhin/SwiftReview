@@ -24,7 +24,7 @@ Operations Reporting and Processing is a full-stack application for registering,
 - Node.js 20.19 or any supported newer LTS release (22.12+ or 24+).
 - npm.
 
-SQL Server is required for the API and API integration tests. Configure `ConnectionStrings__ORP` in the process environment or .NET user secrets before starting the backend. See [SQL Server setup and sample data](backend/README.md). The launcher scripts inherit the environment; the frontend `.env` file does not configure the API.
+SQL Server is required to run the API; the versioned unit tests do not require a database. Configure `ConnectionStrings__ORP` in the process environment or .NET user secrets before starting the backend. See [SQL Server setup and sample data](backend/README.md). The launcher scripts inherit the environment; the frontend `.env` file does not configure the API.
 
 ## Run locally — Windows and external SQL Server
 
@@ -60,8 +60,8 @@ Press `Ctrl+C` to stop them. The API listens on <http://localhost:5080>.
 
 The Docker environment is local only: `backend/ORP.Docker.sln`, Compose configuration,
 and `*.docker.sh` / `*.docker.ps1` launchers are excluded from Git. Both solutions share
-the same API source projects. The local solution excludes legacy .NET Framework Sync
-projects so its backend tests run on Linux.
+the same API source projects. The local solution excludes legacy .NET Framework Sync projects
+so it can run on Linux.
 
 Useful backend endpoints:
 
@@ -87,7 +87,7 @@ Backend configuration follows standard ASP.NET Core configuration rules. See the
 
 ## Verification
 
-Run the backend checks after setting `ORP_TEST_SQL_SERVER` to a SQL Server connection with permission to create and delete temporary databases. API tests create, migrate, seed and delete their own databases; a missing test connection is an error. The legacy Sync test project targets .NET Framework 4.7.2 and requires a compatible runtime:
+Run the backend unit tests without SQL Server or Docker. The main solution contains Domain, Application and Sync unit tests. The legacy Sync test project targets .NET Framework 4.7.2 and requires a compatible Windows runtime:
 
 ```bash
 dotnet restore backend/ORP.sln --configfile backend/NuGet.Config
