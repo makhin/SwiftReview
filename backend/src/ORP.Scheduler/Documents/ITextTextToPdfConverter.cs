@@ -1,19 +1,21 @@
 using System.Text;
-using iText.IO.Font;
-using iText.Kernel.Font;
-using iText.Kernel.Geom;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas;
-using ORP.Application.Abstractions;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
 
-namespace ORP.Infrastructure.Documents;
+namespace ORP.Scheduler.Documents;
 
 public sealed class ITextTextToPdfConverter : ITextToPdfConverter
 {
+    static ITextTextToPdfConverter()
+    {
+        // iText 5 uses a process-wide switch; avoid rounding fitted font sizes to two decimals.
+        ByteBuffer.HIGH_PRECISION = true;
+    }
+
     private static readonly Lazy<byte[]> FontData = new(() =>
     {
         using var stream = typeof(ITextTextToPdfConverter).Assembly.GetManifestResourceStream(
-            "ORP.Infrastructure.Documents.Fonts.DejaVuSansMono.ttf")!;
+            "ORP.Scheduler.Documents.Fonts.DejaVuSansMono.ttf")!;
         using var data = new MemoryStream();
         stream.CopyTo(data);
         return data.ToArray();
@@ -21,33 +23,32 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
 
     public byte[] Convert(string text, TextPdfOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(text);
+        if (text == null)
+            throw new ArgumentNullException(nameof(text));
         options ??= new TextPdfOptions();
         Validate(options);
 
         var sections = text.Split('\f').Select(section => ReadLines(section, options.TabSize)).ToList();
         // A terminal form feed finishes the last page rather than creating another one.
-        if (sections.Count > 1 && sections[^1].Count == 0)
+        if (sections.Count > 1 && sections[sections.Count - 1].Count == 0)
             sections.RemoveAt(sections.Count - 1);
 
-        // PdfFont belongs to one PDF document; only the immutable font bytes are shared.
-        var font = PdfFontFactory.CreateFont(FontData.Value, PdfEncodings.IDENTITY_H,
-            PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+        var font = BaseFont.CreateFont("DejaVuSansMono.ttf", BaseFont.IDENTITY_H,
+            BaseFont.EMBEDDED, false, FontData.Value, null);
         var width = options.PageWidth - 2 * options.Margin;
         var widest = sections.SelectMany(lines => lines)
             .Where(line => line.Length > 0)
-            .Select(line => font.GetWidth(line, options.FontSize))
+            .Select(line => font.GetWidthPoint(line, options.FontSize))
             .DefaultIfEmpty(0).Max();
         var scale = widest > width ? width / widest : 1;
         var fontSize = options.FontSize * scale;
-        var metrics = font.GetFontProgram().GetFontMetrics();
-        var ascent = metrics.GetAscender() * fontSize / 1000;
-        var descent = metrics.GetDescender() * fontSize / 1000;
+        var ascent = font.GetFontDescriptor(BaseFont.ASCENT, fontSize);
+        var descent = font.GetFontDescriptor(BaseFont.DESCENT, fontSize);
         // Include the actual glyph extents, including accents and box-drawing characters.
         foreach (var line in sections.SelectMany(lines => lines))
         {
-            ascent = Math.Max(ascent, font.GetAscent(line, fontSize));
-            descent = Math.Min(descent, font.GetDescent(line, fontSize));
+            ascent = Math.Max(ascent, font.GetAscentPoint(line, fontSize));
+            descent = Math.Min(descent, font.GetDescentPoint(line, fontSize));
         }
         var textHeight = ascent - descent;
         var spacing = Math.Max(options.LineSpacing * scale, textHeight);
@@ -57,30 +58,33 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
         var linesPerPage = (int)Math.Min(int.MaxValue, Math.Floor((availableHeight - textHeight) / spacing) + 1);
 
         using var output = new MemoryStream();
-        using (var writer = new PdfWriter(output))
+        using (var document = new Document(new Rectangle(options.PageWidth, options.PageHeight)))
         {
-            writer.SetCloseStream(false);
-            using var document = new PdfDocument(writer);
+            var writer = PdfWriter.GetInstance(document, output);
+            writer.CloseStream = false;
+            document.Open();
             foreach (var lines in sections)
             {
                 // Even an empty section represents a page (including blank pages between form feeds).
                 for (var start = 0; start < Math.Max(1, lines.Count); start += linesPerPage)
                 {
-                    var page = document.AddNewPage(new PageSize(options.PageWidth, options.PageHeight));
-                    var canvas = new PdfCanvas(page);
-                    // Default two-decimal font-size rounding can push a fitted line past the margin.
-                    canvas.GetContentStream().GetOutputStream().SetLocalHighPrecision(true);
+                    document.NewPage();
+                    var canvas = writer.DirectContent;
                     var count = Math.Min(linesPerPage, lines.Count - start);
-                    canvas.BeginText().SetFontAndSize(font, fontSize);
+                    canvas.BeginText();
+                    canvas.SetFontAndSize(font, fontSize);
                     for (var i = 0; i < count; i++)
                     {
                         if (lines[start + i].Length > 0)
-                            canvas.SetTextMatrix(1, 0, 0, 1, options.Margin,
-                                    options.PageHeight - options.Margin - ascent - i * spacing)
-                                .ShowText(lines[start + i]);
+                        {
+                            canvas.SetTextMatrix(options.Margin,
+                                options.PageHeight - options.Margin - ascent - i * spacing);
+                            canvas.ShowText(lines[start + i]);
+                        }
                     }
                     canvas.EndText();
-                    canvas.Release();
+                    // iText 5 normally omits empty pages.
+                    writer.PageEmpty = false;
                 }
             }
         }
@@ -95,9 +99,9 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
         {
             var expanded = new StringBuilder();
             var column = 0;
-            foreach (var rune in line.EnumerateRunes())
+            for (var index = 0; index < line.Length; index++)
             {
-                if (rune.Value == '\t')
+                if (line[index] == '\t')
                 {
                     var spaces = tabSize - column % tabSize;
                     expanded.Append(' ', spaces);
@@ -105,7 +109,9 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
                 }
                 else
                 {
-                    expanded.Append(rune.ToString());
+                    expanded.Append(line[index]);
+                    if (char.IsHighSurrogate(line[index]) && index + 1 < line.Length && char.IsLowSurrogate(line[index + 1]))
+                        expanded.Append(line[++index]);
                     column++;
                 }
             }
@@ -114,14 +120,16 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
         return lines;
     }
 
+    private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
     private static void Validate(TextPdfOptions options)
     {
-        if (!float.IsFinite(options.PageWidth) || options.PageWidth <= 0 ||
-            !float.IsFinite(options.PageHeight) || options.PageHeight <= 0 ||
-            !float.IsFinite(options.Margin) || options.Margin < 0 ||
+        if (!IsFinite(options.PageWidth) || options.PageWidth <= 0 ||
+            !IsFinite(options.PageHeight) || options.PageHeight <= 0 ||
+            !IsFinite(options.Margin) || options.Margin < 0 ||
             options.Margin >= options.PageWidth / 2 || options.Margin >= options.PageHeight / 2 ||
-            !float.IsFinite(options.FontSize) || options.FontSize <= 0 ||
-            !float.IsFinite(options.LineSpacing) || options.LineSpacing < options.FontSize ||
+            !IsFinite(options.FontSize) || options.FontSize <= 0 ||
+            !IsFinite(options.LineSpacing) || options.LineSpacing < options.FontSize ||
             options.TabSize <= 0)
             throw new ArgumentOutOfRangeException(nameof(options), "Specify finite positive page/font sizes, usable margins, line spacing >= font size, and a positive tab size.");
     }

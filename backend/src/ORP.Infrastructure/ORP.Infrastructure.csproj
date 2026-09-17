@@ -3,8 +3,6 @@
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Domain/ORP.Domain.csproj" />
     <PackageReference Include="DevExtreme.AspNet.Data" />
-    <PackageReference Include="itext" />
-    <PackageReference Include="itext.bouncy-castle-adapter" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
@@ -18,9 +16,5 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Documents/Fonts/DejaVuSansMono.ttf" />
-    <None Update="Documents/Fonts/LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,13 +1,10 @@
 using System.Text;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using ORP.Application.Abstractions;
-using ORP.Infrastructure.Documents;
+using ORP.Scheduler.Documents;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using Xunit;
 
-namespace ORP.Infrastructure.Tests;
+namespace ORP.Sheduler.Tests;
 
 public sealed class TextToPdfConverterTests
 {
@@ -18,9 +15,9 @@ public sealed class TextToPdfConverterTests
     [InlineData("tabs-unicode.txt", 1, "Zażółć", "└──────┘")]
     [InlineData("pages.txt", 2, "FIRST PAGE", "SECOND PAGE")]
     [InlineData("wide.txt", 1, "LEFT", "RIGHT")]
-    public async Task ConvertsTextFilesToReadablePdf(string fileName, int pages, string first, string last)
+    public void ConvertsTextFilesToReadablePdf(string fileName, int pages, string first, string last)
     {
-        var text = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName), Encoding.UTF8, TestContext.Current.CancellationToken);
+        var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName), Encoding.UTF8);
         var bytes = _converter.Convert(text);
 
         // Inspect the actual PDF with an independent reader, not a mock of the renderer.
@@ -92,12 +89,12 @@ public sealed class TextToPdfConverterTests
     [Fact]
     public void PaginatesWithoutLosingOrDuplicatingLines()
     {
-        var text = string.Join('\n', Enumerable.Range(1, 150).Select(i => $"ROW{i:D3}"));
+        var text = string.Join("\n", Enumerable.Range(1, 150).Select(i => $"ROW{i:D3}"));
         using var pdf = PdfDocument.Open(_converter.Convert(text));
         Assert.Equal(3, pdf.NumberOfPages);
         var extracted = string.Concat(pdf.GetPages().Select(page => page.Text));
         foreach (var i in Enumerable.Range(1, 150))
-            Assert.Equal(1, extracted.Split($"ROW{i:D3}").Length - 1);
+            Assert.Equal(1, extracted.Split(new[] { $"ROW{i:D3}" }, StringSplitOptions.None).Length - 1);
     }
 
     [Theory]
@@ -154,14 +151,15 @@ public sealed class TextToPdfConverterTests
     }
 
     [Fact]
-    public void ResolvesThroughApplicationAbstractionWithoutDatabaseAccess()
+    public void LibraryTargetsNetFramework472WithoutBackendDependencies()
     {
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:ORP"] = "Server=unused;Database=unused"
-        }).Build();
-        using var services = new ServiceCollection().AddInfrastructure(configuration).BuildServiceProvider();
-        Assert.IsType<ITextTextToPdfConverter>(services.GetRequiredService<ITextToPdfConverter>());
+        var assembly = typeof(ITextTextToPdfConverter).Assembly;
+        var framework = Assert.Single(assembly.GetCustomAttributes(
+            typeof(System.Runtime.Versioning.TargetFrameworkAttribute), false));
+        Assert.Equal(".NETFramework,Version=v4.7.2",
+            ((System.Runtime.Versioning.TargetFrameworkAttribute)framework).FrameworkName);
+        Assert.DoesNotContain(assembly.GetReferencedAssemblies(), reference =>
+            reference.Name != null && reference.Name.StartsWith("ORP.", StringComparison.Ordinal));
     }
 
     private static Letter Find(IReadOnlyList<Letter> letters, string value) => Assert.Single(letters, l => l.Value == value);

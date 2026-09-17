@@ -23,7 +23,13 @@ Use the matching environment without asking the user to choose again. Follow the
 SDK pinned in `backend/global.json`; execute solution build/test commands from
 `backend` so that SDK selection uses this file.
 
-The PDF converter uses iText and must not restore DevExpress PDF or SkiaSharp packages.
+All PDF code lives in `backend/src/ORP.Scheduler/` (net472, iTextSharp 5.5.13.6).
+Its tests live in `backend/tests/ORP.Sheduler.Tests/` (net472). Both belong only to
+`backend/ORP.Scheduler.sln`, separate from the application solutions. Neither project may
+reference the .NET 10 Application/Infrastructure projects. Do not restore DevExpress
+PDF or SkiaSharp packages. Running net472 tests here requires Mono (mono-devel).
+After Scheduler changes, additionally run `dotnet test ORP.Scheduler.sln -p:ORPLinuxBuild=true -m:1`
+from `backend` (Windows: omit the `ORPLinuxBuild` property).
 The ignored `backend/Directory.Build.local.props` selects `ORP.Docker.sln` and keeps
 Linux outputs in `bin/linux/` and `obj/linux/`. For direct project build/test/run
 commands in this Linux workspace, pass `-p:ORPLinuxBuild=true`; local Docker launchers

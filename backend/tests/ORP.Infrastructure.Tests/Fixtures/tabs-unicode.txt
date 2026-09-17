@@ -1,7 +1,0 @@
-A	ONE
-ABCDE	TWO
-
-Zażółć gęślą jaźń
-┌──────┐
-│ TEST │
-└──────┘

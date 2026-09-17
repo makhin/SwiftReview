@@ -1,4 +1,4 @@
-namespace ORP.Application.Abstractions;
+namespace ORP.Scheduler.Documents;
 
 /// <summary>Converts preformatted plain text to PDF without reflowing its lines.</summary>
 public interface ITextToPdfConverter
@@ -12,14 +12,14 @@ public interface ITextToPdfConverter
 }
 
 /// <summary>Page dimensions, margins, font size and line spacing are in points (1/72 inch).</summary>
-public sealed record TextPdfOptions
+public sealed class TextPdfOptions
 {
-    public float PageWidth { get; init; } = 595.28f;
-    public float PageHeight { get; init; } = 841.89f;
-    public float Margin { get; init; } = 36;
+    public float PageWidth { get; set; } = 595.28f;
+    public float PageHeight { get; set; } = 841.89f;
+    public float Margin { get; set; } = 36;
     /// <summary>Maximum font size; reduced uniformly for the document to fit its widest line.</summary>
-    public float FontSize { get; init; } = 10;
+    public float FontSize { get; set; } = 10;
     /// <summary>Baseline spacing at FontSize; scales with the font when fitting wide lines.</summary>
-    public float LineSpacing { get; init; } = 14;
-    public int TabSize { get; init; } = 8;
+    public float LineSpacing { get; set; } = 14;
+    public int TabSize { get; set; } = 8;
 }

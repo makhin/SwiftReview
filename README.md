@@ -82,7 +82,10 @@ Backend configuration follows standard ASP.NET Core configuration rules. See the
 
 Azure CI uses separate backend and frontend pipelines. See [Azure Pipelines setup](docs/AZURE_PIPELINES.md) for creation steps, triggers, and PR validation.
 
-Run the backend tests without SQL Server or Docker. The main solution contains Domain, Application, and Infrastructure tests:
+The standalone .NET Framework 4.7.2 PDF library and its tests are in
+`backend/ORP.Scheduler.sln`. See [PDF conversion](backend/README.md#preformatted-text-to-pdf).
+
+Run the backend tests without SQL Server or Docker. The main solution contains Domain and Application unit tests:
 
 ```bash
 dotnet restore backend/ORP.sln --configfile backend/NuGet.Config

@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Abstractions;
-using ORP.Infrastructure.Documents;
 using ORP.Infrastructure.Identity;
 using ORP.Infrastructure.Persistence;
 using ORP.Infrastructure.Services;
@@ -34,7 +33,6 @@ public static class DependencyInjection
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<ITextToPdfConverter, ITextTextToPdfConverter>();
         return services;
     }
 }

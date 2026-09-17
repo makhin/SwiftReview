@@ -7,8 +7,9 @@ The backend implements the Operations Reporting and Processing domain, REST API,
 - `src/ORP.Domain` — entities, workflow rules, review states, and domain exceptions.
 - `src/ORP.Application` — use-case handlers, contracts, validation, and persistence abstractions.
 - `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, and SQL Server queries.
+- `src/ORP.Scheduler` — standalone .NET Framework 4.7.2 library for preformatted text-to-PDF conversion.
 - `src/ORP.Api` — ASP.NET Core endpoints, authentication, authorization, OpenAPI, health checks, and telemetry.
-- `tests` — domain, application, and database-free infrastructure tests.
+- `tests` — domain, application, and database-free Scheduler tests.
 
 Dependencies point inward: the Domain project has no persistence or API dependency, Application depends on Domain contracts, and Infrastructure provides the external implementations used by the API.
 
@@ -60,7 +61,7 @@ dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 ## Windows / Visual Studio
 
 `ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
-Its Domain, Application, and Infrastructure tests require no SQL connection or database creation permissions.
+Its Domain and Application unit tests require no SQL connection or database creation permissions.
 It has no Docker project or Docker startup dependency. Select the API's `SqlServer`
 launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
 or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
@@ -137,7 +138,7 @@ Request and response schemas, status codes, and Problem Details payloads are doc
 
 ## Build and test
 
-The versioned solution runs Domain, Application, and Infrastructure tests. No SQL Server
+The versioned solution runs Domain and Application unit tests. No SQL Server
 or Docker is required. From the repository root on
 Windows, `./test-backend.ps1` runs this suite. Alternatively, from `backend`:
 
@@ -152,20 +153,28 @@ Unit tests can be run without SQL Server:
 ```bash
 dotnet test tests/ORP.Domain.Tests/ORP.Domain.Tests.csproj
 dotnet test tests/ORP.Application.Tests/ORP.Application.Tests.csproj
-dotnet test tests/ORP.Infrastructure.Tests/ORP.Infrastructure.Tests.csproj
 ```
 
 ### Preformatted text to PDF
 
-Inject `ORP.Application.Abstractions.ITextToPdfConverter`. `AddInfrastructure` registers
-`ITextTextToPdfConverter`; iText types stay inside Infrastructure so another
-PDF library can replace it without changing callers. The service accepts decoded text
-and returns PDF bytes, keeping filesystem access and encoding decisions with the caller:
+Open `ORP.Scheduler.sln` to work on the separate PDF library and its tests. It contains
+only `ORP.Scheduler` and `ORP.Sheduler.Tests`; neither is included in `ORP.sln`.
+
+Reference `src/ORP.Scheduler/ORP.Scheduler.csproj` from a .NET Framework 4.7.2
+application. All PDF code, the `ITextToPdfConverter` interface, `TextPdfOptions`, and
+the bundled font live in `ORP.Scheduler.Documents`. The library has no dependency
+on the .NET 10 backend projects; the API no longer registers a PDF service.
+The test project is named `ORP.Sheduler.Tests` (spelling intentional).
 
 ```csharp
-var text = await File.ReadAllTextAsync(inputPath, Encoding.UTF8, cancellationToken);
+using ORP.Scheduler.Documents;
+using System.IO;
+using System.Text;
+
+ITextToPdfConverter converter = new ITextTextToPdfConverter();
+var text = File.ReadAllText(inputPath, Encoding.UTF8);
 var pdf = converter.Convert(text);
-await File.WriteAllBytesAsync(outputPath, pdf, cancellationToken);
+File.WriteAllBytes(outputPath, pdf);
 ```
 
 Defaults are A4 portrait, 36-point margins, 10-point embedded DejaVu Sans Mono,
@@ -176,21 +185,33 @@ lines never wrap. Very wide inputs can therefore become small: choose a larger o
 landscape page for readability. Spaces, blank lines, CR/LF/CRLF, and form feeds are
 preserved. A trailing newline or form feed does not create an extra page. Empty text
 produces one blank page. Line spacing is increased to the font's measured height if
-needed to avoid overlap. Input should use characters supported by DejaVu Sans Mono;
+needed to avoid overlap. The converter enables iText 5's process-wide high-precision
+number formatting to keep fitted lines within the margins. Input should use characters supported by DejaVu Sans Mono;
 this service targets fixed-column reports, not emoji/CJK or complex-script layout.
 
-The converter uses NuGet packages `itext` and `itext.bouncy-castle-adapter`, both
-version 9.7.0. The modern package is named `itext`, not the legacy `iTextSharp`.
+The converter uses NuGet package `iTextSharp` 5.5.13.6 from the iText 5.5 branch.
+The package also references `itext.commons` 9.7.0 for its version/licensing metadata;
+this assembly reference is missing from the upstream iTextSharp NuGet manifest, so
+Scheduler declares it explicitly. PDF generation itself uses iTextSharp 5.5 APIs.
 It writes text directly into PDF using the embedded font, without DevExpress,
 SkiaSharp, GDI+, or an Office installation. The font and its redistribution license
-are bundled in `src/ORP.Infrastructure/Documents/Fonts`.
+are bundled in `src/ORP.Scheduler/Documents/Fonts`. Both Scheduler projects target
+`net472`; `Microsoft.NETFramework.ReferenceAssemblies` supplies the build reference
+assemblies. Running the tests on Windows requires .NET Framework 4.7.2 or later.
+The rest of the backend continues to target .NET 10.
 
 iText is offered under [AGPLv3 or a commercial license](https://itextpdf.com/how-buy).
-The former DevExpress license is not used by this converter.
 
-`ORP.Infrastructure.Tests` converts four checked-in text fixtures and reads the PDFs
+`ORP.Sheduler.Tests` converts four checked-in text fixtures and reads the PDFs
 with PdfPig to verify content, column coordinates, blank lines, tab stops, wide-line
-fitting, and page breaks. It runs in `ORP.sln` without SQL Server.
+fitting, and page breaks. It runs in `ORP.Scheduler.sln` without SQL Server.
+
+From `backend`:
+
+```powershell
+dotnet build ORP.Scheduler.sln -m:1
+dotnet test ORP.Scheduler.sln -m:1
+```
 
 ### Transaction boundaries
 
