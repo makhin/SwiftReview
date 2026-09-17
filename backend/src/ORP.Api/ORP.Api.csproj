@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <UserSecretsId>SwiftReview-ORP-Api</UserSecretsId>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Infrastructure/ORP.Infrastructure.csproj" />

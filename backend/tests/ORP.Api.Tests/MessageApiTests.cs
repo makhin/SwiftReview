@@ -1,22 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace ORP.Api.Tests;
-
-public sealed class MessageApiFactory : WebApplicationFactory<Program>
-{
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Development");
-        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-            new Dictionary<string, string?> { ["UseMockData"] = "true" }));
-    }
-}
 
 public sealed class MessageApiTests(MessageApiFactory factory) : IClassFixture<MessageApiFactory>
 {
@@ -33,10 +20,10 @@ public sealed class MessageApiTests(MessageApiFactory factory) : IClassFixture<M
     {
         using var client = CreateClient();
         var ct = TestContext.Current.CancellationToken;
-        using var detailResponse = await client.GetAsync("/api/messages/1", ct);
+        using var detailResponse = await client.GetAsync($"/api/messages/{factory.MessageId(1)}", ct);
         detailResponse.EnsureSuccessStatusCode();
         var details = await detailResponse.Content.ReadFromJsonAsync<JsonElement>(ct);
-        Assert.Equal(1, details.GetProperty("id").GetInt64());
+        Assert.Equal(factory.MessageId(1), details.GetProperty("id").GetInt64());
         Assert.False(string.IsNullOrWhiteSpace(details.GetProperty("body").GetString()));
         AssertNoEntryFields(details);
 
@@ -91,19 +78,20 @@ public sealed class MessageApiTests(MessageApiFactory factory) : IClassFixture<M
     }
 
     [Theory]
-    [InlineData("[\"id\",1]")]
-    [InlineData("[\"id\",\"=\",1]")]
-    [InlineData("[[\"id\",\">=\",1],[\"id\",\"<\",2]]")]
-    [InlineData("[\"!\",[\"id\",\"<>\",1]]")]
-    [InlineData("[[\"id\",1],\"or\",[[\"id\",2],\"and\",[\"id\",3]]]")]
+    [InlineData("[\"id\",{0}]")]
+    [InlineData("[\"id\",\"=\",{0}]")]
+    [InlineData("[[\"id\",\">=\",{0}],[\"id\",\"<\",{3}]]")]
+    [InlineData("[\"!\",[\"id\",\"<>\",{0}]]")]
+    [InlineData("[[\"id\",{0}],\"or\",[[\"id\",{1}],\"and\",[\"id\",{2}]]]")]
     public async Task Grid_AcceptsDevExtremeFilterSyntax(string expression)
     {
         using var client = CreateClient();
-        var filter = Uri.EscapeDataString(expression);
+        var filter = Uri.EscapeDataString(string.Format(System.Globalization.CultureInfo.InvariantCulture, expression,
+            factory.MessageId(1), factory.MessageId(2), factory.MessageId(3), factory.MessageId(1) + 1));
         var result = await client.GetFromJsonAsync<JsonElement>(
             $"/api/messages/grid?skip=0&take=10&requireTotalCount=true&filter={filter}", TestContext.Current.CancellationToken);
         Assert.Equal(1, result.GetProperty("totalCount").GetInt32());
-        Assert.Equal(1, Assert.Single(result.GetProperty("data").EnumerateArray()).GetProperty("id").GetInt64());
+        Assert.Equal(factory.MessageId(1), Assert.Single(result.GetProperty("data").EnumerateArray()).GetProperty("id").GetInt64());
     }
 
     [Theory]
@@ -123,13 +111,13 @@ public sealed class MessageApiTests(MessageApiFactory factory) : IClassFixture<M
     public async Task Grid_UsesDevExtremeSummariesAndSelection()
     {
         using var client = CreateClient();
-        var filter = Uri.EscapeDataString("[[\"id\",1],\"or\",[\"id\",2]]");
+        var filter = Uri.EscapeDataString($"[[\"id\",{factory.MessageId(1)}],\"or\",[\"id\",{factory.MessageId(2)}]]");
         var summary = Uri.EscapeDataString("[{\"selector\":\"id\",\"summaryType\":\"sum\"},{\"selector\":\"id\",\"summaryType\":\"avg\"}]");
         var select = Uri.EscapeDataString("[\"id\"]");
         var result = await client.GetFromJsonAsync<JsonElement>(
             $"/api/messages/grid?skip=0&take=10&filter={filter}&totalSummary={summary}&select={select}", TestContext.Current.CancellationToken);
-        Assert.Equal(3, result.GetProperty("summary")[0].GetDecimal());
-        Assert.Equal(1.5m, result.GetProperty("summary")[1].GetDecimal());
+        Assert.Equal(factory.MessageId(1) + factory.MessageId(2), result.GetProperty("summary")[0].GetDecimal());
+        Assert.Equal((factory.MessageId(1) + factory.MessageId(2)) / 2m, result.GetProperty("summary")[1].GetDecimal());
         Assert.All(result.GetProperty("data").EnumerateArray(), row => Assert.Equal("id", Assert.Single(row.EnumerateObject()).Name));
     }
 

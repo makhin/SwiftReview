@@ -6,7 +6,7 @@ The backend implements the Operations Reporting and Processing domain, REST API,
 
 - `src/ORP.Domain` — entities, workflow rules, review states, and domain exceptions.
 - `src/ORP.Application` — use-case handlers, contracts, validation, and persistence abstractions.
-- `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, queries, and seed data.
+- `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, and SQL Server queries.
 - `src/ORP.Api` — ASP.NET Core endpoints, authentication, authorization, OpenAPI, health checks, and telemetry.
 - `src/ORP.Sync` — one-shot .NET Framework 4.7.2 host for registering messages produced by a legacy SWIFT synchronization process.
 - `tests` — domain, application, and synchronization unit tests.
@@ -15,15 +15,16 @@ Dependencies point inward: the Domain project has no persistence or API dependen
 
 ## Prerequisites
 
-- .NET SDK 10.0.302, as pinned in `global.json`.
-- SQL Server only when using persistent storage or running the opt-in integration suite.
+- .NET SDK 10.0.400, as pinned in `global.json`.
+- SQL Server for the API and API integration tests.
 - A Windows environment with .NET Framework 4.7.2 when deploying `ORP.Sync.exe`.
 
 ## Run with sample data
 
-The Development configuration enables `UseMockData` and seeds an in-memory database. No connection string is required:
+Configure the SQL Server connection through the process environment or .NET user secrets. Development applies migrations when `BootstrapDatabase=true`; sample data is loaded explicitly using the script below:
 
 ```bash
+export ConnectionStrings__ORP='Server=localhost,1433;Database=ORP;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True;Encrypt=True'
 dotnet run --project src/ORP.Api
 ```
 
@@ -34,7 +35,7 @@ The default addresses are:
 - OpenAPI document: <http://localhost:5080/openapi/v1.json>
 - Health check: <http://localhost:5080/health>
 
-The in-memory data is recreated whenever the process restarts. New messages remain unassigned
+SQL data persists across process restarts. New messages remain unassigned
 until a user with the `message.assign` permission assigns an eligible reviewer.
 
 ## Load sample data into SQL Server
@@ -55,40 +56,20 @@ ORP tables and permission to acquire an application lock.
 To subsequently run the API against these persisted samples:
 
 ```bash
-dotnet run --project src/ORP.Api -- --UseMockData=false --BootstrapDatabase=false
+dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 ```
 
-## Run SQL Server and API in Docker
+## Environment separation
 
-Create an ignored `backend/.env` with a strong local SQL password and these settings:
+`ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
+It has no Docker project or Docker startup dependency. Select the API's `SqlServer`
+launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
+or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
+migrations; database preparation is explicit.
 
-```dotenv
-COMPOSE_PROJECT_NAME=swiftreview-sql-dev
-MSSQL_SA_PASSWORD=REPLACE_WITH_A_STRONG_LOCAL_PASSWORD
-DOCKER_CONNECTION_STRING="Server=sqlserver,1433;Database=SwiftReviewDev;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True"
-```
-
-From `backend`, start the services:
-
-```bash
-docker compose up -d --build
-docker compose ps
-```
-
-SQL Server listens on `127.0.0.1:1433`; the API listens on `http://localhost:5080`.
-The API uses SQL Server (`UseMockData=false`) and applies migrations at startup.
-After the API health endpoint responds successfully, load the samples:
-
-```bash
-docker compose exec -T sqlserver bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -d SwiftReviewDev' < scripts/seed-test-data.sql
-curl -f -H 'X-Debug-User: admin' http://localhost:5080/api/dashboard/summary
-```
-
-Run `npm run dev -- --host 127.0.0.1` from `frontend`, then open
-`http://localhost:5173/messages?user=admin`. The Vite proxy sends API calls to port 5080.
-Use `docker compose stop` to stop the services and `docker compose up -d` to start them.
-SQL data persists in the Compose project's `sqlserver-data` volume across restarts.
-The `.env` file is excluded from Git and the Docker build context.
+`ORP.Docker.sln` and the Docker launchers/Compose configuration are local, ignored files.
+They use the same API projects and omit the legacy .NET Framework Sync projects.
+Docker setup is documented locally in `README.Docker.local.md` and is not shipped in Git.
 
 ## Development authentication
 
@@ -115,11 +96,10 @@ by the deployment environment's authentication integration.
 
 ## Persistent SQL Server storage
 
-Disable mock data and provide the `ORP` connection string through ASP.NET Core configuration:
+Provide the `ORP` connection string through ASP.NET Core configuration:
 
 ```bash
 export ConnectionStrings__ORP='Server=localhost,1433;Database=ORP;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True;Encrypt=True'
-export UseMockData=false
 export BootstrapDatabase=true
 dotnet run --project src/ORP.Api
 ```
@@ -162,11 +142,31 @@ Request and response schemas, status codes, and Problem Details payloads are doc
 
 ## Build and test
 
+Set `ORP_TEST_SQL_SERVER` in the environment to a SQL Server connection with permission
+to create and delete databases (use `Database=master`). Tests replace the catalog with
+a unique `ORP_Tests_<Guid>` name, apply migrations and load `scripts/seed-test-data.sql`.
+Each mutable API test has its own database; read-only class fixtures share only their own database.
+Databases are deleted after disposal or failed initialization. Existing databases are not reset.
+Missing configuration fails integration tests instead of skipping them. The versioned solution and test launcher never invoke Docker.
+
+```bash
+export ORP_TEST_SQL_SERVER='Server=localhost,1433;Database=master;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True;Encrypt=True'
+```
+
 ```bash
 dotnet restore ORP.sln --configfile NuGet.Config
 dotnet build ORP.sln --no-restore
 dotnet test ORP.sln --no-build --no-restore
 ```
+
+Unit tests can be run without SQL Server:
+
+```bash
+dotnet test tests/ORP.Domain.Tests/ORP.Domain.Tests.csproj
+dotnet test tests/ORP.Application.Tests/ORP.Application.Tests.csproj
+```
+
+The Sync test project targets .NET Framework 4.7.2 and requires a compatible runtime.
 
 ### Transaction boundaries
 
@@ -180,10 +180,9 @@ Authorization checks project only the administrator flag and the two scoped perm
 statement. Development authentication loads identity fields only. Full access snapshots remain available
 for `/me` and access-management screens. Authorization returns the loaded message, source and reviews
 to the handler, so they are reused within that attempt and reloaded on retry.
-InMemory mock mode executes the operation without a database transaction.
 
 SQL transaction tests create, migrate, seed and delete a unique database per test. Set
-`ORP_TEST_SQL_SERVER` to a disposable SQL Server connection with database creation permission, then run:
+`ORP_TEST_SQL_SERVER` to a disposable SQL Server connection with database creation and deletion permission, then run:
 
 ```bash
 dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter FullyQualifiedName~SqlServerTransactionTests
@@ -193,17 +192,32 @@ These tests call application handlers directly and verify authorization within t
 rollback after a save, retry without duplicate review/audit records, and rejection when permissions
 are revoked between attempts.
 
+### HTTP transaction and concurrency regressions
+
+`SqlServerHttpTransactionTests` uses the same SQL-backed `MessageApiFactory` as the API suite.
+It checks Serializable transactions through HTTP, rollback after a post-save failure,
+concurrent starts returning one review, and competing approve/reject requests producing
+one committed decision and one HTTP 409. A separate connection verifies the writer's
+uncommitted SQL lock (error 1222). Controlled overlapping reads also force a real SQL
+deadlock (error 1205) and verify retry without duplicate reviews or audit events.
+Synchronization uses interceptor signals rather than timing-dependent request bursts.
+
+`SqlServerMessageGridTests` verifies scoped filtering, descending sorting and paging,
+and inspects the executed SQL for server-side predicates, ordering, OFFSET/FETCH and count.
+
+```bash
+dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter "FullyQualifiedName~SqlServerHttpTransactionTests|FullyQualifiedName~SqlServerMessageGridTests"
+```
+
 ### SQL Server regression test
 
-Set `ORP_TEST_SQL_CONNECTION` to a connection string for a migrated database loaded
-with `scripts/seed-test-data.sql`, then run:
+Use the same `ORP_TEST_SQL_SERVER` setting, then run:
 
 ```bash
 dotnet test tests/ORP.Api.Tests/ORP.Api.Tests.csproj --filter FullyQualifiedName~SqlServerAdministrationTests
 ```
 
-This read-only test checks SQL-backed administration grid sorting, search and paging.
-It is skipped when the connection variable is not set.
+This test checks SQL-backed administration grid sorting, search and paging in its own temporary database.
 
 ## Legacy synchronization host
 

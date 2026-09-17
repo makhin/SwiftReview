@@ -23,10 +23,9 @@ namespace ORP.Api.Tests;
 
 public sealed class SqlServerTransactionTests
 {
-    public static bool SqlServerConfigured => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ORP_TEST_SQL_SERVER"));
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task DirectHandlers_AuthorizeAndMutateInsideTransaction_WithoutHttpOrAdminClaims()
     {
         await using var fixture = await SqlFixture.CreateAsync();
@@ -58,7 +57,7 @@ public sealed class SqlServerTransactionTests
         Assert.Null(db.Database.CurrentTransaction);
     }
 
-    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task DirectHandler_FailureAfterSave_RollsBackMessageReviewAndAudit()
     {
         await using var fixture = await SqlFixture.CreateAsync();
@@ -78,7 +77,7 @@ public sealed class SqlServerTransactionTests
         Assert.Equal(auditCount, await db.AuditEvents.CountAsync(Ct));
     }
 
-    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task DirectHandler_TransientFailure_ReloadsAccessAndPersistsOnlyOneReview()
     {
         await using var fixture = await SqlFixture.CreateAsync();
@@ -97,7 +96,7 @@ public sealed class SqlServerTransactionTests
         Assert.Equal(MessageState.FirstReviewInProgress, await db.Messages.Where(m => m.Id == messageId).Select(m => m.State).SingleAsync(Ct));
     }
 
-    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task DirectHandler_RetryRejectsPermissionsRevokedBetweenAttempts()
     {
         await using var fixture = await SqlFixture.CreateAsync();
@@ -129,7 +128,7 @@ public sealed class SqlServerTransactionTests
         Assert.Equal(MessageState.Assigned, await db.Messages.Where(m => m.Id == messageId).Select(m => m.State).SingleAsync(Ct));
     }
 
-    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task Administration_UsesSameTransactionExecutor_AndRollsBackAccessAndAudit()
     {
         await using var fixture = await SqlFixture.CreateAsync();
@@ -153,7 +152,7 @@ public sealed class SqlServerTransactionTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UpdateUserAsync(reviewer, new UpdateUserAccessRequest([]), Ct));
     }
 
-    [Fact(Skip = "Set ORP_TEST_SQL_SERVER to a SQL Server connection with database creation permission.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task AuthorizationQueries_UseOneStatement_AndPreserveScopedPermissions()
     {
         await using var fixture = await SqlFixture.CreateAsync();
@@ -276,7 +275,7 @@ public sealed class SqlServerTransactionTests
         }
     }
 
-    private sealed class SqlFixture(ServiceProvider services, TestCurrentUser current, FailureAfterSave failure, BeforeTransaction beforeTransaction) : IAsyncDisposable
+    private sealed class SqlFixture(SqlTestDatabase database, ServiceProvider services, TestCurrentUser current, FailureAfterSave failure, BeforeTransaction beforeTransaction) : IAsyncDisposable
     {
         public ServiceProvider Services { get; } = services;
         public TestCurrentUser Current { get; } = current;
@@ -285,13 +284,10 @@ public sealed class SqlServerTransactionTests
 
         public static async Task<SqlFixture> CreateAsync()
         {
-            var connection = new SqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ORP_TEST_SQL_SERVER"))
-            {
-                InitialCatalog = $"ORP_TransactionTests_{Guid.NewGuid():N}"
-            };
+            var database = new SqlTestDatabase();
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:ORP"] = connection.ConnectionString
+                ["ConnectionStrings:ORP"] = database.ConnectionString
             }).Build();
             var current = new TestCurrentUser();
             var failure = new FailureAfterSave();
@@ -305,17 +301,10 @@ public sealed class SqlServerTransactionTests
             services.AddScoped<CheckedAccess>();
             services.AddScoped<IUserAuthorizationQueries>(sp => sp.GetRequiredService<CheckedAccess>());
             services.AddDbContext<ORPDbContext>(options => options.AddInterceptors(failure, beforeTransaction));
-            var fixture = new SqlFixture(services.BuildServiceProvider(), current, failure, beforeTransaction);
+            var fixture = new SqlFixture(database, services.BuildServiceProvider(), current, failure, beforeTransaction);
             try
             {
-                await using var scope = fixture.Services.CreateAsyncScope();
-                var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
-                await db.Database.MigrateAsync(Ct);
-                var sql = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "seed-test-data.sql"), Ct);
-                await db.Database.OpenConnectionAsync(Ct);
-                await using var command = db.Database.GetDbConnection().CreateCommand();
-                command.CommandText = sql;
-                await command.ExecuteNonQueryAsync(Ct);
+                await database.InitializeAsync(Ct);
                 return fixture;
             }
             catch
@@ -327,12 +316,8 @@ public sealed class SqlServerTransactionTests
 
         public async ValueTask DisposeAsync()
         {
-            try
-            {
-                await using var scope = Services.CreateAsyncScope();
-                await scope.ServiceProvider.GetRequiredService<ORPDbContext>().Database.EnsureDeletedAsync(CancellationToken.None);
-            }
-            finally { await Services.DisposeAsync(); }
+            try { await Services.DisposeAsync(); }
+            finally { await database.DisposeAsync(); }
         }
     }
 }

@@ -20,43 +20,48 @@ Operations Reporting and Processing is a full-stack application for registering,
 
 ## Prerequisites
 
-- .NET SDK 10.0.302, as pinned in `backend/global.json`.
+- .NET SDK 10.0.400, as pinned in `backend/global.json`.
 - Node.js 20.19 or any supported newer LTS release (22.12+ or 24+).
 - npm.
 
-SQL Server is only required when the backend is run with persistent storage. The default Development configuration uses an in-memory database populated with deterministic sample data.
+SQL Server is required for the API and API integration tests. Configure `ConnectionStrings__ORP` in the process environment or .NET user secrets before starting the backend. See [SQL Server setup and sample data](backend/README.md). The launcher scripts inherit the environment; the frontend `.env` file does not configure the API.
 
-## Run locally
+## Run locally — Windows and external SQL Server
 
-Start the backend and frontend together from the repository root on Linux or macOS:
+Open `backend/ORP.sln` in Visual Studio, set `ORP.Api` as the startup project and select
+its `SqlServer` launch profile. Docker is not required. The legacy Sync projects target
+.NET Framework 4.7.2; install its developer pack on Windows.
 
-```bash
-./run-dev.sh
+Configure the API connection in **Manage User Secrets** for `ORP.Api`:
+
+```json
+{
+  "ConnectionStrings": {
+    "ORP": "Server=YOUR_SERVER;Database=ORP;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
+  }
+}
 ```
 
-On Windows, run the PowerShell script:
+Alternatively, set `ConnectionStrings__ORP` in the process environment before starting
+Visual Studio or the launcher. Apply database migrations and, for a fresh demo database,
+load sample data as described in the [backend instructions](backend/README.md).
+The `SqlServer` profile and launchers do not apply migrations automatically unless
+`BootstrapDatabase=true` is explicitly configured.
+
+Start the API and frontend together:
 
 ```powershell
 .\run-dev.ps1
 ```
 
-Press `Ctrl+C` to stop both processes.
+Or start the API from Visual Studio and run `npm run dev` in `frontend`.
+On Linux/macOS with an external SQL Server, `./run-dev.sh` starts both processes.
+Press `Ctrl+C` to stop them. The API listens on <http://localhost:5080>.
 
-Alternatively, start the processes separately. Start the backend from the repository root:
-
-```bash
-dotnet run --project backend/src/ORP.Api
-```
-
-The API is available at <http://localhost:5080>. In another terminal, start the frontend:
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-Open the URL printed by Vite, normally <http://localhost:5173>. During local development, Vite proxies `/api` requests to the backend and sends the `admin` debug identity by default.
+The Docker environment is local only: `backend/ORP.Docker.sln`, Compose configuration,
+and `*.docker.sh` / `*.docker.ps1` launchers are excluded from Git. Both solutions share
+the same API source projects. The local solution excludes legacy .NET Framework Sync
+projects so its backend tests run on Linux.
 
 Useful backend endpoints:
 
@@ -82,13 +87,13 @@ Backend configuration follows standard ASP.NET Core configuration rules. See the
 
 ## Verification
 
-Run the backend checks:
+Run the backend checks after setting `ORP_TEST_SQL_SERVER` to a SQL Server connection with permission to create and delete temporary databases. API tests create, migrate, seed and delete their own databases; a missing test connection is an error. The legacy Sync test project targets .NET Framework 4.7.2 and requires a compatible runtime:
 
 ```bash
-cd backend
-dotnet restore ORP.sln --configfile NuGet.Config
-dotnet build ORP.sln --no-restore
-dotnet test ORP.sln --no-build --no-restore
+dotnet restore backend/ORP.sln --configfile backend/NuGet.Config
+dotnet build backend/ORP.sln --no-restore
+# Windows, from the repository root:
+.\test-backend.ps1
 ```
 
 Run the frontend checks:

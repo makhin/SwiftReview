@@ -12,20 +12,14 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        if (bool.TryParse(configuration["UseMockData"], out var useMockData) && useMockData)
+        var connection = configuration.GetConnectionString("ORP");
+        if (string.IsNullOrWhiteSpace(connection))
+            throw new InvalidOperationException("Connection string 'ORP' is required. Configure ConnectionStrings:ORP for SQL Server.");
+        services.AddDbContext<ORPDbContext>(options => options.UseSqlServer(connection, sql =>
         {
-            var databaseName = $"ORPMock-{Guid.NewGuid():N}";
-            services.AddDbContext<ORPDbContext>(options => options.UseInMemoryDatabase(databaseName));
-        }
-        else
-        {
-            var connection = configuration.GetConnectionString("ORP") ?? throw new InvalidOperationException("Connection string 'ORP' is required.");
-            services.AddDbContext<ORPDbContext>(options => options.UseSqlServer(connection, sql =>
-            {
-                sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp");
-                sql.EnableRetryOnFailure();
-            }));
-        }
+            sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp");
+            sql.EnableRetryOnFailure();
+        }));
         services.AddScoped<ITransactionExecutor, TransactionExecutor>();
         services.AddScoped<IORPStore, ORPStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();

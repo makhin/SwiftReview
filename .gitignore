@@ -15,3 +15,11 @@ TestResults/
 *.pem
 *.key
 appsettings.*.local.json
+
+# Local Docker environment (not published)
+/run-dev.docker.sh
+/run-dev.docker.ps1
+/test-backend.docker.sh
+/test-backend.docker.ps1
+/scripts/configure-database.sh
+/scripts/Configure-Database.ps1

@@ -7,12 +7,13 @@ using Xunit;
 
 namespace ORP.Api.Tests;
 
-public sealed class MessageStateCountsApiTests : IDisposable
+public sealed class MessageStateCountsApiTests : IAsyncLifetime
 {
     private readonly MessageApiFactory factory = new();
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
-    public void Dispose() => factory.Dispose();
+    public ValueTask InitializeAsync() => factory.InitializeAsync();
+    public ValueTask DisposeAsync() => factory.DisposeAsync();
     private HttpClient Client(string user)
     {
         var client = factory.CreateClient(); client.DefaultRequestHeaders.Add("X-Debug-User", user); return client;
@@ -37,14 +38,14 @@ public sealed class MessageStateCountsApiTests : IDisposable
         Assert.Equal(grid.GetProperty("totalCount").GetInt32(), counts.Sum(c => c.Count));
         Assert.True(counts.Sum(c => c.Count) > 1);
         Assert.All(counts.Where(c => c.State != MessageState.New), c => Assert.Equal(0, c.Count));
-        (await admin.PostAsJsonAsync("/api/messages/1/assign", new { assignedTo = 1 }, Ct)).EnsureSuccessStatusCode();
+        (await admin.PostAsJsonAsync($"/api/messages/{factory.MessageId(1)}/assign", new { assignedTo = factory.UserId("amelia.hart") }, Ct)).EnsureSuccessStatusCode();
         var after = await Counts(user);
         Assert.Equal(counts.Single(c => c.State == MessageState.New).Count - 1, after.Single(c => c.State == MessageState.New).Count);
         Assert.Equal(1, after.Single(c => c.State == MessageState.Assigned).Count);
         var filter = Uri.EscapeDataString("[\"state\",\"=\",\"Assigned\"]");
         var filtered = await user.GetFromJsonAsync<JsonElement>($"/api/messages/grid?skip=0&take=100&requireTotalCount=true&filter={filter}", Ct);
         Assert.Equal(after.Single(c => c.State == MessageState.Assigned).Count, filtered.GetProperty("totalCount").GetInt32());
-        (await admin.PutAsJsonAsync("/api/admin/users/1/access", new { assignments = Array.Empty<object>() }, Ct)).EnsureSuccessStatusCode();
+        (await admin.PutAsJsonAsync($"/api/admin/users/{factory.UserId("amelia.hart")}/access", new { assignments = Array.Empty<object>() }, Ct)).EnsureSuccessStatusCode();
         Assert.All(await Counts(user), c => Assert.Equal(0, c.Count));
     }
 
@@ -52,7 +53,7 @@ public sealed class MessageStateCountsApiTests : IDisposable
     public async Task GlobalAdministratorWithoutRoles_CountsAllVisibleMessages()
     {
         using var admin = Client("admin"); using var user = Client("amelia.hart");
-        (await admin.PutAsJsonAsync("/api/admin/users/5/access", new { assignments = Array.Empty<object>() }, Ct)).EnsureSuccessStatusCode();
+        (await admin.PutAsJsonAsync($"/api/admin/users/{factory.UserId("admin")}/access", new { assignments = Array.Empty<object>() }, Ct)).EnsureSuccessStatusCode();
         var all = await Counts(admin); var scoped = await Counts(user);
         Assert.True(all.Sum(c => c.Count) > scoped.Sum(c => c.Count));
         var grid = await admin.GetFromJsonAsync<JsonElement>("/api/messages/grid?skip=0&take=1&requireTotalCount=true", Ct);

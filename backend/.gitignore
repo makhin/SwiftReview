@@ -6,3 +6,8 @@
 /.dockerignore
 /docker-compose.yml
 /src/ORP.Api/Dockerfile
+
+# Local Docker solution and SQL Server service
+/ORP.Docker.sln
+/compose.sql.yml
+/README.Docker.local.md

@@ -1,6 +1,9 @@
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $env:BootstrapDatabase) { $env:BootstrapDatabase = 'false' }
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+if (-not $env:ASPNETCORE_URLS) { $env:ASPNETCORE_URLS = 'http://localhost:5080' }
 $backendProcess = $null
 $frontendProcess = $null
 $exitCode = 0
@@ -8,7 +11,7 @@ $exitCode = 0
 try {
     $backendProcess = Start-Process `
         -FilePath "dotnet" `
-        -ArgumentList "run", "--project", "backend/src/ORP.Api" `
+        -ArgumentList "run", "--project", "backend/src/ORP.Api", "--no-launch-profile" `
         -WorkingDirectory $repositoryRoot `
         -NoNewWindow `
         -PassThru

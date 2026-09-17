@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
-set -uo pipefail
+set -euo pipefail
 
 cd "$(dirname "$0")"
+export BootstrapDatabase="${BootstrapDatabase:-false}"
+export ASPNETCORE_ENVIRONMENT=Development
+export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://localhost:5080}"
 
 backend_pid=
 frontend_pid=
@@ -25,7 +28,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-dotnet run --project backend/src/ORP.Api &
+dotnet run --project backend/src/ORP.Api --no-launch-profile &
 backend_pid=$!
 
 npm --prefix frontend run dev &

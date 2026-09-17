@@ -165,9 +165,26 @@ Endpoint загружает message, source и reviews для authorization, п�
 5. **PR 5 — R5:** общий разбор ответов и ошибок; сохранить контекстные сообщения и независимость grid loader.
 6. **R6/L1:** отдельные небольшие изменения только при подтверждённом выигрыше. Их выполнение не должно задерживать P1.
 
-Дополнительные тесты прежде всего должны закрывать R1–R3, а не зеркально проверять каждый новый helper. Существующий большой SQL end-to-end тест полезно дополнять независимыми сценариями с общей SQL fixture: падение раннего assert сейчас прекращает проверки ниже в том же тесте. Саму InMemory-базу оставить для mock mode и быстрых проверок; SQL-specific семантику проверять на SQL Server. Это соответствует [рекомендациям EF Core о выборе стратегии тестирования](https://learn.microsoft.com/en-us/ef/core/testing/choosing-a-testing-strategy).
+Дополнительные тесты прежде всего должны закрывать R1–R3, а не зеркально проверять каждый новый helper. Существующий большой SQL end-to-end тест полезно дополнять независимыми сценариями с общей SQL fixture: падение раннего assert сейчас прекращает проверки ниже в том же тесте. После перехода на SQL Server API-тесты используют изолированные временные SQL-базы; быстрые unit-тесты бизнес-логики работают без БД. Это соответствует [рекомендациям EF Core о выборе стратегии тестирования](https://learn.microsoft.com/en-us/ef/core/testing/choosing-a-testing-strategy).
 
-## Выполненная проверка
+## Повторная проверка транзакций — 17 сентября 2026
+
+Замечание о `MessageApiFactory` с EF Core InMemory и обходе транзакции в
+`MessageMutationTransactionFilter` относится к прежней реализации. Текущая фабрика
+находится в `backend/tests/ORP.Api.Tests/MessageApiFactory.cs`, использует SQL Server
+и отдельную временную базу. Фильтра больше нет; транзакциями управляет
+`TransactionExecutor` с уровнем Serializable и повтором всей операции.
+
+Одного перехода на SQL Server недостаточно для доказательства concurrency. Добавлены
+HTTP-регрессии в `SqlServerHttpTransactionTests`: rollback после сохранения, удержание
+блокировки до commit, два одновременных старта одного review, конкурирующие approve/reject
+в обоих порядках и retry после реального SQL deadlock 1205. Ожидание блокировки отдельно
+проверяется вторым SQL-подключением (1222); итоговые review, assignment и audit проверяются
+после завершения HTTP-запросов. `SqlServerMessageGridTests` проверяет scoped-результат
+и выполнение фильтрации, сортировки, пагинации и подсчёта на SQL Server.
+Это проверки конкретных конкурентных сценариев, а не нагрузочное тестирование.
+
+## Выполненная проверка на момент исходного обзора
 
 | Проверка | Результат |
 | --- | --- |
@@ -179,10 +196,10 @@ Endpoint загружает message, source и reviews для authorization, п�
 | Дополнительные API-сценарии R1/R2 | Подтверждены на отдельном mock API, порт 5099, auto-assignment worker выключен |
 | Регрессионные сценарии R3 | Некорректные конфигурации отклоняются до использования; optional level 2 поддерживается; SQL-регистрация пропускает несовместимый workflow |
 
-Для повторения API-проверок запустить отдельный экземпляр из корня репозитория:
+Для повторения API-проверок задать `ConnectionStrings__ORP` для отдельной тестовой SQL-базы с миграциями и seed-данными, затем запустить экземпляр из корня репозитория:
 
 ```bash
-ASPNETCORE_ENVIRONMENT=Development UseMockData=true AutoAssignment__Enabled=false \
+ASPNETCORE_ENVIRONMENT=Development AutoAssignment__Enabled=false \
   dotnet run --project backend/src/ORP.Api --no-build --no-launch-profile \
   --urls http://127.0.0.1:5099
 ```

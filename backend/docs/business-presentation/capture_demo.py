@@ -1,4 +1,4 @@
-"""Capture the real application against an explicitly disposable in-memory API."""
+"""Capture the real application against an explicitly disposable SQL Server development API."""
 import asyncio
 import json
 import os
@@ -18,23 +18,30 @@ def api(path, user='admin', body=None):
         return json.loads(raw) if raw else None
 
 async def main():
-    if os.environ.get('PRESENTATION_DISPOSABLE_MOCK_API') != '1':
-        raise SystemExit('Run only against a new disposable UseMockData=true API; set PRESENTATION_DISPOSABLE_MOCK_API=1.')
+    if os.environ.get('PRESENTATION_DISPOSABLE_SQL_API') != '1':
+        raise SystemExit('Run only against an API connected to a fresh disposable SQL database loaded with seed-test-data.sql; set PRESENTATION_DISPOSABLE_SQL_API=1.')
     OUT.mkdir(exist_ok=True)
+    messages = api('messages/grid?skip=0&take=100')['data']
+    by_warehouse = {row['externalId']: row['id'] for row in messages}
+    users = api('users')
+    reviewer = next(user['id'] for user in users if user['userName'] == 'theo.mercer')
+    def message_id(number):
+        return by_warehouse[f'TEST-{number:05d}']
     # These are seeded demonstration messages, all initially New.
-    for mid in [2,5,8,11,14,17,20,75,74,73,72,71,70,69,68]:
+    for number in [2,5,8,11,14,17,20,75,74,73,72,71,70,69,68]:
+        mid = message_id(number)
         message = api(f'messages/{mid}')
         if message['state'] == 'New':
             candidates = api(f'messages/{mid}/assignment-candidates')
-            api(f'messages/{mid}/assign', body={'assignedTo':candidates[0]['id']})
-    if api('messages/5')['state'] == 'Assigned':
-        api('messages/5/reviews/start',2,{'level':1})
-        api('messages/5/reviews/approve',2,{'level':1,'comment':'Demo: first review completed.'})
-    if api('messages/8')['state'] == 'Assigned':
-        api('messages/8/reviews/start',2,{'level':1})
-    if api('messages/74')['state'] == 'Assigned':
-        api('messages/74/reviews/start',2,{'level':1})
-        api('messages/74/reviews/approve',2,{'level':1,'comment':'Demo: reviewed and ready for the next level.'})
+            assigned_to = reviewer if number in [5,8,74] else candidates[0]['id']
+            api(f'messages/{mid}/assign', body={'assignedTo':assigned_to})
+    for number in [5,8,74]:
+        mid = message_id(number)
+        if api(f'messages/{mid}')['state'] == 'Assigned':
+            started = api(f'messages/{mid}/reviews/start',reviewer,{'level':1})
+            if number != 8:
+                api(f'messages/{mid}/reviews/approve',reviewer,
+                    {'level':1,'reviewId':started['reviewId'],'comment':'Demo: first review completed.'})
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('PRESENTATION_CHROMIUM',
             '/home/alexandr/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome'),
@@ -50,7 +57,7 @@ async def main():
         await page.screenshot(path=str(OUT/'messages.png'))
         bounds = await page.locator('.dx-datagrid').first.bounding_box()
         await page.screenshot(path=str(OUT/'queue-detail.png'),clip={**bounds,'height':min(bounds['height'],480)})
-        await page.locator('.dx-data-row').filter(has_text='MSG-00067-').get_by_role('button',name='Assign',exact=True).click()
+        await page.locator('.dx-data-row').filter(has_text='TEST-00067').get_by_role('button',name='Assign',exact=True).click()
         await page.locator('#assignment-reviewer').wait_for()
         await page.locator('#assignment-reviewer').click()
         await page.wait_for_timeout(300)
@@ -58,7 +65,7 @@ async def main():
         await page.locator('.dx-dropdownlist-popup-wrapper .dx-list-item').first.click()
         await page.wait_for_timeout(400)
         await page.get_by_role('dialog',name='Assign message',exact=True).screenshot(path=str(OUT/'assignment-dialog.png'))
-        await page.goto('http://127.0.0.1:5173/messages/assigned?scope=mine&user=2')
+        await page.goto('http://127.0.0.1:5173/messages/assigned?scope=mine&user=theo.mercer')
         await page.locator('.dx-data-row').first.wait_for()
         await page.screenshot(path=str(OUT/'my-work.png'))
         await page.get_by_role('button',name='Review',exact=True).first.click()
@@ -70,7 +77,7 @@ async def main():
         await page.screenshot(path=str(OUT/'review-detail.png'),clip={**dialog,'height':actions['y']+actions['height']+20-dialog['y']})
         await page.goto('http://127.0.0.1:5173/messages?user=admin')
         await page.locator('.dx-data-row').first.wait_for()
-        row=page.locator('.dx-data-row').filter(has_text='MSG-00074-')
+        row=page.locator('.dx-data-row').filter(has_text='TEST-00074')
         await row.get_by_role('button',name='View audit trail').click()
         await page.locator('.audit-event').nth(3).wait_for()
         await page.screenshot(path=str(OUT/'audit.png'))

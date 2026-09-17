@@ -59,16 +59,7 @@ app.MapOpenApi();
 app.MapScalarApiReference("/scalar", options => options.WithTitle("ORP API"));
 app.MapApiEndpoints();
 
-if (app.Configuration.GetValue<bool>("UseMockData"))
-{
-    ApiLog.DatabaseInitializationStarted(app.Logger, "MockData");
-    await using var scope = app.Services.CreateAsyncScope();
-    var db = scope.ServiceProvider.GetRequiredService<ORPDbContext>();
-    await db.Database.EnsureCreatedAsync();
-    await MockDataSeeder.SeedAsync(db);
-    ApiLog.DatabaseInitializationCompleted(app.Logger, "MockData");
-}
-else if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("BootstrapDatabase"))
+if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("BootstrapDatabase"))
 {
     ApiLog.DatabaseInitializationStarted(app.Logger, "Migration");
     await using var scope = app.Services.CreateAsyncScope();

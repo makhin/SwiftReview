@@ -1,12 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using ORP.Infrastructure.Persistence;
 using Xunit;
 
@@ -14,33 +9,11 @@ namespace ORP.Api.Tests;
 
 public sealed class SqlServerAdministrationTests
 {
-    public static bool SqlServerConfigured => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ORP_TEST_SQL_CONNECTION"));
-
-    [Fact(Skip = "Set ORP_TEST_SQL_CONNECTION to a migrated and seeded SQL Server database.", SkipUnless = nameof(SqlServerConfigured))]
+    [Fact]
     public async Task UserGrid_ExecutesSortingSearchAndPagingOnSqlServer()
     {
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Development");
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["UseMockData"] = "false",
-                ["BootstrapDatabase"] = "false",
-                ["ConnectionStrings:ORP"] = Environment.GetEnvironmentVariable("ORP_TEST_SQL_CONNECTION")
-            }));
-            builder.ConfigureServices(services =>
-            {
-                services.RemoveAll<ORPDbContext>();
-                services.RemoveAll<DbContextOptions<ORPDbContext>>();
-                services.RemoveAll<IDbContextOptionsConfiguration<ORPDbContext>>();
-                services.AddDbContext<ORPDbContext>(options => options.UseSqlServer(
-                    Environment.GetEnvironmentVariable("ORP_TEST_SQL_CONNECTION"), sql =>
-                    {
-                        sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp");
-                        sql.EnableRetryOnFailure();
-                    }));
-            });
-        });
+        await using var factory = new MessageApiFactory();
+        await factory.InitializeAsync();
         using var client = factory.CreateClient();
         using var scope = factory.Services.CreateScope();
         Assert.True(scope.ServiceProvider.GetRequiredService<ORPDbContext>().Database.IsSqlServer());

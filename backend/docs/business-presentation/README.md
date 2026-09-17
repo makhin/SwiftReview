@@ -21,7 +21,7 @@ node build_deck.cjs
 
 The generator uses the saved PNG assets and also regenerates the speaker and evidence notes. Export the rebuilt PPTX to PDF with PowerPoint or LibreOffice. Recheck slide layout after editing text or replacing fonts.
 
-`capture_demo.py` is optional and requires Python with Playwright and a Chromium browser. It captures the real frontend against a **disposable in-memory development API** on port 5080 and the frontend on port 5173. It creates sample workflow actions, so never point it at persistent or production data. Set `PRESENTATION_DISPOSABLE_MOCK_API=1` only after starting the API explicitly with `UseMockData=true`; set `PRESENTATION_CHROMIUM` to the local browser path if necessary.
+`capture_demo.py` is optional and requires Python with Playwright and a Chromium browser. It captures the real frontend against a **development API connected to a disposable SQL Server database** on port 5080 and the frontend on port 5173. It creates sample workflow actions, so never point it at persistent or production data. Set `PRESENTATION_DISPOSABLE_SQL_API=1` only after applying migrations and `backend/scripts/seed-test-data.sql` to a fresh disposable database and starting the API with `ConnectionStrings__ORP` pointing to it; set `PRESENTATION_CHROMIUM` to the local browser path if necessary.
 
 ## Validation
 

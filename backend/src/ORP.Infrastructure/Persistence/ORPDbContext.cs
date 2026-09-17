@@ -54,7 +54,7 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
                      x.State != EntityState.Deleted && x.Entity.IsActive &&
                      (x.State == EntityState.Added || changedWorkflowIds.Contains(x.Entity.Id))))
             _ = entry.Entity.RequiredLevels();
-        if (Database.IsRelational() && ChangeTracker.Entries<SwiftMessageRecord>().Any(x => x.State != EntityState.Unchanged))
+        if (ChangeTracker.Entries<SwiftMessageRecord>().Any(x => x.State != EntityState.Unchanged))
             throw new InvalidOperationException("Swift messages are written only by ORP.Sync.");
         if (ChangeTracker.Entries<AuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Audit events are append-only.");

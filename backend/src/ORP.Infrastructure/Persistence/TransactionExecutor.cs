@@ -11,8 +11,6 @@ public sealed class TransactionExecutor(ORPDbContext db) : ITransactionExecutor
 
     public Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
-        // Mock mode has no transaction support. Relational operations include authorization reads.
-        if (!db.Database.IsRelational()) return operation(cancellationToken);
         return db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
         {
             // Each attempt must read fresh state, including permissions, after acquiring the transaction.
