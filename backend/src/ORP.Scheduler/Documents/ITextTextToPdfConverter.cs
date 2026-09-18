@@ -58,7 +58,8 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
         var linesPerPage = (int)Math.Min(int.MaxValue, Math.Floor((availableHeight - textHeight) / spacing) + 1);
 
         using var output = new MemoryStream();
-        using (var document = new Document(new Rectangle(options.PageWidth, options.PageHeight)))
+        var document = new Document(new Rectangle(options.PageWidth, options.PageHeight));
+        try
         {
             var writer = PdfWriter.GetInstance(document, output);
             writer.CloseStream = false;
@@ -87,6 +88,10 @@ public sealed class ITextTextToPdfConverter : ITextToPdfConverter
                     writer.PageEmpty = false;
                 }
             }
+        }
+        finally
+        {
+            document.Close();
         }
         return output.ToArray();
     }
