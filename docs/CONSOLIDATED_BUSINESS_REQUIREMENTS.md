@@ -70,5 +70,3 @@ The wider TFO proposal describes incoming messages as a “4-eye” workflow and
 - Confirm whether existing automated CS confirmations must be retained and whether future Pega/Smart Investigate integration is in scope.
 - Decide whether the existing externally generated Dubai TFO cover letter must be attached to or printed with messages.
 - Agree service availability and recovery requirements. The approximately 24-hour CS recovery target is indicative, not approved.
-
-Source photographs: [DC](photo_2026-09-21_12-12-38.jpg), [CS](photo_2026-09-21_12-12-49.jpg), [CS continued](photo_2026-09-21_12-12-54.jpg), [TFO](photo_2026-09-21_12-12-58.jpg), [TFO continued](photo_2026-09-21_12-13-24.jpg).
