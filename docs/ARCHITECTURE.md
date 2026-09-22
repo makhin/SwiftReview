@@ -140,7 +140,7 @@ Errors use RFC-style Problem Details:
 
 Every request receives an `X-Correlation-ID`. The same value is placed in request logs and audit events, making one operation traceable across layers. `/health` checks the database, `/openapi/v1.json` publishes the contract, `/scalar` provides an interactive API reference, and OpenTelemetry can export traces and metrics through OTLP.
 
-Development authentication reads `X-Debug-User`. It is disabled outside Development and must be replaced by the deployment environment's real authentication integration.
+Authentication differs between Development and Production and is described in [section 5](#5-authentication-and-authorization).
 
 ## 4. Database design
 
@@ -177,9 +177,81 @@ Migrations live in `ORP.Infrastructure/Persistence/Migrations`. In Development t
 
 The repository currently has no production SWIFT importer. An external integration must populate the source record, resolve a workflow, and create the related `Messages` row. The checked-in SQL seed is for development/testing, not production ingestion.
 
-## 5. Authorization model
+## 5. Authentication and authorization
 
-Authentication answers “who is this user?” Authorization answers “may this user perform this action on this exact message?”
+Authentication answers “who is this user?” Authorization answers “may this user perform this action on this exact message?” These are separate steps: Microsoft Entra ID will authenticate the person in Production, while ORP remains responsible for business permissions and data scopes.
+
+### Development: debug-user authentication (implemented)
+
+Development deliberately avoids a dependency on Entra ID so developers and automated tests can switch between seeded users quickly:
+
+```text
+?user=admin or VITE_DEBUG_USER
+        |
+        v
+frontend sessionStorage -> X-Debug-User header
+        |
+        v
+DebugAuthenticationHandler -> Users table -> ASP.NET claims
+        |
+        v
+HttpCurrentUser -> Application authorization
+```
+
+The browser user is selected in this order:
+
+1. The `user` URL parameter, for example `/messages?user=5` or `/messages?user=admin`. The frontend remembers it in the current tab's `sessionStorage`.
+2. The previously remembered value.
+3. `VITE_DEBUG_USER` from frontend configuration.
+4. The fallback value `admin`.
+
+`shared/api/client.ts` adds that value to every API request as `X-Debug-User`. Grid requests also use this client, so they follow the same rule. Vite only proxies `/api` to the backend; it does not authenticate the request.
+
+The API's `DebugAuthenticationHandler` first checks that the ASP.NET environment is `Development`. It accepts a numeric local user ID or a username, loads the user from SQL Server, and creates these claims:
+
+- `NameIdentifier`: the local ORP user ID.
+- `Name`: the ORP username.
+- `display_name`: the display name.
+- `global_admin=true`: added only for a global administrator.
+
+`HttpCurrentUser` reads the verified claims and exposes them to Application handlers through `ICurrentUser`. All `/api` endpoints require an authenticated principal. An unknown or missing debug user therefore produces `401`; insufficient ORP access produces `403`.
+
+The debug header is not a security credential. The handler rejects it outside Development, and a production deployment must never enable the Development environment to make this mechanism work.
+
+### Production: Microsoft Entra ID (planned, not implemented yet)
+
+Production will use an Entra tenant with a registered SPA client and protected API (either two app registrations or an equivalent client/API registration). The API exposes a delegated scope such as `access_as_user`, and only approved client applications may request it.
+
+The intended request flow is:
+
+```text
+1. React redirects the user to Microsoft Entra ID.
+2. Entra authenticates the user, including tenant policies such as MFA.
+3. MSAL obtains an API access token with Authorization Code Flow + PKCE.
+4. apiRequest sends: Authorization: Bearer <access-token>
+5. ASP.NET validates the token before an endpoint runs.
+6. The API maps the Entra identity to a local ORP user.
+7. Existing ORP branch, department, role, and workflow checks run unchanged.
+```
+
+The frontend should use `@azure/msal-browser` and `@azure/msal-react`. It should acquire tokens silently when possible and start an interactive sign-in only when required. `apiRequest` will attach an **access token intended for the ORP API**, never an ID token. The SPA contains a public client ID and tenant/authority configuration but no client secret. MSAL owns token caching and renewal; application code must not store raw tokens in its own `localStorage` or `sessionStorage` entries. Microsoft recommends Authorization Code Flow with PKCE for SPAs rather than the older implicit flow.
+
+The API should replace the Debug scheme outside Development with JWT bearer authentication, normally configured through `Microsoft.Identity.Web`. The middleware must validate the token's signature, issuer/tenant, audience, lifetime, and required delegated scope. The frontend cannot make a request trusted by merely sending a username or copying `X-Debug-User`.
+
+ORP should identify a production user by the immutable Entra `oid` (object ID) together with `tid` (tenant ID), not by email, display name, or UPN because those values can change. This requires adding Entra object/tenant identifiers and a unique constraint to the local `Users` model. After token validation, the API resolves `(tid, oid)` to the local user ID used by `ICurrentUser`. A valid Entra user with no active ORP user record should receive `403`, not automatic business access.
+
+Entra proves identity and grants permission to call the API; the existing ORP database remains the source of truth for application authorization:
+
+- `UserRoles` continues to connect a user, role, branch, and department.
+- `RolePermissions` continues to grant `message.view`, `message.assign`, review levels, audit, and workflow permissions.
+- `IsGlobalAdministrator` remains an explicit ORP business privilege; an Entra tenant administrator is not automatically an ORP global administrator.
+- Frontend permission checks only control presentation. The backend always repeats authorization using the authenticated local user.
+
+For deployment, serving the SPA and API behind one HTTPS origin is the simplest model. If they use different origins, the API must use an explicit CORS allow-list; wildcard origins must not be combined with authenticated requests. Signing out should clear the MSAL session/cache and use the Entra logout flow.
+
+Implementation references: [MSAL authentication flows](https://learn.microsoft.com/en-us/entra/identity-platform/msal-authentication-flows), [configure a protected ASP.NET Core API](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-app-configuration), and [validate Entra claims](https://learn.microsoft.com/en-us/entra/identity-platform/claims-validation).
+
+### ORP authorization rules
 
 A normal user needs both `message.view` and the action permission in the message's exact branch/department scope. Action permissions include `message.assign`, `review.level1` to `review.level3`, `audit.view`, and `workflow.manage`. Authorization also checks current state, assignee/reviewer ownership, and four-eyes separation. The backend is the security boundary; frontend permission checks only hide or disable UI controls.
 
