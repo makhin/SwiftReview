@@ -59,29 +59,14 @@ BEGIN TRY
                 N'review.level2',N'review.level3',N'audit.view'));
 
     DECLARE @users TABLE ([UserName] nvarchar(80),[DisplayName] nvarchar(160),
-        [RoleName] nvarchar(80),[BranchName] nvarchar(80),[DepartmentName] nvarchar(80),[IsAdmin] bit);
-    -- NULL branch/department means access to all branches/departments.
+        [RoleName] nvarchar(80),[IsAdmin] bit,[AllScopes] bit);
+    -- Three broadly scoped reviewers support every workflow; Amelia demonstrates scoped access.
     INSERT INTO @users VALUES
-        (N'amelia.hart',N'Amelia Hart',N'Reviewer',N'London',N'CS',0),
-        (N'theo.mercer',N'Theo Mercer',N'Reviewer',N'Dublin',N'TFO',0),
-        (N'priya.nair',N'Priya Nair',N'Reviewer',N'Singapore',N'DC',0),
-        (N'victor.stone',N'Victor Stone',N'Reviewer',N'London',N'DC',0),
-        (N'admin',N'Administrator',N'Operations manager',NULL,NULL,1),
-        (N'lucas.bennett',N'Lucas Bennett',N'Reviewer',N'Dublin',N'CS',0),
-        (N'sofia.lindberg',N'Sofia Lindberg',N'Reviewer',N'Singapore',N'CS',0),
-        (N'kenji.mori',N'Kenji Mori',N'Reviewer',N'London',N'TFO',0),
-        (N'nadia.kowalska',N'Nadia Kowalska',N'Reviewer',N'Singapore',N'TFO',0),
-        (N'mateo.silva',N'Mateo Silva',N'Reviewer',N'London',N'DC',0),
-        (N'elena.petrova',N'Elena Petrova',N'Reviewer',N'Dublin',N'DC',0);
-    -- Three independent reviewers per branch/department support all workflow levels.
-    -- Existing named reviewers occupy slot 1; Victor occupies London/DC slot 2.
-    INSERT INTO @users
-    SELECT LOWER(CONCAT(b.[Name],N'.',d.[Name],N'.reviewer',slot.[Number])),
-        CONCAT(b.[Name],N' ',d.[Name],N' Reviewer ',slot.[Number]),
-        N'Reviewer',b.[Name],d.[Name],0
-    FROM [orp].[Branches] b CROSS JOIN [orp].[Departments] d
-    CROSS JOIN (VALUES (2),(3)) slot([Number])
-    WHERE NOT (b.[Name]=N'London' AND d.[Name]=N'DC' AND slot.[Number]=2);
+        (N'amelia.hart',N'Amelia Hart',N'Reviewer',0,0),
+        (N'theo.mercer',N'Theo Mercer',N'Reviewer',0,1),
+        (N'priya.nair',N'Priya Nair',N'Reviewer',0,1),
+        (N'lucas.bennett',N'Lucas Bennett',N'Reviewer',0,1),
+        (N'admin',N'Administrator',N'Operations manager',1,1);
 
     INSERT INTO [orp].[Users] ([UserName],[DisplayName],[IsGlobalAdministrator])
     SELECT [UserName],[DisplayName],[IsAdmin] FROM @users;
@@ -90,8 +75,9 @@ BEGIN TRY
     SELECT u.[Id],b.[Id],d.[Id],r.[Id] FROM @users v
     JOIN [orp].[Users] u ON u.[UserName]=v.[UserName]
     JOIN [orp].[Roles] r ON r.[Name]=v.[RoleName]
-    JOIN [orp].[Branches] b ON v.[BranchName] IS NULL OR b.[Name]=v.[BranchName]
-    JOIN [orp].[Departments] d ON v.[DepartmentName] IS NULL OR d.[Name]=v.[DepartmentName];
+    CROSS JOIN [orp].[Branches] b
+    CROSS JOIN [orp].[Departments] d
+    WHERE v.[AllScopes]=1 OR (b.[Name]=N'London' AND d.[Name]=N'CS');
 
     DECLARE @workflows TABLE ([Ordinal] int,[MessageType] nvarchar(20),[Name] nvarchar(100),
         [DepartmentName] nvarchar(80),[Levels] int);
@@ -137,7 +123,7 @@ BEGIN TRY
     FROM [orp].[Messages];
 
     COMMIT;
-    PRINT 'Loaded 28 users, 3 workflows and 75 messages into orp.';
+    PRINT 'Loaded 5 users, 3 workflows and 75 messages into orp.';
 END TRY
 BEGIN CATCH
     IF XACT_STATE() <> 0 ROLLBACK;

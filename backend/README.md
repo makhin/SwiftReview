@@ -45,12 +45,13 @@ in SSMS, select the target database, and execute the whole script.
 **Every run deletes all ORP application data, including users, roles, messages and audit
 history, and replaces it with samples. Stop the application and other writers first.**
 
-The script creates three branches, three departments, 27 scoped reviewers (three for each
-branch/department pair) and one global administrator (`admin`), three workflows and 75
+The script creates three branches, three departments, four reviewers and one global
+administrator (`admin`), three workflows and 75
 synthetic Swift messages with registration audit events. Messages start in `New` state
 without an assignee. The single `Reviewer` role grants message viewing, Assign, review
-levels 1–3 and audit viewing. Each reviewer has access only to their own branch/department
-pair. `Operations manager` retains all permissions; reviewers do not receive Undo,
+levels 1–3 and audit viewing. Three reviewers have access to all nine branch/department
+pairs; Amelia is scoped to London/CS for access-control examples. `Operations manager`
+retains all permissions; reviewers do not receive Undo,
 workflow management or global administrator access. Three distinct reviewers can complete
 a three-level workflow and assign messages to one another.
 
@@ -58,10 +59,8 @@ The workflows are `1 reviewer` (MT199/CS), `1,2 reviewers` (MT299/TFO), and
 `1,2,3 reviewers` (MT671/DC), with mandatory levels 1, 1–2, and 1–3 respectively.
 The 75 messages use these three types and cover all nine branch/department pairs.
 
-Existing named reviewers are retained; `victor.stone` is scoped to London/DC. Additional
-usernames follow `<branch>.<department>.reviewer2` / `reviewer3` in lowercase (Victor takes
-the London/DC reviewer2 slot). Branches are London, Dublin and Singapore; departments are
-CS, TFO and DC.
+The reviewers are `amelia.hart`, `theo.mercer`, `priya.nair` and `lucas.bennett`.
+Branches are London, Dublin and Singapore; departments are CS, TFO and DC.
 
 Cleanup and loading share one transaction and roll back together on failure. Repeating
 the script resets the samples, including review and assignment history. Identity IDs are
@@ -90,17 +89,17 @@ migrations; database preparation is explicit.
 The API uses the `X-Debug-User` request header in Development. It accepts either the numeric
 user ID or username. Seeded identities include:
 
-- `1` / `amelia.hart`
-- `2` / `theo.mercer`
-- `3` / `priya.nair`
-- `4` / `victor.stone`
+- `amelia.hart`
+- `theo.mercer`
+- `priya.nair`
+- `lucas.bennett`
 - `admin`
 
 For example:
 
 ```bash
 curl -H 'X-Debug-User: admin' http://localhost:5080/api/me
-curl -H 'X-Debug-User: 5' http://localhost:5080/api/me
+curl -H 'X-Debug-User: amelia.hart' http://localhost:5080/api/me
 curl -H 'X-Debug-User: admin' http://localhost:5080/api/dashboard/summary
 ```
 
