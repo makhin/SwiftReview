@@ -17,9 +17,9 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
 }) {
   const workflows = useQuery(workflowsQueryOptions());
   const [selectedId, setSelectedId] = useState<number | string | null>(message.workflowDefinitionId ?? null);
-  const candidates = workflows.data?.filter((workflow) => workflow.isActive).map((workflow) => ({
+  const candidates = workflows.data?.filter((workflow) => workflow.isActive && message.direction != null && workflow.direction === message.direction).map((workflow) => ({
     ...workflow,
-    label: `${workflow.name} — ${workflow.messageType} — levels ${workflow.steps.filter((step) => step.required)
+    label: `${workflow.name} — ${workflow.messageType} — ${workflow.direction} — levels ${workflow.steps.filter((step) => step.required)
       .sort((a, b) => Number(a.order) - Number(b.order)).map((step) => step.reviewLevel).join(', ')}`,
   }));
   const changed = selectedId != null && String(selectedId) !== String(message.workflowDefinitionId);
@@ -40,6 +40,7 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
     elementAttr={{ 'aria-label': 'Change workflow' }}>
     <div className="review-decision-popup__content">
       <p>Change workflow for <strong>{message.externalId}</strong>. Available when there are no reviews or all previous review attempts are cancelled or undone.</p>
+      <p>Direction: {message.direction ?? 'Unknown'}. The selected workflow must have the same direction.</p>
       <p>The current assignment, branch and department will stay the same.</p>
       {workflows.isPending && <p role="status">Loading workflows…</p>}
       {workflows.isError && <PageError title="Unable to load workflows" message="Check your connection and retry."

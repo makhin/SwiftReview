@@ -16,7 +16,7 @@ public sealed class ORPStore(ORPDbContext db, BusinessActionLog businessActions)
     public Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken ct) => db.ReadMessages()
         .Where(x => x.Id == id)
         .Select(x => new MessageSourceDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
-            x.ReceivedAt, x.Sender, x.Receiver))
+            x.ReceivedAt, x.Sender, x.Receiver, x.Direction))
         .SingleOrDefaultAsync(ct);
     public Task<WorkflowDefinition?> FindWorkflowAsync(int id, CancellationToken ct) => db.WorkflowDefinitions.Include(x => x.Steps).SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<List<Review>> GetReviewsAsync(long id, CancellationToken ct) => db.Reviews.Where(x => x.MessageId == id).OrderBy(x => x.Level).ToListAsync(ct);

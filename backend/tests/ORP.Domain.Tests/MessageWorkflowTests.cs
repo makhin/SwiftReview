@@ -180,7 +180,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void OptionalThirdStep_DoesNotBlockCompletion()
     {
-        var workflow = new WorkflowDefinition("Optional third", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3, false);
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Optional third", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3, false);
         var message = new Message(1, workflow.Id);
         var reviews = new List<Review>(); message.Assign(2);
         CompleteLevel(message, workflow, reviews, 1, 10); CompleteLevel(message, workflow, reviews, 2, 11);
@@ -198,7 +198,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void WorkflowWithoutRequiredLevel_IsRejectedBeforeUse()
     {
-        var workflow = new WorkflowDefinition("Optional", "MT199", 1).AddStep(1, 1, false);
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Optional", "MT199", 1).AddStep(1, 1, false);
 
         var exception = Assert.Throws<DomainRuleViolationException>(() => workflow.RequiredLevels());
 
@@ -208,7 +208,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void InvalidInactiveWorkflow_CannotBeActivated()
     {
-        var workflow = new WorkflowDefinition("Draft", "MT199", 1).AddStep(1, 1, false);
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Draft", "MT199", 1).AddStep(1, 1, false);
         workflow.Deactivate();
 
         Assert.Throws<DomainRuleViolationException>(() => workflow.Activate());
@@ -218,7 +218,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void WorkflowWhoseFirstRequiredLevelIsNotOne_CannotStartReview()
     {
-        var workflow = new WorkflowDefinition("Invalid", "MT199", 1)
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Invalid", "MT199", 1)
             .AddStep(1, 1, false)
             .AddStep(2, 2);
         var message = new Message(1, workflow.Id);
@@ -232,7 +232,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void RequiredLevels_MustFollowAscendingWorkflowOrder()
     {
-        var workflow = new WorkflowDefinition("Invalid order", "MT199", 1)
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Invalid order", "MT199", 1)
             .AddStep(1, 1)
             .AddStep(2, 3)
             .AddStep(3, 2);
@@ -243,7 +243,7 @@ public sealed class MessageWorkflowTests
     [Fact]
     public void OptionalMiddleLevel_CanBeSkipped()
     {
-        var workflow = new WorkflowDefinition("Optional middle", "MT199", 1)
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Optional middle", "MT199", 1)
             .AddStep(1, 1)
             .AddStep(2, 2, false)
             .AddStep(3, 3);
@@ -348,7 +348,7 @@ public sealed class MessageWorkflowTests
 
     private static (Message Message, WorkflowDefinition Workflow, List<Review> Reviews) Create(params int[] levels)
     {
-        var workflow = new WorkflowDefinition("Test", "MT199", 1);
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Test", "MT199", 1);
         for (var i = 0; i < levels.Length; i++) workflow.AddStep(i + 1, levels[i]);
         var message = new Message(1, workflow.Id);
         return (message, workflow, []);

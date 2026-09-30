@@ -25,7 +25,7 @@ public interface IORPStore
 }
 
 public sealed record MessageSourceDto(long MessageId, string ExternalId, string MessageType, int BranchId,
-    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver);
+    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver, MessageDirection? Direction);
 
 public interface IMessageQueries
 {
@@ -53,7 +53,7 @@ public sealed class ConcurrentUpdateException(string message, Exception innerExc
 
 public interface IWorkflowResolver
 {
-    Task<WorkflowDefinition> ResolveAsync(string messageType, int departmentId, int branchId,
+    Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, int departmentId, int branchId,
         CancellationToken cancellationToken);
 }
 

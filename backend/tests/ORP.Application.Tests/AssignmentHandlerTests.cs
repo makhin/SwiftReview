@@ -30,7 +30,7 @@ public sealed class AssignmentHandlerTests
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
-                "A", "B"));
+                "A", "B", MessageDirection.Incoming));
         access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, false, false));
         user.UserId.Returns(5);
         access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
@@ -58,7 +58,7 @@ public sealed class AssignmentHandlerTests
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B"));
+            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B", MessageDirection.Incoming));
         access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         user.UserId.Returns(5);
         access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
@@ -90,7 +90,7 @@ public sealed class AssignmentHandlerTests
     public async Task PreviousApprovedReviewer_CannotBeAssignedToTheNextLevel()
     {
         var (store, access, user, clock, correlation) = Dependencies();
-        var workflow = new WorkflowDefinition("Two levels", "MT199", 1)
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Two levels", "MT199", 1)
             .AddStep(1, 1)
             .AddStep(2, 2);
         var message = new Message(1, workflow.Id);
@@ -119,7 +119,7 @@ public sealed class AssignmentHandlerTests
     public async Task ReviewerWithUndoneApproval_CanBeAssignedToThatLevelAgain()
     {
         var (store, access, user, clock, correlation) = Dependencies();
-        var workflow = new WorkflowDefinition("Three levels", "MT199", 1)
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Three levels", "MT199", 1)
             .AddStep(1, 1)
             .AddStep(2, 2)
             .AddStep(3, 3);
@@ -171,7 +171,7 @@ public sealed class AssignmentHandlerTests
         store.FindMessageAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
         store.FindMessageSourceAsync(message.Id, Arg.Any<CancellationToken>()).Returns(
             new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
-                "A", "B"));
+                "A", "B", MessageDirection.Incoming));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
         access.CheckAsync(assigneeId, 1, 1, reviewPermission, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
     }

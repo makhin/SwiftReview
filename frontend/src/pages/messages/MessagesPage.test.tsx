@@ -37,7 +37,7 @@ vi.mock('devextreme-react/data-grid', () => {
     undoReviewId: null,
     requiredReviewLevels: [1, 2, 3],
     externalId: 'MSG-0042',
-    messageType: 'MT103',
+    messageType: 'MT103', direction: 'Incoming',
     branchId: 10,
     departmentId: 20,
     state: 'New',
@@ -362,7 +362,7 @@ describe('MessagesPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
-    expect(screen.getAllByTestId('Column')).toHaveLength(8);
+    expect(screen.getAllByTestId('Column')).toHaveLength(9);
 
     const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
     expect(dataGridProps).toMatchObject({
@@ -381,6 +381,7 @@ describe('MessagesPage', () => {
     expect(captions).toEqual([
       'External ID',
       'Message type',
+      'Direction',
       'Branch',
       'Department',
       'Stage',
@@ -412,6 +413,7 @@ describe('MessagesPage', () => {
       .filter(([name]) => name === 'Lookup')
       .map(([, props]) => props);
     expect(lookups).toEqual([
+      { dataSource: ['Incoming', 'Outgoing'] },
       {
         dataSource: [{ id: 10, name: 'Warsaw' }],
         valueExpr: 'id',
@@ -468,8 +470,8 @@ describe('MessagesPage', () => {
   it('keeps numeric columns available while reference data is unavailable', () => {
     renderPage(false);
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(8);
-    expect(screen.queryAllByTestId('Lookup')).toHaveLength(0);
+    expect(screen.getAllByTestId('Column')).toHaveLength(9);
+    expect(screen.queryAllByTestId('Lookup')).toHaveLength(1);
   });
 
   it('opens View from the shared actions column with decisions disabled', () => {
@@ -507,7 +509,7 @@ describe('MessagesPage', () => {
     const view = renderPage(true, ['message.view', 'message.assign', 'audit.view']);
     view.container.id = 'root';
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(8);
+    expect(screen.getAllByTestId('Column')).toHaveLength(9);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
 

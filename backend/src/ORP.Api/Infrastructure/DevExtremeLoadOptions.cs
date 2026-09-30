@@ -28,6 +28,7 @@ public static class DevExtremeLoadOptions
     {
         ["id"] = "Id",
         ["externalId"] = "ExternalId",
+        ["direction"] = "Direction",
         ["messageType"] = "MessageType",
         ["branchId"] = "BranchId",
         ["departmentId"] = "DepartmentId",

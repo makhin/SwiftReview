@@ -249,6 +249,9 @@ export default function MessagesGrid({
 
           <Column dataField="externalId" caption="External ID" minWidth={140} />
           <Column dataField="messageType" caption="Message type" width={110} />
+          <Column dataField="direction" caption="Direction" width={115}>
+            <Lookup dataSource={['Incoming', 'Outgoing']} />
+          </Column>
           {/* Server-side sorting supports lookup IDs, not their displayed labels. */}
           <Column
             dataField="branchId"

@@ -178,7 +178,7 @@ public sealed class UndoPolicyTests
 
     private static (Message, WorkflowDefinition, List<Review>) Create(params int[] levels)
     {
-        var workflow = new WorkflowDefinition("Generic workflow", "MT199", 1);
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Generic workflow", "MT199", 1);
         foreach (var level in levels) workflow.AddStep(level, level);
         return (new Message(1, workflow.Id), workflow, []);
     }

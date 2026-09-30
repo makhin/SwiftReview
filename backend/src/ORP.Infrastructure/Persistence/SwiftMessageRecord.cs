@@ -1,3 +1,5 @@
+using ORP.Domain.Messages;
+
 namespace ORP.Infrastructure.Persistence;
 
 public enum SwiftMessageRoutingStatus
@@ -19,7 +21,7 @@ public sealed class SwiftMessageRecord
     public string? CounterParty { get; init; }
     public string? CounterPartyCountry { get; init; }
     public DateTimeOffset? CreationDate { get; init; }
-    public string? Direction { get; init; }
+    public MessageDirection? Direction { get; init; }
     public DateTimeOffset? LastModificationDate { get; init; }
     public DateTimeOffset? MessageDate { get; init; }
     public int MessageLength { get; init; }

@@ -49,7 +49,7 @@ in SSMS, select the target database, and execute the whole script.
 history, and replaces it with samples. Stop the application and other writers first.**
 
 The script creates three branches, three departments, four reviewers and one global
-administrator (`admin`), three workflows and 75
+administrator (`admin`), four workflows and 100
 synthetic Swift messages with registration audit events. Messages start in `New` state
 without an assignee. The single `Reviewer` role grants message viewing, Assign, review
 levels 1–3, Undo and audit viewing. Three reviewers have access to all nine branch/department
@@ -58,19 +58,21 @@ retains all permissions; reviewers do not receive workflow management or global
 administrator access. Three distinct reviewers can complete
 a three-level workflow and assign messages to one another.
 
-The seed explicitly configures three demo workflows, including their Undo policies:
+The seed explicitly configures four demo workflows, including their Undo policies:
 
-| Workflow | Sample scope | Confirmations | Ordinary Undo |
+| Workflow | Direction and sample scope | Confirmations | Ordinary Undo |
 |---|---|---|---|
-| Single confirmation - no undo | MT199 / CS | 1 | Disabled |
-| Two confirmations - undo first | MT299 / TFO | 1, 2 | Any authorised reviewer can undo the first before the second is approved; an active second attempt is cancelled |
-| Three reviews - owner undo | MT671 / DC | 1, 2, 3 | Original reviewer can undo the latest approval, including the final one, while no review is active |
+| Single confirmation - no undo | Incoming / MT199 / CS | 1 | Disabled |
+| Two confirmations - undo first | Incoming / MT299 / TFO | 1, 2 | Any authorised reviewer can undo the first before the second is approved; an active second attempt is cancelled |
+| Three reviews - owner undo | Incoming / MT671 / DC | 1, 2, 3 | Original reviewer can undo the latest approval, including the final one, while no review is active |
+| Outgoing confirmation - no undo | Outgoing / MT299 / TFO | 1 | Disabled |
 
 These are synthetic examples of supported policies, not the production routing or
-confirmation matrix. The 75 messages (25 per scenario) cover all nine branch/department
-pairs, with receipt times in the past 75 hours. Their bodies include the scenario name.
+confirmation matrix. The 100 messages (25 per scenario) cover all nine branch/department
+pairs, with receipt times in the past 100 hours. Their bodies include the scenario name.
 `TEST-00001` demonstrates single confirmation in London, `TEST-00002` two confirmations
 in Dublin, and `TEST-00003` three reviews in Singapore. All start `New` and unassigned.
+`TEST-00001`–`TEST-00075` are Incoming; `TEST-00076`–`TEST-00100` are Outgoing.
 The script finishes with readable workflow and user summaries. No separate policy script
 or manual permission change is needed to try Undo; schema migrations must be applied first.
 

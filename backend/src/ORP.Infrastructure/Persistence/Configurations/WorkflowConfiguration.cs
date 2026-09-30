@@ -19,7 +19,8 @@ public sealed class WorkflowDefinitionConfiguration : IEntityTypeConfiguration<W
         builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         builder.Navigation(x => x.Steps).UsePropertyAccessMode(PropertyAccessMode.Field);
-        builder.HasIndex(x => new { x.MessageType, x.DepartmentId, x.BranchId })
+        builder.ToTable(t => t.HasCheckConstraint("CK_WorkflowDefinitions_Direction", "[Direction] IN (1, 2)"));
+        builder.HasIndex(x => new { x.MessageType, x.Direction, x.DepartmentId, x.BranchId })
             .IsUnique().HasFilter("[IsActive] = 1");
     }
 }

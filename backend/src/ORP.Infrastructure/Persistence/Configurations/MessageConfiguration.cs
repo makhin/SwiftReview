@@ -35,7 +35,7 @@ public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<S
         builder.Property(x => x.BackendDirection).HasMaxLength(100);
         builder.Property(x => x.CounterParty).HasMaxLength(100);
         builder.Property(x => x.CounterPartyCountry).HasMaxLength(100);
-        builder.Property(x => x.Direction).HasMaxLength(8);
+        builder.ToTable(t => t.HasCheckConstraint("CK_SwiftMessages_Direction", "[Direction] IN (1, 2)"));
         builder.Property(x => x.MessageFormatVersion).HasMaxLength(20);
         builder.Property(x => x.MessageInputReference).HasMaxLength(100);
         builder.Property(x => x.ModifiedBy).HasMaxLength(20);

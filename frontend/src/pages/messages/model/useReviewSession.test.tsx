@@ -15,7 +15,7 @@ vi.mock('../api/messagesApi', () => ({ startReview, approveReview, rejectReview,
 vi.mock('devextreme/ui/notify', () => ({ default: notify }));
 
 const message: MessageRow = {
-  id: 42, externalId: 'MSG-42', messageType: 'MT103', state: 'Assigned', branchId: 1, departmentId: 1,
+  id: 42, externalId: 'MSG-42', messageType: 'MT103', direction: 'Incoming', state: 'Assigned', branchId: 1, departmentId: 1,
   receivedAt: '2026-09-16T10:00:00Z', currentAssigneeId: 1, activeReviewId: null, activeReviewLevel: null,
   activeReviewerId: null, undoReviewId: null, workflowDefinitionId: 1, canReview: true,
   canChangeWorkflow: false, requiredReviewLevels: [1, 2],

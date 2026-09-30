@@ -65,6 +65,7 @@ export default function ReviewDecisionPopup({
     >
       <div className="review-decision-popup__content">
         <p className="raw-message-popup__message-id">{message.externalId}</p>
+        <p>Direction: {message.direction ?? 'Unknown'}</p>
 
         {messageQuery.isPending && <PageLoading message="Loading raw message…" />}
 

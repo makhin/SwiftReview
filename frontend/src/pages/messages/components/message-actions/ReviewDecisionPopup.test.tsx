@@ -61,7 +61,7 @@ import ReviewDecisionPopup from './ReviewDecisionPopup';
 const baseMessage = {
   id: 42,
   externalId: 'MSG-0042',
-  messageType: 'MT103',
+  messageType: 'MT103', direction: 'Incoming' as const,
   branchId: 10,
   departmentId: 20,
   receivedAt: '2026-09-05T08:00:00Z',

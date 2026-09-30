@@ -1,4 +1,5 @@
 using ORP.Domain.Common;
+using ORP.Domain.Messages;
 
 namespace ORP.Domain.Workflows;
 
@@ -12,8 +13,10 @@ public sealed class WorkflowDefinition
 
     private WorkflowDefinition() { }
 
-    public WorkflowDefinition(string name, string messageType, int departmentId, int? branchId = null)
+    public WorkflowDefinition(MessageDirection direction, string name, string messageType, int departmentId, int? branchId = null)
     {
+        if (!Enum.IsDefined(direction)) throw new DomainRuleViolationException("Unsupported message direction.");
+        Direction = direction;
         Name = Required(name, nameof(name));
         MessageType = Required(messageType, nameof(messageType));
         DepartmentId = departmentId;
@@ -21,6 +24,7 @@ public sealed class WorkflowDefinition
         IsActive = true;
     }
 
+    public MessageDirection Direction { get; private set; }
     public int Id { get; private set; }
     public string Name { get; private set; } = null!;
     public string MessageType { get; private set; } = null!;

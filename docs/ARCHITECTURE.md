@@ -166,7 +166,7 @@ Key tables and implementation details:
 | --- | --- |
 | `SwiftMessages` | Source SWIFT content and routing metadata. `WarehouseId` is the unique external key. Application code treats these rows as read-only. |
 | `Messages` | ORP workflow state, current assignee, and workflow reference. Its key is also the related `SwiftMessages.MessageId`. |
-| `WorkflowDefinitions`, `WorkflowSteps` | Active workflow selected by message type, department, and optionally branch. |
+| `WorkflowDefinitions`, `WorkflowSteps` | Active workflow selected by message type, direction, department, and optionally branch. |
 | `Assignments` | Complete assignment history. A filtered unique index allows only one row with `EndedAt IS NULL` per message. |
 | `Reviews` | Review attempts. A filtered unique index allows only one non-cancelled/non-undone attempt per message and level. |
 | `AuditEvents` | Append-only message history. Updates and deletes are rejected by `ORPDbContext`. |
@@ -334,3 +334,22 @@ For the current Linux/Docker workspace, use `./test-backend.docker.sh -m:1` for 
 - A message grid load stays in a DevExtreme `CustomStore`; other server state normally uses TanStack Query.
 
 Keeping these boundaries makes each rule testable and prevents UI, HTTP, and database details from leaking into the core business model.
+
+
+### Direction-aware workflow selection
+
+`MessageDirection` is shared by source messages and workflow definitions:
+`Incoming = 1`, `Outgoing = 2`. Both database columns use `int` with check constraints;
+workflow direction is mandatory with no database default, while source direction can
+be null. The HTTP representation uses enum names. Direction is read from `SwiftMessages`
+and is not duplicated in the `Messages` state table.
+
+`WorkflowResolver` matches message type, direction, department and branch, preferring
+a branch-specific active workflow over a global-branch workflow. Active uniqueness uses
+all four columns. There is no cross-direction fallback. Manual changes require matching
+direction but retain existing scope permissions and manual type overrides.
+
+`AddMessageDirection` targets a fresh database; it does not convert legacy `IN`/`OUT`
+records or assign directions to existing workflows. Apply migrations before seeding.
+The current application has no ingestion caller for `WorkflowResolver`; the demo seed
+links messages to workflows using the same direction criterion.

@@ -8,6 +8,7 @@ internal sealed class MessageReadRow
 {
     public long Id { get; init; }
     public string ExternalId { get; init; } = null!;
+    public MessageDirection? Direction { get; init; }
     public string MessageType { get; init; } = null!;
     public int BranchId { get; init; }
     public int DepartmentId { get; init; }
@@ -50,6 +51,7 @@ internal static class MessageReadModels
             Id = message.Id,
             ExternalId = source.WarehouseId,
             MessageType = source.MessageType,
+            Direction = source.Direction,
             BranchId = source.BranchId!.Value,
             DepartmentId = source.DepartmentId!.Value,
             State = message.State,

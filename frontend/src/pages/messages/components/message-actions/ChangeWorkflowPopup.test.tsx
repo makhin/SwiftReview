@@ -21,15 +21,15 @@ vi.mock('devextreme-react/select-box', () => ({ default: ({ items, value, disabl
   {items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
 </select> }));
 import ChangeWorkflowPopup from './ChangeWorkflowPopup';
-const message: MessageRow = { id: 42, externalId: 'MSG-42', messageType: 'MT199', branchId: 1, departmentId: 1,
+const message: MessageRow = { id: 42, externalId: 'MSG-42', messageType: 'MT199', direction: 'Incoming', branchId: 1, departmentId: 1,
   receivedAt: '2026-09-10T10:00:00Z', state: 'Assigned', currentAssigneeId: 1,
   activeReviewId: null, activeReviewLevel: null, activeReviewerId: null, workflowDefinitionId: 1, canChangeWorkflow: true,
   undoReviewId: null, canReview: true, requiredReviewLevels: [1] };
-function setup() {
+function setup(selectedMessage: MessageRow = message) {
   const client = createTestQueryClient();
-  client.setQueryData(referenceDataKeys.workflows, [1, 2, 3].map((id) => ({ id, name: `Workflow ${id}`, messageType: 'MT199', isActive: id !== 3, steps: [{ order: 1, reviewLevel: 1, required: true }] })));
+  client.setQueryData(referenceDataKeys.workflows, [1, 2, 3, 4].map((id) => ({ id, name: `Workflow ${id}`, messageType: 'MT199', direction: id === 4 ? 'Outgoing' : 'Incoming', isActive: id !== 3, steps: [{ order: 1, reviewLevel: 1, required: true }] })));
   const onClose = vi.fn(); const onChanged = vi.fn();
-  render(<QueryClientProvider client={client}><ChangeWorkflowPopup message={message} onClose={onClose} onChanged={onChanged} /></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><ChangeWorkflowPopup message={selectedMessage} onClose={onClose} onChanged={onChanged} /></QueryClientProvider>);
   return { onClose, onChanged };
 }
 describe('ChangeWorkflowPopup', () => {
@@ -40,6 +40,7 @@ describe('ChangeWorkflowPopup', () => {
     const { onClose, onChanged } = setup();
     expect(screen.getByRole('button', { name: 'Save workflow' })).toBeDisabled();
     expect(screen.queryByRole('option', { name: /Workflow 3/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Workflow 4/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Workflow'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save workflow' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled());
@@ -60,6 +61,19 @@ describe('ChangeWorkflowPopup', () => {
     expect(notify).toHaveBeenCalledExactlyOnceWith('All review attempts must be cancelled or undone.', 'error', 4000);
     expect(onChanged).toHaveBeenCalledOnce();
   });
+  it('offers no workflow when message direction is unknown', () => {
+    setup({ ...message, direction: null });
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Save workflow' })).toBeDisabled();
+    expect(screen.getByText(/Direction: Unknown/)).toBeInTheDocument();
+  });
+
+  it('offers only outgoing workflows for outgoing messages', () => {
+    setup({ ...message, direction: 'Outgoing' });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: /Workflow 4.*Outgoing/ })).toBeInTheDocument();
+  });
+
   it('cancels without changing the workflow', () => {
     const { onClose } = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -69,13 +83,13 @@ describe('ChangeWorkflowPopup', () => {
 
   it('recovers workflow loading after a transport failure', async () => {
     getWorkflows.mockRejectedValueOnce(new ApiRequestError('Connection lost.', 'network'))
-      .mockResolvedValueOnce([{ id: 2, name: 'Alternative', messageType: 'MT199', isActive: true,
+      .mockResolvedValueOnce([{ id: 2, name: 'Alternative', messageType: 'MT199', direction: 'Incoming', isActive: true,
         steps: [{ order: 2, reviewLevel: 2, required: true }, { order: 1, reviewLevel: 1, required: true }] }]);
     const client = createTestQueryClient();
     render(<QueryClientProvider client={client}><ChangeWorkflowPopup
       message={message} onClose={vi.fn()} onChanged={vi.fn()} /></QueryClientProvider>);
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('option', { name: 'Alternative — MT199 — levels 1, 2' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Alternative — MT199 — Incoming — levels 1, 2' })).toBeInTheDocument();
     expect(getWorkflows).toHaveBeenCalledTimes(2);
     expect(changeMessageWorkflow).not.toHaveBeenCalled();
   });

@@ -22,10 +22,10 @@ public sealed record CurrentUserResponse(int UserId, string UserName, string Dis
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
-    string? Body);
+    string? Body, MessageDirection? Direction);
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
-    int? ActiveReviewLevel, int? ActiveReviewerId);
+    int? ActiveReviewLevel, int? ActiveReviewerId, MessageDirection? Direction);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
 public sealed record AuditTrailRequest(int Skip = 0, int Take = 100);
 public sealed record SortClause([property: Required] string Field,
@@ -47,7 +47,7 @@ public sealed record AuditEventDto(long Id, AuditEventType EventType, DateTimeOf
     AuditEventDetailsDto Details, string CorrelationId);
 public sealed record WorkflowStepDto(int Order, int ReviewLevel, bool Required);
 public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType, int DepartmentId, int? BranchId,
-    bool IsActive, IReadOnlyList<WorkflowStepDto> Steps);
+    bool IsActive, IReadOnlyList<WorkflowStepDto> Steps, MessageDirection Direction);
 public sealed record UserSummaryDto(int Id, string UserName, string DisplayName, IReadOnlyList<int> BranchIds,
     IReadOnlyList<int> DepartmentIds);
 public sealed record AssignmentCandidateDto(int Id, string UserName, string DisplayName);

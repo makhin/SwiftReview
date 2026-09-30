@@ -86,3 +86,16 @@ which responses apply to each operation.
 With the backend running on port 5080, run `npm run api:generate` in `frontend`
 to generate TypeScript contracts, then `npm run api:check` to verify them.
 Generated contracts must not be edited manually.
+
+
+## Message direction
+
+Message detail, search and grid rows expose `direction` as `"Incoming"`, `"Outgoing"`,
+or `null` when the source has no direction. Workflow summaries expose the same enum,
+but never `null`. Incoming/Outgoing are relative to the bank.
+
+The DevExtreme grid supports filtering, sorting and grouping by `direction`; for example,
+`filter=["direction","=","Outgoing"]` (URL-encode query values).
+Manual workflow changes require a matching direction, including for administrators.
+A mismatch or missing message direction returns `409` without changing state or audit.
+The other manual selection and authorization rules are unchanged.

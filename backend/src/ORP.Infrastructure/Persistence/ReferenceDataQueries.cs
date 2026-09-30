@@ -14,7 +14,7 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
                 role.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
             .OrderBy(x => x.MessageType).ToListAsync(ct);
         return workflows.Select(x => new WorkflowSummaryDto(x.Id, x.Name, x.MessageType, x.DepartmentId, x.BranchId, x.IsActive,
-            x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList())).ToList();
+            x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList(), x.Direction)).ToList();
     }
 
     public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(UserAccess access, CancellationToken ct)

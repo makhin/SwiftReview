@@ -28,7 +28,7 @@ public sealed class UndoAuthorizationTests
         // A stale transport claim must neither grant nor remove administrative access.
         actor.IsGlobalAdministrator.Returns(!administrator);
         store.FindMessageAsync(1, ct).Returns(new Message(1, 9));
-        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT199", 10, 20, DateTimeOffset.UtcNow, "", ""));
+        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT199", 10, 20, DateTimeOffset.UtcNow, "", "", MessageDirection.Incoming));
         store.GetReviewsAsync(1, ct).Returns([]);
         users.CheckAsync(7, 10, 20, Permissions.ReviewUndo, ct).Returns(new UserPermissionCheck(administrator, view, permission));
         users.CanAccessWorkflowAsync(7, 9, ct).Returns(workflow);

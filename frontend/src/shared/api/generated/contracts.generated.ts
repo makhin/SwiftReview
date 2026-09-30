@@ -119,7 +119,12 @@ export interface MessageDetailsDto {
   sender: string;
   receiver: string;
   body: string | null;
+  direction: MessageDirection | null;
 }
+
+export type MessageDirection =
+  | "Incoming"
+  | "Outgoing";
 
 export interface MessageFilter {
   states: MessageState[] | null;
@@ -140,6 +145,7 @@ export interface MessageGridLoadResultDto {
 export interface MessageGridRowDto {
   id: number | string;
   externalId: string;
+  direction: MessageDirection | null;
   messageType: string;
   branchId: number | string;
   departmentId: number | string;
@@ -168,6 +174,7 @@ export interface MessageListItemDto {
   activeReviewId: number | string | null;
   activeReviewLevel: number | string | null;
   activeReviewerId: number | string | null;
+  direction: MessageDirection | null;
 }
 
 export interface MessageSearchRequest {
@@ -313,4 +320,5 @@ export interface WorkflowSummaryDto {
   branchId: number | string | null;
   isActive: boolean;
   steps: WorkflowStepDto[];
+  direction: MessageDirection;
 }

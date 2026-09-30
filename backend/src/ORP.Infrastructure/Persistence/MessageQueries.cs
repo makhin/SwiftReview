@@ -22,7 +22,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             .Select(message => message.Body)
             .SingleOrDefaultAsync(ct);
         return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
-            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body);
+            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction);
     }
 
     public async Task<PagedResult<MessageListItemDto>> SearchAsync(MessageSearchRequest request, UserAccess access, CancellationToken ct)
@@ -41,7 +41,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         var items = await query.Skip(request.Skip).Take(request.Take)
             .Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
             x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
-            x.ActiveReviewerId)).ToListAsync(ct);
+            x.ActiveReviewerId, x.Direction)).ToListAsync(ct);
         return new(items, count);
     }
 

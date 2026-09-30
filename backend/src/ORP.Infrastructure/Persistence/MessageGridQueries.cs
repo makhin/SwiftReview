@@ -11,6 +11,7 @@ public sealed class MessageGridRowDto
 {
     public required long Id { get; init; }
     public required string ExternalId { get; init; }
+    public required MessageDirection? Direction { get; init; }
     public required string MessageType { get; init; }
     public required int BranchId { get; init; }
     public required int DepartmentId { get; init; }
@@ -59,6 +60,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 Id = x.Id,
                 ExternalId = x.ExternalId,
                 MessageType = x.MessageType,
+                Direction = x.Direction,
                 BranchId = x.BranchId,
                 DepartmentId = x.DepartmentId,
                 State = x.State,

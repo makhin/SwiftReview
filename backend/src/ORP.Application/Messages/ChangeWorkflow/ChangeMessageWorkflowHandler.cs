@@ -1,4 +1,5 @@
 using FluentValidation;
+using ORP.Domain.Common;
 using ORP.Application.Authorization;
 using ORP.Domain.Identity;
 using ORP.Application.Abstractions;
@@ -25,6 +26,10 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
             var workflow = await store.FindWorkflowAsync(request.WorkflowDefinitionId, ct) ?? throw new ResourceNotFoundException("Workflow was not found.");
             if (!access.IsGlobalAdministrator && !await users.CanAccessWorkflowAsync(user.UserId, workflow.Id, ct))
                 throw new UnauthorizedAccessException("The selected workflow is outside your access scope.");
+            if (access.Source.Direction is null)
+                throw new DomainRuleViolationException("Message direction is required to change workflow.");
+            if (workflow.Direction != access.Source.Direction)
+                throw new DomainRuleViolationException("The selected workflow direction must match the message direction.");
             var reviews = access.Reviews;
             var previous = message.WorkflowDefinitionId;
             message.ChangeWorkflow(workflow, reviews);

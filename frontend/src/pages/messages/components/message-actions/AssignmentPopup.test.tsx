@@ -46,7 +46,7 @@ import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 const message = {
   id: 42,
   externalId: 'MSG-0042',
-  messageType: 'MT103',
+  messageType: 'MT103', direction: 'Incoming' as const,
   branchId: 10,
   departmentId: 20,
   state: 'New' as const,

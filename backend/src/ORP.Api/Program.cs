@@ -30,7 +30,16 @@ builder.Services.AddAuthorization(options => options.AddPolicy("GlobalAdministra
     policy => policy.RequireAuthenticatedUser().RequireClaim("global_admin", "true")));
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDetailsAuthorizationResultHandler>();
 builder.Services.AddAuthentication("Debug").AddScheme<AuthenticationSchemeOptions, DebugAuthenticationHandler>("Debug", _ => { });
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddSchemaTransformer((schema, context, _) =>
+{
+    if ((Nullable.GetUnderlyingType(context.JsonTypeInfo.Type) ?? context.JsonTypeInfo.Type) == typeof(ORP.Domain.Messages.MessageDirection))
+    {
+        // Nullability belongs to the property's oneOf wrapper, not the shared enum schema.
+        schema.Type = Microsoft.OpenApi.JsonSchemaType.String;
+        schema.Enum = schema.Enum?.Where(value => value is not null).ToList();
+    }
+    return Task.CompletedTask;
+}));
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
