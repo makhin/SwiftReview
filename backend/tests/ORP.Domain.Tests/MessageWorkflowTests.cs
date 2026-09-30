@@ -101,6 +101,7 @@ public sealed class MessageWorkflowTests
     public void UndoLastApproval_ReopensThatLevelWithoutLosingHistory()
     {
         var (message, workflow, reviews) = Create(1, 2);
+        workflow.ConfigureUndo(UndoApprovalMode.LatestNonFinal, UndoActorMode.OriginalReviewer, UndoActiveReviewMode.Block);
         message.Assign(2); CompleteLevel(message, workflow, reviews, 1, 10);
         var review = Assert.Single(reviews);
         message.UndoLastApproval(review, workflow, reviews, 10, Now.AddMinutes(1));

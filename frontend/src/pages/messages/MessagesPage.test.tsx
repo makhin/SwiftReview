@@ -252,7 +252,13 @@ describe('MessagesPage', () => {
     expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
   });
 
-  it('does not expose Undo to an ordinary user even with review.undo permission', () => {
+  it('exposes Undo to an ordinary user with scoped review.undo permission', () => {
+    renderPage(true, ['message.view', 'message.assign', 'review.undo']);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+  });
+
+  it('does not expose Undo outside the permission scope', () => {
+    Object.assign(rowOverrides, { branchId: 99, departmentId: 99, undoReviewId: 73 });
     renderPage(true, ['message.view', 'message.assign', 'review.undo']);
     expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
   });

@@ -2,6 +2,10 @@ using ORP.Domain.Common;
 
 namespace ORP.Domain.Workflows;
 
+public enum UndoApprovalMode { Disabled, LatestNonFinal, Latest }
+public enum UndoActorMode { OriginalReviewer, AnyAuthorizedUser }
+public enum UndoActiveReviewMode { Block, Cancel }
+
 public sealed class WorkflowDefinition
 {
     private readonly List<WorkflowStep> _steps = [];
@@ -23,7 +27,19 @@ public sealed class WorkflowDefinition
     public int DepartmentId { get; private set; }
     public int? BranchId { get; private set; }
     public bool IsActive { get; private set; }
+    public UndoApprovalMode UndoApprovalMode { get; private set; }
+    public UndoActorMode UndoActorMode { get; private set; }
+    public UndoActiveReviewMode UndoActiveReviewMode { get; private set; }
     public IReadOnlyCollection<WorkflowStep> Steps => _steps;
+
+    public void ConfigureUndo(UndoApprovalMode approvalMode, UndoActorMode actorMode, UndoActiveReviewMode activeReviewMode)
+    {
+        if (!Enum.IsDefined(approvalMode) || !Enum.IsDefined(actorMode) || !Enum.IsDefined(activeReviewMode))
+            throw new DomainRuleViolationException("Unsupported undo policy.");
+        UndoApprovalMode = approvalMode;
+        UndoActorMode = actorMode;
+        UndoActiveReviewMode = activeReviewMode;
+    }
 
     public WorkflowDefinition AddStep(int order, int reviewLevel, bool required = true)
     {

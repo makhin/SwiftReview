@@ -146,7 +146,10 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
             var review = reviews.SingleOrDefault(x => x.Id == request.ReviewId) ?? throw new ResourceNotFoundException("Review was not found.");
             var oldState = message.State;
             var now = clock.UtcNow;
-            message.UndoLastApproval(review, workflow, reviews, user.UserId, now, access.IsGlobalAdministrator);
+            var cancelledReview = message.UndoLastApproval(review, workflow, reviews, user.UserId, now, access.IsGlobalAdministrator);
+            if (cancelledReview is not null)
+                ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewCancelled, user.UserId, oldState,
+                    message.State, cancelledReview, now, correlation.CorrelationId);
             var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, comment);

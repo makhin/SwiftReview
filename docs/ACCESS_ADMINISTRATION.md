@@ -49,13 +49,64 @@ Users, branches, departments and global administrators remain provisioning data.
 Mock mode supplies demo reference data and an `admin` identity with explicit
 business assignments; its global-administrator flag provides the same bypass even if those assignments are removed.
 
-The assignment grid exposes **Undo** only to global administrators. The API also
-requires a global administrator for `/api/messages/{id}/reviews/undo`;
-`review.undo` alone does not grant access. The button undoes the latest approved
-level, requires confirmation with an optional comment (up to 2,000 characters), closes the current assignment and refreshes the grid.
-The undo comment is stored in its audit event; the original approval comment is preserved.
-It is disabled while a review is active or no approval can be undone. The selected
-review ID is sent explicitly, so retrying an old request cannot undo an earlier level.
+Both message grids expose **Undo** to global administrators and users with
+`review.undo` in the message's exact branch/department scope. Ordinary users also
+need `message.view` in that scope and access to the message's workflow. The server
+returns `undoReviewId` only when the current confirmation is eligible; the API
+rechecks permissions, policy and state inside the mutation transaction.
+Undo requires confirmation with an optional comment (up to 2,000 characters),
+closes the current assignment and refreshes the grid and state counts. The undo
+comment is stored in its audit event; the original approval comment is preserved.
+The selected review ID is sent explicitly, so retrying an old request cannot undo
+an earlier level or a replacement attempt.
+
+### Workflow undo policy
+
+`WorkflowDefinitions` stores three independent enum values:
+
+| Column | Values |
+|---|---|
+| `UndoApprovalMode` | `0 Disabled`, `1 LatestNonFinal`, `2 Latest` |
+| `UndoActorMode` | `0 OriginalReviewer`, `1 AnyAuthorizedUser` |
+| `UndoActiveReviewMode` | `0 Block`, `1 Cancel` |
+
+`LatestNonFinal` allows only the latest approved required step, provided it is not
+the final required step. Optional steps do not count. A single-step workflow has
+no reversible confirmation in this mode; a two-step workflow allows only the
+first confirmation before the second is approved. The same rule applies to three
+required steps. `OriginalReviewer` additionally requires the original confirmer;
+`AnyAuthorizedUser` still requires scoped permissions, not just authentication.
+
+`Cancel` permits undo while the next required review is active. The transaction
+marks that attempt `Cancelled`, marks the selected approval `Undone`, closes its
+assignment, and reopens the selected level for a new manual assignment. History
+is retained; `ReviewCancelled`, `ConfirmationUndone` and, when assigned,
+`MessageUnassigned` record the actual actor and correlation ID. Review cancellation
+and confirmation undo are parts of the same state transition. Stale decisions for
+the cancelled attempt fail. `Block` requires ending the active review first.
+Rejected messages cannot be reopened by Undo under either policy.
+
+Global administrators retain an exception: without an active review they may undo
+the latest approval, including the final one, even if ordinary undo is disabled.
+With an active review they must satisfy the workflow's approval and cancellation
+policy, but bypass scope and original-reviewer restrictions.
+
+The `AddWorkflowUndoPolicy` migration defaults all three values to `0`, preserving
+existing administrator-only behavior. Apply the migration before starting the
+updated application. The existing
+[`seed-test-data.sql`](../backend/scripts/seed-test-data.sql) explicitly configures the
+demo workflow policies and grants `review.undo` to the demo Reviewer role. Its workflow
+table is the single place to edit the sample scenarios; it also prints a readable summary.
+The seed replaces all application data and is for test databases only. It is not an
+upgrade/configuration procedure for an existing business database.
+
+For the two-stage CS/TFO requirements, use `1 / 1 / 1`; the two-confirmation seed
+scenario demonstrates this policy with reviewer permissions already enabled. For an
+existing business database, policy changes and scoped `review.undo` grants are a
+separate provisioning task. Neither department names nor role
+names are hard-coded in the policy. This configuration does not change step counts,
+four-eyes rules, rejection behavior, or policies of other workflows. There is no
+workflow policy editor/API in this version.
 
 Each saved user/role change appends an `AccessAuditEvents` record containing the
 actor, target, timestamp, before/after state and correlation ID in the same database
@@ -66,8 +117,9 @@ does not block their active reviews.
 Review start and administrative changes use serializable database transactions
 to coordinate permission reads with review creation. No row-version field is used.
 
-The initial migration was rewritten, not extended with an upgrade migration.
-It is intended for a new database, not one with the previous schema already applied.
+The initial migration was originally rewritten and is intended for a new database,
+not one with the previous initial schema already applied. The subsequent
+`AddWorkflowUndoPolicy` migration upgrades databases using the current initial schema.
 Sync is outside this feature's scope.
 
 ### Changing a message workflow

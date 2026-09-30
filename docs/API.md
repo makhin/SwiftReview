@@ -41,7 +41,11 @@ All review commands use `POST /api/messages/{id}/reviews/{action}`.
 
 Start creates or resumes a review. Decisions target a specific attempt using
 `reviewId`. Review ownership, level permissions and four-eyes rules apply.
-Undo requires a global administrator and a confirmation eligible for cancellation.
+Undo requires scoped `message.view` and `review.undo`, access to the workflow, and
+an approval eligible under its undo policy. Global administrators retain the
+exception described in [Access administration](ACCESS_ADMINISTRATION.md#workflow-undo-policy).
+`undoReviewId` in the grid is the server-authorized candidate; `null` means unavailable.
+Undo may atomically cancel the active next review when its workflow permits it.
 Comments are optional and limited to 2,000 characters.
 
 `MessageMutationTransactionFilter` covers start, approve, reject, cancel and

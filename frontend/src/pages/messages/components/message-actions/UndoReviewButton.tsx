@@ -13,8 +13,7 @@ export default function UndoReviewButton({ message, onChanged }: { message: Mess
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState('');
   const commentId = useId();
-  const available = message.undoReviewId != null &&
-    ['WaitingForSecondReview', 'WaitingForThirdReview', 'Completed'].includes(message.state);
+  const available = message.undoReviewId != null;
 
   const mutation = useUndoReview(message.id, {
     onChanged,
@@ -40,6 +39,7 @@ export default function UndoReviewButton({ message, onChanged }: { message: Mess
       <div className="review-decision-popup__content">
         <p>Undo the latest approval for <strong>{message.externalId}</strong>? This ends any current assignment.
           The reopened level will require a new assignment.</p>
+        {message.activeReviewId != null && <p>The active next review will also be cancelled. Its history will be preserved.</p>}
         <div>
           <label className="app-label" htmlFor={commentId}>Comment (optional)</label>
           <TextArea value={comment} onValueChanged={(event) => setComment(event.value)}

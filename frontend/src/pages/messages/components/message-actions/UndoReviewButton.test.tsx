@@ -76,11 +76,20 @@ describe('UndoReviewButton', () => {
   });
 
   it.each(['New', 'Assigned', 'FirstReviewInProgress', 'SecondReviewInProgress', 'ThirdReviewInProgress', 'Rejected'] as const)(
-    'disables undo in %s even if the row contains a stale review ID', (state) => {
-      render(<UndoReviewButton message={{ ...message, state }} onChanged={vi.fn()} />);
+    'disables undo in %s when the server does not authorize it', (state) => {
+      render(<UndoReviewButton message={{ ...message, state, undoReviewId: null }} onChanged={vi.fn()} />);
       expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
     },
   );
+
+  it('allows a server-authorized undo during the next review and warns about cancellation', async () => {
+    undoReview.mockResolvedValue(undefined);
+    render(<UndoReviewButton message={{ ...message, state: 'SecondReviewInProgress', activeReviewId: 74 }} onChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByText(/active next review will also be cancelled/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+    await waitFor(() => expect(undoReview).toHaveBeenCalledExactlyOnceWith(42, 73, null));
+  });
 
   it('disables undo when no approval is available', () => {
     render(<UndoReviewButton message={{ ...message, undoReviewId: null }} onChanged={vi.fn()} />);

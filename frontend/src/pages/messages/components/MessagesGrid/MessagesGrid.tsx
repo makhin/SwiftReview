@@ -99,7 +99,8 @@ export default function MessagesGrid({
   const prefersReducedMotion = usePrefersReducedMotion();
   const showAudit = currentUser ? canViewAudit(currentUser.permissions, currentUser.isGlobalAdministrator) : false;
   const showAssignment = currentUser ? canAssignMessages(currentUser.permissions, currentUser.isGlobalAdministrator) : false;
-  const showUndo = enableUndoActions && currentUser?.isGlobalAdministrator === true;
+  const showUndo = enableUndoActions && currentUser != null &&
+    (currentUser.isGlobalAdministrator || currentUser.permissions.includes('review.undo'));
   const showWorkflow = enableWorkflowActions && currentUser != null && canManageWorkflows(currentUser.permissions, currentUser.isGlobalAdministrator);
   const assigneeUsers = users?.map((user) => {
     const names = user.departmentIds.map(
@@ -328,8 +329,9 @@ export default function MessagesGrid({
                       <Button text="Change workflow" stylingMode="outlined" disabled={!message.canChangeWorkflow}
                         onClick={() => { if (message.canChangeWorkflow) setSelectedWorkflowMessage(message); }} />
                     </span>}
-                  {showUndo && <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message}
-                    onChanged={() => dataGridRef.current?.instance().refresh()} />}
+                  {showUndo && (currentUser?.isGlobalAdministrator ||
+                    permissionsForScope(currentUser, message.branchId, message.departmentId).includes('review.undo')) &&
+                    <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message} onChanged={refreshMessages} />}
                   {canShowAssignment(message, false) && (
                     <Button
                       text="Assign"

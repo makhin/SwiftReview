@@ -19,7 +19,7 @@ Global administrators bypass permission, scope, review-owner and four-eyes restr
 - Message grids and the administrator user grid provide a manual Refresh action that preserves the current grid filters, sorting and page. Refreshing users does not discard unsaved access edits.
 - Every approval or rejection closes the current assignment. A message requiring another level remains unassigned until an authorised user assigns the next reviewer. Completed and rejected messages have no current assignee.
 - Rejection is final in the current implementation; reopening rejected messages is not supported.
-- Undoing an approval closes any next-level assignment and clears the assignee in the same transaction. The reopened level requires a new manual assignment with eligibility checked for that level.
+- Undoing an approval closes any next-level assignment and clears the assignee in the same transaction. The reopened level requires a new manual assignment with eligibility checked for that level. As of 30 September 2026, eligible approvals, original-confirmer restrictions and cancellation of an active next review are configurable per workflow; see [Workflow undo policy](ACCESS_ADMINISTRATION.md#workflow-undo-policy). Ordinary users require scoped `review.undo` and workflow access. Administrators retain final-approval undo when no review is active; active-review undo follows the configured policy. Rejected messages remain final.
 
 Availability, workload balancing, fallback pools, escalation/SLA rules, and the Data Control message types and conditions that permit skipping level 2 remain subject to business confirmation.
 

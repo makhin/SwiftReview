@@ -56,12 +56,18 @@ describe('AssignedMessagesPage', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     const props = gridProps.mock.calls.at(-1)![0];
     expect(props.enableReviewActions).toBe(true);
+    expect(props.enableUndoActions).toBe(true);
     await act(() => props.dataSource.load({ skip: 0, take: 20 }));
     expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 });
   });
   it('allows administrators without roles', () => {
     renderPage('/messages/assigned', [], true);
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
+  });
+  it('opens Undo actions without assignment or review-level permissions', () => {
+    renderPage('/messages/assigned', ['message.view', 'review.undo']);
+    expect(gridProps.mock.calls.at(-1)![0].enableUndoActions).toBe(true);
+    expect(screen.queryByText('Assignment page')).not.toBeInTheDocument();
   });
   it('requires view access for ordinary users', () => {
     renderPage('/messages/assigned', ['review.level1']);

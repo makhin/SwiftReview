@@ -20,8 +20,8 @@ public static class ReviewEndpoints
         group.MapPost("/cancel", CancelReview)
             .WithName(nameof(CancelReview)).WithSummary("Cancel an active review attempt.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
-        group.MapPost("/undo", UndoReview).RequireAuthorization("GlobalAdministrator")
-            .WithName(nameof(UndoReview)).WithSummary("Undo a review confirmation as a global administrator.")
+        group.MapPost("/undo", UndoReview)
+            .WithName(nameof(UndoReview)).WithSummary("Undo a review confirmation allowed by scoped permissions and workflow policy.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
     }
 

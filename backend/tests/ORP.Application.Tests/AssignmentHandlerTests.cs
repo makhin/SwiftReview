@@ -135,6 +135,7 @@ public sealed class AssignmentHandlerTests
         reviews.Add(second);
         message.Approve(second, workflow, reviews, 2, null, DateTimeOffset.UtcNow);
         message.Unassign();
+        workflow.ConfigureUndo(UndoApprovalMode.LatestNonFinal, UndoActorMode.OriginalReviewer, UndoActiveReviewMode.Block);
         message.UndoLastApproval(second, workflow, reviews, 2, DateTimeOffset.UtcNow);
         ConfigureAssignment(store, access, message, reviews, 2, Permissions.ReviewLevel2);
 

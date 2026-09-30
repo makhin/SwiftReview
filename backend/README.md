@@ -39,6 +39,9 @@ until a user with the `message.assign` permission assigns an eligible reviewer.
 
 ## Load sample data into SQL Server
 
+See [test data and named-user walkthroughs](../docs/TEST_DATA_SCENARIOS_RU.md) for
+step-by-step assignment, confirmation, Undo and access-control scenarios.
+
 Apply migrations separately, then open [scripts/seed-test-data.sql](scripts/seed-test-data.sql)
 in SSMS, select the target database, and execute the whole script.
 
@@ -49,15 +52,34 @@ The script creates three branches, three departments, four reviewers and one glo
 administrator (`admin`), three workflows and 75
 synthetic Swift messages with registration audit events. Messages start in `New` state
 without an assignee. The single `Reviewer` role grants message viewing, Assign, review
-levels 1–3 and audit viewing. Three reviewers have access to all nine branch/department
+levels 1–3, Undo and audit viewing. Three reviewers have access to all nine branch/department
 pairs; Amelia is scoped to London/CS for access-control examples. `Operations manager`
-retains all permissions; reviewers do not receive Undo,
-workflow management or global administrator access. Three distinct reviewers can complete
+retains all permissions; reviewers do not receive workflow management or global
+administrator access. Three distinct reviewers can complete
 a three-level workflow and assign messages to one another.
 
-The workflows are `1 reviewer` (MT199/CS), `1,2 reviewers` (MT299/TFO), and
-`1,2,3 reviewers` (MT671/DC), with mandatory levels 1, 1–2, and 1–3 respectively.
-The 75 messages use these three types and cover all nine branch/department pairs.
+The seed explicitly configures three demo workflows, including their Undo policies:
+
+| Workflow | Sample scope | Confirmations | Ordinary Undo |
+|---|---|---|---|
+| Single confirmation - no undo | MT199 / CS | 1 | Disabled |
+| Two confirmations - undo first | MT299 / TFO | 1, 2 | Any authorised reviewer can undo the first before the second is approved; an active second attempt is cancelled |
+| Three reviews - owner undo | MT671 / DC | 1, 2, 3 | Original reviewer can undo the latest approval, including the final one, while no review is active |
+
+These are synthetic examples of supported policies, not the production routing or
+confirmation matrix. The 75 messages (25 per scenario) cover all nine branch/department
+pairs, with receipt times in the past 75 hours. Their bodies include the scenario name.
+`TEST-00001` demonstrates single confirmation in London, `TEST-00002` two confirmations
+in Dublin, and `TEST-00003` three reviews in Singapore. All start `New` and unassigned.
+The script finishes with readable workflow and user summaries. No separate policy script
+or manual permission change is needed to try Undo; schema migrations must be applied first.
+
+To try two-step Undo, sign in as `theo.mercer`, assign `TEST-00002` to `priya.nair`,
+and approve its first step as Priya. Theo can then undo Priya's approval from Message
+Review. To test cancellation of an active next attempt, assign the second step to
+`lucas.bennett` and start it before Theo performs Undo. To test the final-approval lock,
+complete both steps instead. Global administrators retain their exception when no review
+is active; see [Undo policy](../docs/ACCESS_ADMINISTRATION.md#workflow-undo-policy).
 
 The reviewers are `amelia.hart`, `theo.mercer`, `priya.nair` and `lucas.bennett`.
 Branches are London, Dublin and Singapore; departments are CS, TFO and DC.

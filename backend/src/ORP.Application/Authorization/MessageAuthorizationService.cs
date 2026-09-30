@@ -42,7 +42,9 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
                 x.ReviewerId == currentId),
             _ => true
         };
-        if (permissionName != Permissions.ReviewUndo && permission && branch && stateOk && fourEyes && ownership)
+        if (permissionName == Permissions.ReviewUndo)
+            permission = permission && await users.CanAccessWorkflowAsync(currentId, message.WorkflowDefinitionId, ct);
+        if (permission && branch && stateOk && fourEyes && ownership)
             return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
 
         AuthorizationLog.MessageAuthorizationDenied(logger, messageId, currentId, permissionName, reviewLevel,

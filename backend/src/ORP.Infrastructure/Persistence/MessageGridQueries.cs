@@ -52,6 +52,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 x.State == MessageState.WaitingForThirdReview),
             _ => throw new FormatException("Unsupported message assignment scope.")
         };
+        var undoCandidates = db.ReadUndoCandidates(access);
         var rows = query
             .Select(x => new MessageGridRowDto
             {
@@ -82,12 +83,8 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
                         role.BranchId == x.BranchId && role.DepartmentId == x.DepartmentId &&
                         role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.WorkflowManage))),
-                UndoReviewId = access.IsGlobalAdministrator &&
-                    (x.State == MessageState.WaitingForSecondReview || x.State == MessageState.WaitingForThirdReview || x.State == MessageState.Completed)
-                    ? db.Reviews.Where(review => review.MessageId == x.Id && review.Status == ReviewStatus.Approved &&
-                        db.WorkflowSteps.Any(step => step.WorkflowDefinitionId == x.WorkflowDefinitionId && step.Required && step.ReviewLevel == review.Level))
-                        .OrderByDescending(review => review.Level).Select(review => (long?)review.Id).FirstOrDefault()
-                    : null,
+                UndoReviewId = undoCandidates.Where(candidate => candidate.MessageId == x.Id)
+                    .Select(candidate => (long?)candidate.ReviewId).FirstOrDefault(),
                 RequiredReviewLevels = db.WorkflowSteps
                     .Where(step => step.WorkflowDefinitionId == x.WorkflowDefinitionId && step.Required)
                     .OrderBy(step => step.Order)

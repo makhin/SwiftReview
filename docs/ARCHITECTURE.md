@@ -255,7 +255,7 @@ Implementation references: [MSAL authentication flows](https://learn.microsoft.c
 
 A normal user needs both `message.view` and the action permission in the message's exact branch/department scope. Action permissions include `message.assign`, `review.level1` to `review.level3`, `audit.view`, and `workflow.manage`. Authorization also checks current state, assignee/reviewer ownership, and four-eyes separation. The backend is the security boundary; frontend permission checks only hide or disable UI controls.
 
-A global administrator bypasses scoped permission checks and can use administration and undo operations. Sensitive authorization reads happen inside the same transaction as writes, which prevents a permission change racing with a business action.
+A global administrator bypasses scoped permission checks and can use administration operations. Undo is also available through scoped `review.undo`, subject to the workflow's approval, actor and active-review policies. Administrators may undo the latest final approval when no review is active; cancelling an active next review follows the configured policy. See [Workflow undo policy](ACCESS_ADMINISTRATION.md#workflow-undo-policy). Sensitive authorization reads happen inside the same transaction as writes, which prevents a permission change racing with a business action.
 
 ## 6. Frontend architecture
 

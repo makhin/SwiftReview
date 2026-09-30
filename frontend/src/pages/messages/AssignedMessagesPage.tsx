@@ -34,6 +34,6 @@ export default function AssignedMessagesPage() {
         <p className="app-page-subtitle">Review messages available across your accessible scopes.</p>
       </div>
     </header>
-    <MessagesGrid dataSource={messageDataSource} enableReviewActions />
+    <MessagesGrid dataSource={messageDataSource} enableReviewActions enableUndoActions />
   </main>;
 }
