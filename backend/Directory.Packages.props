@@ -32,7 +32,6 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.18.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.17.3" />
-    <PackageVersion Include="Stateless" Version="5.20.1" />
     <!-- 4.x defaults to MTP v2 and requires migrating the existing VSTest-based dotnet test workflow. -->
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />

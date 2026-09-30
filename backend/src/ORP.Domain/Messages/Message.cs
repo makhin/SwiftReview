@@ -1,4 +1,3 @@
-using Stateless;
 using ORP.Domain.Common;
 using ORP.Domain.Reviews;
 using ORP.Domain.Workflows;
@@ -24,8 +23,7 @@ public sealed class Message
 
     public void Assign(int assigneeId)
     {
-        var machine = CreateMachine();
-        Fire(machine, CurrentAssigneeId is null ? MessageTrigger.Assign : MessageTrigger.Reassign);
+        State = MessageStateTransitions.Assign(State);
         CurrentAssigneeId = assigneeId;
     }
 
@@ -55,14 +53,14 @@ public sealed class Message
         EnsureWorkflow(workflow);
         if (!isGlobalAdministrator && CurrentAssigneeId != reviewerId)
             throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
-        var expected = ExpectedLevel(workflow, reviews);
+        var expected = MessageReviewRules.ExpectedLevel(workflow, reviews);
         if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
         if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
             throw new DomainRuleViolationException("This review level has already been started.");
         if (!isGlobalAdministrator && preventReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
             throw new DomainRuleViolationException("Four-eyes principle: a reviewer cannot be reused.");
 
-        Fire(CreateMachine(), MessageTrigger.StartReview);
+        State = MessageStateTransitions.StartReview(State, level);
         return new Review(Id, level, reviewerId, now);
     }
 
@@ -71,17 +69,14 @@ public sealed class Message
     {
         EnsureWorkflow(workflow);
         if (State == MessageState.Completed) throw new DomainRuleViolationException("A completed message cannot be approved.");
-        if (!reviews.Contains(review)) throw new DomainRuleViolationException("Review does not belong to this message workflow.");
+        if (review.MessageId != Id || !reviews.Contains(review))
+            throw new DomainRuleViolationException("Review does not belong to this message workflow.");
         if (!isGlobalAdministrator && review.ReviewerId != actorId)
             throw new DomainRuleViolationException("Only the reviewer who started the review can approve it.");
-        var required = workflow.RequiredLevels();
-        var completed = reviews.Where(x => x.Status == ReviewStatus.Approved).Select(x => x.Level).Append(review.Level).Distinct().ToHashSet();
-        var next = required.FirstOrDefault(x => !completed.Contains(x));
-        var target = next == 0 ? MessageState.Completed : WaitingState(next);
-        var machine = CreateMachine(target);
-        EnsureCanFire(machine, MessageTrigger.Approve);
+        var next = MessageReviewRules.NextLevelAfterApproval(workflow, reviews, review);
+        var target = MessageStateTransitions.Approve(State, review.Level, next);
         review.Approve(comment, now);
-        machine.Fire(MessageTrigger.Approve);
+        State = target;
     }
 
     public void Reject(Review review, int actorId, string? comment, DateTimeOffset now, bool isGlobalAdministrator = false)
@@ -89,10 +84,9 @@ public sealed class Message
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
         if (!isGlobalAdministrator && review.ReviewerId != actorId)
             throw new DomainRuleViolationException("Only the reviewer who started the review can reject it.");
-        var machine = CreateMachine();
-        EnsureCanFire(machine, MessageTrigger.Reject);
+        var target = MessageStateTransitions.Reject(State, review.Level);
         review.Reject(comment, now);
-        machine.Fire(MessageTrigger.Reject);
+        State = target;
     }
 
     public void CancelReview(Review review, int actorId, DateTimeOffset now, bool isGlobalAdministrator = false)
@@ -100,18 +94,9 @@ public sealed class Message
         if (review.MessageId != Id) throw new DomainRuleViolationException("Review does not belong to this message.");
         if (!isGlobalAdministrator && review.ReviewerId != actorId)
             throw new DomainRuleViolationException("Only the reviewer who started the review can cancel it.");
-        var activeState = review.Level switch
-        {
-            1 => MessageState.FirstReviewInProgress,
-            2 => MessageState.SecondReviewInProgress,
-            3 => MessageState.ThirdReviewInProgress,
-            _ => throw new DomainRuleViolationException("Unsupported review level.")
-        };
-        if (State != activeState) throw new DomainRuleViolationException("This review level is not currently active.");
-        var machine = CreateMachine();
-        EnsureCanFire(machine, MessageTrigger.CancelReview);
+        var target = MessageStateTransitions.CancelReview(State, review.Level);
         review.Cancel(now);
-        machine.Fire(MessageTrigger.CancelReview);
+        State = target;
     }
 
     public Review? UndoLastApproval(Review review, WorkflowDefinition workflow,
@@ -119,41 +104,14 @@ public sealed class Message
     {
         EnsureWorkflow(workflow);
         if (review.MessageId != Id || !reviews.Contains(review)) throw new DomainRuleViolationException("Review does not belong to this message.");
-        var levels = workflow.RequiredLevels();
-        var latestApprovedLevel = levels.LastOrDefault(level =>
-            reviews.Any(x => x.Level == level && x.Status == ReviewStatus.Approved));
-        if (review.Status != ReviewStatus.Approved || latestApprovedLevel == 0 || review.Level != latestApprovedLevel)
-            throw new DomainRuleViolationException("Only the latest approved workflow step can be undone.");
-        var activeReview = reviews.SingleOrDefault(x => x.Status == ReviewStatus.InProgress);
-        var administratorOverride = isGlobalAdministrator && activeReview is null;
-        if (!administratorOverride)
-        {
-            if (workflow.UndoApprovalMode == UndoApprovalMode.Disabled ||
-                (workflow.UndoApprovalMode == UndoApprovalMode.LatestNonFinal && review.Level == levels[^1]))
-                throw new DomainRuleViolationException("The workflow policy does not allow undoing this confirmation.");
-            if (!isGlobalAdministrator && workflow.UndoActorMode == UndoActorMode.OriginalReviewer && review.ReviewerId != actorId)
-                throw new DomainRuleViolationException("Only the reviewer who approved can undo confirmation.");
-            if (activeReview is not null && workflow.UndoActiveReviewMode != UndoActiveReviewMode.Cancel)
-                throw new DomainRuleViolationException("The workflow policy blocks undo while a review is active.");
-        }
-        if (activeReview is not null && (activeReview.MessageId != Id ||
-            activeReview.Level != levels.FirstOrDefault(level => level > review.Level) ||
-            State != ReviewState(activeReview.Level)))
+        var decision = MessageReviewRules.CheckUndo(workflow, reviews, review, actorId, isGlobalAdministrator);
+        if (decision.ActiveReview is not null && decision.ActiveReview.MessageId != Id)
             throw new DomainRuleViolationException("Only the active next workflow step can be cancelled by undo.");
-        if (activeReview is null && State is MessageState.FirstReviewInProgress or MessageState.SecondReviewInProgress or MessageState.ThirdReviewInProgress)
-            throw new DomainRuleViolationException("The active review was not found.");
-        var machine = CreateMachine(WaitingBeforeLevel(review.Level), activeReview is not null);
-        EnsureCanFire(machine, MessageTrigger.Undo);
-        activeReview?.Cancel(now);
+        var target = MessageStateTransitions.Undo(State, review.Level, decision.NextLevel, decision.ActiveReview?.Level);
+        decision.ActiveReview?.Cancel(now);
         review.Undo(now);
-        machine.Fire(MessageTrigger.Undo);
-        return activeReview;
-    }
-
-    private int ExpectedLevel(WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews)
-    {
-        var approved = reviews.Where(x => x.Status == ReviewStatus.Approved).Select(x => x.Level).ToHashSet();
-        return workflow.RequiredLevels().FirstOrDefault(x => !approved.Contains(x));
+        State = target;
+        return decision.ActiveReview;
     }
 
     private void EnsureWorkflow(WorkflowDefinition workflow)
@@ -161,89 +119,4 @@ public sealed class Message
         if (!workflow.IsActive || workflow.Id != WorkflowDefinitionId)
             throw new DomainRuleViolationException("The configured workflow is not active for this message.");
     }
-
-    private StateMachine<MessageState, MessageTrigger> CreateMachine(MessageState? approveTarget = null, bool undoActiveReview = false)
-    {
-        var machine = new StateMachine<MessageState, MessageTrigger>(() => State, value => State = value);
-        switch (State)
-        {
-            case MessageState.New:
-                machine.Configure(State).Permit(MessageTrigger.Assign, MessageState.Assigned);
-                break;
-            case MessageState.Assigned:
-                machine.Configure(State).PermitReentry(MessageTrigger.Assign)
-                    .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.FirstReviewInProgress);
-                break;
-            case MessageState.FirstReviewInProgress:
-                ConfigureReview(machine, State, approveTarget ?? MessageState.WaitingForSecondReview, MessageState.Assigned);
-                break;
-            case MessageState.WaitingForSecondReview:
-                var second = machine.Configure(State).PermitReentry(MessageTrigger.Assign)
-                    .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.SecondReviewInProgress);
-                if (approveTarget is not null) second.Permit(MessageTrigger.Undo, approveTarget.Value);
-                break;
-            case MessageState.SecondReviewInProgress:
-                ConfigureReview(machine, State, approveTarget ?? MessageState.Completed, MessageState.WaitingForSecondReview);
-                if (undoActiveReview && approveTarget is not null) machine.Configure(State).Permit(MessageTrigger.Undo, approveTarget.Value);
-                break;
-            case MessageState.WaitingForThirdReview:
-                var third = machine.Configure(State).PermitReentry(MessageTrigger.Assign)
-                    .PermitReentry(MessageTrigger.Reassign).Permit(MessageTrigger.StartReview, MessageState.ThirdReviewInProgress);
-                if (approveTarget is not null) third.Permit(MessageTrigger.Undo, approveTarget.Value);
-                break;
-            case MessageState.ThirdReviewInProgress:
-                ConfigureReview(machine, State, approveTarget ?? MessageState.Completed, MessageState.WaitingForThirdReview);
-                if (undoActiveReview && approveTarget is not null) machine.Configure(State).Permit(MessageTrigger.Undo, approveTarget.Value);
-                break;
-            case MessageState.Completed:
-                if (approveTarget is not null) machine.Configure(State).Permit(MessageTrigger.Undo, approveTarget.Value);
-                break;
-            case MessageState.Rejected:
-                machine.Configure(State).PermitReentry(MessageTrigger.Reassign);
-                break;
-        }
-        return machine;
-    }
-
-    private static void ConfigureReview(StateMachine<MessageState, MessageTrigger> machine, MessageState state,
-        MessageState approveTarget, MessageState cancelTarget) =>
-        machine.Configure(state)
-            .Permit(MessageTrigger.Approve, approveTarget)
-            .Permit(MessageTrigger.Reject, MessageState.Rejected)
-            .Permit(MessageTrigger.CancelReview, cancelTarget);
-
-    private static void Fire(StateMachine<MessageState, MessageTrigger> machine, MessageTrigger trigger)
-    {
-        EnsureCanFire(machine, trigger);
-        machine.Fire(trigger);
-    }
-
-    private static void EnsureCanFire(StateMachine<MessageState, MessageTrigger> machine, MessageTrigger trigger)
-    {
-        if (!machine.CanFire(trigger))
-            throw new DomainRuleViolationException($"Trigger '{trigger}' is not allowed while message is in state '{machine.State}'.");
-    }
-
-    private static MessageState WaitingState(int level) => level switch
-    {
-        2 => MessageState.WaitingForSecondReview,
-        3 => MessageState.WaitingForThirdReview,
-        _ => throw new DomainRuleViolationException("Unsupported next review level.")
-    };
-
-    private static MessageState ReviewState(int level) => level switch
-    {
-        1 => MessageState.FirstReviewInProgress,
-        2 => MessageState.SecondReviewInProgress,
-        3 => MessageState.ThirdReviewInProgress,
-        _ => throw new DomainRuleViolationException("Unsupported review level.")
-    };
-
-    private static MessageState WaitingBeforeLevel(int level) => level switch
-    {
-        1 => MessageState.Assigned,
-        2 => MessageState.WaitingForSecondReview,
-        3 => MessageState.WaitingForThirdReview,
-        _ => throw new DomainRuleViolationException("Unsupported review level.")
-    };
 }

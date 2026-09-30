@@ -95,6 +95,57 @@ public sealed class MessageWorkflowTests
     }
 
     [Fact]
+    public void RejectedMessage_CanBeUnassignedButNotAssignedAgain()
+    {
+        var (message, workflow, reviews) = Create(1);
+        message.Assign(10);
+        var review = message.StartReview(1, 10, workflow, reviews, Now);
+        reviews.Add(review);
+        message.Reject(review, 10, null, Now);
+
+        Assert.Throws<DomainRuleViolationException>(() => message.Assign(11));
+        Assert.Equal(10, message.CurrentAssigneeId);
+        message.Unassign();
+        Assert.Throws<DomainRuleViolationException>(() => message.Assign(11));
+        Assert.Null(message.CurrentAssigneeId);
+        Assert.Equal(MessageState.Rejected, message.State);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DecisionForWrongReviewLevel_DoesNotChangeMessageOrReview(bool approve)
+    {
+        var (message, workflow, reviews) = Create(1, 2);
+        message.Assign(10);
+        reviews.Add(message.StartReview(1, 10, workflow, reviews, Now));
+        var wrongLevel = new Review(message.Id, 2, 10, Now);
+        reviews.Add(wrongLevel);
+
+        if (approve)
+            Assert.Throws<DomainRuleViolationException>(() => message.Approve(wrongLevel, workflow, reviews, 10, null, Now));
+        else
+            Assert.Throws<DomainRuleViolationException>(() => message.Reject(wrongLevel, 10, null, Now));
+
+        Assert.Equal(MessageState.FirstReviewInProgress, message.State);
+        Assert.Equal(ReviewStatus.InProgress, wrongLevel.Status);
+    }
+
+    [Fact]
+    public void ApprovalForAnotherMessage_DoesNotChangeMessageOrReview()
+    {
+        var (message, workflow, reviews) = Create(1);
+        message.Assign(10);
+        var foreignReview = new Review(2, 1, 10, Now);
+        reviews.Add(message.StartReview(1, 10, workflow, reviews, Now));
+        reviews.Add(foreignReview);
+
+        Assert.Throws<DomainRuleViolationException>(() => message.Approve(foreignReview, workflow, reviews, 10, null, Now));
+        Assert.Equal(MessageState.FirstReviewInProgress, message.State);
+        Assert.Equal(ReviewStatus.InProgress, foreignReview.Status);
+    }
+
+    [Fact]
     public void AssignmentToSelf_IsRejected() => Assert.Throws<DomainRuleViolationException>(() => new Assignment(1, 7, 7, Now));
 
     [Fact]

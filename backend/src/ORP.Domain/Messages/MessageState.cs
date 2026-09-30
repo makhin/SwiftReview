@@ -12,5 +12,3 @@ public enum MessageState
     Completed,
     Rejected
 }
-
-public enum MessageTrigger { Assign, StartReview, Approve, Reject, Reassign, Undo, CancelReview }
