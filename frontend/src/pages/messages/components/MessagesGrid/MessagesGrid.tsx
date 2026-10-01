@@ -299,8 +299,9 @@ export default function MessagesGrid({
           <Column
             dataField="receivedAt"
             caption="Received"
-            dataType="datetime"
-            format="dd MMM yyyy, HH:mm"
+            dataType="date"
+            format="dd MMM yyyy"
+            filterOperations={['=', '<>', '<', '>', '<=', '>=', 'between']}
             minWidth={160}
           />
           <Column

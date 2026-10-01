@@ -390,6 +390,15 @@ describe('MessagesPage', () => {
       'Actions',
     ]);
 
+    const receivedColumn = componentProps.mock.calls.find(
+      ([name, props]) => name === 'Column' && props.dataField === 'receivedAt',
+    )?.[1];
+    expect(receivedColumn).toMatchObject({
+      dataType: 'date',
+      format: 'dd MMM yyyy',
+      filterOperations: ['=', '<>', '<', '>', '<=', '>=', 'between'],
+    });
+
     const lookupColumns = componentProps.mock.calls
       .filter(
         ([name, props]) =>
