@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ORP.Application.Grids;
 using ORP.Application.Abstractions;
+using ORP.Application.Messages.GetStateCounts;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
@@ -11,8 +12,11 @@ public sealed class MessageGridQueries(ORPDbContext db)
 {
     public async Task<IReadOnlyList<MessageStateCountDto>> StateCountsAsync(UserAccess access, CancellationToken ct)
     {
-        var counts = await db.ReadAccessibleMessages(access.UserId).CountByStateAsync(ct);
-        return Enum.GetValues<MessageState>().Select(state => new MessageStateCountDto(state, counts.GetValueOrDefault(state))).ToArray();
+        var counts = await db.ReadAccessibleMessages(access.UserId)
+            .GroupBy(x => new { x.State, x.MessageType })
+            .Select(group => new { group.Key.State, group.Key.MessageType, Count = group.Count() })
+            .ToListAsync(ct);
+        return MessageStateCounts.FromTypeCounts(counts.Select(x => (x.State, x.MessageType, x.Count)));
     }
 
     public async Task<PagedResult<MessageGridRowDto>> LoadAsync(MessageGridRequest request, UserAccess access, CancellationToken ct)

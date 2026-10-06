@@ -172,6 +172,11 @@ branch and department.
 Frontend integration guides: [Grid API](docs/FRONTEND_GRID_API.md) and
 [Message stage counts](docs/FRONTEND_MESSAGE_STAGE_COUNTS.md).
 
+`GET /api/messages/state-counts` returns all states as `{ state, count, breakdown }`.
+`breakdown` contains `{ messageType, count }` entries for accessible messages in that state;
+its counts sum to the state total. Empty states return `count: 0` and `breakdown: []`.
+These counts do not apply grid filters or assignment scopes.
+
 ### Grid API
 
 `POST /api/messages/grid` and `POST /api/admin/users/grid` accept JSON bodies and return

@@ -20,6 +20,7 @@ public static class MessageEndpoints
         var group = api.MapGroup("/messages").WithTags("Message");
         group.MapGet("/state-counts", GetStateCounts)
             .WithName(nameof(GetStateCounts)).WithSummary("Get accessible message counts by state.")
+            .WithDescription("Returns every state, including zeros, with a messageType/count breakdown. Counts include only accessible messages; grid filters and assignmentScope do not apply.")
             .Produces<IReadOnlyList<MessageStateCountDto>>();
         group.MapPost("/grid", GetMessagesGrid)
             .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages with paging, filtering and sorting.")
