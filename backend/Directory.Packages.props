@@ -6,7 +6,6 @@
   <ItemGroup>
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageVersion Include="DevExtreme.AspNet.Data" Version="5.1.0" />
     <PackageVersion Include="iTextSharp" Version="5.5.13.6" />
     <PackageVersion Include="itext.commons" Version="9.7.0" />
     <PackageVersion Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" />

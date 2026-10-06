@@ -21,6 +21,8 @@ using ORP.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+// Route JSON binding failures through the same ProblemDetails handler as request validation.
+builder.Services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICorrelationContext, CorrelationContext>();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();

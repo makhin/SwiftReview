@@ -1,5 +1,5 @@
-using DevExtreme.AspNet.Data.ResponseModel;
 using ORP.Api.Infrastructure;
+using ORP.Application.Grids;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments.Assign;
 using ORP.Application.Assignments.GetCandidates;
@@ -21,10 +21,10 @@ public static class MessageEndpoints
         group.MapGet("/state-counts", GetStateCounts)
             .WithName(nameof(GetStateCounts)).WithSummary("Get accessible message counts by state.")
             .Produces<IReadOnlyList<MessageStateCountDto>>();
-        group.MapGet("/grid", GetMessagesGrid)
-            .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages using DevExtreme options.")
-            .Produces<MessageGridLoadResultDto>().ProducesProblem(400)
-            .AddOpenApiOperationTransformer(MessageGridOpenApi.DescribeResponse);
+        group.MapPost("/grid", GetMessagesGrid)
+            .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages with paging, filtering and sorting.")
+            .WithDescription(GridEndpointDescriptions.Messages)
+            .Produces<PagedResult<MessageGridRowDto>>().ProducesProblem(400);
         group.MapGet("/{id:long}", GetMessage)
             .WithName(nameof(GetMessage)).WithSummary("Get an accessible message.")
             .Produces<MessageDetailsDto>().ProducesProblem(404);
@@ -62,14 +62,14 @@ public static class MessageEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<LoadResult> GetMessagesGrid([AsParameters] DevExtremeGridRequest request, HttpRequest httpRequest, MessageGridQueries queries, ICurrentUser currentUser,
+    private static async Task<PagedResult<MessageGridRowDto>> GetMessagesGrid(MessageGridRequest request, MessageGridQueries queries, ICurrentUser currentUser,
         IUserAccessService accessService, CancellationToken ct)
     {
         var access = await accessService.GetByIdAsync(currentUser.UserId, ct) ?? throw new UnauthorizedAccessException();
         if (request.AssignmentScope == MessageAssignmentScopes.Assignable &&
             !access.Permissions.Contains(Permissions.MessageAssign))
             throw new UnauthorizedAccessException("The current user is not allowed to assign messages.");
-        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(httpRequest.Query), access, request.AssignmentScope, ct);
+        return await queries.LoadAsync(request, access, ct);
     }
 
     private static Task<PagedResult<MessageListItemDto>> SearchMessages(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);

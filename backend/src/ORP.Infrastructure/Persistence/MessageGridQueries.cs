@@ -1,32 +1,11 @@
-using DevExtreme.AspNet.Data;
-using DevExtreme.AspNet.Data.ResponseModel;
+using Microsoft.EntityFrameworkCore;
+using ORP.Application.Grids;
 using ORP.Application.Abstractions;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
 
 namespace ORP.Infrastructure.Persistence;
-
-public sealed class MessageGridRowDto
-{
-    public required long Id { get; init; }
-    public required string ExternalId { get; init; }
-    public required MessageDirection? Direction { get; init; }
-    public required string MessageType { get; init; }
-    public required int BranchId { get; init; }
-    public required int DepartmentId { get; init; }
-    public required MessageState State { get; init; }
-    public required DateTimeOffset ReceivedAt { get; init; }
-    public required int? CurrentAssigneeId { get; init; }
-    public required long? ActiveReviewId { get; init; }
-    public required int? ActiveReviewLevel { get; init; }
-    public required int? ActiveReviewerId { get; init; }
-    public required long? UndoReviewId { get; init; }
-    public required int WorkflowDefinitionId { get; init; }
-    public required bool CanReview { get; init; }
-    public required bool CanChangeWorkflow { get; init; }
-    public required int[] RequiredReviewLevels { get; init; }
-}
 
 public sealed class MessageGridQueries(ORPDbContext db)
 {
@@ -36,9 +15,10 @@ public sealed class MessageGridQueries(ORPDbContext db)
         return Enum.GetValues<MessageState>().Select(state => new MessageStateCountDto(state, counts.GetValueOrDefault(state))).ToArray();
     }
 
-    public async Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, UserAccess access,
-        string? assignmentScope, CancellationToken ct)
+    public async Task<PagedResult<MessageGridRowDto>> LoadAsync(MessageGridRequest request, UserAccess access, CancellationToken ct)
     {
+        var options = GridQuery<MessageReadRow>.Create(request, GridFields.Messages, 500, 5, new SortClause("receivedAt", "desc"));
+        var assignmentScope = request.AssignmentScope;
         var query = db.ReadAccessibleMessages(access.UserId, assignmentScope == MessageAssignmentScopes.Assignable
             ? Permissions.MessageAssign : Permissions.MessageView);
         query = assignmentScope switch
@@ -53,8 +33,10 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 x.State == MessageState.WaitingForThirdReview),
             _ => throw new FormatException("Unsupported message assignment scope.")
         };
+        query = options.Filter(query);
+        var count = await query.CountAsync(ct);
         var undoCandidates = db.ReadUndoCandidates(access);
-        var rows = query
+        var rows = options.Page(query)
             .Select(x => new MessageGridRowDto
             {
                 Id = x.Id,
@@ -92,13 +74,6 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     .OrderBy(step => step.Order)
                     .Select(step => step.ReviewLevel).ToArray()
             });
-        return await DataSourceLoader.LoadAsync(rows, options, ct);
+        return new(await rows.ToListAsync(ct), count);
     }
-}
-
-public static class MessageAssignmentScopes
-{
-    public const string Mine = "mine";
-    public const string Departments = "departments";
-    public const string Assignable = "assignable";
 }

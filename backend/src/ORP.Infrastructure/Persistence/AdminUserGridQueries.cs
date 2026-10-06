@@ -1,29 +1,25 @@
-using DevExtreme.AspNet.Data;
-using DevExtreme.AspNet.Data.ResponseModel;
 using Microsoft.EntityFrameworkCore;
+using ORP.Application.Abstractions;
+using ORP.Application.Grids;
 
 namespace ORP.Infrastructure.Persistence;
 
-public sealed record AdminUserGridRow
-{
-    public int Id { get; init; }
-    public string UserName { get; init; } = null!;
-    public string DisplayName { get; init; } = null!;
-}
-
 public sealed class AdminUserGridQueries(ORPDbContext db)
 {
-    public Task<LoadResult> LoadAsync(DataSourceLoadOptionsBase options, string? search, CancellationToken ct)
+    public async Task<PagedResult<AdminUserGridRow>> LoadAsync(AdminUserGridRequest request, CancellationToken ct)
     {
+        var options = GridQuery<AdminUserGridRow>.Create(request, GridFields.Users, 100, 3, new SortClause("displayName", "asc"));
         var query = db.Users.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(search))
+        if (!string.IsNullOrWhiteSpace(request.Search))
         {
-            var text = search.Trim();
+            var text = request.Search.Trim();
             query = query.Where(u => u.UserName.Contains(text) || u.DisplayName.Contains(text));
         }
-        return DataSourceLoader.LoadAsync(query.Select(u => new AdminUserGridRow
+        var rows = options.Filter(query.Select(u => new AdminUserGridRow
         {
             Id = u.Id, UserName = u.UserName, DisplayName = u.DisplayName
-        }), options, ct);
+        }));
+        var count = await rows.CountAsync(ct);
+        return new(await options.Page(rows).ToListAsync(ct), count);
     }
 }

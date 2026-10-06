@@ -1,5 +1,6 @@
-using DevExtreme.AspNet.Data.ResponseModel;
 using ORP.Api.Infrastructure;
+using ORP.Application.Abstractions;
+using ORP.Application.Grids;
 using ORP.Application.Administration;
 using ORP.Infrastructure.Persistence;
 
@@ -22,9 +23,10 @@ public static class AdministrationEndpoints
         admin.MapPut("/roles/{id:int}/permissions", UpdateRolePermissions)
             .WithName(nameof(UpdateRolePermissions)).WithSummary("Replace the complete permission set for a role.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
-        admin.MapGet("/users/grid", GetAdminUsersGrid)
-            .WithName(nameof(GetAdminUsersGrid)).WithSummary("Load users with paging, search and sorting.")
-            .Produces<LoadResult>().ProducesProblem(400);
+        admin.MapPost("/users/grid", GetAdminUsersGrid)
+            .WithName(nameof(GetAdminUsersGrid)).WithSummary("Load users with paging, filtering, search and sorting.")
+            .WithDescription(GridEndpointDescriptions.Users)
+            .Produces<PagedResult<AdminUserGridRow>>().ProducesProblem(400);
     }
 
     private static Task<AccessCatalogDto> GetAccessCatalog(IUserAdministrationService service, CancellationToken ct) =>
@@ -47,7 +49,6 @@ public static class AdministrationEndpoints
         return Results.NoContent();
     }
 
-    private static Task<LoadResult> GetAdminUsersGrid(AdminUserGridQueries queries, CancellationToken ct,
-        int skip = 0, int take = 20, string? search = null, string? sort = null) =>
-        queries.LoadAsync(AdminUserGridLoadOptions.Parse(skip, take, search, sort), search, ct);
+    private static Task<PagedResult<AdminUserGridRow>> GetAdminUsersGrid(AdminUserGridRequest request,
+        AdminUserGridQueries queries, CancellationToken ct) => queries.LoadAsync(request, ct);
 }

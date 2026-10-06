@@ -163,17 +163,80 @@ dotnet ef migrations add MigrationName \
 
 ## API notes
 
-All application endpoints are under `/api` and require authentication. The API exposes message search and detail operations, a DevExtreme grid endpoint, assignment and review actions, audit history, dashboard summaries, and reference data.
+All application endpoints are under `/api` and require authentication. The API exposes message search and detail operations, independent message and user grid endpoints, assignment and review actions, audit history, dashboard summaries, and reference data.
 
 `GET /api/messages/{id}/audit` returns a newest-first paged history. It accepts `skip` (default `0`) and
 `take` (default `100`, maximum `500`) and requires the `audit.view` permission plus access to the message's
 branch and department.
 
-`GET /api/messages/grid` accepts DevExtreme remote load options. HTTP query parameters are parsed by
-`DataSourceLoadOptionsParser` and applied to the authorized DTO query by `DataSourceLoader`.
-DevExtreme owns filter syntax and summary operations; the API only bounds request size and restricts
-available fields. Follow the [DevExtreme server configuration](https://github.com/DevExpress/DevExtreme.AspNet.Data/blob/master/docs/server-side-configuration.md)
-when extending grid loading. Data loading remains server-side through `DevExtreme.AspNet.Data`; the frontend consumes it through a DevExtreme `CustomStore`.
+Frontend integration guides: [Grid API](docs/FRONTEND_GRID_API.md) and
+[Message stage counts](docs/FRONTEND_MESSAGE_STAGE_COUNTS.md).
+
+### Grid API
+
+`POST /api/messages/grid` and `POST /api/admin/users/grid` accept JSON bodies and return
+`{ "items": [...], "totalCount": 123 }`. The old GET routes have been removed. There is no
+DevExtreme protocol or package dependency. `totalCount` counts authorized, filtered rows
+before paging. Empty and out-of-range pages return an empty `items` array and the same count.
+Filtering, counting, sorting and paging run in SQL Server; only the page is materialized.
+
+| Option | Messages | Users (global administrators only) |
+|---|---|---|
+| `skip` | Default 0; non-negative | Default 0; non-negative |
+| `take` | Default 20; 1–500 | Default 20; 1–100 |
+| `sort` | Up to 5 clauses; default `receivedAt desc` | Up to 3 clauses; default `displayName asc` |
+| `filter` | Optional nested filter | Optional nested filter |
+| `assignmentScope` | Optional `mine`, `departments`, `assignable` | Not supported |
+| `search` | Not supported | Optional text, at most 100 characters; trimmed and matched against username or display name |
+
+Sort clauses have `{ "field": "receivedAt", "direction": "desc" }` shape. Clauses are applied
+in order. An empty sort array uses the default. `id asc` is appended for stable paging unless
+`id` is already specified. Field names, operators, sort directions and group logic are case-insensitive.
+
+A filter is either a condition `{ "field": "state", "operator": "eq", "value": "Assigned" }`
+or a non-empty group `{ "logic": "and", "filters": [...] }`; groups may use `and` or `or` and
+nest up to 8 levels (the root is level 0). A request may contain at most 64 conditions.
+Mixing condition and group properties is invalid. Omitted or `null` filters impose no constraints.
+
+- `eq`, `ne`: equality/inequality on any allowed column. `null` is valid only for nullable columns
+  and strings, for example `{ "field": "currentAssigneeId", "operator": "eq", "value": null }`.
+- `gt`, `gte`, `lt`, `lte`: ordered comparisons on numeric and date columns.
+- `contains`, `startsWith`, `endsWith`: string columns only, with a non-null string value.
+  Null strings do not match text operators. Case/accent matching follows SQL Server collation.
+- Multiple alternatives use OR groups; there are no `in`, `notIn` or separate null operators.
+
+Numeric values must be JSON integers within the column type's range, not strings. Enum values
+must be defined names (`Assigned`, `Incoming`, etc.; case-insensitive), not numeric codes.
+Dates must be ISO 8601 timestamps with seconds and an explicit offset or `Z`, for example
+`2026-10-06T10:00:00+02:00` or `2026-10-06T08:00:00Z` (up to 7 fractional digits).
+Invalid fields, operators, types, structures, paging or complexity return `400 ProblemDetails`.
+Unknown request/filter properties are rejected, including legacy grouping, selection and summaries.
+
+Allowed message filter/sort fields: `id`, `externalId`, `direction`, `messageType`, `branchId`,
+`departmentId`, `state`, `receivedAt`, `currentAssigneeId`, `activeReviewId`, `activeReviewLevel`,
+`activeReviewerId`, `workflowDefinitionId`. User fields: `id`, `userName`, `displayName`.
+Message rows also retain `canReview`, `canChangeWorkflow`, `undoReviewId`, `requiredReviewLevels`;
+these computed fields cannot be filtered or sorted. Enum values in rows remain strings.
+
+Authorization precedes client filtering. Assignment scopes preserve existing behavior:
+`mine` matches the current assignee or active reviewer; `departments` restricts non-administrators
+to assigned messages; `assignable` requires assignment permission and matches eligible waiting
+states. None of these options expands branch/department access. User search and filter are combined
+with AND. The separate `POST /api/messages/search` endpoint is unchanged.
+
+```bash
+curl -X POST http://localhost:5080/api/messages/grid \
+  -H 'X-Debug-User: admin' -H 'Content-Type: application/json' \
+  -d '{"skip":0,"take":20,"sort":[{"field":"receivedAt","direction":"desc"}],"filter":{"logic":"and","filters":[{"field":"state","operator":"eq","value":"Assigned"},{"logic":"or","filters":[{"field":"messageType","operator":"eq","value":"MT199"},{"field":"messageType","operator":"eq","value":"MT299"}]}]},"assignmentScope":"mine"}'
+
+curl -X POST http://localhost:5080/api/admin/users/grid \
+  -H 'X-Debug-User: admin' -H 'Content-Type: application/json' \
+  -d '{"take":20,"search":"theo","sort":[{"field":"userName","direction":"asc"}]}'
+```
+
+This is a breaking grid contract change. Existing frontend consumers must adopt POST, the new
+filter/sort body and `items` response property; their generated contracts are not updated by this
+backend change. Database schema and migrations are unchanged.
 
 Request and response schemas, status codes, and Problem Details payloads are documented in OpenAPI. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export the configured traces and metrics through OTLP.
 
