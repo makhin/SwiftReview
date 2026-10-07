@@ -128,9 +128,9 @@ describe('MessageStage', () => {
     expect(screen.queryByTestId('stepper')).not.toBeInTheDocument();
   });
 
-  it('accepts a review level encoded as a JSON string', () => {
+  it('uses a numeric review level from the backend', () => {
     render(<MessageStage state="SecondReviewInProgress" metadata={{
-      ...definitions.SecondReviewInProgress, reviewLevel: '2',
+      ...definitions.SecondReviewInProgress, reviewLevel: 2,
     }} requiredLevels={[1, 2, 3]} hasAssignee />);
     expect(screen.getByTestId('stepper')).toHaveAttribute('data-selected-index', '3');
   });

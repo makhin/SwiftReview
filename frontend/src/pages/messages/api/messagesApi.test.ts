@@ -128,9 +128,9 @@ describe('review actions', () => {
   });
   it('posts the selected approval ID to the undo endpoint', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
-    await undoReview(42, '9007199254740993', 'Review again');
+    await undoReview(42, 9007199254740991, 'Review again');
     expect(fetch).toHaveBeenCalledWith('/api/messages/42/reviews/undo', expect.objectContaining({
-      method: 'POST', body: JSON.stringify({ reviewId: '9007199254740993', comment: 'Review again' }),
+      method: 'POST', body: JSON.stringify({ reviewId: 9007199254740991, comment: 'Review again' }),
     }));
   });
   afterEach(() => {
@@ -139,15 +139,15 @@ describe('review actions', () => {
 
   it.each([
     ['start', startReview, { level: 2 }],
-    ['cancel', cancelReview, { level: 2, reviewId: '9007199254740993' }],
-    ['approve', approveReview, { level: 2, comment: 'confirmed', reviewId: '9007199254740993' }],
-    ['reject', rejectReview, { level: 2, comment: null, reviewId: '9007199254740993' }],
+    ['cancel', cancelReview, { level: 2, reviewId: 9007199254740991 }],
+    ['approve', approveReview, { level: 2, comment: 'confirmed', reviewId: 9007199254740991 }],
+    ['reject', rejectReview, { level: 2, comment: null, reviewId: 9007199254740991 }],
   ] as const)('posts the %s review action', async (action, request, body) => {
-    const fetchMock = vi.fn().mockResolvedValue(action === 'start' ? new Response(JSON.stringify({ reviewId: '9007199254740993' })) : new Response(null, { status: 204 }));
+    const fetchMock = vi.fn().mockResolvedValue(action === 'start' ? new Response(JSON.stringify({ reviewId: 9007199254740991 })) : new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
 
     if (action === 'start') {
-      expect(await request(42, 2)).toBe('9007199254740993');
+      expect(await request(42, 2)).toBe(9007199254740991);
     } else if (action === 'cancel') {
       await request(42, 2, body.reviewId);
     } else {

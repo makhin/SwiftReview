@@ -12,43 +12,43 @@ export interface AccessCatalogDto {
 }
 
 export interface ApproveReviewRequest {
-  level: number | string;
-  reviewId: number | string;
+  level: number;
+  reviewId: number;
   comment: string | null;
 }
 
 export interface AssignMessageRequest {
-  assignedTo: number | string;
+  assignedTo: number;
 }
 
 export interface AssignmentCandidateDto {
-  id: number | string;
+  id: number;
   userName: string;
   displayName: string;
 }
 
 export interface AuditActorDto {
-  userId: number | string;
+  userId: number;
   userName: string;
   displayName: string;
 }
 
 export interface AuditEventDetailsDto {
-  workflowDefinitionId?: number | string | null;
-  previousAssigneeId?: number | string | null;
-  assigneeId?: number | string | null;
-  reviewId?: number | string | null;
-  reviewLevel?: number | string | null;
+  workflowDefinitionId?: number | null;
+  previousAssigneeId?: number | null;
+  assigneeId?: number | null;
+  reviewId?: number | null;
+  reviewLevel?: number | null;
   comment?: string | null;
-  previousBranchId?: number | string | null;
-  branchId?: number | string | null;
-  previousDepartmentId?: number | string | null;
-  departmentId?: number | string | null;
-  previousWorkflowDefinitionId?: number | string | null;
+  previousBranchId?: number | null;
+  branchId?: number | null;
+  previousDepartmentId?: number | null;
+  departmentId?: number | null;
+  previousWorkflowDefinitionId?: number | null;
 }
 
 export interface AuditEventDto {
-  id: number | string;
+  id: number;
   eventType: AuditEventType;
   timestamp: string;
   oldState: string | null;
@@ -72,50 +72,50 @@ export type AuditEventType =
   | "MessageWorkflowChanged";
 
 export interface CancelReviewRequest {
-  level: number | string;
-  reviewId: number | string;
+  level: number;
+  reviewId: number;
 }
 
 export interface ChangeMessageWorkflowRequest {
-  workflowDefinitionId: number | string;
+  workflowDefinitionId: number;
 }
 
 export interface CurrentUserResponse {
-  userId: number | string;
+  userId: number;
   userName: string;
   displayName: string;
   permissions: string[];
-  branches: (number | string)[];
-  departments: (number | string)[];
+  branches: number[];
+  departments: number[];
   isGlobalAdministrator: boolean;
   scopes: UserScopeAccess[];
 }
 
 export interface DashboardSummaryDto {
-  total: number | string;
-  pending: number | string;
-  waitingForFirstReview: number | string;
-  waitingForSecondReview: number | string;
-  waitingForThirdReview: number | string;
-  completed: number | string;
+  total: number;
+  pending: number;
+  waitingForFirstReview: number;
+  waitingForSecondReview: number;
+  waitingForThirdReview: number;
+  completed: number;
 }
 
 export interface LoadResult {
   data?: unknown[] | null;
-  totalCount?: number | string;
-  groupCount?: number | string;
+  totalCount?: number;
+  groupCount?: number;
   summary?: unknown[] | null;
 }
 
 export interface MessageDetailsDto {
-  id: number | string;
+  id: number;
   externalId: string;
   messageType: string;
-  branchId: number | string;
-  departmentId: number | string;
+  branchId: number;
+  departmentId: number;
   state: MessageState;
   receivedAt: string;
-  currentAssigneeId: number | string | null;
+  currentAssigneeId: number | null;
   sender: string;
   receiver: string;
   body: string | null;
@@ -128,58 +128,58 @@ export type MessageDirection =
 
 export interface MessageFilter {
   states: MessageState[] | null;
-  branches: (number | string)[] | null;
+  branches: number[] | null;
   messageTypes: string[] | null;
-  departments: (number | string)[] | null;
+  departments: number[] | null;
   dateFrom: string | null;
   dateTo: string | null;
 }
 
 export interface MessageGridLoadResultDto {
   data: MessageGridRowDto[];
-  totalCount?: number | string;
-  groupCount?: number | string;
+  totalCount?: number;
+  groupCount?: number;
   summary?: unknown[] | null;
 }
 
 export interface MessageGridRowDto {
-  id: number | string;
+  id: number;
   externalId: string;
   direction: MessageDirection | null;
   messageType: string;
-  branchId: number | string;
-  departmentId: number | string;
+  branchId: number;
+  departmentId: number;
   state: MessageState;
   receivedAt: string;
-  currentAssigneeId: number | string | null;
-  activeReviewId: number | string | null;
-  activeReviewLevel: number | string | null;
-  activeReviewerId: number | string | null;
-  undoReviewId: number | string | null;
-  workflowDefinitionId: number | string;
+  currentAssigneeId: number | null;
+  activeReviewId: number | null;
+  activeReviewLevel: number | null;
+  activeReviewerId: number | null;
+  undoReviewId: number | null;
+  workflowDefinitionId: number;
   canReview: boolean;
   canChangeWorkflow: boolean;
-  requiredReviewLevels: (number | string)[];
+  requiredReviewLevels: number[];
 }
 
 export interface MessageListItemDto {
-  id: number | string;
+  id: number;
   externalId: string;
   messageType: string;
-  branchId: number | string;
-  departmentId: number | string;
+  branchId: number;
+  departmentId: number;
   state: MessageState;
   receivedAt: string;
-  currentAssigneeId: number | string | null;
-  activeReviewId: number | string | null;
-  activeReviewLevel: number | string | null;
-  activeReviewerId: number | string | null;
+  currentAssigneeId: number | null;
+  activeReviewId: number | null;
+  activeReviewLevel: number | null;
+  activeReviewerId: number | null;
   direction: MessageDirection | null;
 }
 
 export interface MessageSearchRequest {
-  skip: number | string;
-  take: number | string;
+  skip: number;
+  take: number;
   sort: SortClause[] | null;
   filter: MessageFilter | null;
 }
@@ -204,57 +204,57 @@ export type MessageState =
 
 export interface MessageStateCountDto {
   state: MessageState;
-  count: number | string;
+  count: number;
 }
 
 export interface MessageStateReferenceDto {
   code: string;
   label: string;
   description: string;
-  reviewLevel: number | string | null;
+  reviewLevel: number | null;
   phase: MessageStagePhase;
   assignedDescription: string | null;
 }
 
 export interface PagedResultOfAuditEventDto {
   items: AuditEventDto[];
-  totalCount: number | string;
+  totalCount: number;
 }
 
 export interface PagedResultOfMessageListItemDto {
   items: MessageListItemDto[];
-  totalCount: number | string;
+  totalCount: number;
 }
 
 export interface ProblemDetails {
   "type"?: string | null;
   title?: string | null;
-  status?: number | string | null;
+  status?: number | null;
   detail?: string | null;
   instance?: string | null;
 }
 
 export interface ReferenceItemDto {
-  id: number | string;
+  id: number;
   name: string;
 }
 
 export interface RejectReviewRequest {
-  level: number | string;
-  reviewId: number | string;
+  level: number;
+  reviewId: number;
   comment: string | null;
 }
 
 export interface RoleDetailsDto {
-  id: number | string;
+  id: number;
   name: string;
   permissions: string[];
 }
 
 export interface ScopedRoleAssignmentDto {
-  branchId: number | string;
-  departmentId: number | string;
-  roleIds: (number | string)[];
+  branchId: number;
+  departmentId: number;
+  roleIds: number[];
 }
 
 export interface SortClause {
@@ -263,15 +263,15 @@ export interface SortClause {
 }
 
 export interface StartReviewRequest {
-  level: number | string;
+  level: number;
 }
 
 export interface StartReviewResponse {
-  reviewId: number | string;
+  reviewId: number;
 }
 
 export interface UndoReviewRequest {
-  reviewId: number | string;
+  reviewId: number;
   comment?: string | null;
 }
 
@@ -284,7 +284,7 @@ export interface UpdateUserAccessRequest {
 }
 
 export interface UserAccessDetailsDto {
-  userId: number | string;
+  userId: number;
   userName: string;
   displayName: string;
   assignments: ScopedRoleAssignmentDto[];
@@ -292,32 +292,32 @@ export interface UserAccessDetailsDto {
 }
 
 export interface UserScopeAccess {
-  branchId: number | string;
-  departmentId: number | string;
-  roleIds: (number | string)[];
+  branchId: number;
+  departmentId: number;
+  roleIds: number[];
   permissions: string[];
 }
 
 export interface UserSummaryDto {
-  id: number | string;
+  id: number;
   userName: string;
   displayName: string;
-  branchIds: (number | string)[];
-  departmentIds: (number | string)[];
+  branchIds: number[];
+  departmentIds: number[];
 }
 
 export interface WorkflowStepDto {
-  order: number | string;
-  reviewLevel: number | string;
+  order: number;
+  reviewLevel: number;
   required: boolean;
 }
 
 export interface WorkflowSummaryDto {
-  id: number | string;
+  id: number;
   name: string;
   messageType: string;
-  departmentId: number | string;
-  branchId: number | string | null;
+  departmentId: number;
+  branchId: number | null;
   isActive: boolean;
   steps: WorkflowStepDto[];
   direction: MessageDirection;

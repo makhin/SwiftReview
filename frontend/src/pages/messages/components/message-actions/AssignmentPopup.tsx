@@ -20,7 +20,7 @@ type AssignmentPopupProps = {
 export default function AssignmentPopup({ message, onClose, onChanged }: AssignmentPopupProps) {
   const candidatesQuery = useAssignmentCandidates(message.id);
   const candidates = candidatesQuery.data;
-  const [selectedId, setSelectedId] = useState<number | string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const reassign = message.currentAssigneeId != null;
   const action = reassign ? 'Reassign' : 'Assign';
 
@@ -74,7 +74,7 @@ export default function AssignmentPopup({ message, onClose, onChanged }: Assignm
               placeholder=""
               searchEnabled
               disabled={isSubmitting}
-              onValueChanged={(event) => setSelectedId(event.value as number | string | null)}
+              onValueChanged={(event) => setSelectedId(event.value as number | null)}
               inputAttr={{ id: 'assignment-reviewer', 'aria-label': 'Reviewer' }}
             />
           </div>

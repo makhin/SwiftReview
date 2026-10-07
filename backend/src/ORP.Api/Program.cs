@@ -42,6 +42,7 @@ builder.Services.AddOpenApi(options => options.AddSchemaTransformer((schema, con
 }));
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
     options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });

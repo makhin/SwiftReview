@@ -16,7 +16,7 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
   message: MessageRow; onClose: () => void; onChanged: RefreshData;
 }) {
   const workflows = useQuery(workflowsQueryOptions());
-  const [selectedId, setSelectedId] = useState<number | string | null>(message.workflowDefinitionId ?? null);
+  const [selectedId, setSelectedId] = useState<number | null>(message.workflowDefinitionId ?? null);
   const candidates = workflows.data?.filter((workflow) => workflow.isActive && message.direction != null && workflow.direction === message.direction).map((workflow) => ({
     ...workflow,
     label: `${workflow.name} — ${workflow.messageType} — ${workflow.direction} — levels ${workflow.steps.filter((step) => step.required)

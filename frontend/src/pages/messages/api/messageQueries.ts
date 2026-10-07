@@ -3,10 +3,10 @@ import { messageKeys } from '../../../shared/api/queryKeys';
 import type { CurrentUserResponse } from '../../../shared/api/generated/contracts.generated';
 import { getAssignmentCandidates, getMessage, getMessageStateCounts } from './messagesApi';
 
-export function messageQueryOptions(id: number | string) {
+export function messageQueryOptions(id: number) {
   return queryOptions({ queryKey: messageKeys.detail(id), queryFn: ({ signal }) => getMessage(id, signal) });
 }
-export function useAssignmentCandidates(id: number | string) {
+export function useAssignmentCandidates(id: number) {
   return useQuery({ queryKey: messageKeys.candidates(id), queryFn: ({ signal }) => getAssignmentCandidates(id, signal) });
 }
 export function messageCountsQueryOptions(user: CurrentUserResponse | undefined) {

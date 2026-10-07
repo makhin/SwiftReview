@@ -5,6 +5,7 @@ import { ApiRequestError } from '../../../shared/api/errors';
 import type {
   ApproveReviewRequest,
   CancelReviewRequest,
+  AssignMessageRequest,
   AssignmentCandidateDto,
   MessageDetailsDto,
   MessageStateCountDto,
@@ -18,7 +19,7 @@ import type {
 
 export type MessageRow = MessageGridRowDto;
 
-export function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: number | string) {
+export function changeMessageWorkflow(messageId: MessageRow['id'], workflowDefinitionId: ChangeMessageWorkflowRequest['workflowDefinitionId']) {
   const body: ChangeMessageWorkflowRequest = { workflowDefinitionId };
   return apiRequest(`/api/messages/${messageId}/workflow`, {
     method: 'PUT', body, responseType: 'none', errorMessage: 'Unable to change workflow',
@@ -131,10 +132,11 @@ export function getAssignmentCandidates(
   });
 }
 
-export function assignMessage(messageId: MessageRow['id'], assignedTo: number | string, reassign: boolean) {
+export function assignMessage(messageId: MessageRow['id'], assignedTo: AssignMessageRequest['assignedTo'], reassign: boolean) {
+  const body: AssignMessageRequest = { assignedTo };
   const action = reassign ? 'reassign' : 'assign';
   return apiRequest(`/api/messages/${messageId}/${action}`, {
-    method: 'POST', body: { assignedTo }, responseType: 'none', errorMessage: `Unable to ${action} message`,
+    method: 'POST', body, responseType: 'none', errorMessage: `Unable to ${action} message`,
   });
 }
 
