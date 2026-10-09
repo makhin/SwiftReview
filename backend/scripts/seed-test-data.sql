@@ -128,6 +128,13 @@ BEGIN TRY
     JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=v.[MessageType] AND w.[Direction]=v.[Direction] AND w.[DepartmentId]=d.[Id]
     JOIN (VALUES (1),(2),(3)) level([Value]) ON level.[Value]<=v.[Levels];
 
+    IF EXISTS (
+        SELECT 1 FROM [orp].[WorkflowSteps] step
+        JOIN [orp].[WorkflowDefinitions] workflow ON workflow.[Id]=step.[WorkflowDefinitionId]
+        JOIN [orp].[Departments] department ON department.[Id]=workflow.[DepartmentId]
+        WHERE department.[Name] IN (N'CS',N'TFO') AND step.[ReviewLevel]>2
+    ) THROW 50001, 'CS and TFO workflows may not use review level 3.', 1;
+
     -- 5. Messages: preserve the first 75 Incoming examples, then add 25 Outgoing examples.
     -- TEST-00001 = single / London; TEST-00002 = two-step / Dublin;
     -- TEST-00003 = three-step / Singapore. TEST-00076 = Outgoing / TFO / London. Times cover the last 100 hours.

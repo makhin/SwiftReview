@@ -27,9 +27,9 @@ import AuditTrailDrawer from '../AuditTrailDrawer/AuditTrailDrawer';
 import AssignmentPopup from '../message-actions/AssignmentPopup';
 import MessageStage from '../MessageStage/MessageStage';
 import { type MessageRow } from '../../api/messagesApi';
-import { messageCountsQueryOptions } from '../../api/messageQueries';
+import { messageSummaryQueryOptions } from '../../api/messageQueries';
 import GridStateCards from '../../../../shared/components/GridStateCards';
-import { messageStateCardColours } from '../../model/messageStateCards';
+import { businessStageCards, businessStageFilter, businessStageLabel, type BusinessStage } from '../../model/messageBusinessStages';
 import ReviewDecisionPopup from '../message-actions/ReviewDecisionPopup';
 import UndoReviewButton from '../message-actions/UndoReviewButton';
 import ChangeWorkflowPopup from '../message-actions/ChangeWorkflowPopup';
@@ -73,20 +73,13 @@ export default function MessagesGrid({
   enableWorkflowActions = false,
 }: MessagesGridProps) {
   const { data: currentUser } = useQuery(currentUserQueryOptions());
-  const [selectedState, setSelectedState] = useState<string | null>(null);
-  const stateCounts = useQuery(messageCountsQueryOptions(currentUser));
-  const counts = stateCounts.isError ? undefined : stateCounts.data;
+  const [selectedStage, setSelectedStage] = useState<BusinessStage | null>(null);
+  const summaryQuery = useQuery(messageSummaryQueryOptions(currentUser));
   const { data: users } = useQuery(usersQueryOptions());
   const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
-  const stateCards = [
-    { value: null, label: 'All', count: counts ? counts.reduce((sum, item) => sum + Number(item.count), 0) : null },
-    ...(counts?.map((item) => ({ code: item.state, label: messageStates?.find((state) => state.code === item.state)?.label ?? item.state.replace(/([a-z])([A-Z])/g, '$1 $2') })) ?? messageStates ?? []).map(({ code, label }) => ({
-      value: code, label, count: counts ? Number(counts.find((item) => item.state === code)?.count ?? 0) : null,
-      ...messageStateCardColours(code),
-    })),
-  ];
+  const stateCards = businessStageCards(summaryQuery.isError ? undefined : summaryQuery.data);
   const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
   const [readOnly, setReadOnly] = useState(false);
   const [selectedReviewMessage, setSelectedReviewMessage] = useState<MessageRow | null>(null);
@@ -114,17 +107,18 @@ export default function MessagesGrid({
   });
 
   async function refreshMessages() {
-    await Promise.all([dataGridRef.current?.instance().refresh(), stateCounts.refetch({ throwOnError: true })]);
+    await Promise.all([dataGridRef.current?.instance().refresh(), summaryQuery.refetch({ throwOnError: true })]);
   }
 
   function selectState(value: string | null) {
-    setSelectedState(value);
+    const stage = value as BusinessStage | null;
+    setSelectedStage(stage);
     const grid = dataGridRef.current?.instance();
     if (!grid) return;
     grid.beginUpdate();
     try {
       grid.pageIndex(0);
-      grid.filter(value === null ? null : ['state', '=', value]);
+      grid.filter(businessStageFilter(stage));
     } finally { grid.endUpdate(); }
   }
 
@@ -205,10 +199,10 @@ export default function MessagesGrid({
   return (
     <>
       <section className="message-state-filters" aria-label="Message state filters">
-        <GridStateCards items={stateCards} value={selectedState} onChange={selectState} />
-        <p className="message-counts-note">Counts include all accessible messages, before grid filters.</p>
-        {stateCounts.isError && <div className="message-counts-error" role="alert"><span>Unable to load counts. Check your connection and retry.</span>
-          <Button text="Retry counts" stylingMode="outlined" onClick={() => void stateCounts.refetch({ throwOnError: true })} /></div>}
+        <GridStateCards items={stateCards} value={selectedStage} onChange={selectState} />
+        <p className="message-counts-note">Counts include all accessible messages, before grid filters. Rejected and 3rd confirmation messages appear in Total Messages.</p>
+        {summaryQuery.isError && <div className="message-counts-error" role="alert"><span>Unable to load counts. Check your connection and retry.</span>
+          <Button text="Retry counts" stylingMode="outlined" onClick={() => void summaryQuery.refetch({ throwOnError: true })} /></div>}
       </section>
       <section className="message-grid-results" aria-label="Message results">
         <div className="message-grid-toolbar">
@@ -286,6 +280,7 @@ export default function MessagesGrid({
                 <MessageStage
                   state={message.state}
                   metadata={metadata}
+                  businessLabel={businessStageLabel(message.state, metadata?.label ?? message.state)}
                   requiredLevels={message.requiredReviewLevels.map(Number)}
                   hasAssignee={message.currentAssigneeId != null}
                 />

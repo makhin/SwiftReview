@@ -92,11 +92,10 @@ export interface CurrentUserResponse {
 }
 
 export interface DashboardSummaryDto {
-  total: number;
-  pending: number;
-  waitingForFirstReview: number;
-  waitingForSecondReview: number;
-  waitingForThirdReview: number;
+  totalMessages: number;
+  unassigned: number;
+  pendingFirstConfirmation: number;
+  pendingSecondConfirmation: number;
   completed: number;
 }
 

@@ -13,6 +13,7 @@ import {
   undoReview,
   changeMessageWorkflow,
   getMessageStateCounts,
+  getDashboardSummary,
 } from './messagesApi';
 
 describe('getMessageGrid', () => {
@@ -201,6 +202,14 @@ describe('workflow and state counts', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
     await expect(getMessageStateCounts(signal)).resolves.toEqual(result);
     expect(fetch).toHaveBeenCalledWith('/api/messages/state-counts', expect.objectContaining({ signal }));
+  });
+
+  it('loads the business summary for the cards', async () => {
+    const result = { totalMessages: 9, unassigned: 2, pendingFirstConfirmation: 3, pendingSecondConfirmation: 1, completed: 2 };
+    const signal = new AbortController().signal;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
+    await expect(getDashboardSummary(signal)).resolves.toEqual(result);
+    expect(fetch).toHaveBeenCalledWith('/api/dashboard/summary', expect.objectContaining({ signal }));
   });
 });
 

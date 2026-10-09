@@ -23,3 +23,4 @@ appsettings.*.local.json
 /test-backend.docker.ps1
 /scripts/configure-database.sh
 /scripts/Configure-Database.ps1
+/.codex-artifacts/

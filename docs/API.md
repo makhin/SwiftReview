@@ -60,6 +60,18 @@ The following GET operations return 200 with their typed result:
 - `/api/dashboard/summary`
 - `/api/me`
 
+`/api/dashboard/summary` returns five counts over messages visible to the current
+user: `totalMessages`, `unassigned` (`New`), `pendingFirstConfirmation`
+(`Assigned` and `FirstReviewInProgress`), `pendingSecondConfirmation`
+(`WaitingForSecondReview` and `SecondReviewInProgress`), and `completed`
+(`Completed`). `Rejected` and third-review states contribute only to `totalMessages`,
+so the other four counts need not add up to the total. `Unassigned` is a lifecycle
+label for `New`, not a count of every message without a current assignee.
+
+The message grid keeps technical state codes for filtering. Its business stage
+labels group the same states as the summary. The `Rejected` and third-review
+states remain available in the Stage column filter.
+
 ## Administration
 
 Every `/api/admin` endpoint requires the `GlobalAdministrator` policy.

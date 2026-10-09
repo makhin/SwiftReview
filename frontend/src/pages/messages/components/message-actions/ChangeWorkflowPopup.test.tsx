@@ -11,7 +11,7 @@ const { changeMessageWorkflow, getWorkflows } = vi.hoisted(() => ({
   changeMessageWorkflow: vi.fn(), getWorkflows: vi.fn(),
 }));
 vi.mock('../../api/messagesApi', () => ({ changeMessageWorkflow }));
-vi.mock('../../../../shared/api/referenceDataApi', () => ({ getWorkflows }));
+vi.mock('../../../../shared/api/referenceDataApi', () => ({ getWorkflows, getDepartments: vi.fn(() => new Promise(() => undefined)) }));
 vi.mock('devextreme/ui/notify', () => ({ default: vi.fn() }));
 vi.mock('devextreme-react/popup', () => ({ default: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }));
 vi.mock('devextreme-react/button', () => ({ default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{text}</button> }));
@@ -27,13 +27,24 @@ const message: MessageRow = { id: 42, externalId: 'MSG-42', messageType: 'MT199'
   undoReviewId: null, canReview: true, requiredReviewLevels: [1] };
 function setup(selectedMessage: MessageRow = message) {
   const client = createTestQueryClient();
-  client.setQueryData(referenceDataKeys.workflows, [1, 2, 3, 4].map((id) => ({ id, name: `Workflow ${id}`, messageType: 'MT199', direction: id === 4 ? 'Outgoing' : 'Incoming', isActive: id !== 3, steps: [{ order: 1, reviewLevel: 1, required: true }] })));
+  client.setQueryData(referenceDataKeys.departments, [{ id: 1, name: 'CS' }, { id: 2, name: 'TFO' }, { id: 3, name: 'DC' }]);
+  client.setQueryData(referenceDataKeys.workflows, [1, 2, 3, 4, 5].map((id) => ({ id, name: `Workflow ${id}`, departmentId: 3, messageType: 'MT199', direction: id === 4 ? 'Outgoing' : 'Incoming', isActive: id !== 3,
+    steps: (id === 5 ? [1, 2, 3] : [1]).map((level) => ({ order: level, reviewLevel: level, required: true })) })));
   const onClose = vi.fn(); const onChanged = vi.fn();
   render(<QueryClientProvider client={client}><ChangeWorkflowPopup message={selectedMessage} onClose={onClose} onChanged={onChanged} /></QueryClientProvider>);
   return { onClose, onChanged };
 }
 describe('ChangeWorkflowPopup', () => {
   afterEach(() => vi.resetAllMocks());
+  it.each([1, 2, 99])('excludes third-level workflows for restricted or unknown department %s', (departmentId) => {
+    setup({ ...message, departmentId });
+    expect(screen.queryByRole('option', { name: /Workflow 5/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Workflow 2/ })).toBeInTheDocument();
+  });
+  it('allows DC messages to select a third-level workflow', () => {
+    setup({ ...message, departmentId: 3 });
+    expect(screen.getByRole('option', { name: /Workflow 5/ })).toBeInTheDocument();
+  });
   it('saves an active alternative and prevents duplicate submission', async () => {
     let resolve!: () => void;
     changeMessageWorkflow.mockReturnValue(new Promise<void>((done) => { resolve = done; }));

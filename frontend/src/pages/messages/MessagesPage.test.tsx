@@ -4,22 +4,23 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { componentProps, refreshGrid, getCurrentUser, rowOverrides, stateCounts, gridFilter, gridPageIndex } = vi.hoisted(() => ({
+const { componentProps, refreshGrid, getCurrentUser, getMessageStates, rowOverrides, summary, gridFilter, gridPageIndex } = vi.hoisted(() => ({
   componentProps: vi.fn(),
-  stateCounts: vi.fn().mockResolvedValue([{ state: 'New', count: 15 }, { state: 'Assigned', count: 5 }]),
+  summary: vi.fn().mockResolvedValue({ totalMessages: 20, unassigned: 15, pendingFirstConfirmation: 5, pendingSecondConfirmation: 0, completed: 0 }),
   gridFilter: vi.fn(),
   gridPageIndex: vi.fn(),
   refreshGrid: vi.fn(),
   getCurrentUser: vi.fn(),
+  getMessageStates: vi.fn(() => new Promise(() => undefined)),
   rowOverrides: {} as Record<string, unknown>,
 }));
 
-vi.mock('./api/messagesApi', async (original) => ({ ...await original<typeof import('./api/messagesApi')>(), getMessageStateCounts: stateCounts }));
+vi.mock('./api/messagesApi', async (original) => ({ ...await original<typeof import('./api/messagesApi')>(), getDashboardSummary: summary }));
 
 vi.mock('../../shared/api/referenceDataApi', () => ({
   getBranches: vi.fn(() => new Promise(() => undefined)),
   getDepartments: vi.fn(() => new Promise(() => undefined)),
-  getMessageStates: vi.fn(() => new Promise(() => undefined)),
+  getMessageStates,
   getMessageTypes: vi.fn(() => new Promise(() => undefined)),
   getUsers: vi.fn(() => new Promise(() => undefined)),
   getWorkflows: vi.fn(() => new Promise(() => undefined)),
@@ -687,35 +688,54 @@ describe('workflow action', () => {
  });
 
 describe('message state cards integration', () => {
-  beforeEach(() => { gridFilter.mockClear(); gridPageIndex.mockClear(); refreshGrid.mockClear(); stateCounts.mockClear(); });
-  it('loads server counts, filters by the selected state and clears only the card filter with All', async () => {
+  beforeEach(() => { gridFilter.mockClear(); gridPageIndex.mockClear(); refreshGrid.mockClear(); summary.mockClear(); });
+  it('loads server summary, filters by the business stage and clears only the card filter with Total', async () => {
     renderPage();
-    expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Total Messages' })).toBeChecked();
     await waitFor(() => expect(screen.getByLabelText('20 messages')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('radio', { name: 'New' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Unassigned' }));
     expect(gridPageIndex).toHaveBeenLastCalledWith(0);
     expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'New']);
-    expect(screen.getByRole('radio', { name: 'New' })).toBeChecked();
-    fireEvent.click(screen.getByRole('radio', { name: 'All' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Pending 1st Confirmation' }));
+    expect(gridFilter).toHaveBeenLastCalledWith([['state', '=', 'Assigned'], 'or', ['state', '=', 'FirstReviewInProgress']]);
+    fireEvent.click(screen.getByRole('radio', { name: 'Pending 2nd Confirmation' }));
+    expect(gridFilter).toHaveBeenLastCalledWith([['state', '=', 'WaitingForSecondReview'], 'or', ['state', '=', 'SecondReviewInProgress']]);
+    fireEvent.click(screen.getByRole('radio', { name: 'Completed' }));
+    expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'Completed']);
+    fireEvent.click(screen.getByRole('radio', { name: 'Total Messages' }));
     expect(gridFilter).toHaveBeenLastCalledWith(null);
   });
   it('refreshes the counts with the grid without clearing the selected card', async () => {
     renderPage();
-    await waitFor(() => expect(stateCounts).toHaveBeenCalled());
-    fireEvent.click(await screen.findByRole('radio', { name: 'Assigned' }));
-    const before = stateCounts.mock.calls.length;
+    await waitFor(() => expect(summary).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('radio', { name: 'Pending 1st Confirmation' }));
+    const before = summary.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(stateCounts.mock.calls.length).toBeGreaterThan(before));
-    expect(screen.getByRole('radio', { name: 'Assigned' })).toBeChecked();
+    await waitFor(() => expect(summary.mock.calls.length).toBeGreaterThan(before));
+    expect(screen.getByRole('radio', { name: 'Pending 1st Confirmation' })).toBeChecked();
     expect(refreshGrid).toHaveBeenCalledOnce();
   });
 });
 
-it('adds a state returned by the server even when reference labels are still cached', async () => {
-  stateCounts.mockResolvedValueOnce([{ state: 'FutureState', count: 4 }]);
+it('includes rejected and third-review messages only in Total Messages', async () => {
+  summary.mockResolvedValueOnce({ totalMessages: 25, unassigned: 15, pendingFirstConfirmation: 5, pendingSecondConfirmation: 0, completed: 0 });
   renderPage();
-  const card = await screen.findByRole('radio', { name: 'Future State' });
-  expect(screen.getAllByLabelText('4 messages')).toHaveLength(2);
-  fireEvent.click(card);
-  expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'FutureState']);
+  expect(await screen.findByLabelText('25 messages')).toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: 'Rejected' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: 'Waiting for third review' })).not.toBeInTheDocument();
+});
+
+it('keeps rejected and third-review states in the Stage column lookup', async () => {
+  getMessageStates.mockResolvedValueOnce([
+    { code: 'Rejected', label: 'Rejected' },
+    { code: 'WaitingForThirdReview', label: 'Waiting for third review' },
+  ]);
+  renderPage(false);
+  await waitFor(() => expect(componentProps).toHaveBeenCalledWith('Lookup', expect.objectContaining({
+    valueExpr: 'code',
+    dataSource: expect.arrayContaining([
+      expect.objectContaining({ code: 'Rejected' }),
+      expect.objectContaining({ code: 'WaitingForThirdReview' }),
+    ]),
+  })));
 });

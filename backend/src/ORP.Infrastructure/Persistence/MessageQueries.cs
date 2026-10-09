@@ -47,17 +47,9 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
 
     public async Task<DashboardSummaryDto> DashboardAsync(UserAccess access, CancellationToken ct)
     {
-        if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0, 0);
+        if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0);
         var counts = await Accessible(access).CountByStateAsync(ct);
-        var total = counts.Values.Sum();
-        var completed = counts.GetValueOrDefault(MessageState.Completed);
-        return new(total,
-            total - completed - counts.GetValueOrDefault(MessageState.Rejected),
-            counts.GetValueOrDefault(MessageState.New) + counts.GetValueOrDefault(MessageState.Assigned) +
-                counts.GetValueOrDefault(MessageState.FirstReviewInProgress),
-            counts.GetValueOrDefault(MessageState.WaitingForSecondReview) + counts.GetValueOrDefault(MessageState.SecondReviewInProgress),
-            counts.GetValueOrDefault(MessageState.WaitingForThirdReview) + counts.GetValueOrDefault(MessageState.ThirdReviewInProgress),
-            completed);
+        return DashboardSummaryDto.FromStateCounts(counts);
     }
 
     public async Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request,

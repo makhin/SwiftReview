@@ -15,6 +15,7 @@ import type {
   StartReviewResponse,
   UndoReviewRequest,
   ChangeMessageWorkflowRequest,
+  DashboardSummaryDto,
 } from '../../../shared/api/generated/contracts.generated';
 
 export type MessageRow = MessageGridRowDto;
@@ -142,4 +143,8 @@ export function assignMessage(messageId: MessageRow['id'], assignedTo: AssignMes
 
 export function getMessageStateCounts(signal?: AbortSignal): Promise<MessageStateCountDto[]> {
   return apiRequest('/api/messages/state-counts', { signal, errorMessage: 'Unable to load message counts' });
+}
+
+export function getDashboardSummary(signal?: AbortSignal): Promise<DashboardSummaryDto> {
+  return apiRequest('/api/dashboard/summary', { signal, errorMessage: 'Unable to load message summary' });
 }

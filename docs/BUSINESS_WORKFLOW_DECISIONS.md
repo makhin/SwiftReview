@@ -23,6 +23,36 @@ Global administrators bypass permission, scope, review-owner and four-eyes restr
 
 Availability, workload balancing, fallback pools, escalation/SLA rules, and the Data Control message types and conditions that permit skipping level 2 remain subject to business confirmation.
 
+### Business lifecycle and audit wording
+
+The business labels shown in message grids and dashboard counts are `Unassigned`
+for `New`, `Pending 1st Confirmation` for `Assigned` and
+`FirstReviewInProgress`, `Pending 2nd Confirmation` for
+`WaitingForSecondReview` and `SecondReviewInProgress`, and `Completed` for
+`Completed`. `Rejected` remains final. Review level 3 remains available for DC;
+CS and TFO workflows use no more than two levels. Their seeded workflow
+configuration is checked when loading demo data.
+Manual workflow changes also check the message's department: CS and TFO messages
+cannot select any workflow containing level 3, including a DC workflow or an
+optional third step. This restriction applies to global administrators too.
+
+The requested "what happened" names describe existing audit events; stored event
+codes do not change:
+
+| Business name | Stored audit event |
+| --- | --- |
+| MessageAvailable | `MessageRegistered` |
+| MessageAssigned | `MessageAssigned` |
+| MessageReassigned | `MessageReassigned` |
+| First/SecondConfirmationStarted | `ReviewStarted`, distinguished by `details.reviewLevel` |
+| First/SecondConfirmationCompleted | `ReviewApproved`, distinguished by `details.reviewLevel` |
+| FirstConfirmationUndone | `ConfirmationUndone` with `details.reviewLevel = 1` |
+| MessageCompleted | `MessageCompleted` |
+| MessageRejected | `ReviewRejected` |
+
+`ReviewCancelled`, `MessageUnassigned` and `MessageWorkflowChanged` remain in
+history when those actions occur.
+
 ### Changing a message workflow
 
 The assignments page is available with `message.assign` or `workflow.manage`. Changing a workflow requires `workflow.manage` in the message's branch and department, with message visibility; global administrators bypass permission checks. Assignment itself still requires `message.assign`.

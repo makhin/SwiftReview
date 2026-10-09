@@ -4,7 +4,7 @@ import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import SelectBox from 'devextreme-react/select-box';
 import notify from 'devextreme/ui/notify';
-import { workflowsQueryOptions } from '../../../../shared/api/referenceDataQueries';
+import { departmentsQueryOptions, workflowsQueryOptions } from '../../../../shared/api/referenceDataQueries';
 import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import PageError from '../../../../shared/components/feedback/PageError';
 import { type MessageRow } from '../../api/messagesApi';
@@ -16,8 +16,12 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
   message: MessageRow; onClose: () => void; onChanged: RefreshData;
 }) {
   const workflows = useQuery(workflowsQueryOptions());
+  const departments = useQuery(departmentsQueryOptions());
+  const departmentName = departments.data?.find((department) => department.id === message.departmentId)?.name.toUpperCase();
   const [selectedId, setSelectedId] = useState<number | null>(message.workflowDefinitionId ?? null);
-  const candidates = workflows.data?.filter((workflow) => workflow.isActive && message.direction != null && workflow.direction === message.direction).map((workflow) => ({
+  const candidates = workflows.data?.filter((workflow) => workflow.isActive && message.direction != null && workflow.direction === message.direction &&
+    (!workflow.steps.some((step) => step.reviewLevel > 2) ||
+      (departmentName != null && departmentName !== 'CS' && departmentName !== 'TFO'))).map((workflow) => ({
     ...workflow,
     label: `${workflow.name} — ${workflow.messageType} — ${workflow.direction} — levels ${workflow.steps.filter((step) => step.required)
       .sort((a, b) => Number(a.order) - Number(b.order)).map((step) => step.reviewLevel).join(', ')}`,
@@ -43,6 +47,8 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
       <p>Direction: {message.direction ?? 'Unknown'}. The selected workflow must have the same direction.</p>
       <p>The current assignment, branch and department will stay the same.</p>
       {workflows.isPending && <p role="status">Loading workflows…</p>}
+      {departments.isError && <PageError title="Unable to verify department workflow limits" message="Check your connection and retry."
+        actionLabel="Retry departments" onAction={() => void departments.refetch()} />}
       {workflows.isError && <PageError title="Unable to load workflows" message="Check your connection and retry."
         actionLabel="Retry" onAction={() => void workflows.refetch()} />}
       {workflows.isSuccess && <>

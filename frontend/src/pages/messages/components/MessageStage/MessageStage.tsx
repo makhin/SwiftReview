@@ -16,12 +16,13 @@ function selectedAction(metadata: MessageStateReferenceDto, hasAssignee: boolean
 type MessageStageProps = {
   state: MessageState;
   metadata?: MessageStateReferenceDto;
+  businessLabel?: string;
   requiredLevels: number[];
   hasAssignee: boolean;
 };
 
-export default function MessageStage({ state, metadata, requiredLevels, hasAssignee }: MessageStageProps) {
-  const label = metadata?.label ?? state;
+export default function MessageStage({ state, metadata, businessLabel, requiredLevels, hasAssignee }: MessageStageProps) {
+  const label = businessLabel ?? metadata?.label ?? state;
   const description = (hasAssignee ? metadata?.assignedDescription : null) ?? metadata?.description ?? label;
   const reviewSteps = requiredLevels.flatMap((level) => [
     { hint: `${ordinals[level - 1]} assignment` },

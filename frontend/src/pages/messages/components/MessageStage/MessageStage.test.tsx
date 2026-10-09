@@ -104,6 +104,15 @@ describe('MessageStage', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
     expect(screen.queryByTestId('stepper')).not.toBeInTheDocument();
   });
+  it('shows the business label while preserving the detailed technical description', () => {
+    render(<MessageStage state="FirstReviewInProgress" metadata={{
+      ...definitions.FirstReviewInProgress,
+      label: 'First review in progress',
+      description: 'First review in progress',
+    }} businessLabel="Pending 1st Confirmation" requiredLevels={[1, 2]} hasAssignee />);
+    expect(screen.getByLabelText('Stage: Pending 1st Confirmation')).toHaveAttribute('title', 'First review in progress');
+    expect(screen.getByTestId('stepper')).toHaveAttribute('data-selected-index', '1');
+  });
   it.each([false, true])('uses backend tooltip text with assignee %s', (hasAssignee) => {
     render(<MessageStage state="WaitingForSecondReview" metadata={{
       ...definitions.WaitingForSecondReview,
