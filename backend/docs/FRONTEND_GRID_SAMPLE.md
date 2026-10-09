@@ -6,30 +6,32 @@ Use `POST /api/messages/grid` to load messages with server paging, filtering and
 
 Send `Content-Type: application/json` and the application's authentication headers. For local Development, use `X-Debug-User: admin` or a reviewer username.
 
-The following body requests the first page of 20 messages in state `New`, of type `MT199`, in branch `1`, received October 1–9, 2026 in UTC. Results are sorted newest first.
+The following body matches a freshly loaded `backend/scripts/seed-test-data.sql`: the seed creates 25 `MT199` messages, all initially in state `New`. With `X-Debug-User: admin`, expect `totalCount: 25` and 20 rows on the first page, sorted newest first. This assumes the seeded messages have not subsequently been assigned or reviewed.
+
+Start without branch or date filters: branch IDs are generated and are not reset on reseeding; receipt dates are relative to the time the seed script ran.
 
 ```json
 {
   "skip": 0,
   "take": 20,
   "sort": [
-    { "field": "receivedAt", "direction": "desc" }
+    {
+      "field": "receivedAt",
+      "direction": "desc"
+    }
   ],
   "filter": {
     "logic": "and",
     "filters": [
-      { "field": "state", "operator": "eq", "value": "New" },
-      { "field": "messageType", "operator": "eq", "value": "MT199" },
-      { "field": "branchId", "operator": "eq", "value": 1 },
       {
-        "field": "receivedAt",
-        "operator": "gte",
-        "value": "2026-10-01T00:00:00Z"
+        "field": "state",
+        "operator": "eq",
+        "value": "New"
       },
       {
-        "field": "receivedAt",
-        "operator": "lt",
-        "value": "2026-10-10T00:00:00Z"
+        "field": "messageType",
+        "operator": "eq",
+        "value": "MT199"
       }
     ]
   }
@@ -45,7 +47,23 @@ curl -X POST http://localhost:5080/api/messages/grid \
   --data-binary @payload.json
 ```
 
-Replace branch `1`, message type and dates with values matching your test data. All conditions must match because the group uses `and`; a valid request can return no rows if the data does not match or is outside the user's access.
+For a smoke test after messages have changed state, remove the `state` condition and keep `messageType eq MT199`. The original 25 messages will still match unless they have been deleted or the seed data has been replaced.
+
+## Add branch and date filters
+
+Use a `branchId` from one of the returned messages, or look up the current IDs with `GET /api/branches`. Choose date boundaries that include that message's `receivedAt`. The seed spreads message timestamps across the 100 hours up to the seed execution time; fixed calendar dates can exclude the data.
+
+Append these conditions to the existing `filter.filters` array, replacing the example ID and dates with values taken from your seed response:
+
+```json
+[
+  { "field": "branchId", "operator": "eq", "value": 1 },
+  { "field": "receivedAt", "operator": "gte", "value": "2026-10-01T00:00:00Z" },
+  { "field": "receivedAt", "operator": "lt", "value": "2026-10-10T00:00:00Z" }
+]
+```
+
+These are illustrative values, not guaranteed seed IDs or dates. All conditions must match because the group uses `and`; branch/date filters reduce the expected total below 25. Do not set `assignmentScope: "mine"` for a fresh-seed test: all seeded messages are unassigned.
 
 ## Frontend parameter mapping
 
@@ -59,7 +77,7 @@ Replace branch `1`, message type and dates with values matching your test data. 
 | `page` | For one-based pages, `skip = (page - 1) * pageSize` |
 | `pageSize` | `take`, from 1 to 500 |
 
-For page 2 with a page size of 20, set `skip: 20`; for page 3, set `skip: 40`. If your grid uses a zero-based page index, use `skip = pageIndex * pageSize`. Reset `skip` to `0` when filters, sorting or page size change.
+For page 2 with a page size of 20, set `skip: 20` (5 rows for the fresh-seed example); page 3 with `skip: 40` is empty, while `totalCount` remains 25. If your grid uses a zero-based page index, use `skip = pageIndex * pageSize`. Reset `skip` to `0` when filters, sorting or page size change.
 
 The date range is inclusive at the start and exclusive at the end, so it includes the entire selected end date. Dates must contain an explicit timezone (`Z` or an offset such as `+02:00`). For local calendar days, convert each boundary using the selected timezone; offsets can differ across a daylight-saving change.
 
