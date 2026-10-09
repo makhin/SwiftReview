@@ -9,6 +9,8 @@ Use server paging, filtering and sorting for any grid component. Both endpoints 
 
 Send `Content-Type: application/json` and the application's authentication headers. For local Development, use `X-Debug-User: admin` or a reviewer username. Full schemas are available at `/openapi/v1.json` and `/scalar`.
 
+For a complete status, type, branch, date range and paging example, see [Message grid sample request](FRONTEND_GRID_SAMPLE.md).
+
 ## Load a page
 
 Example body for `POST /api/messages/grid`:
