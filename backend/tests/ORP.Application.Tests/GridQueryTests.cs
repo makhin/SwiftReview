@@ -17,7 +17,7 @@ public sealed class GridQueryTests
     };
     private static GridFilter Condition(string field, string op, object? value) => new() { Field = field, Operator = op, Value = JsonSerializer.SerializeToElement(value) };
     private static GridFilter Group(string logic, params GridFilter?[] filters) => new() { Logic = logic, Filters = filters };
-    private static GridQuery<MessageGridRowDto> Prepare(MessageGridRequest request) =>
+    private static GridQuery<MessageGridRowDto> Prepare(GridRequest request) =>
         GridQuery<MessageGridRowDto>.Create(request, GridFields.Messages, 500, 5, new("receivedAt", "desc"));
     private static GridQuery<AdminUserGridRow> PrepareUsers(AdminUserGridRequest request) =>
         GridQuery<AdminUserGridRow>.Create(request, GridFields.Users, 100, 3, new("displayName", "asc"));
@@ -168,9 +168,6 @@ public sealed class GridQueryTests
         PrepareUsers(new(Take: 100, Search: new string('a', 100)));
         Assert.Throws<FormatException>(() => PrepareUsers(new(Take: 101)));
         Assert.Throws<FormatException>(() => PrepareUsers(new(Search: new string('a', 101))));
-        Assert.Throws<FormatException>(() => Prepare(new(AssignmentScope: "unknown")));
-        foreach (var scope in new[] { MessageAssignmentScopes.Mine, MessageAssignmentScopes.Departments, MessageAssignmentScopes.Assignable })
-            Prepare(new(AssignmentScope: scope));
         Assert.Throws<FormatException>(() => Prepare(new(Sort: Enumerable.Repeat(new SortClause("id", "asc"), 6).ToArray())));
         Assert.Throws<FormatException>(() => PrepareUsers(new(Sort: Enumerable.Repeat(new SortClause("id", "asc"), 4).ToArray())));
         Assert.Throws<FormatException>(() => Prepare(new(Sort: [new("id", "sideways")])));
@@ -196,7 +193,7 @@ public sealed class GridQueryTests
     public void TotalCountIsFilteredBeforePagingAndEmptyPages()
     {
         var source = new[] { Row(1), Row(2), Row(3, branch: 3) }.AsQueryable();
-        foreach (var request in new[] { new MessageGridRequest(Take: 1), new MessageGridRequest(Skip: 10), new MessageGridRequest(Take: 500) })
+        foreach (var request in new[] { new GridRequest(Take: 1), new GridRequest(Skip: 10), new GridRequest(Take: 500) })
         {
             var options = Prepare(request with { Filter = Condition("branchId", "eq", 2) });
             var filtered = options.Filter(source);
@@ -231,29 +228,28 @@ public sealed class GridQueryTests
         var roundTrip = JsonSerializer.Deserialize<GridFilter>(serialized, JsonOptions)!;
         Assert.Single(Prepare(new(Filter: roundTrip)).Filter(new[] { Row() }.AsQueryable()));
         var schemaOptions = new JsonSerializerOptions(JsonOptions) { TypeInfoResolver = new DefaultJsonTypeInfoResolver() };
-        foreach (var type in new[] { typeof(MessageGridRequest), typeof(AdminUserGridRequest), typeof(GridFilter) })
+        foreach (var type in new[] { typeof(MessageGridRequest), typeof(GridRequest), typeof(AdminUserGridRequest), typeof(GridFilter) })
             Assert.NotNull(JsonSchemaExporter.GetJsonSchemaAsNode(schemaOptions.GetTypeInfo(type)));
     }
 
     [Fact]
     public void JsonContractPreservesDefaultsAndRejectsLegacyOrUnknownProperties()
     {
-        var request = JsonSerializer.Deserialize<MessageGridRequest>("{}", JsonOptions)!;
+        var request = JsonSerializer.Deserialize<GridRequest>("{}", JsonOptions)!;
         Assert.Equal(0, request.Skip);
         Assert.Equal(20, request.Take);
         Assert.Null(request.Filter);
         Prepare(request);
-        var specified = JsonSerializer.Deserialize<MessageGridRequest>("""
-            {"skip":3,"take":7,"assignmentScope":"mine","sort":[{"field":"id","direction":"desc"}],
+        var specified = JsonSerializer.Deserialize<GridRequest>("""
+            {"skip":3,"take":7,"sort":[{"field":"id","direction":"desc"}],
              "filter":{"logic":"or","filters":[{"field":"state","operator":"eq","value":"Assigned"}]}}
             """, JsonOptions)!;
         Assert.Equal(3, specified.Skip);
         Assert.Equal(7, specified.Take);
-        Assert.Equal("mine", specified.AssignmentScope);
         Prepare(specified);
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<MessageGridRequest>("{\"group\":[]}", JsonOptions));
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<MessageGridRequest>("{\"take\":\"20\"}", JsonOptions));
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<MessageGridRequest>("{\"filter\":{\"selector\":\"id\"}}", JsonOptions));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<GridRequest>("{\"group\":[]}", JsonOptions));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<GridRequest>("{\"take\":\"20\"}", JsonOptions));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<GridRequest>("{\"filter\":{\"selector\":\"id\"}}", JsonOptions));
         var users = JsonSerializer.Deserialize<AdminUserGridRequest>("{\"search\":\"Amy\"}", JsonOptions)!;
         Assert.Equal("Amy", users.Search);
         Assert.Equal(20, users.Take);

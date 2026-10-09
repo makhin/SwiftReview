@@ -16,13 +16,23 @@ internal static class GridEndpointDescriptions
         Grouping, summaries and selected-column responses are not supported.
         """;
 
-    public const string Messages = Common + """
-
-        take is limited to 500, with up to 5 sort clauses; default order is receivedAt desc, id asc.
-        Allowed fields: id, externalId, direction, messageType, branchId, departmentId, state, receivedAt,
+    public const string Messages = """
+        Send JSON: {"search":"","status":"New","messageType":"MT199","branch":"1",
+        "dateFrom":"2026-10-01","dateTo":"2026-10-09","page":1,"pageSize":20}.
+        Empty/null/omitted text fields mean no restriction. Filters are combined with AND.
+        search: up to 100 trimmed characters, contains on externalId OR messageType using SQL Server collation.
+        status: case-insensitive MessageState enum name. messageType: exact type string.
+        branch: positive numeric branch ID encoded as a string (GET /api/branches).
+        Dates: yyyy-MM-dd in UTC or ISO 8601 timestamps with seconds and Z/offset.
+        dateFrom is inclusive; dateTo includes the entire UTC day for date-only values, or the exact timestamp inclusively.
+        page defaults to 1 (one-based); pageSize defaults to 20, range 1..500; offset must fit Int32.
+        Optional sort: ordered {field,direction:asc|desc} array, at most 5; defaults receivedAt desc, id asc.
+        Allowed sort fields: id, externalId, direction, messageType, branchId, departmentId, state, receivedAt,
         currentAssigneeId, activeReviewId, activeReviewLevel, activeReviewerId, workflowDefinitionId.
-        assignmentScope is optional: mine, departments, or assignable (requires assignment permission).
-        Client filtering never expands branch/department access. Complete rows retain action flags and required review levels.
+        id asc is appended unless specified. Sort fields/directions are case-insensitive.
+        Optional assignmentScope: mine, departments, assignable (requires assignment permission).
+        Response: items and totalCount after authorization/filtering, before paging. Complete rows retain action flags.
+        Invalid values, unknown properties and old skip/take/filter requests return 400 ProblemDetails.
         """;
 
     public const string Users = Common + """

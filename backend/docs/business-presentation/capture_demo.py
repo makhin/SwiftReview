@@ -21,7 +21,7 @@ async def main():
     if os.environ.get('PRESENTATION_DISPOSABLE_SQL_API') != '1':
         raise SystemExit('Run only against an API connected to a fresh disposable SQL database loaded with seed-test-data.sql; set PRESENTATION_DISPOSABLE_SQL_API=1.')
     OUT.mkdir(exist_ok=True)
-    messages = api('messages/grid', body={'skip': 0, 'take': 100})['items']
+    messages = api('messages/grid', body={'page': 1, 'pageSize': 100})['items']
     by_warehouse = {row['externalId']: row['id'] for row in messages}
     users = api('users')
     reviewer = next(user['id'] for user in users if user['userName'] == 'theo.mercer')

@@ -27,7 +27,7 @@ Example counts response:
 ]
 ```
 
-Use `breakdown` for a card tooltip or list of message types. Entries are sorted by message type; types with no messages in that state are omitted, and zero-count states return `breakdown: []`. On a type-entry click, combine `state eq` and `messageType eq` filters with AND in the grid request.
+Use `breakdown` for a card tooltip or list of message types. Entries are sorted by message type; types with no messages in that state are omitted, and zero-count states return `breakdown: []`. On a type-entry click, set `status` and `messageType` together in the grid request.
 
 Join by code, not array position. Render cards in metadata order, with `label` as the title and `description` as the tooltip:
 
@@ -45,17 +45,17 @@ const cards = states.map(stage => ({
 
 For one card per review level, sum counts with the same non-null `reviewLevel`: level 1 covers `New`, `Assigned`, `FirstReviewInProgress`; level 2 covers `WaitingForSecondReview`, `SecondReviewInProgress`; level 3 covers `WaitingForThirdReview`, `ThirdReviewInProgress`. Keep `Completed` and `Rejected` as separate cards. The sum of all state counts is the total accessible message count.
 
-On a state-card click, load `POST /api/messages/grid` with `skip: 0` and a state condition:
+On a state-card click, load `POST /api/messages/grid` with `page: 1` and the selected status:
 
 ```json
 {
-  "take": 20,
-  "skip": 0,
-  "filter": { "field": "state", "operator": "eq", "value": "WaitingForSecondReview" }
+  "pageSize": 20,
+  "page": 1,
+  "status": "WaitingForSecondReview"
 }
 ```
 
-For a grouped card, use an OR group of its state conditions. Combine the selected stage filter with other grid filters using AND; replace the previous stage selection when another card is clicked. See [Grid integration](FRONTEND_GRID_API.md).
+For a grouped card, let the user select a concrete state before opening the grid; status accepts one state. Other flat controls combine with status using AND. Replace status when another card is clicked. See [Grid integration](FRONTEND_GRID_API.md).
 
 ## Scope and display states
 

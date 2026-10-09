@@ -12,9 +12,9 @@ public record GridRequest(int Skip = 0, int Take = 20,
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 [JsonNumberHandling(JsonNumberHandling.Strict)]
-public sealed record MessageGridRequest(int Skip = 0, int Take = 20,
-    IReadOnlyList<SortClause>? Sort = null, GridFilter? Filter = null, string? AssignmentScope = null)
-    : GridRequest(Skip, Take, Sort, Filter);
+public sealed record MessageGridRequest(string? Search = null, string? Status = null,
+    string? MessageType = null, string? Branch = null, string? DateFrom = null, string? DateTo = null,
+    int Page = 1, int PageSize = 20, IReadOnlyList<SortClause>? Sort = null, string? AssignmentScope = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 [JsonNumberHandling(JsonNumberHandling.Strict)]

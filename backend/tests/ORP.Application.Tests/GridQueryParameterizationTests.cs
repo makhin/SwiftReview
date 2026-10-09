@@ -32,7 +32,7 @@ public sealed class GridQueryParameterizationTests
         using var db = CreateContext(() => compilations++);
         string Sql(string json)
         {
-            var options = GridQuery<MessageGridRowDto>.Create(new MessageGridRequest(Filter: Condition(field, op, json)),
+            var options = GridQuery<MessageGridRowDto>.Create(new GridRequest(Filter: Condition(field, op, json)),
                 GridFields.Messages, 500, 5, new SortClause("receivedAt", "desc"));
             return options.Page(options.Filter(db.Set<MessageGridRowDto>())).ToQueryString();
         }
@@ -63,6 +63,28 @@ public sealed class GridQueryParameterizationTests
         Assert.Matches(@"WHERE[^\r\n]+@", Statement(firstSql));
         Assert.DoesNotContain("Alice", Statement(firstSql));
         Assert.DoesNotContain("Bob", Statement(secondSql));
+    }
+
+    [Fact]
+    public void FlatMessageControlsTranslateToParameterizedSql()
+    {
+        var compilations = 0;
+        using var db = CreateContext(() => compilations++);
+        string Sql(string search, string branch)
+        {
+            var request = MessageGridOptions.Create(new(Search: search, Status: "New", MessageType: "MT199",
+                Branch: branch, DateFrom: "2026-10-01", DateTo: "2026-10-09", Page: 2, PageSize: 5));
+            var options = GridQuery<MessageGridRowDto>.Create(request, GridFields.Messages, 500, 5, new("receivedAt", "desc"));
+            return options.Page(options.Filter(db.Set<MessageGridRowDto>())).ToQueryString();
+        }
+        var first = Sql("Alice", "1");
+        var second = Sql("Bob", "2");
+        Assert.Equal(1, compilations);
+        Assert.Equal(Statement(first), Statement(second));
+        Assert.Contains(" OR ", first);
+        Assert.Contains("OFFSET", first);
+        Assert.Contains("FETCH NEXT", first);
+        Assert.DoesNotContain("Alice", Statement(first));
     }
 
     private static GridFilter Condition(string field, string op, string json) => new()

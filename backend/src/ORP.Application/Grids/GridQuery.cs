@@ -27,9 +27,6 @@ public sealed class GridQuery<T>
     {
         if (request.Skip < 0 || request.Take < 1 || request.Take > maxTake)
             throw new FormatException($"skip must be non-negative and take must be between 1 and {maxTake}.");
-        if (request is MessageGridRequest { AssignmentScope: not (null or MessageAssignmentScopes.Mine or
-            MessageAssignmentScopes.Departments or MessageAssignmentScopes.Assignable) })
-            throw new FormatException("Unsupported message assignment scope.");
         if (request is AdminUserGridRequest { Search.Length: > 100 })
             throw new FormatException("User search cannot exceed 100 characters.");
         if (request.Sort?.Count > maxSort)

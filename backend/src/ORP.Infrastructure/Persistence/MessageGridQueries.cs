@@ -21,7 +21,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
 
     public async Task<PagedResult<MessageGridRowDto>> LoadAsync(MessageGridRequest request, UserAccess access, CancellationToken ct)
     {
-        var options = GridQuery<MessageReadRow>.Create(request, GridFields.Messages, 500, 5, new SortClause("receivedAt", "desc"));
+        var options = GridQuery<MessageReadRow>.Create(MessageGridOptions.Create(request), GridFields.Messages, 500, 5, new SortClause("receivedAt", "desc"));
         var assignmentScope = request.AssignmentScope;
         var query = db.ReadAccessibleMessages(access.UserId, assignmentScope == MessageAssignmentScopes.Assignable
             ? Permissions.MessageAssign : Permissions.MessageView);

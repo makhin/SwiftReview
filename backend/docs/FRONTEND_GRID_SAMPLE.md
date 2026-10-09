@@ -1,65 +1,25 @@
 # Message grid sample request
 
-Use `POST /api/messages/grid` to load messages with server paging, filtering and sorting. This example maps the frontend controls `status`, `messageType`, `branch`, `dateFrom`, `dateTo`, `page` and `pageSize` to the API contract.
-
-## Request
-
-Send `Content-Type: application/json` and the application's authentication headers. For local Development, use `X-Debug-User: admin` or a reviewer username.
-
-The following body matches a freshly loaded `backend/scripts/seed-test-data.sql`: the seed creates 25 `MT199` messages, all initially in state `New`. The date range below covers seed runs on October 6–9, 2026 in UTC. For those runs, with `X-Debug-User: admin` and the actual London branch ID, expect `totalCount: 9` and 9 rows on the first page, sorted newest first, provided the messages have not subsequently been assigned or reviewed. Adjust the date range for seeds generated on other dates.
-
-First call `GET /api/branches` with the same authentication and find the entry whose `name` is `London`. Replace the illustrative `branchId` value `1` below with that entry's numeric `id`. Branch IDs are generated and are not reset on reseeding, so `1` is not guaranteed to identify London.
-
-```bash
-curl http://localhost:5080/api/branches -H 'X-Debug-User: admin'
-```
-
-Receipt dates are relative to the time the seed script ran; its messages span the 100 hours up to that time.
+Send the frontend controls directly as JSON to `POST /api/messages/grid` with authentication and `Content-Type: application/json`. No conversion to nested filters or skip/take is needed.
 
 ```json
 {
-  "skip": 0,
-  "take": 20,
-  "sort": [
-    {
-      "field": "receivedAt",
-      "direction": "desc"
-    }
-  ],
-  "filter": {
-    "logic": "and",
-    "filters": [
-      {
-        "field": "state",
-        "operator": "eq",
-        "value": "New"
-      },
-      {
-        "field": "messageType",
-        "operator": "eq",
-        "value": "MT199"
-      },
-      {
-        "field": "branchId",
-        "operator": "eq",
-        "value": 1
-      },
-      {
-        "field": "receivedAt",
-        "operator": "gte",
-        "value": "2026-10-01T00:00:00Z"
-      },
-      {
-        "field": "receivedAt",
-        "operator": "lt",
-        "value": "2026-10-10T00:00:00Z"
-      }
-    ]
-  }
+  "search": "",
+  "status": "New",
+  "messageType": "MT199",
+  "branch": "1",
+  "dateFrom": "2026-10-01",
+  "dateTo": "2026-10-09",
+  "page": 1,
+  "pageSize": 20
 }
 ```
 
-Save the body as `payload.json`, then test locally:
+For local Development, use `X-Debug-User: admin`. First call `GET /api/branches`, find London, and replace the illustrative `branch: "1"` with its ID encoded as a string. IDs are generated and may differ.
+
+The SQL seed creates 25 New MT199 messages, including 9 in London. Their receipt times span the 100 hours before the seed ran. The sample dates cover seed runs on October 6–9, 2026; adjust the range for another seed date. With the correct London ID and unchanged seeded messages, expect 9 rows and `totalCount: 9`. Clear `status` if messages have changed state; clear `branch` to include all branches. Omit `assignmentScope` for fresh unassigned seed data.
+
+Save the body as `payload.json`:
 
 ```bash
 curl -X POST http://localhost:5080/api/messages/grid \
@@ -68,41 +28,41 @@ curl -X POST http://localhost:5080/api/messages/grid \
   --data-binary @payload.json
 ```
 
-For a smoke test after messages have changed state, remove the `state` condition. The original 9 London `MT199` messages still match if their receipt times fall within the selected date range and they have not been deleted or replaced. Remove the branch condition as well to match all 25 `MT199` messages across branches.
+## Send frontend state directly
 
-All conditions must match because the group uses `and`. Do not set `assignmentScope: "mine"` for a fresh-seed test: all seeded messages are unassigned.
+```ts
+const controls = {
+  search: "",
+  status: "New",
+  messageType: "MT199",
+  branch: String(londonBranchId), // ID from GET /api/branches
+  dateFrom: "2026-10-01",
+  dateTo: "2026-10-09",
+  page: 1,
+  pageSize: 20,
+};
 
-## Frontend parameter mapping
-
-| Frontend control | API representation |
-|---|---|
-| `status` | Condition on `state`, using an enum name such as `New`, `Assigned` or `Completed` |
-| `messageType` | Condition on `messageType`, e.g. `MT199`; available values come from `GET /api/message-types` |
-| `branch` | Condition on numeric `branchId`; use an ID from `GET /api/branches` |
-| `dateFrom` | `receivedAt gte` the start of the selected first day |
-| `dateTo` | `receivedAt lt` the start of the day after the selected last day |
-| `page` | For one-based pages, `skip = (page - 1) * pageSize` |
-| `pageSize` | `take`, from 1 to 500 |
-
-With the London filter and a page size of 20, page 2 (`skip: 20`) is empty and `totalCount` remains 9. To test paging with this seed subset, set `take: 5`: page 1 uses `skip: 0` (5 rows), and page 2 uses `skip: 5` (4 rows). If your grid uses a zero-based page index, use `skip = pageIndex * pageSize`. Reset `skip` to `0` when filters, sorting or page size change.
-
-The date range is inclusive at the start and exclusive at the end, so it includes the entire selected end date. Dates must contain an explicit timezone (`Z` or an offset such as `+02:00`). For local calendar days, convert each boundary using the selected timezone; offsets can differ across a daylight-saving change.
-
-Remove conditions for controls the user has not selected. If no filters are selected, omit `filter` or set it to `null`. Frontend control names such as `status`, `branch`, `page` and `dateFrom` are not top-level API properties.
-
-## Response and errors
-
-The response contains `items` for the current page and `totalCount` for all accessible messages matching the filters. Bind these to the grid rows and pager. An empty result is:
-
-```json
-{
-  "items": [],
-  "totalCount": 0
-}
+const response = await fetch("/api/messages/grid", {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(controls),
+});
+if (!response.ok) throw new Error(`Grid request failed: ${response.status}`);
+const { items, totalCount } = await response.json();
+// Bind items to rows and totalCount to the pager.
 ```
 
-An out-of-range page can also return `items: []` with a nonzero `totalCount`. The server adds `id asc` as a tie-breaker unless sorting already specifies `id`.
+Use the application's existing authentication setup. The development curl example uses a debug header; production requests use the application's configured authentication.
 
-A general `search` parameter is not supported by the messages grid. Do not send `search` or `query` in the body: unknown properties return `400`. For a specific text field, an optional condition such as `{ "field": "externalId", "operator": "contains", "value": "TEST" }` is supported.
+## Control values and paging
 
-Handle `400` as invalid request options, `401` as an authentication issue and `403` as insufficient access. Error bodies use Problem Details. For additional fields, operators and assignment scopes, see [Frontend grid integration](FRONTEND_GRID_API.md).
+All text controls may be omitted, null or empty to clear them. Filters combine with AND. `search` accepts up to 100 trimmed characters and performs contains matching on external ID or message type using SQL Server collation. `status` is a state name, `messageType` is an exact type, and `branch` is a positive numeric ID encoded as a string from the branch lookup, not a branch name. Send `page` and `pageSize` as JSON numbers.
+
+Pages are one-based: defaults `page: 1`, `pageSize: 20`; pageSize accepts 1–500. Reset page to 1 when controls change. With 9 matches and pageSize 5, page 1 has 5 rows and page 2 has 4. `totalCount` remains 9; an out-of-range page has empty items.
+
+Date-only values use UTC; both selected days are included. Explicit timestamps such as `2026-10-09T18:00:00+02:00` are also accepted and compared inclusively. Timestamps must include seconds and a timezone. `dateFrom` must not exceed `dateTo`.
+
+Optional sorting: `"sort": [{"field":"receivedAt","direction":"desc"}]`. The default is receivedAt descending with id ascending as a stable tie-breaker. Optional assignment scopes and user-grid details: [Grid integration](FRONTEND_GRID_API.md).
+
+Bind response `{ "items": [], "totalCount": 0 }` to rows and the pager. Invalid values and old `skip`, `take`, `filter` properties return 400 ProblemDetails. Handle 401 for authentication and 403 for insufficient access.
