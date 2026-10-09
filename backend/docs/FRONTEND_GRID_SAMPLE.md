@@ -6,9 +6,9 @@ Use `POST /api/messages/grid` to load messages with server paging, filtering and
 
 Send `Content-Type: application/json` and the application's authentication headers. For local Development, use `X-Debug-User: admin` or a reviewer username.
 
-The following body matches a freshly loaded `backend/scripts/seed-test-data.sql`: the seed creates 25 `MT199` messages, all initially in state `New`. With `X-Debug-User: admin`, expect `totalCount: 25` and 20 rows on the first page, sorted newest first. This assumes the seeded messages have not subsequently been assigned or reviewed.
+The following body matches a freshly loaded `backend/scripts/seed-test-data.sql`: the seed creates 25 `MT199` messages, all initially in state `New`. The date range below covers seed runs on October 6–9, 2026 in UTC. For those runs, with `X-Debug-User: admin`, expect `totalCount: 25` and 20 rows on the first page, sorted newest first, provided the messages have not subsequently been assigned or reviewed. Adjust the date range for seeds generated on other dates.
 
-Start without branch or date filters: branch IDs are generated and are not reset on reseeding; receipt dates are relative to the time the seed script ran.
+Start without a branch filter: branch IDs are generated and are not reset on reseeding. Receipt dates are relative to the time the seed script ran; its messages span the 100 hours up to that time.
 
 ```json
 {
@@ -32,6 +32,16 @@ Start without branch or date filters: branch IDs are generated and are not reset
         "field": "messageType",
         "operator": "eq",
         "value": "MT199"
+      },
+      {
+        "field": "receivedAt",
+        "operator": "gte",
+        "value": "2026-10-01T00:00:00Z"
+      },
+      {
+        "field": "receivedAt",
+        "operator": "lt",
+        "value": "2026-10-10T00:00:00Z"
       }
     ]
   }
@@ -47,23 +57,17 @@ curl -X POST http://localhost:5080/api/messages/grid \
   --data-binary @payload.json
 ```
 
-For a smoke test after messages have changed state, remove the `state` condition and keep `messageType eq MT199`. The original 25 messages will still match unless they have been deleted or the seed data has been replaced.
+For a smoke test after messages have changed state, remove the `state` condition and keep `messageType eq MT199`. The original 25 messages will still match if their receipt times fall within the selected date range and they have not been deleted or replaced.
 
-## Add branch and date filters
+## Add a branch filter
 
-Use a `branchId` from one of the returned messages, or look up the current IDs with `GET /api/branches`. Choose date boundaries that include that message's `receivedAt`. The seed spreads message timestamps across the 100 hours up to the seed execution time; fixed calendar dates can exclude the data.
-
-Append these conditions to the existing `filter.filters` array, replacing the example ID and dates with values taken from your seed response:
+Use a `branchId` from one of the returned messages, or look up the current IDs with `GET /api/branches`. Append a condition to the existing `filter.filters` array, replacing the illustrative ID below with an actual seed branch ID:
 
 ```json
-[
-  { "field": "branchId", "operator": "eq", "value": 1 },
-  { "field": "receivedAt", "operator": "gte", "value": "2026-10-01T00:00:00Z" },
-  { "field": "receivedAt", "operator": "lt", "value": "2026-10-10T00:00:00Z" }
-]
+{ "field": "branchId", "operator": "eq", "value": 1 }
 ```
 
-These are illustrative values, not guaranteed seed IDs or dates. All conditions must match because the group uses `and`; branch/date filters reduce the expected total below 25. Do not set `assignmentScope: "mine"` for a fresh-seed test: all seeded messages are unassigned.
+All conditions must match because the group uses `and`; a branch filter reduces the total below 25. Do not set `assignmentScope: "mine"` for a fresh-seed test: all seeded messages are unassigned.
 
 ## Frontend parameter mapping
 
