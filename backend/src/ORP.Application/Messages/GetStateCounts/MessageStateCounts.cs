@@ -19,6 +19,6 @@ public static class MessageStateCounts
             .GroupBy(x => x.MessageType, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => new MessageTypeCountDto(group.Key, group.Sum(x => x.Count))).ToArray();
-        return new(items, items.Sum(x => x.Count), breakdown);
+        return new(items, new MessageCountDto(items.Sum(x => x.Count), breakdown));
     }
 }

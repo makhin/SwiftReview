@@ -172,9 +172,9 @@ branch and department.
 Frontend integration guides: [Grid API](docs/FRONTEND_GRID_API.md) and
 [Message stage counts](docs/FRONTEND_MESSAGE_STAGE_COUNTS.md).
 
-`GET /api/messages/state-counts` returns `{ items, totalCount, breakdown }`.
-`items` contains all states as `{ state, count, breakdown }`; `totalCount` is the sum of all state counts.
-The response-level `breakdown` sums each message type across all states.
+`GET /api/messages/state-counts` returns `{ items, total }`.
+`items` contains all states as `{ state, count, breakdown }`.
+`total` contains `{ count, breakdown }`: `count` sums all state counts, and `breakdown` sums each message type across all states.
 Each state's `breakdown` contains `{ messageType, count }` entries for accessible messages in that state;
 its counts sum to the state total. Empty states return `count: 0` and `breakdown: []`.
 These counts do not apply grid filters or assignment scopes.

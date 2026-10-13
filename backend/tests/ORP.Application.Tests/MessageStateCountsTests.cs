@@ -15,11 +15,11 @@ public sealed class MessageStateCountsTests
             (MessageState.New, "M456", 15), (MessageState.Assigned, "M123", 3),
             (MessageState.New, "M123", 10), (MessageState.Completed, "M123", 7)]);
         Assert.Equal(Enum.GetValues<MessageState>(), result.Items.Select(x => x.State));
-        Assert.Equal(35, result.TotalCount);
-        Assert.Equal(new[] { "M123", "M456" }, result.Breakdown.Select(x => x.MessageType));
-        Assert.Equal(new[] { 20, 15 }, result.Breakdown.Select(x => x.Count));
-        Assert.Equal(result.TotalCount, result.Breakdown.Sum(x => x.Count));
-        Assert.Equal(result.Items.Sum(x => x.Count), result.TotalCount);
+        Assert.Equal(35, result.Total.Count);
+        Assert.Equal(new[] { "M123", "M456" }, result.Total.Breakdown.Select(x => x.MessageType));
+        Assert.Equal(new[] { 20, 15 }, result.Total.Breakdown.Select(x => x.Count));
+        Assert.Equal(result.Total.Count, result.Total.Breakdown.Sum(x => x.Count));
+        Assert.Equal(result.Items.Sum(x => x.Count), result.Total.Count);
         var newState = Assert.Single(result.Items, x => x.State == MessageState.New);
         Assert.Equal(25, newState.Count);
         Assert.Equal(new[] { "M123", "M456" }, newState.Breakdown.Select(x => x.MessageType));
@@ -40,8 +40,8 @@ public sealed class MessageStateCountsTests
     {
         var result = MessageStateCounts.FromTypeCounts([]);
         Assert.Equal(Enum.GetValues<MessageState>(), result.Items.Select(x => x.State));
-        Assert.Equal(0, result.TotalCount);
-        Assert.Empty(result.Breakdown);
+        Assert.Equal(0, result.Total.Count);
+        Assert.Empty(result.Total.Breakdown);
         Assert.All(result.Items, x => { Assert.Equal(0, x.Count); Assert.Empty(x.Breakdown); });
     }
 
@@ -50,20 +50,22 @@ public sealed class MessageStateCountsTests
     {
         (MessageState State, string MessageType, int Count)[] counts =
             [(MessageState.New, "M456", 15), (MessageState.New, "M123", 10)];
-        Assert.Equal(MessageStateCounts.FromTypeCounts(counts).Breakdown,
-            MessageStateCounts.FromTypeCounts(counts.Reverse()).Breakdown);
+        Assert.Equal(MessageStateCounts.FromTypeCounts(counts).Total.Breakdown,
+            MessageStateCounts.FromTypeCounts(counts.Reverse()).Total.Breakdown);
         Assert.Equal(MessageStateCounts.FromTypeCounts(counts).Items[0].Breakdown,
             MessageStateCounts.FromTypeCounts(counts.Reverse()).Items[0].Breakdown);
     }
 
     [Fact]
-    public void ResponseContainsItemsTotalCountAndOverallBreakdown()
+    public void ResponseContainsItemsAndTotalWithSharedCountAndBreakdownStructure()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
         var result = MessageStateCounts.FromTypeCounts([(MessageState.New, "M123", 10), (MessageState.New, "M456", 15)]);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, options));
-        Assert.Equal(25, json.RootElement.GetProperty("totalCount").GetInt32());
-        var breakdown = json.RootElement.GetProperty("breakdown");
+        var total = json.RootElement.GetProperty("total");
+        Assert.Equal(25, total.GetProperty("count").GetInt32());
+        Assert.False(total.TryGetProperty("state", out _));
+        var breakdown = total.GetProperty("breakdown");
         Assert.Equal("M123", breakdown[0].GetProperty("messageType").GetString());
         Assert.Equal(10, breakdown[0].GetProperty("count").GetInt32());
         Assert.Equal("M456", breakdown[1].GetProperty("messageType").GetString());

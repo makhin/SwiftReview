@@ -7,7 +7,7 @@ Display stage cards or badges using counts of messages accessible to the current
 Call these authenticated endpoints with the same user identity as the grid:
 
 - `GET /api/message-states` returns `{ code, label, description, reviewLevel, phase, assignedDescription }` for each state. Cache metadata for the current session. This endpoint requires message-view permission.
-- `GET /api/messages/state-counts` returns `{ items, totalCount, breakdown }`, where `items` contains `{ state, count, breakdown }` for every state, including zeros, and `totalCount` is the sum of all state counts. The response-level `breakdown` sums each message type across all states. Each state breakdown entry is `{ messageType, count }`; its counts sum to the state total. Reload counts when the component opens and after successful assignment, review, undo or workflow actions; refresh manually or periodically if other users can change messages.
+- `GET /api/messages/state-counts` returns `{ items, total }`, where `items` contains `{ state, count, breakdown }` for every state, including zeros, and `total` contains `{ count, breakdown }`. `total.count` is the sum of all state counts; `total.breakdown` sums each message type across all states. Each state breakdown entry is `{ messageType, count }`; its counts sum to the state total. Reload counts when the component opens and after successful assignment, review, undo or workflow actions; refresh manually or periodically if other users can change messages.
 
 For local Development, use `X-Debug-User: admin` or a reviewer username. Full schemas are available at `/openapi/v1.json` and `/scalar`.
 
@@ -15,8 +15,10 @@ Example counts response:
 
 ```json
 {
-  "totalCount": 61,
-  "breakdown": [{"messageType": "M123", "count": 46}, {"messageType": "M456", "count": 15}],
+  "total": {
+    "count": 61,
+    "breakdown": [{"messageType": "M123", "count": 46}, {"messageType": "M456", "count": 15}]
+  },
   "items": [
     {"state": "New", "count": 25, "breakdown": [{"messageType": "M123", "count": 10}, {"messageType": "M456", "count": 15}]},
     {"state": "Assigned", "count": 5, "breakdown": [{"messageType": "M123", "count": 5}]},
