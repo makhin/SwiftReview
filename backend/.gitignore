@@ -15,3 +15,5 @@
 
 # API/SQL integration tests are currently local-only (used by ORP.Docker.sln)
 /tests/ORP.Api.Tests/
+
+/.codex-artifacts/
