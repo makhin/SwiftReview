@@ -20,8 +20,8 @@ public static class MessageEndpoints
         var group = api.MapGroup("/messages").WithTags("Message");
         group.MapGet("/state-counts", GetStateCounts)
             .WithName(nameof(GetStateCounts)).WithSummary("Get accessible message counts by state.")
-            .WithDescription("Returns every state, including zeros, with a messageType/count breakdown. Counts include only accessible messages; grid filters and assignmentScope do not apply.")
-            .Produces<IReadOnlyList<MessageStateCountDto>>();
+            .WithDescription("Returns items for every state, including zeros, with a messageType/count breakdown, totalCount as the sum of all state counts, and an overall messageType/count breakdown. Counts include only accessible messages; grid filters and assignmentScope do not apply.")
+            .Produces<MessageStateCountsDto>();
         group.MapPost("/grid", GetMessagesGrid)
             .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages with paging, filtering and sorting.")
             .WithDescription(GridEndpointDescriptions.Messages)
@@ -49,7 +49,7 @@ public static class MessageEndpoints
             .Produces<PagedResult<AuditEventDto>>().ProducesProblem(400).ProducesProblem(404);
     }
 
-    private static async Task<IReadOnlyList<MessageStateCountDto>> GetStateCounts(MessageGridQueries queries,
+    private static async Task<MessageStateCountsDto> GetStateCounts(MessageGridQueries queries,
         IUserAccessService users, ICurrentUser current, CancellationToken ct) =>
         await queries.StateCountsAsync(await users.GetByIdAsync(current.UserId, ct)
             ?? throw new UnauthorizedAccessException(), ct);

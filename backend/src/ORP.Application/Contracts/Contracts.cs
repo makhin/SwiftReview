@@ -60,6 +60,8 @@ public sealed record UserSummaryDto(int Id, string UserName, string DisplayName,
     IReadOnlyList<int> DepartmentIds);
 public sealed record AssignmentCandidateDto(int Id, string UserName, string DisplayName);
 public sealed record ReferenceItemDto(int Id, string Name);
+public sealed record MessageStateCountsDto(IReadOnlyList<MessageStateCountDto> Items, int TotalCount,
+    IReadOnlyList<MessageTypeCountDto> Breakdown);
 public sealed record MessageTypeCountDto(string MessageType, int Count);
 public sealed record MessageStateCountDto(MessageState State, int Count, IReadOnlyList<MessageTypeCountDto> Breakdown);
 public enum MessageStagePhase { Waiting, Assigned, Reviewing, Completed, Rejected }

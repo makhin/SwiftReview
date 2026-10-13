@@ -10,7 +10,7 @@ namespace ORP.Infrastructure.Persistence;
 
 public sealed class MessageGridQueries(ORPDbContext db)
 {
-    public async Task<IReadOnlyList<MessageStateCountDto>> StateCountsAsync(UserAccess access, CancellationToken ct)
+    public async Task<MessageStateCountsDto> StateCountsAsync(UserAccess access, CancellationToken ct)
     {
         var counts = await db.ReadAccessibleMessages(access.UserId)
             .GroupBy(x => new { x.State, x.MessageType })
