@@ -35,8 +35,16 @@ public sealed record MessageFilter(IReadOnlyList<MessageState>? States, IReadOnl
     DateTimeOffset? DateTo);
 public sealed record MessageSearchRequest([property: Range(0, int.MaxValue)] int Skip,
     [property: Range(1, 500)] int Take, IReadOnlyList<SortClause>? Sort, MessageFilter? Filter);
-public sealed record DashboardSummaryDto(int Total, int Pending, int WaitingForFirstReview,
-    int WaitingForSecondReview, int WaitingForThirdReview, int Completed);
+public sealed record DashboardSummaryDto(int TotalMessages, int Unassigned, int PendingFirstConfirmation,
+    int PendingSecondConfirmation, int Completed)
+{
+    public static DashboardSummaryDto FromStateCounts(IReadOnlyDictionary<MessageState, int> counts) => new(
+        counts.Values.Sum(),
+        counts.GetValueOrDefault(MessageState.New),
+        counts.GetValueOrDefault(MessageState.Assigned) + counts.GetValueOrDefault(MessageState.FirstReviewInProgress),
+        counts.GetValueOrDefault(MessageState.WaitingForSecondReview) + counts.GetValueOrDefault(MessageState.SecondReviewInProgress),
+        counts.GetValueOrDefault(MessageState.Completed));
+}
 public sealed record AuditActorDto(int UserId, string UserName, string DisplayName);
 public sealed record AuditEventDetailsDto(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
     int? AssigneeId = null, long? ReviewId = null, int? ReviewLevel = null, string? Comment = null,

@@ -21,8 +21,18 @@ public sealed class WorkflowDirectionTests
     [InlineData(MessageDirection.Outgoing, true, false)]
     [InlineData(null, false, false)]
     [InlineData(null, true, false)]
-    public async Task ManualChangeRequiresMatchingDirection_EvenForAdministrator(
-        MessageDirection? sourceDirection, bool administrator, bool allowed)
+    [InlineData(MessageDirection.Incoming, false, false, "CS", 3)]
+    [InlineData(MessageDirection.Incoming, true, false, "CS", 3)]
+    [InlineData(MessageDirection.Incoming, false, false, "TFO", 3)]
+    [InlineData(MessageDirection.Incoming, true, false, "TFO", 3)]
+    [InlineData(MessageDirection.Incoming, true, false, "cs", 3, false)]
+    [InlineData(MessageDirection.Incoming, true, true, "CS", 2)]
+    [InlineData(MessageDirection.Incoming, false, true, "TFO", 2)]
+    [InlineData(MessageDirection.Incoming, true, true, "DC", 3)]
+    [InlineData(MessageDirection.Incoming, false, true, "DC", 3)]
+    public async Task ManualChangeRequiresAllowedWorkflow_EvenForAdministrator(
+        MessageDirection? sourceDirection, bool administrator, bool allowed,
+        string department = "DC", int levels = 1, bool thirdRequired = true)
     {
         var ct = TestContext.Current.CancellationToken;
         var store = Substitute.For<IORPStore>();
@@ -36,6 +46,8 @@ public sealed class WorkflowDirectionTests
         var message = new Message(1, 99);
         // Different type/department/branch remains a permitted manual override within access rights.
         var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Manual", "MT999", 30, 40).AddStep(1, 1);
+        for (var level = 2; level <= levels; level++) workflow.AddStep(level, level, level != 3 || thirdRequired);
+        store.FindDepartmentNameAsync(20, ct).Returns(department);
         store.FindMessageAsync(1, ct).Returns(message);
         store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT299", 10, 20,
             DateTimeOffset.UtcNow, "A", "B", sourceDirection));
