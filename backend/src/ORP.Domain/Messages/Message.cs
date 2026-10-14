@@ -20,6 +20,9 @@ public sealed class Message
     public MessageState State { get; private set; }
     public int? CurrentAssigneeId { get; private set; }
     public int WorkflowDefinitionId { get; private set; }
+    public int? BranchId { get; private set; }
+    public int? DepartmentId { get; private set; }
+    public DateTimeOffset? ReceivedAt { get; private set; }
 
     public void Assign(int assigneeId)
     {

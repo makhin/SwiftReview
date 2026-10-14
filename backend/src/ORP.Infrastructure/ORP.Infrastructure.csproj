@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Domain/ORP.Domain.csproj" />
+    <ProjectReference Include="../ORP.Importer/ORP.Importer.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />

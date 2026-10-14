@@ -7,6 +7,8 @@ The backend implements the Operations Reporting and Processing domain, REST API,
 - `src/ORP.Domain` — entities, workflow rules, review states, and domain exceptions.
 - `src/ORP.Application` — use-case handlers, contracts, validation, and persistence abstractions.
 - `src/ORP.Infrastructure` — Entity Framework Core persistence, authorization data, and SQL Server queries.
+- `src/ORP.Importer` — portable SAA file parser (`netstandard2.0`).
+- `src/ORP.Importer.Console` — one-pass recursive import of `.prt` files into SQL Server.
 - `src/ORP.Scheduler` — standalone .NET Framework 4.7.2 library for preformatted text-to-PDF conversion.
 - `src/ORP.Api` — ASP.NET Core endpoints, authentication, authorization, OpenAPI, health checks, and telemetry.
 - `tests` — domain, application, and database-free Scheduler tests.
@@ -36,6 +38,38 @@ The default addresses are:
 
 SQL data persists across process restarts. New messages remain unassigned
 until a user with the `message.assign` permission assigns an eligible reviewer.
+
+## Import SAA files
+
+Apply the `ImportSaaMessages` migration before running the importer. This migration deletes
+existing messages and their review, assignment and audit history because the previous
+warehouse rows have no SAA file identity. It preserves users, reference data and workflows.
+
+With `ConnectionStrings__ORP` set for the target database, run from `backend`:
+
+```bash
+dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages
+```
+
+On Windows, omit `-p:ORPLinuxBuild=true` and pass a Windows or UNC directory path.
+
+The console scans subdirectories once. It stores the parsed header, body from line four,
+file name, path relative to the chosen root, and SHA-256 of the original bytes. A second
+run skips unchanged paths; changed content at an existing path is reported as a conflict.
+Imported records are not yet added to review workflows. Each run reports import counts and
+returns a nonzero exit code if any file has an error or conflict.
+
+`Branch`, `MessageType` and `Time` must have non-empty valid values. Invalid headers
+raise `FormatException`; file errors include the path and header line number.
+Other header values may remain empty.
+
+The console uses `SaaMessageProcessor`, which validates the file before running optional
+department rules. To enable those rules, pass an `ISaaMessageDepartmentResolver` to the
+processor constructor. The resolver receives the complete `SaaMessageDocument` and must
+return a positive department ID; an unresolved department raises `SaaMessageFormatException`.
+`SaaProcessedMessage` carries the original document and the resolved `DepartmentId` separately.
+The current console has no department rules configured. Persisting that routing result to
+`Messages` belongs to the subsequent workflow registration step.
 
 ## Load sample data into SQL Server
 
