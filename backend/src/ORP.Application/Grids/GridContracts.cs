@@ -48,6 +48,8 @@ public sealed class MessageGridRowDto
 {
     public required long Id { get; init; }
     public required string ExternalId { get; init; }
+    public required string Sender { get; init; }
+    public required string Receiver { get; init; }
     public required MessageDirection? Direction { get; init; }
     public required string MessageType { get; init; }
     public required int BranchId { get; init; }

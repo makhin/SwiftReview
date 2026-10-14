@@ -45,6 +45,8 @@ public sealed class MessageGridQueries(ORPDbContext db)
             {
                 Id = x.Id,
                 ExternalId = x.ExternalId,
+                Sender = x.Sender,
+                Receiver = x.Receiver,
                 MessageType = x.MessageType,
                 Direction = x.Direction,
                 BranchId = x.BranchId,

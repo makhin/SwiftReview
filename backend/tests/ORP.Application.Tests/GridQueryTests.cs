@@ -26,6 +26,7 @@ public sealed class GridQueryTests
         MessageDirection? direction = MessageDirection.Incoming, DateTimeOffset? receivedAt = null) => new()
     {
         Id = id, ExternalId = externalId, Direction = direction, MessageType = "MT199", BranchId = branch,
+        Sender = "SENDER", Receiver = "RECEIVER",
         DepartmentId = department, State = state, ReceivedAt = receivedAt ?? DateTimeOffset.Parse("2026-10-06T10:00:00+02:00"),
         CurrentAssigneeId = assignee, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,
         UndoReviewId = null, WorkflowDefinitionId = 1, CanReview = false, CanChangeWorkflow = false, RequiredReviewLevels = [1, 2]
@@ -256,6 +257,8 @@ public sealed class GridQueryTests
         var response = JsonSerializer.Serialize(new PagedResult<MessageGridRowDto>([Row()], 1), JsonOptions);
         using var document = JsonDocument.Parse(response);
         Assert.Equal("Assigned", document.RootElement.GetProperty("items")[0].GetProperty("state").GetString());
+        Assert.Equal("SENDER", document.RootElement.GetProperty("items")[0].GetProperty("sender").GetString());
+        Assert.Equal("RECEIVER", document.RootElement.GetProperty("items")[0].GetProperty("receiver").GetString());
         Assert.Equal(1, document.RootElement.GetProperty("totalCount").GetInt32());
     }
 }

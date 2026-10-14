@@ -29,6 +29,10 @@ public static class MessageEndpoints
         group.MapGet("/{id:long}", GetMessage)
             .WithName(nameof(GetMessage)).WithSummary("Get an accessible message.")
             .Produces<MessageDetailsDto>().ProducesProblem(404);
+        group.MapGet("/{messageId:long}/pdf", GetMessagePdf)
+            .WithName(nameof(GetMessagePdf)).WithSummary("Get the PDF for an accessible message.")
+            .WithDescription("Returns PDF bytes. Currently returns a Hello World placeholder for every accessible message.")
+            .Produces(StatusCodes.Status200OK, contentType: "application/pdf").ProducesProblem(404);
         group.MapPut("/{id:long}/workflow", ChangeMessageWorkflow)
             .WithName(nameof(ChangeMessageWorkflow)).WithSummary("Set the workflow for a message.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
@@ -55,6 +59,15 @@ public static class MessageEndpoints
             ?? throw new UnauthorizedAccessException(), ct);
 
     private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
+
+    private static async Task<IResult> GetMessagePdf(long messageId, GetMessageHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(messageId, ct);
+        using var pdf = typeof(MessageEndpoints).Assembly.GetManifestResourceStream("ORP.Api.HelloWorld.pdf")!;
+        using var buffer = new MemoryStream();
+        await pdf.CopyToAsync(buffer, ct);
+        return Results.File(buffer.ToArray(), "application/pdf");
+    }
 
     private static async Task<IResult> ChangeMessageWorkflow(long id, ChangeMessageWorkflowRequest request,
         ChangeMessageWorkflowHandler handler, CancellationToken ct)
