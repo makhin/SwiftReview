@@ -15,6 +15,8 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
     {
         builder.ToTable("Messages"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).HasColumnName("MessageId").ValueGeneratedNever();
         builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
+        builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<SwiftMessageRecord>().WithOne().HasForeignKey<Message>(x => x.Id).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
@@ -28,28 +30,18 @@ public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<S
         builder.ToTable("SwiftMessages", "orp");
         builder.HasKey(x => x.MessageId);
         builder.Property(x => x.MessageId).ValueGeneratedOnAdd();
-        builder.Property(x => x.WarehouseId).HasMaxLength(30);
-        builder.HasIndex(x => x.WarehouseId).IsUnique();
-        builder.Property(x => x.MessageType).HasMaxLength(20);
-        builder.Property(x => x.MessageTypeShort).HasMaxLength(10);
-        builder.Property(x => x.BackendDirection).HasMaxLength(100);
-        builder.Property(x => x.CounterParty).HasMaxLength(100);
-        builder.Property(x => x.CounterPartyCountry).HasMaxLength(100);
+        builder.Property(x => x.Branch).HasMaxLength(100);
+        builder.Property(x => x.MessageType).HasMaxLength(100);
+        builder.Property(x => x.ReferenceId).HasMaxLength(255);
         builder.ToTable(t => t.HasCheckConstraint("CK_SwiftMessages_Direction", "[Direction] IN (1, 2)"));
-        builder.Property(x => x.MessageFormatVersion).HasMaxLength(20);
-        builder.Property(x => x.MessageInputReference).HasMaxLength(100);
-        builder.Property(x => x.ModifiedBy).HasMaxLength(20);
-        builder.Property(x => x.ReceiverResponder).HasMaxLength(100);
-        builder.Property(x => x.SenderRequestor).HasMaxLength(100);
-        builder.Property(x => x.SequenceNumber).HasMaxLength(20);
-        builder.Property(x => x.SessionNumber).HasMaxLength(20);
-        builder.Property(x => x.Service).HasMaxLength(20);
-        builder.Property(x => x.SourceInterface).HasMaxLength(20);
-        builder.Property(x => x.Status).HasMaxLength(20);
-        builder.Property(x => x.RoutingStatus).HasConversion<string>().HasMaxLength(20);
-        builder.Property(x => x.RoutingError).HasMaxLength(1000);
-        builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(x => x.Sender).HasMaxLength(100);
+        builder.Property(x => x.Receiver).HasMaxLength(100);
+        builder.Property(x => x.Host).HasMaxLength(255);
+        builder.Property(x => x.Body).IsRequired();
+        builder.Property(x => x.FileName).HasMaxLength(255);
+        builder.Property(x => x.FilePath).HasMaxLength(450).UseCollation("Latin1_General_100_CI_AS");
+        builder.HasIndex(x => x.FilePath).IsUnique();
+        builder.Property(x => x.ContentHash).HasMaxLength(64).IsUnicode(false).IsFixedLength();
     }
 }
 

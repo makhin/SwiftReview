@@ -1,0 +1,110 @@
+using System.Text;
+using Xunit;
+
+namespace ORP.Importer.Tests;
+
+public sealed class SaaMessageProcessorTests
+{
+    [Fact]
+    public void ResolvesDepartmentUsingValidatedHeaderAndBody()
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var resolver = new Resolver(document =>
+            {
+                Assert.Equal("PARIS", document.Header.Branch);
+                Assert.Equal("MXpain.001.001.09", document.Header.MessageType);
+                Assert.Equal(new DateTime(2026, 10, 14, 4, 35, 39), document.Header.Time);
+                Assert.Contains("payment content", document.Body);
+                return 7;
+            });
+            var result = new SaaMessageProcessor(new SaaMessageParser(), resolver).ParseFile(path);
+            Assert.Equal(7, result.DepartmentId);
+            Assert.Equal(Path.GetFullPath(path), result.Document.FilePath);
+            Assert.Equal(1, resolver.Calls);
+        });
+    }
+
+    [Fact]
+    public void AllowsDepartmentRulesToBeDisabled()
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var result = new SaaMessageProcessor(new SaaMessageParser()).ParseFile(path);
+            Assert.Null(result.DepartmentId);
+            Assert.Equal("PARIS", result.Document.Header.Branch);
+        });
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void RejectsUnresolvedOrInvalidDepartmentWhenRulesAreEnabled(int? departmentId)
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), new Resolver(_ => departmentId));
+            var error = Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Contains("DepartmentId", error.Message);
+            Assert.Equal(Path.GetFullPath(path), error.FilePath);
+        });
+    }
+
+    [Theory]
+    [InlineData("Branch", "PARIS")]
+    [InlineData("MessageType", "MXpain.001.001.09")]
+    [InlineData("Time", "14/10/26 04:35:39 AM")]
+    public void RejectsInvalidHeaderBeforeRunningRules(string key, string value)
+    {
+        WithFile(SaaMessageParserTests.Header.Replace(key + ":" + value, key + ": "), path =>
+        {
+            var resolver = new Resolver(_ => 7);
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), resolver);
+            var error = Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Contains(key, error.Message);
+            Assert.Equal(1, error.LineNumber);
+            Assert.Equal(Path.GetFullPath(path), error.FilePath);
+            Assert.Equal(0, resolver.Calls);
+        });
+    }
+
+    [Fact]
+    public void DoesNotRunRulesOnInvalidFileStructure()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, SaaMessageParserTests.Header);
+            var resolver = new Resolver(_ => 7);
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), resolver);
+            Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Equal(0, resolver.Calls);
+        }
+        finally { File.Delete(path); }
+    }
+
+    private sealed class Resolver(Func<SaaMessageDocument, int?> resolve) : ISaaMessageDepartmentResolver
+    {
+        public int Calls { get; private set; }
+
+        public int? ResolveDepartmentId(SaaMessageDocument document)
+        {
+            Calls++;
+            return resolve(document);
+        }
+    }
+
+    private static void WithFile(string header, Action<string> action)
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, string.Join("\n", header,
+                "2026/10/14-04:35:30 PRINT 1", "________", "",
+                "--- Instance Type and Transmission ---", "payment content"), new UTF8Encoding(false));
+            action(path);
+        }
+        finally { File.Delete(path); }
+    }
+}

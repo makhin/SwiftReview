@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ORP.Importer/ORP.Importer.csproj" />
+    <ProjectReference Include="../ORP.Infrastructure/ORP.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
