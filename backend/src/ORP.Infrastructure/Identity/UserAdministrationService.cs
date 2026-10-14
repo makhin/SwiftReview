@@ -111,10 +111,10 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
         CancellationToken ct, int? changedRoleId = null, IReadOnlyList<string>? changedPermissions = null)
     {
         var active = await (from review in db.Reviews
-            join message in db.Messages on review.MessageId equals message.Id
+            join source in db.SwiftMessages on review.MessageId equals source.MessageId
             where review.Status == ReviewStatus.InProgress && userIds.Contains(review.ReviewerId) &&
                 !db.Users.Any(u => u.Id == review.ReviewerId && u.IsGlobalAdministrator)
-            select new { review.ReviewerId, review.Level, message.BranchId, message.DepartmentId }).ToListAsync(ct);
+            select new { review.ReviewerId, review.Level, source.BranchId, source.DepartmentId }).ToListAsync(ct);
         foreach (var review in active)
         {
             var permissions = assignments.Where(r => r.UserId == review.ReviewerId &&

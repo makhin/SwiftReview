@@ -49,19 +49,19 @@ internal static class MessageReadModels
         select new MessageReadRow
         {
             Id = message.Id,
-            ExternalId = source.ReferenceId ?? source.FileName,
-            MessageType = source.MessageType!,
+            ExternalId = source.WarehouseId,
+            MessageType = source.MessageType,
             Direction = source.Direction,
-            BranchId = message.BranchId!.Value,
-            DepartmentId = message.DepartmentId!.Value,
+            BranchId = source.BranchId!.Value,
+            DepartmentId = source.DepartmentId!.Value,
             State = message.State,
             WorkflowDefinitionId = message.WorkflowDefinitionId,
-            ReceivedAt = message.ReceivedAt!.Value,
+            ReceivedAt = source.MessageDate ?? source.LastSynchronizedAtUtc,
             CurrentAssigneeId = message.CurrentAssigneeId,
             ActiveReviewId = activeReview == null ? null : activeReview.Id,
             ActiveReviewLevel = activeReview == null ? null : activeReview.Level,
             ActiveReviewerId = activeReview == null ? null : activeReview.ReviewerId,
-            Sender = source.Sender ?? string.Empty,
-            Receiver = source.Receiver ?? string.Empty
+            Sender = source.SenderRequestor ?? string.Empty,
+            Receiver = source.ReceiverResponder ?? string.Empty
         };
 }

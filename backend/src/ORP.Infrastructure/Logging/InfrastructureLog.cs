@@ -6,11 +6,6 @@ namespace ORP.Infrastructure.Logging;
 
 internal static partial class InfrastructureLog
 {
-    [LoggerMessage(EventId = 2010, EventName = "SwiftMessageImported",
-        Message = "SAA import {ImportResult} for {FilePath}; hash {ContentHash}")]
-    public static partial void SwiftMessageImported(ILogger logger, LogLevel level, string filePath,
-        string contentHash, ORP.Infrastructure.Persistence.SwiftMessageImportResult importResult);
-
     [LoggerMessage(EventId = 2000, EventName = "BusinessActionCommitted", Level = LogLevel.Information,
         Message = "Business action {EventType} committed as audit event {AuditEventId} for message {MessageId} by actor {ActorUserId}: {OldState} -> {NewState}; correlation {CorrelationId}")]
     public static partial void BusinessActionCommitted(ILogger logger, AuditEventType eventType,

@@ -30,8 +30,6 @@ IF COL_LENGTH(N'orp.WorkflowDefinitions', N'UndoApprovalMode') IS NULL
     THROW 51000, 'Apply AddWorkflowUndoPolicy before loading test data.', 1;
 IF COL_LENGTH(N'orp.WorkflowDefinitions', N'Direction') IS NULL
     THROW 51000, 'Apply AddMessageDirection before loading test data.', 1;
-IF COL_LENGTH(N'orp.SwiftMessages', N'FilePath') IS NULL
-    THROW 51000, 'Apply ImportSaaMessages before loading test data.', 1;
 IF @@TRANCOUNT <> 0
     THROW 51000, 'Run this script outside an existing transaction.', 1;
 
@@ -144,13 +142,12 @@ BEGIN TRY
     DECLARE @messageCount int = 100;
     ;WITH numbers AS (SELECT 1 AS n UNION ALL SELECT n+1 FROM numbers WHERE n<@messageCount)
     INSERT INTO [orp].[SwiftMessages]
-        ([Branch],[MessageType],[ReferenceId],[Direction],[Sender],[Receiver],[Host],[Time],
-         [Body],[FileName],[FilePath],[ContentHash])
-    SELECT b.[Name],v.[MessageType],CONCAT(N'TEST-',RIGHT(CONCAT(N'00000',n),5)),v.[Direction],
-        N'TESTGB2LXXX',N'DEMOGB2LXXX',N'seed',CAST(DATEADD(hour,n-@messageCount,@now) AS datetime2),
-        body.[Value],CONCAT(N'TEST-',RIGHT(CONCAT(N'00000',n),5),N'.prt'),
-        CONCAT(N'demo/TEST-',RIGHT(CONCAT(N'00000',n),5),N'.prt'),
-        CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),body.[Value])),2)
+        ([WarehouseId],[BodyContainsMx],[BodyContainsMt],[Body],[MessageType],[MessageTypeShort],
+         [MessageLength],[MessageDate],[SenderRequestor],[ReceiverResponder],[Direction],
+         [BranchId],[DepartmentId],[RoutingStatus],[LastSynchronizedAtUtc])
+    SELECT CONCAT(N'TEST-',RIGHT(CONCAT(N'00000',n),5)),0,1,body.[Value],v.[MessageType],
+        SUBSTRING(v.[MessageType],3,3),LEN(body.[Value]),DATEADD(hour,n-@messageCount,@now),
+        N'TESTGB2LXXX',N'DEMOGB2LXXX',v.[Direction],b.[Id],d.[Id],N'Routed',@now
     FROM numbers
     JOIN @workflows v ON v.[Ordinal]=CASE WHEN n<=75 THEN (n-1)%3 ELSE 3 END
     JOIN [orp].[Departments] d ON d.[Name]=v.[DepartmentName]
@@ -160,13 +157,10 @@ BEGIN TRY
         SUBSTRING(v.[MessageType],3,3),N'DEMOGB2LXXXXN}{4:',CHAR(10),N':20:TEST-',n,
         CHAR(10),N':79:SYNTHETIC TEST MESSAGE - ',v.[Name],CHAR(10),N'-}')) body([Value]);
 
-    INSERT INTO [orp].[Messages]
-        ([MessageId],[State],[CurrentAssigneeId],[WorkflowDefinitionId],[BranchId],[DepartmentId],[ReceivedAt])
-    SELECT s.[MessageId],N'New',NULL,w.[Id],b.[Id],w.[DepartmentId],TODATETIMEOFFSET(s.[Time], '+00:00')
-    FROM [orp].[SwiftMessages] s
-    JOIN [orp].[Branches] b ON b.[Name]=s.[Branch]
+    INSERT INTO [orp].[Messages] ([MessageId],[State],[CurrentAssigneeId],[WorkflowDefinitionId])
+    SELECT s.[MessageId],N'New',NULL,w.[Id] FROM [orp].[SwiftMessages] s
     JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=s.[MessageType]
-        AND w.[Direction]=s.[Direction] AND w.[IsActive]=1 AND w.[BranchId] IS NULL;
+        AND w.[Direction]=s.[Direction] AND w.[DepartmentId]=s.[DepartmentId] AND w.[IsActive]=1 AND w.[BranchId] IS NULL;
 
     -- 6. Initial audit trail; later decisions are recorded by the application.
     INSERT INTO [orp].[AuditEvents]
