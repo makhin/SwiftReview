@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using ORP.Infrastructure.Logging;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using ORP.Domain.Messages;
@@ -12,8 +15,10 @@ public enum SwiftMessageImportResult
     Conflict
 }
 
-public sealed class SwiftMessageImporter(string connectionString)
+public sealed class SwiftMessageImporter(string connectionString, ILogger<SwiftMessageImporter>? logger = null)
 {
+    private readonly ILogger<SwiftMessageImporter> logger = logger ?? NullLogger<SwiftMessageImporter>.Instance;
+
     private readonly DbContextOptions<ORPDbContext> options = new DbContextOptionsBuilder<ORPDbContext>()
         .UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp"))
         .Options;
@@ -30,13 +35,13 @@ public sealed class SwiftMessageImporter(string connectionString)
             .Select(message => message.ContentHash)
             .SingleOrDefaultAsync(cancellationToken);
         if (existingHash is not null)
-            return CompareHash(existingHash, document.ContentHash);
+            return LogResult(path, document.ContentHash, CompareHash(existingHash, document.ContentHash));
 
         db.SwiftMessages.Add(record);
         try
         {
             await db.SaveChangesAsync(cancellationToken);
-            return SwiftMessageImportResult.Imported;
+            return LogResult(path, document.ContentHash, SwiftMessageImportResult.Imported);
         }
         catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 })
         {
@@ -48,8 +53,16 @@ public sealed class SwiftMessageImporter(string connectionString)
                 .SingleOrDefaultAsync(cancellationToken);
             if (winnerHash is null)
                 throw;
-            return CompareHash(winnerHash, document.ContentHash);
+            return LogResult(path, document.ContentHash, CompareHash(winnerHash, document.ContentHash));
         }
+    }
+
+    private SwiftMessageImportResult LogResult(string path, string hash, SwiftMessageImportResult result)
+    {
+        InfrastructureLog.SwiftMessageImported(logger,
+            result == SwiftMessageImportResult.Conflict ? LogLevel.Warning : LogLevel.Information,
+            path, hash, result);
+        return result;
     }
 
     internal static SwiftMessageRecord CreateRecord(SaaMessageDocument document, string rootDirectory)

@@ -5,5 +5,9 @@
   <ItemGroup>
     <ProjectReference Include="../ORP.Importer/ORP.Importer.csproj" />
     <ProjectReference Include="../ORP.Infrastructure/ORP.Infrastructure.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

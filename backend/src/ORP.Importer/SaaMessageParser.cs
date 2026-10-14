@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +9,13 @@ namespace ORP.Importer;
 
 public sealed class SaaMessageParser
 {
+    private readonly ILogger<SaaMessageParser> logger;
+
+    public SaaMessageParser(ILogger<SaaMessageParser>? logger = null)
+    {
+        this.logger = logger ?? NullLogger<SaaMessageParser>.Instance;
+    }
+
     private static readonly string[] RequiredKeys =
         { "Branch", "MessageType", "Reference#", "DIRECTION", "SENDER", "RECEIVER", "Host", "Time" };
 
@@ -14,6 +23,22 @@ public sealed class SaaMessageParser
     public SaaMessageDocument ParseFile(string path)
     {
         var filePath = Path.GetFullPath(path);
+        ImporterLog.ParsingStarted(logger, filePath);
+        try
+        {
+            var document = ParseFileContents(filePath);
+            ImporterLog.ParsingCompleted(logger, filePath, document.ContentHash);
+            return document;
+        }
+        catch (SaaMessageFormatException exception)
+        {
+            ImporterLog.ParsingFailed(logger, exception, filePath, exception.LineNumber);
+            throw;
+        }
+    }
+
+    private SaaMessageDocument ParseFileContents(string filePath)
+    {
         // Parse and hash the same snapshot, rather than reopening a potentially changed file.
         var bytes = File.ReadAllBytes(filePath);
         var bomLength = bytes.Length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf ? 3 : 0;

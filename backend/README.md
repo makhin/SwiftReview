@@ -63,6 +63,16 @@ returns a nonzero exit code if any file has an error or conflict.
 raise `FormatException`; file errors include the path and header line number.
 Other header values may remain empty.
 
+Logging uses `Microsoft.Extensions.Logging` and source-generated `LoggerMessage` events,
+as in the API and Infrastructure projects. The console loads `Logging:LogLevel` from its
+`appsettings.json` next to the executable and environment variables. For example,
+`Logging__LogLevel__ORP.Importer=Debug` enables parser diagnostics. Import outcomes and
+scan totals are logged at Information, invalid files and content conflicts at Warning,
+and fatal database or directory errors at Error. Logs contain file paths and hashes,
+but do not dump message headers, bodies or connection strings. No file logging provider
+is configured. Libraries accept optional typed loggers and use `NullLogger` by default;
+the consuming application controls providers and filtering.
+
 The console uses `SaaMessageProcessor`, which validates the file before running optional
 department rules. To enable those rules, pass an `ISaaMessageDepartmentResolver` to the
 processor constructor. The resolver receives the complete `SaaMessageDocument` and must
