@@ -1,32 +1,47 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using ORP.Importer.ConsoleApp;
+using Microsoft.Extensions.Logging;
 using ORP.Importer;
 using ORP.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
+var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+{
+    ContentRootPath = AppContext.BaseDirectory
+});
+using var host = builder.Build();
+var loggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
+var logger = loggerFactory.CreateLogger("ORP.Importer.Console");
+
 if (args.Length != 1)
 {
-    Console.Error.WriteLine("Usage: ORP.Importer.Console <SAAMessages directory>");
+    ConsoleImportLog.ConfigurationInvalid(logger, "Usage: ORP.Importer.Console <SAAMessages directory>");
     return 2;
 }
 
 var directory = Path.GetFullPath(args[0]);
 if (!Directory.Exists(directory))
 {
-    Console.Error.WriteLine($"Directory does not exist: {directory}");
+    ConsoleImportLog.ConfigurationInvalid(logger, $"Directory does not exist: {directory}");
     return 2;
 }
 
-var processor = new SaaMessageProcessor(new SaaMessageParser());
+var processor = new SaaMessageProcessor(new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()),
+    logger: loggerFactory.CreateLogger<SaaMessageProcessor>());
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ORP");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    Console.Error.WriteLine("ConnectionStrings__ORP is required to import SAA messages.");
+    ConsoleImportLog.ConfigurationInvalid(logger, "ConnectionStrings__ORP is required to import SAA messages.");
     return 2;
 }
-var importer = new SwiftMessageImporter(connectionString);
+var importer = new SwiftMessageImporter(connectionString, loggerFactory.CreateLogger<SwiftMessageImporter>());
 var processed = 0;
 var skipped = 0;
 var failed = 0;
+
+ConsoleImportLog.ScanStarted(logger, directory);
 
 try
 {
@@ -44,28 +59,9 @@ try
             var result = await importer.SaveAsync(document, directory);
             if (result == SwiftMessageImportResult.Conflict)
             {
-                Console.Error.WriteLine($"Conflict: {path}: the saved file has different content.");
                 failed++;
                 continue;
             }
-            var header = document.Header;
-            Console.WriteLine($"ImportResult: {result}");
-            Console.WriteLine($"FileName: {document.FileName}");
-            Console.WriteLine($"FilePath: {document.FilePath}");
-            Console.WriteLine($"ContentHash: {document.ContentHash}");
-            Console.WriteLine($"Branch: {Display(header.Branch)}");
-            Console.WriteLine($"MessageType: {Display(header.MessageType)}");
-            Console.WriteLine($"ReferenceId: {Display(header.ReferenceId)}");
-            Console.WriteLine($"Direction: {Display(header.Direction?.ToString())}");
-            Console.WriteLine($"Sender: {Display(header.Sender)}");
-            Console.WriteLine($"Receiver: {Display(header.Receiver)}");
-            Console.WriteLine($"Host: {Display(header.Host)}");
-            Console.WriteLine($"Time: {header.Time:O}");
-            Console.WriteLine("Body:");
-            Console.Write(document.Body);
-            if (!document.Body.EndsWith('\n') && !document.Body.EndsWith('\r'))
-                Console.WriteLine();
-            Console.WriteLine();
             if (result == SwiftMessageImportResult.Imported)
                 processed++;
             else
@@ -73,23 +69,23 @@ try
         }
         catch (Exception exception) when (exception is FormatException or IOException or UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"Error: {path}: {exception.Message}");
+            // Parser validation failures have already been logged with their line number.
+            if (exception is not SaaMessageFormatException)
+                ConsoleImportLog.FileProcessingFailed(logger, exception, path);
             failed++;
         }
         catch (Exception exception) when (exception is SqlException or DbUpdateException)
         {
-            Console.Error.WriteLine($"Database error: {exception.Message}");
+            ConsoleImportLog.ImportStopped(logger, exception, path);
             return 2;
         }
     }
 }
 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 {
-    Console.Error.WriteLine($"Cannot scan directory {directory}: {exception.Message}");
+    ConsoleImportLog.DirectoryScanFailed(logger, exception, directory);
     return 2;
 }
 
-Console.WriteLine($"Scanned: {processed + skipped + failed}; imported: {processed}; already imported: {skipped}; errors: {failed}.");
+ConsoleImportLog.ScanCompleted(logger, processed + skipped + failed, processed, skipped, failed);
 return failed == 0 ? 0 : 1;
-
-static string Display(string? value) => value ?? "<empty>";
