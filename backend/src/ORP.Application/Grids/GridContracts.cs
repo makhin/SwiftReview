@@ -38,7 +38,7 @@ public static class GridFields
 {
     public static IReadOnlyList<string> Messages { get; } = Array.AsReadOnly(new[]
     {
-        "Id", "ExternalId", "Direction", "MessageType", "BranchId", "DepartmentId", "State", "ReceivedAt",
+        "Id", "ExternalId", "Sender", "Receiver", "Direction", "MessageType", "BranchId", "DepartmentId", "State", "ReceivedAt",
         "CurrentAssigneeId", "ActiveReviewId", "ActiveReviewLevel", "ActiveReviewerId", "WorkflowDefinitionId"
     });
     public static IReadOnlyList<string> Users { get; } = Array.AsReadOnly(new[] { "Id", "UserName", "DisplayName" });

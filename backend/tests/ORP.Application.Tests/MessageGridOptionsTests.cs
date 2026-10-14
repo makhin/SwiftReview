@@ -10,10 +10,11 @@ public sealed class MessageGridOptionsTests
     private static GridQuery<MessageGridRowDto> Prepare(MessageGridRequest request) =>
         GridQuery<MessageGridRowDto>.Create(MessageGridOptions.Create(request), GridFields.Messages, 500, 5, new("receivedAt", "desc"));
 
-    private static MessageGridRowDto Row(long id, string date, int branch = 1, string type = "MT199", string externalId = "TEST") => new()
+    private static MessageGridRowDto Row(long id, string date, int branch = 1, string type = "MT199", string externalId = "TEST",
+        string sender = "SENDER", string receiver = "RECEIVER") => new()
     {
         Id = id, ExternalId = externalId, MessageType = type, BranchId = branch, DepartmentId = 1,
-        Sender = "SENDER", Receiver = "RECEIVER",
+        Sender = sender, Receiver = receiver,
         State = MessageState.New, ReceivedAt = DateTimeOffset.Parse(date), Direction = null,
         CurrentAssigneeId = null, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,
         UndoReviewId = null, WorkflowDefinitionId = 1, CanReview = false, CanChangeWorkflow = false, RequiredReviewLevels = []
@@ -56,6 +57,23 @@ public sealed class MessageGridOptionsTests
         var source = new[] { Row(1, "2026-10-09T12:00:00Z", externalId: "ABC"), Row(2, "2026-10-09T12:00:00Z", type: "ABC"),
             Row(3, "2026-10-09T12:00:00Z", branch: 2, type: "ABC"), Row(4, "2026-10-09T12:00:00Z") }.AsQueryable();
         Assert.Equal(new long[] { 1, 2 }, Prepare(new(Search: " ABC ", Branch: "1")).Filter(source).Select(x => x.Id));
+    }
+
+    [Theory]
+    [InlineData("sender", "asc", 4, 1, 2, 3)]
+    [InlineData("SENDER", "DESC", 3, 1, 2, 4)]
+    [InlineData("receiver", "asc", 4, 3, 1, 2)]
+    [InlineData("RECEIVER", "DESC", 1, 2, 3, 4)]
+    public void SenderAndReceiverSortingUsesStablePaging(string field, string direction,
+        long first, long second, long third, long fourth)
+    {
+        const string date = "2026-10-09T12:00:00Z";
+        var source = new[] { Row(3, date, sender: "B", receiver: "C"),
+            Row(2, date, sender: "A", receiver: "D"), Row(1, date, sender: "A", receiver: "D"),
+            Row(4, date, sender: "", receiver: "") }.AsQueryable();
+        var request = new MessageGridRequest(Sort: [new(field, direction)], PageSize: 2);
+        Assert.Equal(new[] { first, second }, Prepare(request).Page(source).Select(x => x.Id));
+        Assert.Equal(new[] { third, fourth }, Prepare(request with { Page = 2 }).Page(source).Select(x => x.Id));
     }
 
     [Fact]

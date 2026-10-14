@@ -117,7 +117,6 @@ public sealed class GridQueryTests
     [InlineData("undoReviewId")]
     [InlineData("requiredReviewLevels")]
     [InlineData("rawContent")]
-    [InlineData("sender")]
     public void RejectsFieldsOutsideAllowlist(string field)
     {
         Assert.Throws<FormatException>(() => Prepare(new(Filter: Condition(field, "eq", 1))));
