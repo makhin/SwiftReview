@@ -118,6 +118,28 @@ public sealed class SaaMessageParserTests
         Assert.Throws<FormatException>(() => parser.ParseLine(line));
 
     [Theory]
+    [InlineData("2026/10/09-18:48:40          BRMXSwiftPrt-0583-000583              1")]
+    [InlineData("2026/10/12-18:48:06          BRMXSwiftPrt-0584-000584              1")]
+    [InlineData("2026/10/12-18:48:22          BRMXSwiftPrt-0585-000585              1")]
+    [InlineData("2026/10/13-08:04:22          MLMXSwiftPrt-0151-000151              1")]
+    [InlineData("2026/10/13-07:54:30          PRMXSwiftPrt-2605-002605              1")]
+    [InlineData("2026/10/13-09:08:14          PRMXSwiftPrt-2606-002606              1")]
+    public void IdentifiesRawPrintReportsInsteadOfReportingOneMissingField(string printLine)
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, string.Join("\n", printLine, "________", "",
+                "--- Instance Type and Transmission ---", "message content"));
+            var error = Assert.Throws<SaaMessageFormatException>(() => parser.ParseFile(path));
+            Assert.Equal(1, error.LineNumber);
+            Assert.Contains("no import metadata header", error.Reason);
+            Assert.DoesNotContain("Missing header field", error.Reason);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Theory]
     [InlineData("Branch")]
     [InlineData("MessageType")]
     [InlineData("Reference#")]

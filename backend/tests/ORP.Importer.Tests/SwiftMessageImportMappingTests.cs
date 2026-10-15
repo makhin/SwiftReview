@@ -17,7 +17,7 @@ public sealed class SwiftMessageImportMappingTests
         WithFile("PR", SaaMessageParserTests.Header, (root, file) =>
         {
             var parsed = new SaaMessageParser().ParseFile(file);
-            var record = SwiftMessageImporter.CreateRecord(parsed, root);
+            var record = SqlSaaImportStore.CreateRecord(parsed, root);
 
             Assert.Equal("PR/sample.prt", record.FilePath);
             Assert.Equal("sample.prt", record.FileName);
@@ -42,7 +42,7 @@ public sealed class SwiftMessageImportMappingTests
             .Replace("DIRECTION:Incoming", "DIRECTION:Outgoing");
         WithFile("nested", header, (root, file) =>
         {
-            var record = SwiftMessageImporter.CreateRecord(new SaaMessageParser().ParseFile(file), root);
+            var record = SqlSaaImportStore.CreateRecord(new SaaMessageParser().ParseFile(file), root);
             Assert.Equal("PARIS", record.Branch);
             Assert.Null(record.ReferenceId);
             Assert.Equal(MessageDirection.Outgoing, record.Direction);
@@ -56,7 +56,7 @@ public sealed class SwiftMessageImportMappingTests
         WithFile("PR", SaaMessageParserTests.Header, (root, file) =>
         {
             var document = new SaaMessageParser().ParseFile(file);
-            Assert.Throws<ArgumentException>(() => SwiftMessageImporter.CreateRecord(document, Path.Combine(root, "other")));
+            Assert.Throws<ArgumentException>(() => SqlSaaImportStore.CreateRecord(document, Path.Combine(root, "other")));
         });
     }
 
@@ -69,7 +69,7 @@ public sealed class SwiftMessageImportMappingTests
         {
             var document = new SaaMessageParser().ParseFile(file);
             Assert.Contains("FilePath", Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.CreateRecord(document, root)).Message);
+                SqlSaaImportStore.CreateRecord(document, root)).Message);
         });
     }
 

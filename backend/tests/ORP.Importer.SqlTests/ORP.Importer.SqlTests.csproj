@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><IsTestProject>true</IsTestProject><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ORP.Infrastructure/ORP.Infrastructure.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../scripts/seed-department-routing-rules.sql" Link="Fixtures/seed-department-routing-rules.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/fix-department-routing-mx-prefix.sql" Link="Fixtures/fix-department-routing-mx-prefix.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

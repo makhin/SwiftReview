@@ -18,9 +18,9 @@ using var host = builder.Build();
 var loggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
 var logger = loggerFactory.CreateLogger("ORP.Importer.Console");
 
-if (args.Length != 1)
+if (args.Length is < 1 or > 2 || (args.Length == 2 && args[1] != "--retry-ignored"))
 {
-    ConsoleImportLog.ConfigurationInvalid(logger, "Usage: ORP.Importer.Console <SAAMessages directory>");
+    ConsoleImportLog.ConfigurationInvalid(logger, "Usage: ORP.Importer.Console <SAAMessages directory> [--retry-ignored]");
     return 2;
 }
 
@@ -37,28 +37,26 @@ if (string.IsNullOrWhiteSpace(connectionString))
     ConsoleImportLog.ConfigurationInvalid(logger, "ConnectionStrings__ORP is required to import SAA messages.");
     return 2;
 }
-var importer = new SwiftMessageImporter(connectionString, loggerFactory.CreateLogger<SwiftMessageImporter>());
+var store = new SqlSaaImportStore(connectionString, loggerFactory.CreateLogger<SqlSaaImportStore>());
+var catalog = new SaaRoutingCatalog(connectionString);
+var retryIgnored = args.Length == 2;
 var processed = 0;
 var skipped = 0;
 var failed = 0;
+var ignored = 0;
+var alreadyIgnored = 0;
 
-ConsoleImportLog.ScanStarted(logger, directory);
+ConsoleImportLog.ScanStarted(logger, directory, retryIgnored);
 
 try
 {
-    var allowedTypes = builder.Configuration.GetSection("Importer:AllowedMessageTypes").Get<string[]>();
-    var departmentId = builder.Configuration.GetValue<int?>("Importer:DepartmentId");
     var defaultDirection = builder.Configuration.GetValue<SaaMessageDirection?>("Importer:DefaultDirection");
-    if (allowedTypes is not { Length: > 0 } || allowedTypes.Any(string.IsNullOrWhiteSpace) || departmentId is null or <= 0)
-    {
-        ConsoleImportLog.ConfigurationInvalid(logger,
-            "Importer:AllowedMessageTypes and a positive Importer:DepartmentId are required for message registration.");
-        return 2;
-    }
-    var branches = await importer.LoadBranchResolverAsync();
-    var processor = new SaaMessageProcessor(new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()),
-        new ConfiguredDepartmentResolver(departmentId.Value), loggerFactory.CreateLogger<SaaMessageProcessor>(),
-        branches, new SaaMessageTypeResolver(allowedTypes), defaultDirection);
+    var branches = await catalog.LoadBranchResolverAsync();
+    var departments = await catalog.LoadDepartmentResolverAsync();
+    var processor = new SaaMessageProcessor(departments, branches,
+        loggerFactory.CreateLogger<SaaMessageProcessor>(), defaultDirection);
+    var importer = new SaaFileImportService(new SaaSourceFileReader(),
+        new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()), processor, store);
     var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
         .Where(path => string.Equals(Path.GetExtension(path), ".prt", StringComparison.OrdinalIgnoreCase))
         .OrderBy(path => path, StringComparer.Ordinal)
@@ -68,23 +66,21 @@ try
     {
         try
         {
-            var processedMessage = processor.ParseFile(path);
-            var result = await importer.SaveAsync(processedMessage, directory);
-            if (result == SwiftMessageImportResult.Conflict)
+            var result = await importer.ImportAsync(path, directory, retryIgnored);
+            switch (result)
             {
-                failed++;
-                continue;
+                case SaaFileImportResult.Imported: processed++; break;
+                case SaaFileImportResult.AlreadyImported: skipped++; break;
+                case SaaFileImportResult.Ignored: ignored++; break;
+                case SaaFileImportResult.AlreadyIgnored: alreadyIgnored++; break;
+                case SaaFileImportResult.Conflict: failed++; break;
             }
-            if (result == SwiftMessageImportResult.Imported)
-                processed++;
-            else
-                skipped++;
         }
         catch (Exception exception) when (exception is FormatException or IOException or UnauthorizedAccessException)
         {
             // Parser validation failures have already been logged with their line number.
             if (exception is not SaaMessageFormatException)
-                ConsoleImportLog.FileProcessingFailed(logger, exception, path);
+                ConsoleImportLog.FileProcessingFailed(logger, exception, path, exception.Message);
             failed++;
         }
         catch (Exception exception) when (exception is SqlException or DbUpdateException)
@@ -105,5 +101,6 @@ catch (Exception exception) when (exception is SqlException or DbUpdateException
     return 2;
 }
 
-ConsoleImportLog.ScanCompleted(logger, processed + skipped + failed, processed, skipped, failed);
+ConsoleImportLog.ScanCompleted(logger, processed + skipped + ignored + alreadyIgnored + failed,
+    processed, skipped, ignored, alreadyIgnored, failed);
 return failed == 0 ? 0 : 1;

@@ -50,9 +50,13 @@ BEGIN TRY
     DELETE FROM [orp].[Assignments];
     DELETE FROM [orp].[Messages];
     DELETE FROM [orp].[SwiftMessages];
+    IF OBJECT_ID(N'orp.IgnoredImportFiles', N'U') IS NOT NULL
+        DELETE FROM [orp].[IgnoredImportFiles];
     DELETE FROM [orp].[WorkflowSteps];
     DELETE FROM [orp].[WorkflowDefinitions];
     DELETE FROM [orp].[UserRoles];
+    IF OBJECT_ID(N'orp.DepartmentRoutingRules', N'U') IS NOT NULL
+        DELETE FROM [orp].[DepartmentRoutingRules];
     DELETE FROM [orp].[RolePermissions];
     DELETE FROM [orp].[Users];
     DELETE FROM [orp].[Roles];

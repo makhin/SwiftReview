@@ -476,6 +476,96 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkflowSteps", "orp");
                 });
 
+            modelBuilder.Entity("ORP.Infrastructure.Persistence.DepartmentRoutingRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MatchKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessageTypePattern")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceFile")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("SourceRow")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceSheet")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Direction", "BranchId", "Priority");
+
+                    b.ToTable("DepartmentRoutingRules", "orp", t =>
+                        {
+                            t.HasCheckConstraint("CK_DepartmentRoutingRules_Direction", "[Direction] IN (1, 2)");
+
+                            t.HasCheckConstraint("CK_DepartmentRoutingRules_MatchKind", "[MatchKind] IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("CK_DepartmentRoutingRules_SourceRow", "[SourceRow] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ORP.Infrastructure.Persistence.IgnoredImportFile", b =>
+                {
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)")
+                        .UseCollation("Latin1_General_100_CI_AS");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("IgnoredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("FilePath");
+
+                    b.ToTable("IgnoredImportFiles", "orp", t =>
+                        {
+                            t.HasCheckConstraint("CK_IgnoredImportFiles_Reason", "[Reason] = N'NoDepartmentRule'");
+                        });
+                });
+
             modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>
                 {
                     b.Property<long>("MessageId")
@@ -722,6 +812,20 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .WithMany("Steps")
                         .HasForeignKey("WorkflowDefinitionId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ORP.Infrastructure.Persistence.DepartmentRoutingRule", b =>
+                {
+                    b.HasOne("ORP.Domain.Identity.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ORP.Domain.Identity.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

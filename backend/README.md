@@ -41,112 +41,131 @@ until a user with the `message.assign` permission assigns an eligible reviewer.
 
 ## Import SAA files
 
-Apply the `ImportSaaMessages` migration before running the importer. This migration deletes
-existing messages and their review, assignment and audit history because the previous
-warehouse rows have no SAA file identity. It preserves users, reference data and workflows.
+Apply migrations before importing. The historical `ImportSaaMessages` migration deletes
+previous warehouse messages and their review, assignment and audit history because they
+have no SAA file identity. The new `AddIgnoredImportFiles` migration only adds the ignored-file table.
 
-Set `ConnectionStrings__ORP` for the target database and configure the temporary routing
-rules through `appsettings.json` next to the console executable or environment variables:
+Set `ConnectionStrings__ORP` for the target database. Run
+`scripts/seed-department-routing-rules.sql` against that database to add the required
+branches and initial Department rules. The script is transactional and safe to rerun.
+If you reload demo data with `scripts/seed-test-data.sql`, run the routing script again
+afterward: demo data resets the routing rules and ignored-file list along with its other data.
 
-- `Importer__AllowedMessageTypes__0`, `Importer__AllowedMessageTypes__1`, ...: explicit
-  full type names such as `MT199` or `MXpain.001.001.09`.
-- `Importer__DepartmentId`: an existing department ID. The current mock department resolver
-  assigns this same department to every accepted file; replace it with business rules later.
-- `Importer__DefaultDirection`: optional `Incoming` or `Outgoing` for a test catalog whose
-  headers have empty Direction values. It never overrides an explicit header direction.
-  Without this setting, files lacking Direction still fail registration.
+There is no allowed-message-type list. A non-empty `MessageType` from the header is matched
+against active Department rules, ignoring case. CS has initial priority 100, TFO and DC 50;
+the greatest priority wins even when a lower-priority rule is specific to a branch. Matches
+at the greatest priority must agree on the Department. Empty or invalid active rule sets
+stop the importer at startup.
 
-An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local importer
-settings. It is copied next to the executable for local runs, is not copied on publish,
-and overrides `appsettings.json`; environment variables take precedence over both files.
-Keep connection credentials in the process environment rather than in that local file.
+MX rule patterns use the full SAA header identifiers: `MXpacs.008` for a family or
+`MXcamt.055.001.08` for a specific version. The initial seed adds `MX` to the workbook
+identifiers. For a database loaded with the earlier unprefixed rules, run
+`scripts/fix-department-routing-mx-prefix.sql` before starting the updated importer.
+This repeatable upgrade preserves rule IDs and settings. Use `--retry-ignored` to
+reconsider previously ignored files afterward.
 
-Both settings are required; their defaults are deliberately empty. Branch names are loaded
-from `orp.Branches`. An active matching workflow with valid review steps must already exist.
-Run from `backend`:
+Rule validation accepts exact `MTnnn` or MX identifiers, MT series such as `MT7xx`,
+and MX families/versions with a four-letter name, three-digit message number and optional
+three-digit/two-digit version suffix. Invalid patterns, including unsupported wildcards,
+fail startup instead of causing unmatched messages to be ignored.
+
+Each file must begin with the import metadata line
+`Branch:...|MessageType:...|Reference#:...|DIRECTION:...|SENDER:...|RECEIVER:...|Host:...|Time:...`,
+followed by the SAA print timestamp and separator. Raw SAA print reports starting directly
+with a print timestamp are rejected with `no import metadata header`; branch and routing
+metadata are not inferred from printer codes or message text.
+
+`Importer__DefaultDirection` optionally supplies `Incoming` or `Outgoing` for empty header
+directions and never overrides an explicit direction. The original header stays unchanged.
+An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local settings.
+It overrides `appsettings.json` next to the executable; environment variables override both.
+Keep credentials in the process environment. Legacy `AllowedMessageTypes` and `DepartmentId`
+settings are no longer used.
+
+Run from `backend` (on Windows omit `-p:ORPLinuxBuild=true`):
 
 ```bash
 dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages
+# Explicitly reconsider unchanged files previously ignored by Department rules:
+dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages --retry-ignored
 ```
 
-On Windows, omit `-p:ORPLinuxBuild=true` and pass a Windows or UNC directory path.
+The console scans `.prt` files recursively once. One logical source directory is supported
+per database: identity is the normalized path relative to the scan root, using the existing
+case-insensitive SQL path collation. Moving an identical file to a different relative path
+creates a different source identity.
 
-The console scans subdirectories once. It stores the parsed header, body from line four,
-file name, path relative to the chosen root, and SHA-256 of the original bytes. A second
-run skips unchanged paths; changed content at an existing path is reported as a conflict.
-After routing succeeds, it atomically inserts `SwiftMessages`, a linked `Messages` row and
-one `MessageRegistered` audit event. New messages have state `New`, no assignee, the resolved
-branch/department IDs and a matching workflow. `ReceivedAt` is the UTC registration time;
-`SwiftMessages.Time` retains the original timezone-free header timestamp. The API can read
-new messages immediately through its existing access checks.
-If a default direction is configured, registration and the API use that direction for
-empty headers. The original file, parsed header, body and content hash remain unchanged;
-each use of the fallback is logged explicitly.
+For each file, the reader captures its bytes and SHA-256 once. The store checks registered
+files first: the same path/hash returns `AlreadyImported`, a different hash returns `Conflict`.
+Next, an unchanged ignored path/hash returns `AlreadyIgnored`. These checks happen before
+parsing. Reading and hashing are still necessary to detect changed content.
 
-Workflow selection matches the full allowed type (ignoring case), direction and department.
-A workflow scoped to the resolved branch takes precedence over an unscoped workflow. No
-match, multiple matches at the preferred scope, missing direction or invalid reference IDs
-fail the file without saving partial data. Each run reports import counts and returns a
-nonzero exit code if any file has an error or conflict. A changed file never updates an
-existing message; an unchanged file never adds another message or registration audit event.
-CS and TFO cannot use workflows containing review level 3, including optional third steps.
+A new or changed file is parsed, then routed by branch, effective direction and Department:
 
-`Branch`, `MessageType` and `Time` must have non-empty valid values. Invalid headers
-raise `FormatException`; file errors include the path and header line number.
-The parser allows other header values to be empty; registration additionally requires Direction.
+- `Matched`: select a Workflow and atomically insert `SwiftMessages`, `Messages` and one
+  `MessageRegistered` audit event; remove any prior ignored mark in that transaction.
+- `NoDepartmentRule`: return `Ignored` and save the path, hash, UTC timestamp and reason
+  `NoDepartmentRule` in `orp.IgnoredImportFiles`. The message body is not stored.
+- Invalid file, unknown/ambiguous branch, missing direction, conflicting Department rules,
+  or missing/ambiguous Workflow: report an error without creating an ignored mark.
 
-Logging uses `Microsoft.Extensions.Logging` and source-generated `LoggerMessage` events,
-as in the API and Infrastructure projects. The console loads `Logging:LogLevel` from its
-`appsettings.json` next to the executable and environment variables. For example,
-`Logging__LogLevel__ORP.Importer=Debug` enables parser diagnostics. Import outcomes and
-scan totals are logged at Information, invalid files and content conflicts at Warning,
-and fatal database or directory errors at Error. Logs contain file paths and hashes,
-but do not dump message headers, bodies or connection strings. No file logging provider
-is configured. Libraries accept optional typed loggers and use `NullLogger` by default;
-the consuming application controls providers and filtering.
+Ignored entries survive restarts and changes to rules. Changed bytes are checked automatically;
+`--retry-ignored` explicitly rechecks unchanged ignored files with the current rules. If a retry
+fails, its previous ignored entry remains. If it still has no rule, it remains ignored. Once
+registered, changed content never overwrites an existing message. Both registration and ignoring
+use a transaction-owned `sp_getapplock` for the path and recheck registration after acquiring it.
+This prevents competing runs from creating duplicate dispositions; registered messages take precedence.
 
-The console uses `SaaMessageProcessor`, which validates the file before resolving routing
-fields. To enable department rules, pass an `ISaaMessageDepartmentResolver` to the
-processor constructor. The resolver receives the complete `SaaMessageDocument` and must
-return a positive department ID; an unresolved department raises `SaaMessageFormatException`.
-At that same stage, pass an `ISaaMessageBranchResolver` to map the header's `Branch` to
-`BranchId`. `SaaMessageBranchResolver` matches complete branch names, ignoring case and
-surrounding whitespace. Unknown names and ambiguous names matching different IDs fail
-with `SaaMessageFormatException` containing the file path and header line number. Branch
-resolution runs before department rules; failed branch resolution stops processing.
+Workflow selection matches the full header type (ignoring case), direction and Department.
+A branch-specific Workflow takes precedence over a general one. Review steps must be valid;
+CS and TFO cannot use review level 3, including optional steps. New messages have state `New`,
+no assignee and a UTC `ReceivedAt`; the original header's `Time` remains timezone-free.
 
-An optional `ISaaMessageTypeResolver` checks the parsed `MessageType` against allowed
-types at the same routing stage, before branch and department resolution. The generic
-`SaaMessageTypeResolver` accepts an injected list of strings, which can be a test double
-until the business source is specified. It matches full names ignoring case and surrounding
-whitespace and returns the spelling from the allowed list in `SaaProcessedMessage.MessageType`.
-Prefixes (`MT`/`MX`) and MX versions are preserved and must match in full. Unsupported types
-raise `SaaMessageFormatException` with file path and header line number; an empty allowed
-list rejects all types. The parsed header is unchanged. No production allowed list is
-hard-coded, and no types are inferred from existing messages or workflows. The console
-supplies the explicit configured mock list.
+The final scan reports `Imported`, `AlreadyImported`, `Ignored`, `AlreadyIgnored` and errors.
+Ignoring is a normal outcome: it does not increment errors or cause a nonzero exit code.
+Per-file errors/conflicts return exit code 1; configuration and fatal database errors return 2.
+Logs contain paths, hashes, routing IDs, message type, effective direction and outcomes,
+without message bodies or credentials. Parser and per-file failures expose a structured
+`Reason`; unmatched rules log the routing fields at Information level. Scan startup records
+whether `--retry-ignored` was used.
+Console events include UTC timestamps by default; `Logging__Console__FormatterName=json`
+selects structured JSON output for a captured run.
+`Logging__LogLevel__ORP.Importer=Debug` enables parser diagnostics.
 
-`SwiftMessageImporter.LoadBranchResolverAsync()` loads a snapshot of `orp.Branches`
-(`Name` -> `Id`). Another application can supply its own mappings without EF dependencies
-in `ORP.Importer`. Configure all three resolvers for registration:
+### Service responsibilities
+
+| Component | Responsibility |
+|---|---|
+| Console | Configuration, enumeration, per-file invocation, counters and exit code. |
+| `SaaSourceFileReader` | File bytes, normalized relative path and SHA-256 snapshot. |
+| `SaaMessageParser` | UTF-8/SAA validation and document construction from the snapshot. `ParseFile` is a reader/parser compatibility wrapper. |
+| `SaaMessageProcessor` | Route an already parsed document; return `Matched` or `NoDepartmentRule`. No file or database access. |
+| `SaaDepartmentRuleResolver` | Match type, branch and direction; resolve priorities. |
+| `SaaFileImportService` | Coordinate read → stored-state check → parse → route → persist through `ISaaImportStore`. |
+| `SaaRoutingCatalog` | Load branches and active Department rules once at startup. |
+| `SqlSaaImportStore` | State lookup, ignored-file persistence, Workflow selection and atomic registration with audit and concurrency protection. |
 
 ```csharp
-var branches = await importer.LoadBranchResolverAsync();
-var allowedTypes = new SaaMessageTypeResolver(allowedMessageTypes); // Inject a mock list for now.
-var processor = new SaaMessageProcessor(parser, departmentResolver,
-    branchResolver: branches, messageTypeResolver: allowedTypes);
-var processed = processor.ParseFile(path);
-// processed.MessageType, processed.BranchId and processed.DepartmentId are routing results.
-await importer.SaveAsync(processed, rootDirectory);
+var catalog = new SaaRoutingCatalog(connectionString);
+var processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(),
+    await catalog.LoadBranchResolverAsync(), defaultDirection: defaultDirection);
+var importer = new SaaFileImportService(new SaaSourceFileReader(), new SaaMessageParser(),
+    processor, new SqlSaaImportStore(connectionString));
+var result = await importer.ImportAsync(path, rootDirectory, retryIgnored: false);
 ```
 
-`SaaProcessedMessage` carries the original document and the resolved `MessageType`, `BranchId`
-and `DepartmentId`. `SwiftMessageImporter.SaveAsync(processed, rootDirectory)` requires positive
-routing IDs, a checked allowed type and a direction; passing output from a processor with
-routing disabled is rejected before database access. The console enables all three resolvers.
-Raw-only import and backfilling historical source rows are not supported. Concurrent attempts
-to import the same path resolve to one committed source/message/audit, with the other attempt
-reporting a skip or a content conflict.
+`ORP.Importer` targets `netstandard2.0` and has no EF dependency. `ISaaImportStore` provides
+state lookup, ignored-file recording and routed-message registration; SQL implementations
+live in Infrastructure. `SaaProcessedMessage` preserves the parsed document and exposes the
+routing status and resolved IDs. There is no allowlist validation flag.
+
+The versioned `tests/ORP.Importer.Tests` suite requires no database. The separate
+`tests/ORP.Importer.SqlTests` suite requires `ORP_TEST_SQL_SERVER` and permission to create/drop
+its own `ORP_ImporterTests_<Guid>` databases. It fails clearly when configuration is absent.
+Add this project only to the local Docker solution; it is excluded from `ORP.sln` so Windows
+unit tests continue to require no SQL connection. The prepared local solution includes it;
+run `./test-backend.docker.sh -m:1` from the repository root. Concurrent tests hold a SQL
+application lock until both writers are observed waiting, then verify persisted rows.
 
 ## Load sample data into SQL Server
 

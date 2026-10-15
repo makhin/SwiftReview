@@ -1,13 +1,17 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ORP.Importer;
 
-public sealed class SaaMessageParser
+public interface ISaaMessageParser
+{
+    SaaMessageDocument Parse(SaaSourceFileSnapshot file);
+}
+
+public sealed class SaaMessageParser : ISaaMessageParser
 {
     private readonly ILogger<SaaMessageParser> logger;
 
@@ -19,28 +23,33 @@ public sealed class SaaMessageParser
     private static readonly string[] RequiredKeys =
         { "Branch", "MessageType", "Reference#", "DIRECTION", "SENDER", "RECEIVER", "Host", "Time" };
 
+    private const string PrintLinePattern = @"\A(?<date>(?:[0-9]{4}/[0-9]{2}/[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{2})-[0-9]{2}:[0-9]{2}:[0-9]{2})[ \t]+\S+[ \t]+1[ \t]*\z";
+
     /// <summary>Validates a UTF-8 SAA print file and reads its header, body and source metadata.</summary>
-    public SaaMessageDocument ParseFile(string path)
+    public SaaMessageDocument ParseFile(string path) =>
+        Parse(new SaaSourceFileReader().Read(path, Path.GetDirectoryName(Path.GetFullPath(path))!));
+
+    public SaaMessageDocument Parse(SaaSourceFileSnapshot file)
     {
-        var filePath = Path.GetFullPath(path);
+        var filePath = file.FilePath;
         ImporterLog.ParsingStarted(logger, filePath);
         try
         {
-            var document = ParseFileContents(filePath);
+            var document = ParseFileContents(file);
             ImporterLog.ParsingCompleted(logger, filePath, document.ContentHash);
             return document;
         }
         catch (SaaMessageFormatException exception)
         {
-            ImporterLog.ParsingFailed(logger, exception, filePath, exception.LineNumber);
+            ImporterLog.ParsingFailed(logger, exception, filePath, exception.LineNumber, exception.Reason);
             throw;
         }
     }
 
-    private SaaMessageDocument ParseFileContents(string filePath)
+    private SaaMessageDocument ParseFileContents(SaaSourceFileSnapshot file)
     {
-        // Parse and hash the same snapshot, rather than reopening a potentially changed file.
-        var bytes = File.ReadAllBytes(filePath);
+        var filePath = file.FilePath;
+        var bytes = file.Bytes;
         var bomLength = bytes.Length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf ? 3 : 0;
         string text;
         try
@@ -65,7 +74,7 @@ public sealed class SaaMessageParser
 
         var printLine = ReadLine(text, ref offset);
         // The print identifier varies by branch; the first page must be page 1.
-        var match = Regex.Match(printLine ?? "", @"\A(?<date>(?:[0-9]{4}/[0-9]{2}/[0-9]{2}|[0-9]{2}/[0-9]{2}/[0-9]{2})-[0-9]{2}:[0-9]{2}:[0-9]{2})[ \t]+\S+[ \t]+1[ \t]*\z");
+        var match = Regex.Match(printLine ?? "", PrintLinePattern);
         var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
         culture.DateTimeFormat.Calendar.TwoDigitYearMax = 2099;
         if (!match.Success || !DateTime.TryParseExact(match.Groups["date"].Value,
@@ -87,9 +96,7 @@ public sealed class SaaMessageParser
         if (string.IsNullOrWhiteSpace(text.Substring(offset)))
             throw new SaaMessageFormatException(filePath, 6, "Expected message content after the section heading.");
 
-        using var sha256 = SHA256.Create();
-        var hash = BitConverter.ToString(sha256.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
-        return new SaaMessageDocument(header, text.Substring(bodyOffset), filePath, hash);
+        return new SaaMessageDocument(header, text.Substring(bodyOffset), filePath, file.ContentHash);
     }
 
     private static string? ReadLine(string text, ref int offset)
@@ -109,6 +116,8 @@ public sealed class SaaMessageParser
     {
         if (string.IsNullOrWhiteSpace(line))
             throw new FormatException("The message header is empty.");
+        if (Regex.IsMatch(line, PrintLinePattern))
+            throw new FormatException("SAA print report has no import metadata header. Expected 'Branch:...|MessageType:...|...' before the print timestamp.");
 
         var fields = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var segment in line.Split('|'))

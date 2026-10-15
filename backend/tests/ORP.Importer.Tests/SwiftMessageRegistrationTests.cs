@@ -14,7 +14,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var general = Workflow();
             var scoped = Workflow(branch: 3);
-            Assert.Same(scoped, SwiftMessageImporter.SelectWorkflow(new[] { general, scoped }, result, "DC"));
+            Assert.Same(scoped, SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, "DC"));
         });
     }
 
@@ -28,7 +28,7 @@ public sealed class SwiftMessageRegistrationTests
             inactive.Deactivate();
             var candidates = new[] { Workflow(type: "MT299"), Workflow(direction: MessageDirection.Outgoing),
                 Workflow(branch: 4), Workflow(department: 8), inactive, valid };
-            Assert.Same(valid, SwiftMessageImporter.SelectWorkflow(candidates, result, "DC"));
+            Assert.Same(valid, SqlSaaImportStore.SelectWorkflow(candidates, result, "DC"));
         });
     }
 
@@ -38,9 +38,9 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.SelectWorkflow(new[] { Workflow(), Workflow() }, result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow() }, result, "DC")).Message);
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.SelectWorkflow(new[] { Workflow(), Workflow(branch: 3), Workflow(branch: 3) }, result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow(branch: 3), Workflow(branch: 3) }, result, "DC")).Message);
         });
     }
 
@@ -50,10 +50,10 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             Assert.Contains("No active", Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.SelectWorkflow(Array.Empty<WorkflowDefinition>(), result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(Array.Empty<WorkflowDefinition>(), result, "DC")).Message);
             var invalid = new WorkflowDefinition(MessageDirection.Incoming, "Invalid", "MT199", 7);
             Assert.Contains("review steps", Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.SelectWorkflow(new[] { invalid }, result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { invalid }, result, "DC")).Message);
         });
     }
 
@@ -70,7 +70,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var workflow = Workflow().AddStep(2, 2).AddStep(3, 3, thirdRequired);
             var error = Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.SelectWorkflow(new[] { workflow }, result, departmentName));
+                SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, departmentName));
             Assert.Contains("CS and TFO", error.Message);
         });
     }
@@ -89,7 +89,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var workflow = Workflow();
             for (var level = 2; level <= levels; level++) workflow.AddStep(level, level);
-            Assert.Same(workflow, SwiftMessageImporter.SelectWorkflow(new[] { workflow }, result, departmentName));
+            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, departmentName));
         });
     }
 
@@ -101,36 +101,21 @@ public sealed class SwiftMessageRegistrationTests
             var general = Workflow();
             var scoped = Workflow(branch: 3).AddStep(2, 2).AddStep(3, 3, required: false);
             Assert.Contains("CS and TFO", Assert.Throws<FormatException>(() =>
-                SwiftMessageImporter.SelectWorkflow(new[] { general, scoped }, result, "CS")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, "CS")).Message);
         });
-    }
-
-    [Theory]
-    [InlineData(false, true, true, true, "MessageType")]
-    [InlineData(true, false, true, true, "BranchId")]
-    [InlineData(true, true, false, true, "DepartmentId")]
-    [InlineData(true, true, true, false, "direction")]
-    public void RejectsIncompleteRoutingBeforeOpeningTheDatabase(bool validateType, bool branch, bool department,
-        bool direction, string expected)
-    {
-        WithProcessed(result =>
-        {
-            var importer = new SwiftMessageImporter("Server=localhost,1;Database=unused;User Id=unused;Password=unused");
-            Assert.Contains(expected, Assert.Throws<FormatException>(() =>
-            {
-                _ = importer.SaveAsync(result, Path.GetTempPath(), TestContext.Current.CancellationToken);
-            }).Message);
-        }, validateType, branch, department, direction);
     }
 
     [Fact]
-    public void AcceptsValidatedRoutingAndTracksThatTheAllowlistWasApplied()
+    public void RejectsNoDepartmentRuleBeforeOpeningTheDatabase()
     {
-        WithProcessed(result =>
-        {
-            Assert.True(result.IsMessageTypeValidated);
-            SwiftMessageImporter.ValidateRouting(result);
-        });
+        WithProcessed(result => Assert.Throws<FormatException>(() => SqlSaaImportStore.ValidateRouting(result)),
+            department: false);
+    }
+
+    [Fact]
+    public void AcceptsRoutingWithoutAnAllowlist()
+    {
+        WithProcessed(SqlSaaImportStore.ValidateRouting);
     }
 
     [Theory]
@@ -141,10 +126,10 @@ public sealed class SwiftMessageRegistrationTests
     {
         WithProcessed(result =>
         {
-            SwiftMessageImporter.ValidateRouting(result);
+            SqlSaaImportStore.ValidateRouting(result);
             var workflow = Workflow(direction: expected);
-            Assert.Same(workflow, SwiftMessageImporter.SelectWorkflow(new[] { workflow }, result, "DC"));
-            var record = SwiftMessageImporter.CreateRecord(result.Document, Path.GetTempPath(), result.Direction);
+            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, "DC"));
+            var record = SqlSaaImportStore.CreateRecord(result.Document, Path.GetTempPath(), result.Direction);
             Assert.Equal(expected, record.Direction);
             Assert.Null(result.Document.Header.Direction);
         }, direction: false, defaultDirection: fallback);
@@ -156,11 +141,12 @@ public sealed class SwiftMessageRegistrationTests
 
     private sealed class Departments : ISaaMessageDepartmentResolver
     {
-        public int? ResolveDepartmentId(SaaMessageDocument document) => 7;
+        public SaaDepartmentResolution? Resolve(int branchId, string messageType, SaaMessageDirection direction) =>
+            new(7, new[] { 1 });
     }
 
-    private static void WithProcessed(Action<SaaProcessedMessage> action, bool validateType = true, bool branch = true,
-        bool department = true, bool direction = true, SaaMessageDirection? defaultDirection = null)
+    private static void WithProcessed(Action<SaaProcessedMessage> action, bool department = true,
+        bool direction = true, SaaMessageDirection? defaultDirection = null)
     {
         var path = Path.GetTempFileName();
         try
@@ -169,11 +155,15 @@ public sealed class SwiftMessageRegistrationTests
             if (!direction) header = header.Replace("DIRECTION:Incoming", "DIRECTION:");
             File.WriteAllText(path, string.Join("\n", header, "2026/10/15-04:35:30 PRINT 1", "________", "",
                 "--- Instance Type and Transmission ---", "content"));
-            var processor = new SaaMessageProcessor(new SaaMessageParser(), department ? new Departments() : null,
-                branchResolver: branch ? new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) }) : null,
-                messageTypeResolver: validateType ? new SaaMessageTypeResolver(new[] { "MT199" }) : null,
+            ISaaMessageDepartmentResolver resolver = department ? new Departments() : new SaaDepartmentRuleResolver(new[]
+            {
+                new SaaDepartmentRule { Id = 1, DepartmentId = 7, Direction = SaaMessageDirection.Incoming,
+                    MatchKind = SaaDepartmentMatchKind.Exact, MessageTypePattern = "MT299", IsActive = true }
+            });
+            var processor = new SaaMessageProcessor(resolver,
+                new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) }),
                 defaultDirection: defaultDirection);
-            action(processor.ParseFile(path));
+            action(processor.Process(new SaaMessageParser().ParseFile(path)));
         }
         finally { File.Delete(path); }
     }

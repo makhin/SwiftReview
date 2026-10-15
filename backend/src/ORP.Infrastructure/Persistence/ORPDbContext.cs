@@ -23,6 +23,8 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<DepartmentRoutingRule> DepartmentRoutingRules => Set<DepartmentRoutingRule>();
+    public DbSet<IgnoredImportFile> IgnoredImportFiles => Set<IgnoredImportFile>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<AccessAuditEvent> AccessAuditEvents => Set<AccessAuditEvent>();
 
