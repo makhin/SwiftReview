@@ -45,7 +45,9 @@ Apply migrations before importing. The historical `ImportSaaMessages` migration 
 previous warehouse messages and their review, assignment and audit history because they
 have no SAA file identity. The new `AddIgnoredImportFiles` migration only adds the ignored-file table.
 
-Set `ConnectionStrings__ORP` for the target database. Run
+Configure `ConnectionStrings:ORP` in the importer's `appsettings.json` or ignored
+`appsettings.Importer.local.json`, or override it with `ConnectionStrings__ORP` in the
+environment. The default connection string is empty. Run
 `scripts/seed-department-routing-rules.sql` against that database to add the required
 branches and initial Department rules. The script is transactional and safe to rerun.
 If you reload demo data with `scripts/seed-test-data.sql`, run the routing script again
@@ -79,7 +81,7 @@ metadata are not inferred from printer codes or message text.
 directions and never overrides an explicit direction. The original header stays unchanged.
 An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local settings.
 It overrides `appsettings.json` next to the executable; environment variables override both.
-Keep credentials in the process environment. Legacy `AllowedMessageTypes` and `DepartmentId`
+Keep credentials in the ignored local file or the process environment. Legacy `AllowedMessageTypes` and `DepartmentId`
 settings are no longer used.
 
 Run from `backend` (on Windows omit `-p:ORPLinuxBuild=true`):

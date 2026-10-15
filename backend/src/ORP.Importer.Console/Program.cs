@@ -31,10 +31,10 @@ if (!Directory.Exists(directory))
     return 2;
 }
 
-var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ORP");
+var connectionString = builder.Configuration.GetConnectionString("ORP");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    ConsoleImportLog.ConfigurationInvalid(logger, "ConnectionStrings__ORP is required to import SAA messages.");
+    ConsoleImportLog.ConfigurationInvalid(logger, "ConnectionStrings:ORP is required to import SAA messages.");
     return 2;
 }
 var store = new SqlSaaImportStore(connectionString, loggerFactory.CreateLogger<SqlSaaImportStore>());
