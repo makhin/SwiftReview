@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using ORP.Importer.ConsoleApp;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using ORP.Importer;
 using ORP.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
@@ -28,8 +29,6 @@ if (!Directory.Exists(directory))
     return 2;
 }
 
-var processor = new SaaMessageProcessor(new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()),
-    logger: loggerFactory.CreateLogger<SaaMessageProcessor>());
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ORP");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
@@ -45,6 +44,18 @@ ConsoleImportLog.ScanStarted(logger, directory);
 
 try
 {
+    var allowedTypes = builder.Configuration.GetSection("Importer:AllowedMessageTypes").Get<string[]>();
+    var departmentId = builder.Configuration.GetValue<int?>("Importer:DepartmentId");
+    if (allowedTypes is not { Length: > 0 } || allowedTypes.Any(string.IsNullOrWhiteSpace) || departmentId is null or <= 0)
+    {
+        ConsoleImportLog.ConfigurationInvalid(logger,
+            "Importer:AllowedMessageTypes and a positive Importer:DepartmentId are required for message registration.");
+        return 2;
+    }
+    var branches = await importer.LoadBranchResolverAsync();
+    var processor = new SaaMessageProcessor(new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()),
+        new ConfiguredDepartmentResolver(departmentId.Value), loggerFactory.CreateLogger<SaaMessageProcessor>(),
+        branches, new SaaMessageTypeResolver(allowedTypes));
     var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
         .Where(path => string.Equals(Path.GetExtension(path), ".prt", StringComparison.OrdinalIgnoreCase))
         .OrderBy(path => path, StringComparer.Ordinal)
@@ -55,8 +66,7 @@ try
         try
         {
             var processedMessage = processor.ParseFile(path);
-            var document = processedMessage.Document;
-            var result = await importer.SaveAsync(document, directory);
+            var result = await importer.SaveAsync(processedMessage, directory);
             if (result == SwiftMessageImportResult.Conflict)
             {
                 failed++;
@@ -84,6 +94,11 @@ try
 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 {
     ConsoleImportLog.DirectoryScanFailed(logger, exception, directory);
+    return 2;
+}
+catch (Exception exception) when (exception is SqlException or DbUpdateException or InvalidOperationException or ArgumentException)
+{
+    ConsoleImportLog.ImportStopped(logger, exception, directory);
     return 2;
 }
 

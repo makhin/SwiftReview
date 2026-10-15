@@ -11,18 +11,21 @@ public interface ISaaMessageDepartmentResolver
 
 public sealed class SaaProcessedMessage
 {
-    internal SaaProcessedMessage(SaaMessageDocument document, string messageType, int? branchId, int? departmentId)
+    internal SaaProcessedMessage(SaaMessageDocument document, string messageType, int? branchId, int? departmentId,
+        bool isMessageTypeValidated)
     {
         Document = document;
         MessageType = messageType;
         BranchId = branchId;
         DepartmentId = departmentId;
+        IsMessageTypeValidated = isMessageTypeValidated;
     }
 
     public SaaMessageDocument Document { get; }
     public string MessageType { get; }
     public int? BranchId { get; }
     public int? DepartmentId { get; }
+    public bool IsMessageTypeValidated { get; }
 }
 
 /// <summary>Resolves routing fields only after successful file validation.</summary>
@@ -57,7 +60,7 @@ public sealed class SaaMessageProcessor
             throw new SaaMessageFormatException(document.FilePath, null,
                 "Department rules did not resolve a positive DepartmentId.");
         }
-        return new SaaProcessedMessage(document, messageType, branchId, departmentId);
+        return new SaaProcessedMessage(document, messageType, branchId, departmentId, messageTypeResolver is not null);
     }
 
     private string ResolveMessageType(SaaMessageDocument document)

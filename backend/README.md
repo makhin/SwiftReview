@@ -45,7 +45,17 @@ Apply the `ImportSaaMessages` migration before running the importer. This migrat
 existing messages and their review, assignment and audit history because the previous
 warehouse rows have no SAA file identity. It preserves users, reference data and workflows.
 
-With `ConnectionStrings__ORP` set for the target database, run from `backend`:
+Set `ConnectionStrings__ORP` for the target database and configure the temporary routing
+rules through `appsettings.json` next to the console executable or environment variables:
+
+- `Importer__AllowedMessageTypes__0`, `Importer__AllowedMessageTypes__1`, ...: explicit
+  full type names such as `MT199` or `MXpain.001.001.09`.
+- `Importer__DepartmentId`: an existing department ID. The current mock department resolver
+  assigns this same department to every accepted file; replace it with business rules later.
+
+Both settings are required; their defaults are deliberately empty. Branch names are loaded
+from `orp.Branches`. An active matching workflow with valid review steps must already exist.
+Run from `backend`:
 
 ```bash
 dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages
@@ -56,12 +66,23 @@ On Windows, omit `-p:ORPLinuxBuild=true` and pass a Windows or UNC directory pat
 The console scans subdirectories once. It stores the parsed header, body from line four,
 file name, path relative to the chosen root, and SHA-256 of the original bytes. A second
 run skips unchanged paths; changed content at an existing path is reported as a conflict.
-Imported records are not yet added to review workflows. Each run reports import counts and
-returns a nonzero exit code if any file has an error or conflict.
+After routing succeeds, it atomically inserts `SwiftMessages`, a linked `Messages` row and
+one `MessageRegistered` audit event. New messages have state `New`, no assignee, the resolved
+branch/department IDs and a matching workflow. `ReceivedAt` is the UTC registration time;
+`SwiftMessages.Time` retains the original timezone-free header timestamp. The API can read
+new messages immediately through its existing access checks.
+
+Workflow selection matches the full allowed type (ignoring case), direction and department.
+A workflow scoped to the resolved branch takes precedence over an unscoped workflow. No
+match, multiple matches at the preferred scope, missing direction or invalid reference IDs
+fail the file without saving partial data. Each run reports import counts and returns a
+nonzero exit code if any file has an error or conflict. A changed file never updates an
+existing message; an unchanged file never adds another message or registration audit event.
+CS and TFO cannot use workflows containing review level 3, including optional third steps.
 
 `Branch`, `MessageType` and `Time` must have non-empty valid values. Invalid headers
 raise `FormatException`; file errors include the path and header line number.
-Other header values may remain empty.
+The parser allows other header values to be empty; registration additionally requires Direction.
 
 Logging uses `Microsoft.Extensions.Logging` and source-generated `LoggerMessage` events,
 as in the API and Infrastructure projects. The console loads `Logging:LogLevel` from its
@@ -91,11 +112,12 @@ whitespace and returns the spelling from the allowed list in `SaaProcessedMessag
 Prefixes (`MT`/`MX`) and MX versions are preserved and must match in full. Unsupported types
 raise `SaaMessageFormatException` with file path and header line number; an empty allowed
 list rejects all types. The parsed header is unchanged. No production allowed list is
-currently configured, and no types are inferred from existing messages or workflows.
+hard-coded, and no types are inferred from existing messages or workflows. The console
+supplies the explicit configured mock list.
 
 `SwiftMessageImporter.LoadBranchResolverAsync()` loads a snapshot of `orp.Branches`
 (`Name` -> `Id`). Another application can supply its own mappings without EF dependencies
-in `ORP.Importer`. Enable both resolvers when configuring the routing stage:
+in `ORP.Importer`. Configure all three resolvers for registration:
 
 ```csharp
 var branches = await importer.LoadBranchResolverAsync();
@@ -104,12 +126,16 @@ var processor = new SaaMessageProcessor(parser, departmentResolver,
     branchResolver: branches, messageTypeResolver: allowedTypes);
 var processed = processor.ParseFile(path);
 // processed.MessageType, processed.BranchId and processed.DepartmentId are routing results.
+await importer.SaveAsync(processed, rootDirectory);
 ```
 
-`SaaProcessedMessage` carries the original document and the resolved `BranchId` and
-`DepartmentId` separately. The current console has no routing rules configured; raw import
-does not require a matching branch directory entry. Persisting the routing result to
-`Messages` belongs to the subsequent workflow registration step.
+`SaaProcessedMessage` carries the original document and the resolved `MessageType`, `BranchId`
+and `DepartmentId`. `SwiftMessageImporter.SaveAsync(processed, rootDirectory)` requires positive
+routing IDs, a checked allowed type and a direction; passing output from a processor with
+routing disabled is rejected before database access. The console enables all three resolvers.
+Raw-only import and backfilling historical source rows are not supported. Concurrent attempts
+to import the same path resolve to one committed source/message/audit, with the other attempt
+reporting a skip or a content conflict.
 
 ## Load sample data into SQL Server
 

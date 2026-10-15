@@ -16,6 +16,17 @@ public sealed class Message
         State = MessageState.New;
     }
 
+    public Message(long messageId, int workflowDefinitionId, int branchId, int departmentId, DateTimeOffset receivedAt)
+        : this(messageId, workflowDefinitionId)
+    {
+        if (workflowDefinitionId <= 0) throw new ArgumentOutOfRangeException(nameof(workflowDefinitionId));
+        if (branchId <= 0) throw new ArgumentOutOfRangeException(nameof(branchId));
+        if (departmentId <= 0) throw new ArgumentOutOfRangeException(nameof(departmentId));
+        BranchId = branchId;
+        DepartmentId = departmentId;
+        ReceivedAt = receivedAt;
+    }
+
     public long Id { get; private set; }
     public MessageState State { get; private set; }
     public int? CurrentAssigneeId { get; private set; }

@@ -6,6 +6,11 @@ namespace ORP.Infrastructure.Logging;
 
 internal static partial class InfrastructureLog
 {
+    [LoggerMessage(EventId = 2011, EventName = "SwiftMessageRegistered", Level = LogLevel.Information,
+        Message = "Registered SAA file {FilePath} as message {MessageId} for branch {BranchId}, department {DepartmentId}, workflow {WorkflowDefinitionId}")]
+    public static partial void SwiftMessageRegistered(ILogger logger, string filePath, long messageId,
+        int branchId, int departmentId, int workflowDefinitionId);
+
     [LoggerMessage(EventId = 2010, EventName = "SwiftMessageImported",
         Message = "SAA import {ImportResult} for {FilePath}; hash {ContentHash}")]
     public static partial void SwiftMessageImported(ILogger logger, LogLevel level, string filePath,
