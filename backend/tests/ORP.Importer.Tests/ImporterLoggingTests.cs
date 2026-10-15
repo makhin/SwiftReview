@@ -53,6 +53,56 @@ public sealed class ImporterLoggingTests
         });
     }
 
+    [Fact]
+    public void BranchResolutionLogsIdsAndFailuresWithoutDumpingTheHeader()
+    {
+        WithFile("private payment content", path =>
+        {
+            var logger = new CaptureLogger<SaaMessageProcessor>();
+            var branches = new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) });
+            var result = new SaaMessageProcessor(new SaaMessageParser(), logger: logger,
+                branchResolver: branches).ParseFile(path);
+            Assert.Equal(3, result.BranchId);
+            var resolved = Assert.Single(logger.Entries);
+            Assert.Equal(3004, resolved.Event.Id);
+            Assert.Equal(3, resolved.Properties["BranchId"]);
+            Assert.Equal(path, resolved.Properties["FilePath"]);
+            Assert.DoesNotContain("PARIS", string.Join(" ", resolved.Properties.Values));
+
+            var emptyBranches = new SaaMessageBranchResolver(Array.Empty<KeyValuePair<string, int>>());
+            Assert.Throws<SaaMessageFormatException>(() => new SaaMessageProcessor(new SaaMessageParser(),
+                logger: logger, branchResolver: emptyBranches).ParseFile(path));
+            var failed = logger.Entries.Last();
+            Assert.Equal(3005, failed.Event.Id);
+            Assert.Equal(LogLevel.Warning, failed.Level);
+            Assert.Equal(path, failed.Properties["FilePath"]);
+        });
+    }
+
+    [Fact]
+    public void AllowedTypeChecksLogResultsWithoutDumpingTheHeader()
+    {
+        WithFile("private payment content", path =>
+        {
+            var logger = new CaptureLogger<SaaMessageProcessor>();
+            var allowedTypes = new SaaMessageTypeResolver(new[] { "MXpain.001.001.09" });
+            new SaaMessageProcessor(new SaaMessageParser(), logger: logger,
+                messageTypeResolver: allowedTypes).ParseFile(path);
+            var accepted = Assert.Single(logger.Entries);
+            Assert.Equal(3006, accepted.Event.Id);
+            Assert.Equal(path, accepted.Properties["FilePath"]);
+            Assert.DoesNotContain("MXpain.001.001.09", string.Join(" ", accepted.Properties.Values));
+
+            var emptyTypes = new SaaMessageTypeResolver(Array.Empty<string>());
+            Assert.Throws<SaaMessageFormatException>(() => new SaaMessageProcessor(new SaaMessageParser(),
+                logger: logger, messageTypeResolver: emptyTypes).ParseFile(path));
+            var rejected = logger.Entries.Last();
+            Assert.Equal(3007, rejected.Event.Id);
+            Assert.Equal(LogLevel.Warning, rejected.Level);
+            Assert.Equal(path, rejected.Properties["FilePath"]);
+        });
+    }
+
     private sealed class UnresolvedDepartment : ISaaMessageDepartmentResolver
     {
         public int? ResolveDepartmentId(SaaMessageDocument document) => null;

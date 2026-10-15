@@ -4,6 +4,22 @@ namespace ORP.Importer;
 
 internal static partial class ImporterLog
 {
+    [LoggerMessage(EventId = 3006, EventName = "MessageTypeResolved", Level = LogLevel.Debug,
+        Message = "Resolved an allowed MessageType for SAA file {FilePath}")]
+    public static partial void MessageTypeResolved(ILogger logger, string filePath);
+
+    [LoggerMessage(EventId = 3007, EventName = "MessageTypeResolutionFailed", Level = LogLevel.Warning,
+        Message = "Could not resolve an allowed MessageType for SAA file {FilePath}")]
+    public static partial void MessageTypeResolutionFailed(ILogger logger, string filePath);
+
+    [LoggerMessage(EventId = 3004, EventName = "BranchResolved", Level = LogLevel.Debug,
+        Message = "Resolved BranchId {BranchId} for SAA file {FilePath}")]
+    public static partial void BranchResolved(ILogger logger, string filePath, int branchId);
+
+    [LoggerMessage(EventId = 3005, EventName = "BranchResolutionFailed", Level = LogLevel.Warning,
+        Message = "Could not resolve BranchId for SAA file {FilePath}")]
+    public static partial void BranchResolutionFailed(ILogger logger, string filePath);
+
     [LoggerMessage(EventId = 3003, EventName = "DepartmentResolutionFailed", Level = LogLevel.Warning,
         Message = "Department rules could not resolve DepartmentId for SAA file {FilePath}")]
     public static partial void DepartmentResolutionFailed(ILogger logger, string filePath);

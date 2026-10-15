@@ -73,12 +73,42 @@ but do not dump message headers, bodies or connection strings. No file logging p
 is configured. Libraries accept optional typed loggers and use `NullLogger` by default;
 the consuming application controls providers and filtering.
 
-The console uses `SaaMessageProcessor`, which validates the file before running optional
-department rules. To enable those rules, pass an `ISaaMessageDepartmentResolver` to the
+The console uses `SaaMessageProcessor`, which validates the file before resolving routing
+fields. To enable department rules, pass an `ISaaMessageDepartmentResolver` to the
 processor constructor. The resolver receives the complete `SaaMessageDocument` and must
 return a positive department ID; an unresolved department raises `SaaMessageFormatException`.
-`SaaProcessedMessage` carries the original document and the resolved `DepartmentId` separately.
-The current console has no department rules configured. Persisting that routing result to
+At that same stage, pass an `ISaaMessageBranchResolver` to map the header's `Branch` to
+`BranchId`. `SaaMessageBranchResolver` matches complete branch names, ignoring case and
+surrounding whitespace. Unknown names and ambiguous names matching different IDs fail
+with `SaaMessageFormatException` containing the file path and header line number. Branch
+resolution runs before department rules; failed branch resolution stops processing.
+
+An optional `ISaaMessageTypeResolver` checks the parsed `MessageType` against allowed
+types at the same routing stage, before branch and department resolution. The generic
+`SaaMessageTypeResolver` accepts an injected list of strings, which can be a test double
+until the business source is specified. It matches full names ignoring case and surrounding
+whitespace and returns the spelling from the allowed list in `SaaProcessedMessage.MessageType`.
+Prefixes (`MT`/`MX`) and MX versions are preserved and must match in full. Unsupported types
+raise `SaaMessageFormatException` with file path and header line number; an empty allowed
+list rejects all types. The parsed header is unchanged. No production allowed list is
+currently configured, and no types are inferred from existing messages or workflows.
+
+`SwiftMessageImporter.LoadBranchResolverAsync()` loads a snapshot of `orp.Branches`
+(`Name` -> `Id`). Another application can supply its own mappings without EF dependencies
+in `ORP.Importer`. Enable both resolvers when configuring the routing stage:
+
+```csharp
+var branches = await importer.LoadBranchResolverAsync();
+var allowedTypes = new SaaMessageTypeResolver(allowedMessageTypes); // Inject a mock list for now.
+var processor = new SaaMessageProcessor(parser, departmentResolver,
+    branchResolver: branches, messageTypeResolver: allowedTypes);
+var processed = processor.ParseFile(path);
+// processed.MessageType, processed.BranchId and processed.DepartmentId are routing results.
+```
+
+`SaaProcessedMessage` carries the original document and the resolved `BranchId` and
+`DepartmentId` separately. The current console has no routing rules configured; raw import
+does not require a matching branch directory entry. Persisting the routing result to
 `Messages` belongs to the subsequent workflow registration step.
 
 ## Load sample data into SQL Server

@@ -23,6 +23,16 @@ public sealed class SwiftMessageImporter(string connectionString, ILogger<SwiftM
         .UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "orp"))
         .Options;
 
+    public async Task<SaaMessageBranchResolver> LoadBranchResolverAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = new ORPDbContext(options);
+        var branches = await db.Branches.AsNoTracking()
+            .Select(branch => new { branch.Name, branch.Id })
+            .ToListAsync(cancellationToken);
+        return new SaaMessageBranchResolver(branches.Select(branch =>
+            new KeyValuePair<string, int>(branch.Name, branch.Id)));
+    }
+
     public async Task<SwiftMessageImportResult> SaveAsync(SaaMessageDocument document, string rootDirectory,
         CancellationToken cancellationToken = default)
     {

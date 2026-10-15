@@ -6,6 +6,90 @@ namespace ORP.Importer.Tests;
 public sealed class SaaMessageProcessorTests
 {
     [Fact]
+    public void ResolvesBothRoutingIdsAtThePostParsingStage()
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var branches = new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) });
+            var departments = new Resolver(document => document.Header.MessageType.StartsWith("MX") ? 7 : 8);
+            var result = new SaaMessageProcessor(new SaaMessageParser(), departments,
+                branchResolver: branches, messageTypeResolver: new SaaMessageTypeResolver(new[] { "MXpain.001.001.09" })).ParseFile(path);
+            Assert.Equal(3, result.BranchId);
+            Assert.Equal(7, result.DepartmentId);
+            Assert.Equal("MXpain.001.001.09", result.MessageType);
+            Assert.Equal("PARIS", result.Document.Header.Branch);
+            Assert.Equal(1, departments.Calls);
+        });
+    }
+
+    [Fact]
+    public void CanonicalizesTheRoutingTypeWithoutChangingTheParsedHeader()
+    {
+        WithFile(SaaMessageParserTests.Header.Replace("MXpain.001.001.09", "mxpain.001.001.09"), path =>
+        {
+            var processor = new SaaMessageProcessor(new SaaMessageParser(),
+                messageTypeResolver: new SaaMessageTypeResolver(new[] { "MXpain.001.001.09" }));
+            var result = processor.ParseFile(path);
+            Assert.Equal("MXpain.001.001.09", result.MessageType);
+            Assert.Equal("mxpain.001.001.09", result.Document.Header.MessageType);
+        });
+    }
+
+    [Fact]
+    public void RejectsUnsupportedTypesBeforeDepartmentRules()
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var departments = new Resolver(_ => 7);
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), departments,
+                messageTypeResolver: new SaaMessageTypeResolver(new[] { "MT199" }));
+            var error = Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Contains("MessageType", error.Message);
+            Assert.Equal(path, error.FilePath);
+            Assert.Equal(1, error.LineNumber);
+            Assert.Equal(0, departments.Calls);
+        });
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void RejectsUnmatchedOrInvalidBranchBeforeDepartmentRules(int? branchId)
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var branches = new BranchResolver(_ => branchId);
+            var departments = new Resolver(_ => 7);
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), departments,
+                branchResolver: branches);
+            var error = Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Contains("BranchId", error.Message);
+            Assert.Equal(path, error.FilePath);
+            Assert.Equal(1, error.LineNumber);
+            Assert.Equal(0, departments.Calls);
+        });
+    }
+
+    [Fact]
+    public void ReportsAmbiguousBranchWithFileContext()
+    {
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var branches = new SaaMessageBranchResolver(new[]
+            {
+                new KeyValuePair<string, int>("Paris", 3),
+                new KeyValuePair<string, int>("PARIS", 4)
+            });
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), branchResolver: branches);
+            var error = Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Contains("multiple", error.Message);
+            Assert.Equal(path, error.FilePath);
+            Assert.Equal(1, error.LineNumber);
+        });
+    }
+
+    [Fact]
     public void ResolvesDepartmentUsingValidatedHeaderAndBody()
     {
         WithFile(SaaMessageParserTests.Header, path =>
@@ -31,7 +115,9 @@ public sealed class SaaMessageProcessorTests
         WithFile(SaaMessageParserTests.Header, path =>
         {
             var result = new SaaMessageProcessor(new SaaMessageParser()).ParseFile(path);
+            Assert.Null(result.BranchId);
             Assert.Null(result.DepartmentId);
+            Assert.Equal(result.Document.Header.MessageType, result.MessageType);
             Assert.Equal("PARIS", result.Document.Header.Branch);
         });
     }
@@ -77,11 +163,19 @@ public sealed class SaaMessageProcessorTests
         {
             File.WriteAllText(path, SaaMessageParserTests.Header);
             var resolver = new Resolver(_ => 7);
-            var processor = new SaaMessageProcessor(new SaaMessageParser(), resolver);
+            var branchCalls = 0;
+            var branches = new BranchResolver(_ => { branchCalls++; return 3; });
+            var processor = new SaaMessageProcessor(new SaaMessageParser(), resolver, branchResolver: branches);
             Assert.Throws<SaaMessageFormatException>(() => processor.ParseFile(path));
+            Assert.Equal(0, branchCalls);
             Assert.Equal(0, resolver.Calls);
         }
         finally { File.Delete(path); }
+    }
+
+    private sealed class BranchResolver(Func<string, int?> resolve) : ISaaMessageBranchResolver
+    {
+        public int? ResolveBranchId(string branch) => resolve(branch);
     }
 
     private sealed class Resolver(Func<SaaMessageDocument, int?> resolve) : ISaaMessageDepartmentResolver
