@@ -53,7 +53,7 @@ public sealed class SwiftMessageImporter(string connectionString, ILogger<SwiftM
         CancellationToken cancellationToken, bool retryOnDuplicate = true)
     {
         var document = processed.Document;
-        var record = CreateRecord(document, rootDirectory);
+        var record = CreateRecord(document, rootDirectory, processed.Direction);
         var path = record.FilePath;
         await using var db = new ORPDbContext(options);
         var existingHash = await db.SwiftMessages.AsNoTracking()
@@ -112,14 +112,14 @@ public sealed class SwiftMessageImporter(string connectionString, ILogger<SwiftM
             throw new FormatException("A resolved positive BranchId is required before registration.");
         if (processed.DepartmentId is null or <= 0)
             throw new FormatException("A resolved positive DepartmentId is required before registration.");
-        if (processed.Document.Header.Direction is null)
+        if (processed.Direction is null)
             throw new FormatException("Message direction is required to select a workflow before registration.");
     }
 
     internal static WorkflowDefinition SelectWorkflow(IEnumerable<WorkflowDefinition> candidates, SaaProcessedMessage processed,
         string departmentName)
     {
-        var direction = processed.Document.Header.Direction switch
+        var direction = processed.Direction switch
         {
             SaaMessageDirection.Incoming => MessageDirection.Incoming,
             SaaMessageDirection.Outgoing => MessageDirection.Outgoing,
@@ -155,7 +155,8 @@ public sealed class SwiftMessageImporter(string connectionString, ILogger<SwiftM
         return result;
     }
 
-    internal static SwiftMessageRecord CreateRecord(SaaMessageDocument document, string rootDirectory)
+    internal static SwiftMessageRecord CreateRecord(SaaMessageDocument document, string rootDirectory,
+        SaaMessageDirection? defaultDirection = null)
     {
         var path = Path.GetRelativePath(Path.GetFullPath(rootDirectory), document.FilePath)
             .Replace('\\', '/');
@@ -176,7 +177,7 @@ public sealed class SwiftMessageImporter(string connectionString, ILogger<SwiftM
             Branch = document.Header.Branch,
             MessageType = document.Header.MessageType,
             ReferenceId = document.Header.ReferenceId,
-            Direction = document.Header.Direction switch
+            Direction = (document.Header.Direction ?? defaultDirection) switch
             {
                 SaaMessageDirection.Incoming => MessageDirection.Incoming,
                 SaaMessageDirection.Outgoing => MessageDirection.Outgoing,

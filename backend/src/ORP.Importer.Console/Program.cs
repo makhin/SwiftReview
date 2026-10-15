@@ -12,6 +12,8 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 {
     ContentRootPath = AppContext.BaseDirectory
 });
+builder.Configuration.AddJsonFile("appsettings.Importer.local.json", optional: true)
+    .AddEnvironmentVariables();
 using var host = builder.Build();
 var loggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
 var logger = loggerFactory.CreateLogger("ORP.Importer.Console");
@@ -46,6 +48,7 @@ try
 {
     var allowedTypes = builder.Configuration.GetSection("Importer:AllowedMessageTypes").Get<string[]>();
     var departmentId = builder.Configuration.GetValue<int?>("Importer:DepartmentId");
+    var defaultDirection = builder.Configuration.GetValue<SaaMessageDirection?>("Importer:DefaultDirection");
     if (allowedTypes is not { Length: > 0 } || allowedTypes.Any(string.IsNullOrWhiteSpace) || departmentId is null or <= 0)
     {
         ConsoleImportLog.ConfigurationInvalid(logger,
@@ -55,7 +58,7 @@ try
     var branches = await importer.LoadBranchResolverAsync();
     var processor = new SaaMessageProcessor(new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()),
         new ConfiguredDepartmentResolver(departmentId.Value), loggerFactory.CreateLogger<SaaMessageProcessor>(),
-        branches, new SaaMessageTypeResolver(allowedTypes));
+        branches, new SaaMessageTypeResolver(allowedTypes), defaultDirection);
     var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
         .Where(path => string.Equals(Path.GetExtension(path), ".prt", StringComparison.OrdinalIgnoreCase))
         .OrderBy(path => path, StringComparer.Ordinal)

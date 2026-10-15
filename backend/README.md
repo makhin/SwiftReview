@@ -52,6 +52,14 @@ rules through `appsettings.json` next to the console executable or environment v
   full type names such as `MT199` or `MXpain.001.001.09`.
 - `Importer__DepartmentId`: an existing department ID. The current mock department resolver
   assigns this same department to every accepted file; replace it with business rules later.
+- `Importer__DefaultDirection`: optional `Incoming` or `Outgoing` for a test catalog whose
+  headers have empty Direction values. It never overrides an explicit header direction.
+  Without this setting, files lacking Direction still fail registration.
+
+An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local importer
+settings. It is copied next to the executable for local runs, is not copied on publish,
+and overrides `appsettings.json`; environment variables take precedence over both files.
+Keep connection credentials in the process environment rather than in that local file.
 
 Both settings are required; their defaults are deliberately empty. Branch names are loaded
 from `orp.Branches`. An active matching workflow with valid review steps must already exist.
@@ -71,6 +79,9 @@ one `MessageRegistered` audit event. New messages have state `New`, no assignee,
 branch/department IDs and a matching workflow. `ReceivedAt` is the UTC registration time;
 `SwiftMessages.Time` retains the original timezone-free header timestamp. The API can read
 new messages immediately through its existing access checks.
+If a default direction is configured, registration and the API use that direction for
+empty headers. The original file, parsed header, body and content hash remain unchanged;
+each use of the fallback is logged explicitly.
 
 Workflow selection matches the full allowed type (ignoring case), direction and department.
 A workflow scoped to the resolved branch takes precedence over an unscoped workflow. No

@@ -5,6 +5,38 @@ namespace ORP.Importer.Tests;
 
 public sealed class SaaMessageProcessorTests
 {
+    [Theory]
+    [InlineData(SaaMessageDirection.Incoming)]
+    [InlineData(SaaMessageDirection.Outgoing)]
+    public void AppliesConfiguredDirectionOnlyToEmptyHeaderValues(SaaMessageDirection fallback)
+    {
+        WithFile(SaaMessageParserTests.Header.Replace("DIRECTION:Incoming", "DIRECTION:"), path =>
+        {
+            var result = new SaaMessageProcessor(new SaaMessageParser(), defaultDirection: fallback).ParseFile(path);
+            Assert.Equal(fallback, result.Direction);
+            Assert.Null(result.Document.Header.Direction);
+        });
+        WithFile(SaaMessageParserTests.Header, path =>
+        {
+            var result = new SaaMessageProcessor(new SaaMessageParser(), defaultDirection: fallback).ParseFile(path);
+            Assert.Equal(SaaMessageDirection.Incoming, result.Direction);
+        });
+    }
+
+    [Fact]
+    public void DoesNotInferDirectionWhenNoDefaultIsConfigured()
+    {
+        WithFile(SaaMessageParserTests.Header.Replace("DIRECTION:Incoming", "DIRECTION:"), path =>
+            Assert.Null(new SaaMessageProcessor(new SaaMessageParser()).ParseFile(path).Direction));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void RejectsInvalidConfiguredDirections(int value) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new SaaMessageProcessor(new SaaMessageParser(), defaultDirection: (SaaMessageDirection)value));
+
     [Fact]
     public void ResolvesBothRoutingIdsAtThePostParsingStage()
     {

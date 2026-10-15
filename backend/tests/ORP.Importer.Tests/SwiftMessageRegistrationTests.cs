@@ -133,6 +133,23 @@ public sealed class SwiftMessageRegistrationTests
         });
     }
 
+    [Theory]
+    [InlineData(SaaMessageDirection.Incoming, MessageDirection.Incoming)]
+    [InlineData(SaaMessageDirection.Outgoing, MessageDirection.Outgoing)]
+    public void RegistersUsingConfiguredDirectionWhilePreservingTheSourceDocument(SaaMessageDirection fallback,
+        MessageDirection expected)
+    {
+        WithProcessed(result =>
+        {
+            SwiftMessageImporter.ValidateRouting(result);
+            var workflow = Workflow(direction: expected);
+            Assert.Same(workflow, SwiftMessageImporter.SelectWorkflow(new[] { workflow }, result, "DC"));
+            var record = SwiftMessageImporter.CreateRecord(result.Document, Path.GetTempPath(), result.Direction);
+            Assert.Equal(expected, record.Direction);
+            Assert.Null(result.Document.Header.Direction);
+        }, direction: false, defaultDirection: fallback);
+    }
+
     private static WorkflowDefinition Workflow(string type = "MT199", int department = 7, int? branch = null,
         MessageDirection direction = MessageDirection.Incoming) =>
         new WorkflowDefinition(direction, "Workflow", type, department, branch).AddStep(1, 1);
@@ -143,7 +160,7 @@ public sealed class SwiftMessageRegistrationTests
     }
 
     private static void WithProcessed(Action<SaaProcessedMessage> action, bool validateType = true, bool branch = true,
-        bool department = true, bool direction = true)
+        bool department = true, bool direction = true, SaaMessageDirection? defaultDirection = null)
     {
         var path = Path.GetTempFileName();
         try
@@ -154,7 +171,8 @@ public sealed class SwiftMessageRegistrationTests
                 "--- Instance Type and Transmission ---", "content"));
             var processor = new SaaMessageProcessor(new SaaMessageParser(), department ? new Departments() : null,
                 branchResolver: branch ? new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) }) : null,
-                messageTypeResolver: validateType ? new SaaMessageTypeResolver(new[] { "MT199" }) : null);
+                messageTypeResolver: validateType ? new SaaMessageTypeResolver(new[] { "MT199" }) : null,
+                defaultDirection: defaultDirection);
             action(processor.ParseFile(path));
         }
         finally { File.Delete(path); }
