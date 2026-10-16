@@ -36,7 +36,7 @@ internal static class MessageReadModels
         .ToDictionaryAsync(x => x.State, x => x.Count, ct);
 
     public static IQueryable<MessageReadRow> ReadAccessibleMessages(this ORPDbContext db, int userId,
-        string permission = Domain.Identity.Permissions.MessageView) => db.ReadMessages().Where(message =>
+        string permission = Domain.Identity.Permissions.MessageView) => db.ReadMessages(userId).Where(message =>
         db.Users.Any(user => user.Id == userId && user.IsGlobalAdministrator) ||
         db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
             db.MessageDepartments.Any(department => department.MessageId == message.Id &&
@@ -46,12 +46,17 @@ internal static class MessageReadModels
                     grant.Permission.Name == Domain.Identity.Permissions.MessageView)) &&
             role.Role.Permissions.Any(grant => grant.Permission.Name == permission)));
 
-    public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db) =>
+    public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db, int? visibilityUserId = null) =>
         from message in db.Messages.AsNoTracking()
         join source in db.SwiftMessages.AsNoTracking() on message.Id equals source.MessageId
         join activeReview in db.Reviews.AsNoTracking().Where(review => review.Status == ReviewStatus.InProgress)
             on message.Id equals activeReview.MessageId into activeReviews
         from activeReview in activeReviews.DefaultIfEmpty()
+        let visibleDepartments = message.Departments.Where(department => visibilityUserId == null ||
+            db.Users.Any(user => user.Id == visibilityUserId && user.IsGlobalAdministrator) ||
+            db.UserRoles.Any(role => role.UserId == visibilityUserId && role.BranchId == message.BranchId &&
+                role.DepartmentId == department.DepartmentId && role.Role.Permissions.Any(grant =>
+                    grant.Permission.Name == Domain.Identity.Permissions.MessageView)))
         select new MessageReadRow
         {
             Id = message.Id,
@@ -60,7 +65,7 @@ internal static class MessageReadModels
             Direction = source.Direction,
             BranchId = message.BranchId!.Value,
             BranchName = db.Branches.Where(branch => branch.Id == message.BranchId).Select(branch => branch.Name).First(),
-            DepartmentNames = message.Departments.OrderBy(x => x.DepartmentId)
+            DepartmentNames = visibleDepartments.OrderBy(x => x.DepartmentId)
                 .Select(x => db.Departments.Where(department => department.Id == x.DepartmentId)
                     .Select(department => department.Name).First()).ToArray(),
             CurrentAssigneeName = db.Users.Where(user => user.Id == message.CurrentAssigneeId)
@@ -69,7 +74,7 @@ internal static class MessageReadModels
                 .Select(user => user.DisplayName).FirstOrDefault(),
             WorkflowDefinitionName = db.WorkflowDefinitions.Where(workflow => workflow.Id == message.WorkflowDefinitionId)
                 .Select(workflow => workflow.Name).First(),
-            DepartmentIds = message.Departments.OrderBy(x => x.DepartmentId).Select(x => x.DepartmentId).ToArray(),
+            DepartmentIds = visibleDepartments.OrderBy(x => x.DepartmentId).Select(x => x.DepartmentId).ToArray(),
             State = message.State,
             WorkflowDefinitionId = message.WorkflowDefinitionId,
             ReceivedAt = message.ReceivedAt!.Value,

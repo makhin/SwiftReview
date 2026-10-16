@@ -39,7 +39,10 @@ public sealed class MessageGridQueries(ORPDbContext db)
         };
         if (request.Departments is { Count: > 0 })
             query = query.Where(x => db.MessageDepartments.Any(d => d.MessageId == x.Id &&
-                request.Departments.Contains(d.DepartmentId)));
+                request.Departments.Contains(d.DepartmentId) &&
+                (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
+                    role.BranchId == x.BranchId && role.DepartmentId == d.DepartmentId &&
+                    role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.MessageView)))));
         query = options.Filter(query);
         var count = await query.CountAsync(ct);
         var undoCandidates = db.ReadUndoCandidates(access);

@@ -14,7 +14,10 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
                 (x.BranchId == null || role.BranchId == x.BranchId) &&
                 role.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
             .OrderBy(x => x.MessageType).ToListAsync(ct);
-        return workflows.Select(x => new WorkflowSummaryDto(x.Id, x.Name, x.MessageType, x.DepartmentIds, x.BranchId, x.IsActive,
+        return workflows.Select(x => new WorkflowSummaryDto(x.Id, x.Name, x.MessageType,
+            x.DepartmentIds.Where(id => access.IsGlobalAdministrator || access.Scopes.Any(scope =>
+                scope.DepartmentId == id && (x.BranchId == null || scope.BranchId == x.BranchId) &&
+                scope.Permissions.Contains(Permissions.MessageView))).ToArray(), x.BranchId, x.IsActive,
             x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList(), x.Direction)).ToList();
     }
 
