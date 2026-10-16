@@ -238,10 +238,25 @@ dotnet run --project src/ORP.Api -- --BootstrapDatabase=false
 
 `ORP.sln` is the versioned Windows/Visual Studio solution for an external SQL Server.
 Its Domain and Application unit tests require no SQL connection or database creation permissions.
-It has no Docker project or Docker startup dependency. Select the API's `SqlServer`
-launch profile and configure `ConnectionStrings:ORP` through **Manage User Secrets**
-or `ConnectionStrings__ORP` in the environment. The launch profile disables automatic
-migrations; database preparation is explicit.
+It has no Docker project or Docker startup dependency. Open `ORP.sln`, select the shared
+`Development` launch profile in the Visual Studio toolbar and press F5 to start the API
+and run the importer once. `Development - API` and `Development - Importer` start either
+project separately. Shared solution profiles require Visual Studio 2022 17.11 or later
+with Multi-Project Launch Profiles enabled (Tools > Options > Preview Features).
+
+Both executable projects also have their own `Development` profile. The existing API
+`SqlServer` profile remains available. API profiles use port 5080; `Development` explicitly
+disables automatic migrations. Database preparation is explicit.
+Configure the API's `ConnectionStrings:ORP` through **Manage User Secrets** or
+`ConnectionStrings__ORP` in the environment. For the importer, use its ignored
+`appsettings.Importer.local.json` or `ConnectionStrings__ORP`.
+
+The importer's Development profile scans `backend/docs/SAAMessages` recursively.
+Place source `.prt` files there; the directory contents are ignored by Git. The importer
+runs once on each launch and uses the existing imported/ignored-file tracking. Its
+working directory is the project directory, so the path is independent of the checkout
+location. A different source directory or `--retry-ignored` can be supplied in the
+project's debug properties. No machine-specific paths or credentials are stored in profiles.
 
 ## Development authentication
 

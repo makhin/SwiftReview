@@ -1,0 +1,37 @@
+[
+  {
+    "Name": "Development",
+    "Projects": [
+      {
+        "Path": "src\\ORP.Api\\ORP.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "Development"
+      },
+      {
+        "Path": "src\\ORP.Importer.Console\\ORP.Importer.Console.csproj",
+        "Action": "Start",
+        "DebugTarget": "Development"
+      }
+    ]
+  },
+  {
+    "Name": "Development - API",
+    "Projects": [
+      {
+        "Path": "src\\ORP.Api\\ORP.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "Development"
+      }
+    ]
+  },
+  {
+    "Name": "Development - Importer",
+    "Projects": [
+      {
+        "Path": "src\\ORP.Importer.Console\\ORP.Importer.Console.csproj",
+        "Action": "Start",
+        "DebugTarget": "Development"
+      }
+    ]
+  }
+]
