@@ -45,9 +45,11 @@ Apply migrations before importing. The historical `ImportSaaMessages` migration 
 previous warehouse messages and their review, assignment and audit history because they
 have no SAA file identity. The new `AddIgnoredImportFiles` migration only adds the ignored-file table.
 
-Configure `ConnectionStrings:ORP` in the importer's `appsettings.json` or ignored
-`appsettings.Importer.local.json`, or override it with `ConnectionStrings__ORP` in the
-environment. The default connection string is empty. Run
+For Development, configure `ConnectionStrings:ORP` in the importer's
+`appsettings.Development.json` or ignored `appsettings.Importer.local.json` and set
+`DOTNET_ENVIRONMENT=Development`. Keep credentials in the ignored local file.
+The default connection string is empty; the shared `appsettings.json` has no connection string.
+An explicit `ConnectionStrings__ORP` environment variable overrides configuration in any environment. Run
 `scripts/seed-department-routing-rules.sql` against that database to add the required
 branches and initial Department rules. The script is transactional and safe to rerun.
 If you reload demo data with `scripts/seed-test-data.sql`, run the routing script again
@@ -79,17 +81,18 @@ metadata are not inferred from printer codes or message text.
 
 `Importer__DefaultDirection` optionally supplies `Incoming` or `Outgoing` for empty header
 directions and never overrides an explicit direction. The original header stays unchanged.
-An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local settings.
-It overrides `appsettings.json` next to the executable; environment variables override both.
+An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local Development settings.
+It is loaded only in Development and overrides `appsettings.Development.json` next to the executable;
+environment variables override both.
 Keep credentials in the ignored local file or the process environment. Legacy `AllowedMessageTypes` and `DepartmentId`
 settings are no longer used.
 
 Run from `backend` (on Windows omit `-p:ORPLinuxBuild=true`):
 
 ```bash
-dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages
+DOTNET_ENVIRONMENT=Development dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages
 # Explicitly reconsider unchanged files previously ignored by Department rules:
-dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages --retry-ignored
+DOTNET_ENVIRONMENT=Development dotnet run --project src/ORP.Importer.Console -p:ORPLinuxBuild=true -- /path/to/SAAMessages --retry-ignored
 ```
 
 The console scans `.prt` files recursively once. One logical source directory is supported

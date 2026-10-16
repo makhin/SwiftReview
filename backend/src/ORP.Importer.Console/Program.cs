@@ -12,8 +12,9 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 {
     ContentRootPath = AppContext.BaseDirectory
 });
-builder.Configuration.AddJsonFile("appsettings.Importer.local.json", optional: true)
-    .AddEnvironmentVariables();
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile("appsettings.Importer.local.json", optional: true)
+        .AddEnvironmentVariables();
 using var host = builder.Build();
 var loggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
 var logger = loggerFactory.CreateLogger("ORP.Importer.Console");
