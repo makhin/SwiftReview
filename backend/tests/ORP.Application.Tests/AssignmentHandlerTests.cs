@@ -21,6 +21,8 @@ public sealed class AssignmentHandlerTests
     public async Task AssigneeOutsideMessageScope_IsRejected()
     {
         var store = Substitute.For<IORPStore>();
+        store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            new WorkflowDefinition(MessageDirection.Incoming, "Default", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
@@ -48,6 +50,8 @@ public sealed class AssignmentHandlerTests
     public async Task SuccessfulAssignment_WritesCompleteAuditEvent()
     {
         var store = Substitute.For<IORPStore>();
+        store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            new WorkflowDefinition(MessageDirection.Incoming, "Default", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
@@ -154,6 +158,8 @@ public sealed class AssignmentHandlerTests
         ICorrelationContext Correlation) Dependencies()
     {
         var store = Substitute.For<IORPStore>();
+        store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            new WorkflowDefinition(MessageDirection.Incoming, "Default", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();

@@ -5,6 +5,8 @@ using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
 using ORP.Domain.Auditing;
 using ORP.Domain.Reviews;
+using ORP.Domain.Workflows;
+using ORP.Domain.Common;
 
 namespace ORP.Application.Reviews;
 
@@ -41,11 +43,12 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            workflow.RequireReviewSession();
             var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
             if (active is not null && (access.IsGlobalAdministrator ||
-                (active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)))
+                (active.ReviewerId == user.UserId && (workflow.ConfirmationActorMode == ConfirmationActorMode.AnyAuthorizedUser || message.CurrentAssigneeId == user.UserId))))
                 return active.Id;
-            if (access.IsGlobalAdministrator && message.CurrentAssigneeId != user.UserId &&
+            if (access.IsGlobalAdministrator && workflow.ConfirmationActorMode == ConfirmationActorMode.Assignee && message.CurrentAssigneeId != user.UserId &&
                 message.State is Domain.Messages.MessageState.Assigned or Domain.Messages.MessageState.WaitingForSecondReview or Domain.Messages.MessageState.WaitingForThirdReview)
                 await assignments.AssignAsync(message, user.UserId, user.UserId, correlation.CorrelationId,
                     ct, allowSelfAssignment: true);
@@ -73,13 +76,16 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            workflow.RequireReviewSession();
             var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
             message.Approve(review, workflow, reviews, user.UserId, request.Comment, now, access.IsGlobalAdministrator);
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
-            await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
+            if (message.CurrentAssigneeId is not null &&
+                (workflow.AssignmentRetentionMode == AssignmentRetentionMode.PerConfirmation || message.State == Domain.Messages.MessageState.Completed))
+                await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             if (message.State == Domain.Messages.MessageState.Completed)
                 ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId, oldState,
                     message.State, review, now, correlation.CorrelationId, request.Comment);
@@ -99,13 +105,18 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
+            var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            workflow.RequireReviewSession();
+            if (!workflow.RejectAllowed)
+                throw new DomainRuleViolationException("Rejection is disabled for this workflow.");
             var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
             message.Reject(review, user.UserId, request.Comment, now, access.IsGlobalAdministrator);
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
-            await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
+            if (message.CurrentAssigneeId is not null)
+                await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
 }
@@ -121,6 +132,8 @@ public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReview
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
+            var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            workflow.RequireReviewSession();
             var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
@@ -153,7 +166,7 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
             var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, comment);
-            if (message.CurrentAssigneeId is not null)
+            if (message.CurrentAssigneeId is not null && workflow.AssignmentRetentionMode == AssignmentRetentionMode.PerConfirmation)
                 await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);

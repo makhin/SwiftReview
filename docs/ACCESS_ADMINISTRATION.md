@@ -55,7 +55,9 @@ need `message.view` in that scope and access to the message's workflow. The serv
 returns `undoReviewId` only when the current confirmation is eligible; the API
 rechecks permissions, policy and state inside the mutation transaction.
 Undo requires confirmation with an optional comment (up to 2,000 characters),
-closes the current assignment and refreshes the grid and state counts. The undo
+uses the workflow assignment-retention policy. `PerConfirmation` closes the
+assignment; `UntilWorkflowCompleted` preserves it. The frontend refreshes the grid
+and state counts; its confirmation UI update is a separate follow-up. The undo
 comment is stored in its audit event; the original approval comment is preserved.
 The selected review ID is sent explicitly, so retrying an old request cannot undo
 an earlier level or a replacement attempt.
@@ -78,9 +80,10 @@ required steps. `OriginalReviewer` additionally requires the original confirmer;
 `AnyAuthorizedUser` still requires scoped permissions, not just authentication.
 
 `Cancel` permits undo while the next required review is active. The transaction
-marks that attempt `Cancelled`, marks the selected approval `Undone`, closes its
-assignment, and reopens the selected level for a new manual assignment. History
-is retained; `ReviewCancelled`, `ConfirmationUndone` and, when assigned,
+marks that attempt `Cancelled`, marks the selected approval `Undone`, and reopens
+the selected level. The workflow assignment policy determines whether the current
+assignment is preserved or closed. History is retained; `ReviewCancelled`,
+`ConfirmationUndone` and, when an assignment is closed,
 `MessageUnassigned` record the actual actor and correlation ID. Review cancellation
 and confirmation undo are parts of the same state transition. Stale decisions for
 the cancelled attempt fail. `Block` requires ending the active review first.
@@ -104,9 +107,10 @@ For the two-stage CS/TFO requirements, use `1 / 1 / 1`; the two-confirmation see
 scenario demonstrates this policy with reviewer permissions already enabled. For an
 existing business database, policy changes and scoped `review.undo` grants are a
 separate provisioning task. Neither department names nor role
-names are hard-coded in the policy. This configuration does not change step counts,
-four-eyes rules, rejection behavior, or policies of other workflows. There is no
-workflow policy editor/API in this version.
+names are hard-coded in the policy. Confirmation mode, actor restrictions, reviewer
+reuse, assignment retention and rejection are separately configured; see
+[Workflow configuration](WORKFLOW_CONFIGURATION.md). There is no workflow policy
+editor/API in this version.
 
 Each saved user/role change appends an `AccessAuditEvents` record containing the
 actor, target, timestamp, before/after state and correlation ID in the same database
@@ -126,7 +130,10 @@ Sync is outside this feature's scope.
 
 The assignments page is available with `message.assign` or `workflow.manage`. Changing a workflow requires `workflow.manage` in the message's branch and department, with message visibility; global administrators bypass permission checks. Assignment itself still requires `message.assign`.
 
-The Change workflow action selects an accessible active workflow as a manual override and preserves the message's branch, department and assignment. It is allowed before review, or after every review attempt has been Cancelled or Undone. Active, Approved or Rejected reviews prevent the change, including for global administrators. A tooltip on the disabled action explains this restriction, and server refusals appear in the dialog. History is preserved; MessageWorkflowChanged records the previous and new workflow IDs and actual actor.
+The Change workflow API requires an accessible active workflow matching the message
+type (including supported patterns), direction, exact department set and matching
+or unrestricted branch, including for administrators. The Change workflow action
+selects that workflow as a manual override and preserves the message's branch, department and assignment. It is allowed before review, or after every review attempt has been Cancelled or Undone. Active, Approved or Rejected reviews prevent the change, including for global administrators. A tooltip on the disabled action explains this restriction, and server refusals appear in the dialog. History is preserved; MessageWorkflowChanged records the previous and new workflow IDs and actual actor.
 
 Review-level row colours apply to all messages at that stage, independently of the
 viewer, permissions or assignment. A separate Traditional Green leading stripe and

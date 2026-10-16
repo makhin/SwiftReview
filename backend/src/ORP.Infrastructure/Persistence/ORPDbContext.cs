@@ -56,7 +56,7 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
             .ToHashSet();
         foreach (var entry in ChangeTracker.Entries<WorkflowDefinition>().Where(x =>
                      x.State != EntityState.Deleted && x.Entity.IsActive &&
-                     (x.State == EntityState.Added || changedWorkflowIds.Contains(x.Entity.Id))))
+                     (x.State is EntityState.Added or EntityState.Modified || changedWorkflowIds.Contains(x.Entity.Id))))
             _ = entry.Entity.RequiredLevels();
         if (ChangeTracker.Entries<AuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Audit events are append-only.");

@@ -13,11 +13,11 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             var series = Workflow(type: "MT1xx");
-            Assert.Same(series, SqlSaaImportStore.SelectWorkflow([series], result, ["CS"]));
+            Assert.Same(series, SqlSaaImportStore.SelectWorkflow([series], result));
             var exact = Workflow();
-            Assert.Same(exact, SqlSaaImportStore.SelectWorkflow([series, exact], result, ["CS"]));
+            Assert.Same(exact, SqlSaaImportStore.SelectWorkflow([series, exact], result));
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow([series, Workflow(type: "MT1xx")], result, ["CS"])).Message);
+                SqlSaaImportStore.SelectWorkflow([series, Workflow(type: "MT1xx")], result)).Message);
         });
     }
 
@@ -28,7 +28,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var general = Workflow();
             var scoped = Workflow(branch: 3);
-            Assert.Same(scoped, SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, ["DC"]));
+            Assert.Same(scoped, SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result));
         });
     }
 
@@ -42,7 +42,7 @@ public sealed class SwiftMessageRegistrationTests
             inactive.Deactivate();
             var candidates = new[] { Workflow(type: "MT299"), Workflow(direction: MessageDirection.Outgoing),
                 Workflow(branch: 4), Workflow(department: 8), inactive, valid };
-            Assert.Same(valid, SqlSaaImportStore.SelectWorkflow(candidates, result, ["DC"]));
+            Assert.Same(valid, SqlSaaImportStore.SelectWorkflow(candidates, result));
         });
     }
 
@@ -52,9 +52,9 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow() }, result, ["DC"])).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow() }, result)).Message);
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow(branch: 3), Workflow(branch: 3) }, result, ["DC"])).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow(branch: 3), Workflow(branch: 3) }, result)).Message);
         });
     }
 
@@ -64,58 +64,33 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             Assert.Contains("No active", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(Array.Empty<WorkflowDefinition>(), result, ["DC"])).Message);
+                SqlSaaImportStore.SelectWorkflow(Array.Empty<WorkflowDefinition>(), result)).Message);
             var invalid = new WorkflowDefinition(MessageDirection.Incoming, "Invalid", "MT199", 7);
             Assert.Contains("review steps", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { invalid }, result, ["DC"])).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { invalid }, result)).Message);
         });
     }
 
     [Theory]
-    [InlineData("CS", true)]
-    [InlineData("CS", false)]
-    [InlineData("cs", false)]
-    [InlineData("TFO", true)]
-    [InlineData("TFO", false)]
-    [InlineData("tFo", false)]
-    public void RejectsThirdReviewLevelForCsAndTfoIncludingOptionalSteps(string departmentName, bool thirdRequired)
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ConfiguredThirdReviewIsSupported(bool thirdRequired)
     {
         WithProcessed(result =>
         {
             var workflow = Workflow().AddStep(2, 2).AddStep(3, 3, thirdRequired);
-            var error = Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, [departmentName]));
-            Assert.Contains("CS and TFO", error.Message);
-        });
-    }
-
-    [Theory]
-    [InlineData("CS", 1)]
-    [InlineData("CS", 2)]
-    [InlineData("cs", 2)]
-    [InlineData("TFO", 1)]
-    [InlineData("TFO", 2)]
-    [InlineData("tfo", 2)]
-    [InlineData("DC", 3)]
-    public void AcceptsReviewLevelsAllowedForTheDepartment(string departmentName, int levels)
-    {
-        WithProcessed(result =>
-        {
-            var workflow = Workflow();
-            for (var level = 2; level <= levels; level++) workflow.AddStep(level, level);
-            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, [departmentName]));
+            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result));
         });
     }
 
     [Fact]
-    public void RejectsInvalidScopedCsWorkflowInsteadOfFallingBackToGeneralWorkflow()
+    public void SelectsConfiguredScopedWorkflowRegardlessOfDepartmentName()
     {
         WithProcessed(result =>
         {
             var general = Workflow();
             var scoped = Workflow(branch: 3).AddStep(2, 2).AddStep(3, 3, required: false);
-            Assert.Contains("CS and TFO", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, ["CS"])).Message);
+            Assert.Same(scoped, SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result));
         });
     }
 
@@ -142,7 +117,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             SqlSaaImportStore.ValidateRouting(result);
             var workflow = Workflow(direction: expected);
-            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, ["DC"]));
+            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result));
             var record = SqlSaaImportStore.CreateRecord(result.Document, Path.GetTempPath(), result.Direction);
             Assert.Equal(expected, record.Direction);
             Assert.Null(result.Document.Header.Direction);

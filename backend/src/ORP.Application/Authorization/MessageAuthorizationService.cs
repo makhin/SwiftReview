@@ -3,6 +3,7 @@ using ORP.Application.Abstractions;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
+using ORP.Domain.Workflows;
 
 namespace ORP.Application.Authorization;
 
@@ -33,10 +34,12 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
             3 => message.State is MessageState.WaitingForThirdReview or MessageState.ThirdReviewInProgress,
             _ => true
         };
-        var fourEyes = reviewLevel is null || reviews.All(x => x.Status != ReviewStatus.Approved || x.ReviewerId != currentId);
+        var workflow = reviewLevel is null ? null : await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
+            ?? throw new ResourceNotFoundException("Workflow was not found.");
+        var fourEyes = reviewLevel is null || workflow!.AllowReviewerReuse || reviews.All(x => x.Status != ReviewStatus.Approved || x.ReviewerId != currentId);
         var ownership = ownershipRequirement switch
         {
-            MessageActionOwnership.Assignee => message.CurrentAssigneeId == currentId,
+            MessageActionOwnership.Assignee => workflow?.ConfirmationActorMode == ConfirmationActorMode.AnyAuthorizedUser || message.CurrentAssigneeId == currentId,
             MessageActionOwnership.ActiveReviewer => reviews.Any(x =>
                 x.Status == ReviewStatus.InProgress && x.Level == reviewLevel &&
                 x.ReviewerId == currentId),

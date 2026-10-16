@@ -33,6 +33,7 @@ public sealed class Message
         : this(messageId, workflowDefinitionId, branchId, [departmentId], receivedAt) { }
 
     public long Id { get; private set; }
+    public byte[] RowVersion { get; private set; } = [];
     public MessageState State { get; private set; }
     public int? CurrentAssigneeId { get; private set; }
     public int WorkflowDefinitionId { get; private set; }
@@ -70,18 +71,29 @@ public sealed class Message
     public Review StartReview(int level, int reviewerId, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
         DateTimeOffset now, bool preventReviewerReuse = true, bool isGlobalAdministrator = false)
     {
+        ValidateReviewStart(level, reviewerId, workflow, reviews, preventReviewerReuse, isGlobalAdministrator);
+        State = MessageStateTransitions.StartReview(State, level);
+        return new Review(Id, level, reviewerId, now);
+    }
+
+    public void ValidateReviewStart(int level, int reviewerId, WorkflowDefinition workflow,
+        IReadOnlyCollection<Review> reviews, bool preventReviewerReuse = true, bool isGlobalAdministrator = false)
+    {
         EnsureWorkflow(workflow);
-        if (!isGlobalAdministrator && CurrentAssigneeId != reviewerId)
+        if (workflow.ConfirmationMode == ConfirmationMode.None)
+            throw new DomainRuleViolationException("This workflow has no confirmations.");
+        if (workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null)
+            throw new DomainRuleViolationException("Assign the message before confirming it.");
+        if (!isGlobalAdministrator && workflow.ConfirmationActorMode == ConfirmationActorMode.Assignee && CurrentAssigneeId != reviewerId)
             throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
         var expected = MessageReviewRules.ExpectedLevel(workflow, reviews);
         if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
         if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
             throw new DomainRuleViolationException("This review level has already been started.");
-        if (!isGlobalAdministrator && preventReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
+        if (!isGlobalAdministrator && preventReviewerReuse && !workflow.AllowReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
             throw new DomainRuleViolationException("Four-eyes principle: a reviewer cannot be reused.");
 
-        State = MessageStateTransitions.StartReview(State, level);
-        return new Review(Id, level, reviewerId, now);
+        _ = MessageStateTransitions.StartReview(State, level);
     }
 
     public void Approve(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,

@@ -51,18 +51,22 @@ public sealed class WorkflowDirectionTests
     [InlineData(MessageDirection.Outgoing, true, false)]
     [InlineData(null, false, false)]
     [InlineData(null, true, false)]
-    [InlineData(MessageDirection.Incoming, false, false, "CS", 3)]
-    [InlineData(MessageDirection.Incoming, true, false, "CS", 3)]
-    [InlineData(MessageDirection.Incoming, false, false, "TFO", 3)]
-    [InlineData(MessageDirection.Incoming, true, false, "TFO", 3)]
-    [InlineData(MessageDirection.Incoming, true, false, "cs", 3, false)]
+    [InlineData(MessageDirection.Incoming, false, true, "CS", 3)]
+    [InlineData(MessageDirection.Incoming, true, true, "CS", 3)]
+    [InlineData(MessageDirection.Incoming, false, true, "TFO", 3)]
+    [InlineData(MessageDirection.Incoming, true, true, "TFO", 3)]
+    [InlineData(MessageDirection.Incoming, true, true, "cs", 3, false)]
     [InlineData(MessageDirection.Incoming, true, true, "CS", 2)]
     [InlineData(MessageDirection.Incoming, false, true, "TFO", 2)]
     [InlineData(MessageDirection.Incoming, true, true, "DC", 3)]
     [InlineData(MessageDirection.Incoming, false, true, "DC", 3)]
+    [InlineData(MessageDirection.Incoming, false, false, "Any", 2, true, "MT999", 10)]
+    [InlineData(MessageDirection.Incoming, true, false, "Any", 2, true, "MT999", 10)]
+    [InlineData(MessageDirection.Incoming, true, false, "Any", 2, true, "MT299", 40)]
+    [InlineData(MessageDirection.Incoming, false, true, "Any", 2, true, "MT2xx", null)]
     public async Task ManualChangeRequiresAllowedWorkflow_EvenForAdministrator(
         MessageDirection? sourceDirection, bool administrator, bool allowed,
-        string department = "DC", int levels = 1, bool thirdRequired = true)
+        string department = "DC", int levels = 1, bool thirdRequired = true, string workflowType = "MT299", int? branch = 10)
     {
         var ct = TestContext.Current.CancellationToken;
         var store = Substitute.For<IORPStore>();
@@ -74,10 +78,9 @@ public sealed class WorkflowDirectionTests
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         correlation.CorrelationId.Returns("direction-test");
         var message = new Message(1, 99);
-        // A different type and branch remain permitted; the departments must match exactly.
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Manual", "MT999", 20, 40).AddStep(1, 1);
+        // Department names have no effect; scope and configured steps determine applicability.
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, department, workflowType, 20, branch).AddStep(1, 1);
         for (var level = 2; level <= levels; level++) workflow.AddStep(level, level, level != 3 || thirdRequired);
-        store.FindDepartmentNameAsync(20, ct).Returns(department);
         store.FindMessageAsync(1, ct).Returns(message);
         store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT299", 10, [20],
             DateTimeOffset.UtcNow, "A", "B", sourceDirection));

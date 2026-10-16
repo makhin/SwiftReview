@@ -6,6 +6,7 @@ namespace ORP.Infrastructure.Persistence;
 
 internal sealed class MessageReadRow
 {
+    public byte[] RowVersion { get; init; } = [];
     public long Id { get; init; }
     public string ExternalId { get; init; } = null!;
     public MessageDirection? Direction { get; init; }
@@ -60,6 +61,7 @@ internal static class MessageReadModels
         select new MessageReadRow
         {
             Id = message.Id,
+            RowVersion = message.RowVersion,
             ExternalId = source.ReferenceId ?? source.FileName,
             MessageType = source.MessageType!,
             Direction = source.Direction,

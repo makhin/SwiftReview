@@ -98,16 +98,15 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
         if (imported.HasValue) return LogResult(file.RelativePath, file.ContentHash, imported.Value);
         if (!await db.Branches.AnyAsync(branch => branch.Id == processed.BranchId, cancellationToken))
             throw new FormatException("Resolved BranchId does not exist in the branch directory.");
-        var departmentNames = await db.Departments.Where(department => processed.DepartmentIds.Contains(department.Id))
-            .Select(department => department.Name).ToArrayAsync(cancellationToken);
-        if (departmentNames.Length != processed.DepartmentIds.Count)
+        var departmentCount = await db.Departments.CountAsync(department => processed.DepartmentIds.Contains(department.Id), cancellationToken);
+        if (departmentCount != processed.DepartmentIds.Count)
             throw new FormatException("A resolved department does not exist in the department directory.");
         var candidates = await db.WorkflowDefinitions.AsNoTracking().Include(candidate => candidate.Steps)
             .Include(candidate => candidate.Departments)
             .Where(candidate => candidate.IsActive &&
                 (candidate.BranchId == null || candidate.BranchId == processed.BranchId))
             .ToListAsync(cancellationToken);
-        var workflow = SelectWorkflow(candidates, processed, departmentNames);
+        var workflow = SelectWorkflow(candidates, processed);
         db.SwiftMessages.Add(record);
         await db.SaveChangesAsync(cancellationToken);
         var receivedAt = clock.UtcNow;
@@ -136,8 +135,7 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
             throw new FormatException("Unique positive department IDs are required before registration.");
     }
 
-    internal static WorkflowDefinition SelectWorkflow(IEnumerable<WorkflowDefinition> candidates, SaaProcessedMessage processed,
-        IReadOnlyCollection<string> departmentNames)
+    internal static WorkflowDefinition SelectWorkflow(IEnumerable<WorkflowDefinition> candidates, SaaProcessedMessage processed)
     {
         var direction = processed.Direction switch
         {
@@ -156,10 +154,6 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
         {
             throw new FormatException("The matching workflow has invalid review steps.", exception);
         }
-        if (preferred[0].Steps.Any(step => step.ReviewLevel > 2) &&
-            departmentNames.Any(name => name.Equals("CS", StringComparison.OrdinalIgnoreCase) ||
-                name.Equals("TFO", StringComparison.OrdinalIgnoreCase)))
-            throw new FormatException("CS and TFO messages cannot use a workflow with review level 3.");
         return preferred[0];
     }
 

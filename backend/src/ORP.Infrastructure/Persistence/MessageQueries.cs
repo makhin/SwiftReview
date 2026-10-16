@@ -21,9 +21,15 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             .Where(message => message.MessageId == id)
             .Select(message => message.Body)
             .SingleOrDefaultAsync(ct);
+        var actions = (await db.ReadReviewCapabilitiesAsync(new Dictionary<long, byte[]> { [id] = x.RowVersion }, access, ct))[id];
         return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentIds,
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction)
         {
+            Version = Convert.ToBase64String(x.RowVersion),
+            ConfirmationMode = actions.ConfirmationMode,
+            CanConfirm = actions.CanConfirm,
+            ConfirmationLevel = actions.ConfirmationLevel,
+            CanReview = actions.CanReview,
             BranchName = x.BranchName,
             DepartmentNames = string.Join(", ", x.DepartmentNames),
             CurrentAssigneeName = x.CurrentAssigneeName

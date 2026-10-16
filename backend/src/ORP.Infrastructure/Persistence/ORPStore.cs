@@ -12,8 +12,6 @@ namespace ORP.Infrastructure.Persistence;
 
 public sealed class ORPStore(ORPDbContext db, BusinessActionLog businessActions) : IORPStore
 {
-    public Task<string?> FindDepartmentNameAsync(int id, CancellationToken ct) => db.Departments
-        .Where(x => x.Id == id).Select(x => x.Name).SingleOrDefaultAsync(ct);
     public Task<Message?> FindMessageAsync(long id, CancellationToken ct) => db.Messages.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken ct) => db.ReadMessages()
         .Where(x => x.Id == id)

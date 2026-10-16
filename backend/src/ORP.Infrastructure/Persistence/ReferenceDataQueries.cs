@@ -18,7 +18,12 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
             x.DepartmentIds.Where(id => access.IsGlobalAdministrator || access.Scopes.Any(scope =>
                 scope.DepartmentId == id && (x.BranchId == null || scope.BranchId == x.BranchId) &&
                 scope.Permissions.Contains(Permissions.MessageView))).ToArray(), x.BranchId, x.IsActive,
-            x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList(), x.Direction)).ToList();
+            x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList(), x.Direction)
+        {
+            ConfirmationMode = x.ConfirmationMode, ConfirmationActorMode = x.ConfirmationActorMode,
+            AllowReviewerReuse = x.AllowReviewerReuse, AssignmentRetentionMode = x.AssignmentRetentionMode,
+            RejectAllowed = x.RejectAllowed
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(UserAccess access, CancellationToken ct)

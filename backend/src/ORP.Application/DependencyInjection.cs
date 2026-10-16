@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<ReassignMessageHandler>();
         services.AddScoped<AssignmentCoordinator>();
         services.AddScoped<GetAssignmentCandidatesHandler>();
+        services.AddScoped<ConfirmReviewHandler>();
         services.AddScoped<StartReviewHandler>();
         services.AddScoped<ApproveReviewHandler>();
         services.AddScoped<RejectReviewHandler>();

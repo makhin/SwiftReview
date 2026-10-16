@@ -318,6 +318,12 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ReceivedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -403,8 +409,28 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AllowReviewerReuse")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("AssignmentRetentionMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<int?>("BranchId")
                         .HasColumnType("int");
+
+                    b.Property<int>("ConfirmationActorMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("ConfirmationMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<int>("Direction")
                         .HasColumnType("int");
@@ -421,6 +447,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("RejectAllowed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("UndoActiveReviewMode")
                         .ValueGeneratedOnAdd()
@@ -445,6 +476,8 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.ToTable("WorkflowDefinitions", "orp", t =>
                         {
+                            t.HasCheckConstraint("CK_WorkflowDefinitions_ConfirmationPolicy", "[ConfirmationMode] IN (0, 1, 2) AND [ConfirmationActorMode] IN (0, 1) AND [AssignmentRetentionMode] IN (0, 1)");
+
                             t.HasCheckConstraint("CK_WorkflowDefinitions_Direction", "[Direction] IN (1, 2)");
 
                             t.HasCheckConstraint("CK_WorkflowDefinitions_UndoPolicy", "[UndoApprovalMode] IN (0, 1, 2) AND [UndoActorMode] IN (0, 1) AND [UndoActiveReviewMode] IN (0, 1)");

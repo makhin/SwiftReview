@@ -50,6 +50,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
             .Select(x => new MessageGridRowDto
             {
                 Id = x.Id,
+                Version = Convert.ToBase64String(x.RowVersion),
                 ExternalId = x.ExternalId,
                 Sender = x.Sender,
                 Receiver = x.Receiver,
@@ -69,20 +70,6 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 ActiveReviewLevel = x.ActiveReviewLevel,
                 ActiveReviewerId = x.ActiveReviewerId,
                 WorkflowDefinitionId = x.WorkflowDefinitionId,
-                CanReview = (x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress ||
-                    x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress ||
-                    x.State == MessageState.WaitingForThirdReview || x.State == MessageState.ThirdReviewInProgress) &&
-                    (access.IsGlobalAdministrator || (
-                        (x.ActiveReviewId != null ? x.ActiveReviewerId == access.UserId : x.CurrentAssigneeId == access.UserId) &&
-                        !db.Reviews.Any(r => r.MessageId == x.Id && r.ReviewerId == access.UserId && r.Status == ReviewStatus.Approved) &&
-                        db.UserRoles.Any(role => role.UserId == access.UserId && role.BranchId == x.BranchId &&
-                            db.MessageDepartments.Any(d => d.MessageId == x.Id && d.DepartmentId == role.DepartmentId) &&
-                            db.UserRoles.Any(view => view.UserId == access.UserId && view.BranchId == x.BranchId &&
-                                view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
-                                    grant.Permission.Name == Permissions.MessageView)) &&
-                            role.Role.Permissions.Any(grant => grant.Permission.Name ==
-                                (x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress ? Permissions.ReviewLevel1 :
-                                 x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress ? Permissions.ReviewLevel2 : Permissions.ReviewLevel3))))),
                 CanChangeWorkflow = (x.State == MessageState.New || x.State == MessageState.Assigned) &&
                     !db.Reviews.Any(review => review.MessageId == x.Id && review.Status != ReviewStatus.Cancelled && review.Status != ReviewStatus.Undone) &&
                     (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
@@ -99,6 +86,17 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     .OrderBy(step => step.Order)
                     .Select(step => step.ReviewLevel).ToArray()
             });
-        return new(await rows.ToListAsync(ct), count);
+        var items = await rows.ToListAsync(ct);
+        var capabilities = await db.ReadReviewCapabilitiesAsync(
+            items.ToDictionary(x => x.Id, x => Convert.FromBase64String(x.Version)), access, ct);
+        foreach (var item in items)
+        {
+            if (!capabilities.TryGetValue(item.Id, out var actions)) continue;
+            item.ConfirmationMode = actions.ConfirmationMode;
+            item.CanConfirm = actions.CanConfirm;
+            item.ConfirmationLevel = actions.ConfirmationLevel;
+            item.CanReview = actions.CanReview;
+        }
+        return new(items, count);
     }
 }

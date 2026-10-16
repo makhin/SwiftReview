@@ -167,7 +167,7 @@ public sealed class MultiDepartmentSqlTests
     }
 
     [Fact]
-    public async Task JointWorkflowIncludingCsRejectsThirdReviewLevel()
+    public async Task JointWorkflowUsesConfiguredLevelsRegardlessOfDepartmentName()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -183,15 +183,15 @@ public sealed class MultiDepartmentSqlTests
             [cs.Id, dc.Id]).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         await db.SaveChangesAsync(ct);
         var branch = await db.Branches.SingleAsync(ct);
-        await Assert.ThrowsAsync<ValidationException>(() => new WorkflowResolver(db).ResolveAsync(
-            "MT199", MessageDirection.Incoming, [cs.Id, dc.Id], branch.Id, ct));
+        var resolved = await new WorkflowResolver(db).ResolveAsync(
+            "MT199", MessageDirection.Incoming, [cs.Id, dc.Id], branch.Id, ct);
+        Assert.Equal(new[] { 1, 2, 3 }, resolved.RequiredLevels());
         var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
         var processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(ct),
             await catalog.LoadBranchResolverAsync(ct));
         var file = fixture.File();
-        var error = await Assert.ThrowsAsync<FormatException>(() => fixture.Store.RegisterAsync(file,
+        Assert.Equal(SaaFileImportResult.Imported, await fixture.Store.RegisterAsync(file,
             processor.Process(new SaaMessageParser().Parse(file)), ct));
-        Assert.Contains("CS and TFO", error.Message);
-        Assert.Empty(await db.Messages.ToListAsync(ct));
+        Assert.Single(await db.Messages.ToListAsync(ct));
     }
 }

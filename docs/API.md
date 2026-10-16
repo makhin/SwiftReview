@@ -8,9 +8,11 @@ and department scope. Global administrators have administrative access.
 OpenAPI is available at `/openapi/v1.json`, and the interactive reference at
 `/scalar`. Operations have unique names, summaries, response schemas and tags.
 
-This document describes the current implementation. The proposed confirmation
-process (confirmation in one action, confirmation by any scoped authorised user,
-and removal of rejection) has not yet been implemented.
+Confirmation behavior is configured per workflow. The backend supports immediate
+confirmation, review sessions, and workflows without confirmations. See
+[Workflow configuration](WORKFLOW_CONFIGURATION.md) for settings and rollout.
+The frontend and its generated TypeScript contract have not yet been updated for
+the new confirmation API.
 
 ## Messages
 
@@ -30,8 +32,11 @@ Assign requires an unassigned message; reassign requires an assigned message.
 Both accept `{ "assignedTo": 12 }`. Workflow accepts `{ "workflowDefinitionId": 1 }`.
 Search accepts `skip`, `take`, `sort` and a message `filter` in JSON; `take` is
 limited to 500. Audit accepts query parameters `skip` and `take` (defaults 0 and 100).
-Manual workflow changes require a matching direction. CS and TFO messages cannot
-select a workflow containing review level 3, including an optional third step.
+Manual workflow changes require an active workflow with a matching message type
+(or an existing supported MT-series/MX-family pattern), direction, exact set of
+message departments, and matching or unrestricted branch. These checks also apply
+to administrators. Review levels come from workflow configuration; no department
+or message-type names are checked by the workflow engine.
 
 ### Message grid
 
@@ -61,7 +66,7 @@ UTC day; timestamp bounds are inclusive.
 `page` starts at 1 and defaults to 1; `pageSize` defaults to 20 and must be 1–500.
 Sorting accepts up to five clauses and defaults to `receivedAt desc, id asc`.
 Allowed sort fields are `id`, `externalId`, `direction`, `messageType`, `branchId`,
-`departmentId`, `state`, `receivedAt`, `currentAssigneeId`, `activeReviewId`,
+`state`, `receivedAt`, `currentAssigneeId`, `activeReviewId`,
 `activeReviewLevel`, `activeReviewerId` and `workflowDefinitionId`.
 
 Optional `assignmentScope` accepts `mine`, `departments` or `assignable`; the last
@@ -77,9 +82,12 @@ supported. The frontend adapts its `CustomStore` requests to this contract.
 counts, with a message-type breakdown:
 
 ```json
-[
-  { "state": "New", "count": 2, "breakdown": [{ "messageType": "MT199", "count": 2 }] }
-]
+{
+  "items": [
+    { "state": "New", "stateName": "New", "count": 2, "breakdown": [{ "messageType": "MT199", "count": 2 }] }
+  ],
+  "total": { "count": 2, "breakdown": [{ "messageType": "MT199", "count": 2 }] }
+}
 ```
 
 The example shows one entry; the actual response includes all states. Counts
@@ -91,25 +99,53 @@ All review commands use `POST /api/messages/{id}/reviews/{action}`.
 
 | Action | Request | Success |
 | --- | --- | --- |
+| `confirm` | `{ "level": 1, "expectedVersion": "AAAAAAAAAAE=", "comment": "Checked" }` | 204 |
 | `start` | `{ "level": 1 }` | 200, `{ "reviewId": 123 }`, no Location header |
 | `approve` | `{ "level": 1, "reviewId": 123, "comment": "Checked" }` | 204 |
 | `reject` | `{ "level": 1, "reviewId": 123, "comment": "Reason" }` | 204 |
 | `cancel` | `{ "level": 1, "reviewId": 123 }` | 204 |
 | `undo` | `{ "reviewId": 123, "comment": "Review again" }` | 204 |
 
-Start creates or resumes a review. Decisions target a specific attempt using
-`reviewId`. Review ownership, level permissions and four-eyes rules apply.
-For ordinary users, starting requires assignment to that user, and an earlier
-approved reviewer cannot confirm another level. Approval closes the current
-assignment; a subsequent level requires a new assignment. Rejection is currently
-final. Cancel ends an active attempt while keeping its assignment. Undo currently
-clears the assignment and reopens the relevant level.
+`confirm` is available only for `Immediate` workflows. It creates and approves the
+expected review in one transaction, including audit and assignment changes. The
+message must already be assigned; the actor is checked against `review.levelN`
+and `message.view` in the same permitted branch/department scope. Ownership and
+reviewer reuse follow workflow settings. Confirming does not reassign the message
+to the actor. Technical InProgress states are not left persisted after success.
+
+`expectedVersion` is required: use the opaque base64 `version` returned by message
+details or the grid. It represents an 8-byte SQL Server rowversion. Malformed
+versions return 400; stale versions, repeated confirmation, wrong levels or modes
+return 409. After an uncertain network result, reload details and the audit before
+another action. Never automatically retry with a newly fetched version.
+
+`start`, `approve`, `reject` and `cancel` are available only for `ReviewSession`
+workflows. Start creates or resumes a review; decisions target a specific
+`reviewId`. The original reviewer owns the active session (administrators retain
+their existing access). Starting ownership and reviewer reuse are configurable.
+Reject additionally requires `RejectAllowed`; if disabled, the server rejects the
+operation even for administrators. Allowed rejection is final. Cancel keeps the
+assignment. Assignment ends after each approval in `PerConfirmation` mode, or only
+at workflow completion in `UntilWorkflowCompleted` mode.
+
 Undo requires scoped `message.view` and `review.undo`, access to the workflow, and
-an approval eligible under its undo policy. Global administrators retain the
-exception described in [Access administration](ACCESS_ADMINISTRATION.md#workflow-undo-policy).
+an approval eligible under its undo policy. It may cancel the active next review
+atomically. Undo retains the current assignment in `UntilWorkflowCompleted` mode;
+`PerConfirmation` ends it. It does not recreate an assignment already ended by
+final completion. A reopened immediate workflow must be assigned before confirming.
+Global administrators retain the existing exception: without an active review,
+they may undo the latest approval even when Undo is disabled or the approval was
+final (including the single-confirmation route). With an active review, the
+workflow's Undo policy applies; administrator actor restrictions remain bypassed.
 `undoReviewId` in the grid is the server-authorized candidate; `null` means unavailable.
-Undo may atomically cancel the active next review when its workflow permits it.
-Comments are optional and limited to 2,000 characters.
+
+Details and grid rows expose `version`, `confirmationMode` (`ReviewSession`,
+`Immediate`, `None`), `canConfirm`, `confirmationLevel` and `canReview`.
+`confirmationLevel` is null when confirmation is unavailable. `canReview` applies
+to legacy review sessions; `canConfirm` applies to immediate confirmation. These
+flags are advisory snapshots; commands always recheck authorization and state.
+Workflows without confirmations expose neither action and do not complete
+messages automatically. Comments are optional and limited to 2,000 characters.
 
 The review and workflow-change handlers execute access checks and mutations
 through `ITransactionExecutor`.
@@ -168,7 +204,8 @@ which responses apply to each operation.
 
 With the backend running on port 5080, run `npm run api:generate` in `frontend`
 to generate TypeScript contracts, then `npm run api:check` to verify them.
-Generated contracts must not be edited manually.
+Generated contracts must not be edited manually. Client regeneration and `api:check`
+are deferred to the frontend follow-up for the confirmation API.
 
 
 ## Message direction
@@ -181,4 +218,4 @@ The message grid can sort by `direction`. Its current request has no direction
 filter or grouping option; `direction` is returned in each row.
 Manual workflow changes require a matching direction, including for administrators.
 A mismatch or missing message direction returns `409` without changing state or audit.
-The other manual selection and authorization rules are unchanged.
+The type, branch and department compatibility rules described above also apply.

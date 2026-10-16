@@ -48,6 +48,10 @@ public static class GridFields
 
 public sealed class MessageGridRowDto
 {
+    public string Version { get; init; } = string.Empty;
+    public ORP.Domain.Workflows.ConfirmationMode ConfirmationMode { get; set; }
+    public bool CanConfirm { get; set; }
+    public int? ConfirmationLevel { get; set; }
     public required long Id { get; init; }
     public required string ExternalId { get; init; }
     public required string Sender { get; init; }
@@ -70,7 +74,7 @@ public sealed class MessageGridRowDto
     public required long? UndoReviewId { get; init; }
     public required int WorkflowDefinitionId { get; init; }
     public required string WorkflowDefinitionName { get; init; }
-    public required bool CanReview { get; init; }
+    public bool CanReview { get; set; }
     public required bool CanChangeWorkflow { get; init; }
     public required int[] RequiredReviewLevels { get; init; }
 }

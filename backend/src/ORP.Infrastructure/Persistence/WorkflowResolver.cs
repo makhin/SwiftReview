@@ -25,11 +25,6 @@ public sealed class WorkflowResolver(ORPDbContext db) : IWorkflowResolver
             throw new ValidationException("More than one active workflow matches the same message scope.");
 
         _ = preferred[0].RequiredLevels();
-        if (preferred[0].Steps.Any(step => step.ReviewLevel > 2) &&
-            await db.Departments.AnyAsync(d => departmentIds.Contains(d.Id) &&
-                (d.Name.ToUpper() == "CS" || d.Name.ToUpper() == "TFO"),
-                cancellationToken))
-            throw new ValidationException("CS and TFO messages cannot use a workflow with review level 3.");
         return preferred[0];
     }
 }
