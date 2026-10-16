@@ -43,7 +43,10 @@ until a user with the `message.assign` permission assigns an eligible reviewer.
 
 Apply migrations before importing. The historical `ImportSaaMessages` migration deletes
 previous warehouse messages and their review, assignment and audit history because they
-have no SAA file identity. The new `AddIgnoredImportFiles` migration only adds the ignored-file table.
+have no SAA file identity. The `MultiDepartmentRouting` migration moves existing message
+and workflow assignments into relationship tables and removes routing priority. To start
+message imports afresh, stop the API and importer, then run `scripts/clear-imported-messages.sql`
+manually after the migration. It keeps users, roles, branches, Departments, rules, and workflows.
 
 For Development, configure `ConnectionStrings:ORP` in the importer's
 `appsettings.Development.json` or ignored `appsettings.Importer.local.json` and set
@@ -56,10 +59,9 @@ If you reload demo data with `scripts/seed-test-data.sql`, run the routing scrip
 afterward: demo data resets the routing rules and ignored-file list along with its other data.
 
 There is no allowed-message-type list. A non-empty `MessageType` from the header is matched
-against active Department rules, ignoring case. CS has initial priority 100, TFO and DC 50;
-the greatest priority wins even when a lower-priority rule is specific to a branch. Matches
-at the greatest priority must agree on the Department. Empty or invalid active rule sets
-stop the importer at startup.
+against all active Department rules, ignoring case. Every matched Department receives the
+same message; repeated rules for one Department do not duplicate it. Empty or invalid active
+rule sets stop the importer at startup. If no rule matches, the file is ignored as before.
 
 MX rule patterns use the full SAA header identifiers: `MXpacs.008` for a family or
 `MXcamt.055.001.08` for a specific version. The initial seed adds `MX` to the workbook
@@ -77,17 +79,21 @@ Workflow selection also supports patterns in the existing `WorkflowDefinitions.M
 field: exact types (`MT450`, `MXpacs.008.001.08`), MT series (`MT4xx`, covering MT400–499),
 and MX families (`MXpacs.008`, matching that type and its versions). Matching is case-insensitive;
 versioned MX patterns match only that version. Other wildcard syntax is not supported.
-Active workflows must match the direction and Department. A matching branch-specific
+Active workflows must match the direction and exact set of Departments. A matching branch-specific
 workflow takes precedence over a workflow for all branches; within that branch scope,
 an exact type takes precedence over a series or family. Multiple equally preferred
 workflows remain an error, as does the absence of a match. The importer and application
 workflow resolver share this selection logic; review-step validation remains required.
-Existing Workflow data is unchanged; patterns can be configured separately without a migration.
+Existing workflows retain their single Department through the migration. Configure a shared
+workflow by inserting one row in `orp.WorkflowDefinitions`, its steps in `orp.WorkflowSteps`,
+and one row per Department in `orp.WorkflowDepartments`. A message routed to CS and DC
+requires a workflow with exactly CS and DC. Until one exists, import fails without saving
+the message. CS and TFO still prohibit review level 3, including in a shared workflow.
 
 For testing the additional sample types outside the approved matrix, optionally run
 `scripts/seed-dummy-import-rules.sql` after the approved routing seed. This manual,
 transactional script adds eight branch/type combinations in both directions with
-temporary CS routing at priority -100 and source `dummy-import-testing-2026-10-16`.
+temporary CS routing and source `dummy-import-testing-2026-10-16`.
 It also adds missing CS workflows with two required reviews, including Incoming
 `MXcamt.055.001.08` for London. Existing matching active workflows are reused;
 their steps and settings are preserved. Directory entries must already exist and

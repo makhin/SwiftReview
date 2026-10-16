@@ -12,20 +12,20 @@ public enum SaaRoutingStatus { Matched, NoDepartmentRule }
 
 public sealed class SaaProcessedMessage
 {
-    internal SaaProcessedMessage(SaaMessageDocument document, int branchId, int? departmentId, SaaMessageDirection direction)
+    internal SaaProcessedMessage(SaaMessageDocument document, int branchId, IReadOnlyList<int> departmentIds, SaaMessageDirection direction)
     {
         Document = document;
         BranchId = branchId;
-        DepartmentId = departmentId;
+        DepartmentIds = departmentIds;
         Direction = direction;
     }
 
     public SaaMessageDocument Document { get; }
     public string MessageType => Document.Header.MessageType;
     public int BranchId { get; }
-    public int? DepartmentId { get; }
+    public IReadOnlyList<int> DepartmentIds { get; }
     public SaaMessageDirection Direction { get; }
-    public SaaRoutingStatus Status => DepartmentId.HasValue ? SaaRoutingStatus.Matched : SaaRoutingStatus.NoDepartmentRule;
+    public SaaRoutingStatus Status => DepartmentIds.Count > 0 ? SaaRoutingStatus.Matched : SaaRoutingStatus.NoDepartmentRule;
 }
 
 /// <summary>Routes an already parsed document without file or database access.</summary>
@@ -56,19 +56,19 @@ public sealed class SaaMessageProcessor
         try
         {
             if (direction is null)
-                throw new FormatException("Direction is required to resolve DepartmentId.");
+                throw new FormatException("Direction is required to resolve departments.");
             var resolution = departmentResolver.Resolve(branchId, document.Header.MessageType, direction.Value);
             if (resolution is null)
             {
                 ImporterLog.DepartmentRuleNotMatched(logger, document.FilePath, branchId,
                     document.Header.MessageType, direction.Value);
-                return new SaaProcessedMessage(document, branchId, null, direction.Value);
+                return new SaaProcessedMessage(document, branchId, [], direction.Value);
             }
-            if (resolution.DepartmentId <= 0)
-                throw new FormatException("Department rules returned an invalid DepartmentId.");
-            ImporterLog.DepartmentResolved(logger, document.FilePath, resolution.DepartmentId,
+            if (resolution.DepartmentIds.Count == 0 || resolution.DepartmentIds.Any(id => id <= 0))
+                throw new FormatException("Department rules returned invalid department IDs.");
+            ImporterLog.DepartmentResolved(logger, document.FilePath, string.Join(",", resolution.DepartmentIds),
                 string.Join(",", resolution.RuleIds), branchId, document.Header.MessageType, direction.Value);
-            return new SaaProcessedMessage(document, branchId, resolution.DepartmentId, direction.Value);
+            return new SaaProcessedMessage(document, branchId, resolution.DepartmentIds, direction.Value);
         }
         catch (FormatException exception)
         {

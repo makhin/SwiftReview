@@ -7,6 +7,6 @@ public interface IUserAuthorizationQueries
 {
     Task<UserIdentity?> GetIdentityAsync(int userId, CancellationToken ct);
     Task<UserIdentity?> GetIdentityAsync(string userName, CancellationToken ct);
-    Task<UserPermissionCheck?> CheckAsync(int userId, int branchId, int departmentId, string permission, CancellationToken ct);
+    Task<UserPermissionCheck?> CheckAsync(int userId, int branchId, IReadOnlyList<int> departmentIds, string permission, CancellationToken ct);
     Task<bool> CanAccessWorkflowAsync(int userId, int workflowId, CancellationToken ct);
 }

@@ -13,10 +13,17 @@ public sealed class MessageRegistrationTests
         Assert.Equal(101, message.Id);
         Assert.Equal(4, message.WorkflowDefinitionId);
         Assert.Equal(2, message.BranchId);
-        Assert.Equal(3, message.DepartmentId);
+        Assert.Equal([3], message.DepartmentIds);
         Assert.Equal(receivedAt, message.ReceivedAt);
         Assert.Equal(MessageState.New, message.State);
         Assert.Null(message.CurrentAssigneeId);
+    }
+
+    [Fact]
+    public void RegistrationStoresEachDepartmentOnceInStableOrder()
+    {
+        var message = new Message(101, 4, 2, [8, 3, 8], DateTimeOffset.UtcNow);
+        Assert.Equal([3, 8], message.DepartmentIds);
     }
 
     [Theory]
@@ -28,6 +35,6 @@ public sealed class MessageRegistrationTests
     [InlineData(101, 4, -1, 3)]
     [InlineData(101, 4, 2, -1)]
     public void RegistrationRejectsInvalidIds(long id, int workflowId, int branchId, int departmentId) =>
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.ThrowsAny<ArgumentException>(() =>
             new Message(id, workflowId, branchId, departmentId, DateTimeOffset.UtcNow));
 }

@@ -27,10 +27,11 @@ internal static class GridEndpointDescriptions
         dateFrom is inclusive; dateTo includes the entire UTC day for date-only values, or the exact timestamp inclusively.
         page defaults to 1 (one-based); pageSize defaults to 20, range 1..500; offset must fit Int32.
         Optional sort: ordered {field,direction:asc|desc} array, at most 5; defaults receivedAt desc, id asc.
-        Allowed sort fields: id, externalId, sender, receiver, direction, messageType, branchId, departmentId, state, receivedAt,
+        Allowed sort fields: id, externalId, sender, receiver, direction, messageType, branchId, state, receivedAt,
         currentAssigneeId, activeReviewId, activeReviewLevel, activeReviewerId, workflowDefinitionId.
         id asc is appended unless specified. Sort fields/directions are case-insensitive.
         Optional assignmentScope: mine, departments, assignable (requires assignment permission).
+        Optional departments: up to 100 positive department IDs; a message matches when any assigned department is listed.
         Response: items and totalCount after authorization/filtering, before paging. Complete rows retain action flags.
         Invalid values, unknown properties and old skip/take/filter requests return 400 ProblemDetails.
         """;

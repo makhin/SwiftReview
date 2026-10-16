@@ -10,25 +10,32 @@ public enum UndoActiveReviewMode { Block, Cancel }
 public sealed class WorkflowDefinition
 {
     private readonly List<WorkflowStep> _steps = [];
+    private readonly List<WorkflowDepartment> _departments = [];
 
     private WorkflowDefinition() { }
 
-    public WorkflowDefinition(MessageDirection direction, string name, string messageType, int departmentId, int? branchId = null)
+    public WorkflowDefinition(MessageDirection direction, string name, string messageType, IReadOnlyCollection<int> departmentIds, int? branchId = null)
     {
         if (!Enum.IsDefined(direction)) throw new DomainRuleViolationException("Unsupported message direction.");
         Direction = direction;
         Name = Required(name, nameof(name));
         MessageType = Required(messageType, nameof(messageType));
-        DepartmentId = departmentId;
+        if (departmentIds is null || departmentIds.Count == 0 || departmentIds.Any(id => id <= 0))
+            throw new ArgumentException("At least one positive department ID is required.", nameof(departmentIds));
+        _departments.AddRange(departmentIds.Distinct().Order().Select(id => new WorkflowDepartment(id)));
         BranchId = branchId;
         IsActive = true;
     }
+
+    public WorkflowDefinition(MessageDirection direction, string name, string messageType, int departmentId, int? branchId = null)
+        : this(direction, name, messageType, [departmentId], branchId) { }
 
     public MessageDirection Direction { get; private set; }
     public int Id { get; private set; }
     public string Name { get; private set; } = null!;
     public string MessageType { get; private set; } = null!;
-    public int DepartmentId { get; private set; }
+    public IReadOnlyCollection<WorkflowDepartment> Departments => _departments;
+    public IReadOnlyList<int> DepartmentIds => _departments.Select(x => x.DepartmentId).Order().ToArray();
     public int? BranchId { get; private set; }
     public bool IsActive { get; private set; }
     public UndoApprovalMode UndoApprovalMode { get; private set; }

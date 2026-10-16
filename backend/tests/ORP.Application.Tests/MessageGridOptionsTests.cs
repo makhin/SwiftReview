@@ -13,7 +13,7 @@ public sealed class MessageGridOptionsTests
     private static MessageGridRowDto Row(long id, string date, int branch = 1, string type = "MT199", string externalId = "TEST",
         string sender = "SENDER", string receiver = "RECEIVER") => new()
     {
-        Id = id, ExternalId = externalId, MessageType = type, BranchId = branch, DepartmentId = 1,
+        Id = id, ExternalId = externalId, MessageType = type, BranchId = branch, DepartmentIds = [1],
         Sender = sender, Receiver = receiver,
         State = MessageState.New, ReceivedAt = DateTimeOffset.Parse(date), Direction = null,
         CurrentAssigneeId = null, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,

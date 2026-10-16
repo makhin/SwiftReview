@@ -37,6 +37,9 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 x.State == MessageState.WaitingForThirdReview),
             _ => throw new FormatException("Unsupported message assignment scope.")
         };
+        if (request.Departments is { Count: > 0 })
+            query = query.Where(x => db.MessageDepartments.Any(d => d.MessageId == x.Id &&
+                request.Departments.Contains(d.DepartmentId)));
         query = options.Filter(query);
         var count = await query.CountAsync(ct);
         var undoCandidates = db.ReadUndoCandidates(access);
@@ -50,7 +53,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 MessageType = x.MessageType,
                 Direction = x.Direction,
                 BranchId = x.BranchId,
-                DepartmentId = x.DepartmentId,
+                DepartmentIds = x.DepartmentIds,
                 State = x.State,
                 ReceivedAt = x.ReceivedAt,
                 CurrentAssigneeId = x.CurrentAssigneeId,
@@ -64,14 +67,22 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     (access.IsGlobalAdministrator || (
                         (x.ActiveReviewId != null ? x.ActiveReviewerId == access.UserId : x.CurrentAssigneeId == access.UserId) &&
                         !db.Reviews.Any(r => r.MessageId == x.Id && r.ReviewerId == access.UserId && r.Status == ReviewStatus.Approved) &&
-                        db.UserRoles.Any(role => role.UserId == access.UserId && role.BranchId == x.BranchId && role.DepartmentId == x.DepartmentId &&
+                        db.UserRoles.Any(role => role.UserId == access.UserId && role.BranchId == x.BranchId &&
+                            db.MessageDepartments.Any(d => d.MessageId == x.Id && d.DepartmentId == role.DepartmentId) &&
+                            db.UserRoles.Any(view => view.UserId == access.UserId && view.BranchId == x.BranchId &&
+                                view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
+                                    grant.Permission.Name == Permissions.MessageView)) &&
                             role.Role.Permissions.Any(grant => grant.Permission.Name ==
                                 (x.State == MessageState.Assigned || x.State == MessageState.FirstReviewInProgress ? Permissions.ReviewLevel1 :
                                  x.State == MessageState.WaitingForSecondReview || x.State == MessageState.SecondReviewInProgress ? Permissions.ReviewLevel2 : Permissions.ReviewLevel3))))),
                 CanChangeWorkflow = (x.State == MessageState.New || x.State == MessageState.Assigned) &&
                     !db.Reviews.Any(review => review.MessageId == x.Id && review.Status != ReviewStatus.Cancelled && review.Status != ReviewStatus.Undone) &&
                     (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
-                        role.BranchId == x.BranchId && role.DepartmentId == x.DepartmentId &&
+                        role.BranchId == x.BranchId && db.MessageDepartments.Any(d => d.MessageId == x.Id &&
+                            d.DepartmentId == role.DepartmentId) &&
+                        db.UserRoles.Any(view => view.UserId == access.UserId && view.BranchId == x.BranchId &&
+                            view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
+                                grant.Permission.Name == Permissions.MessageView)) &&
                         role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.WorkflowManage))),
                 UndoReviewId = undoCandidates.Where(candidate => candidate.MessageId == x.Id)
                     .Select(candidate => (long?)candidate.ReviewId).FirstOrDefault(),

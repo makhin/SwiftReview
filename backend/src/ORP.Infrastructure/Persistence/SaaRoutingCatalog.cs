@@ -28,7 +28,7 @@ public sealed class SaaRoutingCatalog(string connectionString)
             {
                 Id = rule.Id, DepartmentId = rule.DepartmentId, BranchId = rule.BranchId,
                 Direction = (SaaMessageDirection)rule.Direction, MatchKind = (SaaDepartmentMatchKind)rule.MatchKind,
-                MessageTypePattern = rule.MessageTypePattern, Priority = rule.Priority, IsActive = true
+                MessageTypePattern = rule.MessageTypePattern, IsActive = true
             }).ToListAsync(cancellationToken);
         return new SaaDepartmentRuleResolver(rules);
     }

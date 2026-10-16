@@ -58,7 +58,6 @@ public sealed class SaaFileImportServiceTests
     [InlineData("format")]
     [InlineData("branch")]
     [InlineData("direction")]
-    [InlineData("rules")]
     [InlineData("workflow")]
     public async Task ErrorsNeverCreateAnIgnoredMark(string error)
     {
@@ -67,13 +66,6 @@ public sealed class SaaFileImportServiceTests
         if (error == "format") File.WriteAllText(file.Path, "broken file");
         var store = new MemoryStore { FailRegistration = error == "workflow" };
         var rules = new List<SaaDepartmentRule> { ImportTestFile.Rule("MT199") };
-        if (error == "rules")
-        {
-            var conflicting = ImportTestFile.Rule("MT199");
-            conflicting.Id = 2;
-            conflicting.DepartmentId = 8;
-            rules.Add(conflicting);
-        }
         var service = new SaaFileImportService(new SaaSourceFileReader(), new SaaMessageParser(),
             SaaMessageProcessorTests.Processor(new SaaDepartmentRuleResolver(rules)), store);
         await Assert.ThrowsAnyAsync<FormatException>(() => service.ImportAsync(file.Path, file.Root, cancellationToken: TestContext.Current.CancellationToken));

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using ORP.Domain.Identity;
+using ORP.Domain.Messages;
 using ORP.Importer;
 using ORP.Infrastructure.Persistence;
 using Xunit;
@@ -26,7 +27,6 @@ public sealed class SqlSaaImportStoreTests
         Assert.All(mxRules, rule => Assert.StartsWith("MX", rule.MessageTypePattern));
         var versioned = Assert.Single(mxRules, rule => rule.MessageTypePattern == "MXcamt.055.001.08");
         var id = versioned.Id;
-        var priority = versioned.Priority = 123;
         versioned.MessageTypePattern = "camt.055.001.08";
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var upgrade = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "fix-department-routing-mx-prefix.sql"), TestContext.Current.CancellationToken);
@@ -34,7 +34,6 @@ public sealed class SqlSaaImportStoreTests
         await db.Database.ExecuteSqlRawAsync(upgrade, TestContext.Current.CancellationToken);
         await db.Entry(versioned).ReloadAsync(TestContext.Current.CancellationToken);
         Assert.Equal(id, versioned.Id);
-        Assert.Equal(priority, versioned.Priority);
         Assert.True(versioned.IsActive);
         Assert.Equal("MXcamt.055.001.08", versioned.MessageTypePattern);
         Assert.Equal(316, await db.DepartmentRoutingRules.CountAsync(TestContext.Current.CancellationToken));
@@ -44,7 +43,7 @@ public sealed class SqlSaaImportStoreTests
         var file = fixture.File(type: "MXcamt.055.001.08");
         var result = processor.Process(new SaaMessageParser().Parse(file));
         Assert.Equal(SaaRoutingStatus.Matched, result.Status);
-        Assert.Equal(versioned.DepartmentId, result.DepartmentId);
+        Assert.Contains(versioned.DepartmentId, result.DepartmentIds);
     }
 
     [Fact]
@@ -103,6 +102,7 @@ public sealed class SqlSaaImportStoreTests
         await fixture.Store.IgnoreAsync(file, TestContext.Current.CancellationToken);
         await using var db = new ORPDbContext(fixture.Options);
         await db.WorkflowSteps.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
+        await db.WorkflowDepartments.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
         await db.WorkflowDefinitions.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<FormatException>(() => fixture.Store.RegisterAsync(file, fixture.Route(file), TestContext.Current.CancellationToken));
         Assert.Single(await db.IgnoredImportFiles.ToListAsync(TestContext.Current.CancellationToken));
@@ -116,11 +116,32 @@ public sealed class SqlSaaImportStoreTests
     [InlineData("register", false)]
     [InlineData("mixed", false)]
     [InlineData("register", true)]
-    public async Task SerializesOverlappingWritersAndVerifiesPersistedState(string kind, bool differentCase)
+    [InlineData("register", false, true)]
+    public async Task SerializesOverlappingWritersAndVerifiesPersistedState(string kind, bool differentCase, bool joint = false)
     {
         await using var fixture = await SqlImportDatabase.CreateAsync();
+        SaaMessageProcessor processor = fixture.Processor;
+        if (joint)
+        {
+            await using var setup = new ORPDbContext(fixture.Options);
+            var cs = await setup.Departments.SingleAsync(TestContext.Current.CancellationToken);
+            var dc = new Department("DC");
+            setup.Departments.Add(dc);
+            await setup.SaveChangesAsync(TestContext.Current.CancellationToken);
+            setup.DepartmentRoutingRules.Add(new DepartmentRoutingRule { DepartmentId = dc.Id, Direction = 1,
+                MatchKind = 1, MessageTypePattern = "MT199", IsActive = true,
+                SourceFile = "overlap", SourceSheet = "rules", SourceRow = 1 });
+            setup.WorkflowDefinitions.Add(new ORP.Domain.Workflows.WorkflowDefinition(MessageDirection.Incoming,
+                "Joint", "MT199", [cs.Id, dc.Id]).AddStep(1, 1));
+            await setup.SaveChangesAsync(TestContext.Current.CancellationToken);
+            var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
+            processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(TestContext.Current.CancellationToken),
+                await catalog.LoadBranchResolverAsync(TestContext.Current.CancellationToken));
+        }
         var firstFile = fixture.File();
         var secondFile = differentCase ? fixture.File(name: "SAMPLE.prt") : firstFile;
+        SaaProcessedMessage Route(SaaSourceFileSnapshot file) => joint
+            ? processor.Process(new SaaMessageParser().Parse(file)) : fixture.Route(file);
         // Hold the same application lock until both independent writers are confirmed waiting in SQL Server.
         await using var gate = new SqlConnection(fixture.ConnectionString);
         await gate.OpenAsync(TestContext.Current.CancellationToken);
@@ -133,9 +154,9 @@ IF @result < 0 THROW 51000, 'Cannot acquire test gate', 1;", gate, transaction);
         command.Parameters.AddWithValue("@path", firstFile.RelativePath);
         await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         var first = kind == "register"
-            ? fixture.Store.RegisterAsync(firstFile, fixture.Route(firstFile), TestContext.Current.CancellationToken) : fixture.Store.IgnoreAsync(firstFile, TestContext.Current.CancellationToken);
+            ? fixture.Store.RegisterAsync(firstFile, Route(firstFile), TestContext.Current.CancellationToken) : fixture.Store.IgnoreAsync(firstFile, TestContext.Current.CancellationToken);
         var second = kind == "ignore"
-            ? fixture.Store.IgnoreAsync(secondFile, TestContext.Current.CancellationToken) : fixture.Store.RegisterAsync(secondFile, fixture.Route(secondFile), TestContext.Current.CancellationToken);
+            ? fixture.Store.IgnoreAsync(secondFile, TestContext.Current.CancellationToken) : fixture.Store.RegisterAsync(secondFile, Route(secondFile), TestContext.Current.CancellationToken);
         try
         {
             await WaitForTwoSqlWaiters(fixture.ConnectionString);
@@ -157,7 +178,7 @@ IF @result < 0 THROW 51000, 'Cannot acquire test gate', 1;", gate, transaction);
         {
             Assert.Equal(1, results.Count(result => result == SaaFileImportResult.Imported));
             if (kind == "register") Assert.Contains(SaaFileImportResult.AlreadyImported, results);
-            await AssertRegisteredExactlyOnce(fixture);
+            await AssertRegisteredExactlyOnce(fixture, joint ? 2 : 1);
         }
     }
 
@@ -175,11 +196,12 @@ IF @result < 0 THROW 51000, 'Cannot acquire test gate', 1;", gate, transaction);
         Assert.Fail("Both writers must overlap while waiting for the held SQL application lock.");
     }
 
-    private static async Task AssertRegisteredExactlyOnce(SqlImportDatabase fixture)
+    private static async Task AssertRegisteredExactlyOnce(SqlImportDatabase fixture, int departmentCount = 1)
     {
         await using var db = new ORPDbContext(fixture.Options);
         Assert.Single(await db.SwiftMessages.ToListAsync(TestContext.Current.CancellationToken));
         Assert.Single(await db.Messages.ToListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(departmentCount, await db.MessageDepartments.CountAsync(TestContext.Current.CancellationToken));
         Assert.Single(await db.AuditEvents.ToListAsync(TestContext.Current.CancellationToken));
         Assert.Empty(await db.IgnoredImportFiles.ToListAsync(TestContext.Current.CancellationToken));
     }

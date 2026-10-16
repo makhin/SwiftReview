@@ -21,7 +21,7 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
         var source = await store.FindMessageSourceAsync(messageId, ct) ?? throw new ResourceNotFoundException("SWIFT message not found.");
         var reviews = await store.GetReviewsAsync(messageId, ct);
         var currentId = current.UserId;
-        var access = await users.CheckAsync(currentId, source.BranchId, source.DepartmentId, permissionName, ct) ?? throw new UnauthorizedAccessException();
+        var access = await users.CheckAsync(currentId, source.BranchId, source.DepartmentIds, permissionName, ct) ?? throw new UnauthorizedAccessException();
         if (access.IsGlobalAdministrator) return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
         var permission = access.HasPermission;
         var branch = access.CanView;

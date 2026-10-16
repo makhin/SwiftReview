@@ -39,7 +39,7 @@ public sealed class WorkflowPatternTests
         await db.SaveChangesAsync(ct);
 
         var resolved = await new WorkflowResolver(db).ResolveAsync(type, MessageDirection.Incoming,
-            department.Id, branch.Id, ct);
+            [department.Id], branch.Id, ct);
         Assert.Equal(expected.Id, resolved.Id);
 
         var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
@@ -68,7 +68,7 @@ public sealed class WorkflowPatternTests
             department.Id).AddStep(1, 1));
         await db.SaveChangesAsync(ct);
         await Assert.ThrowsAsync<ResourceNotFoundException>(() => new WorkflowResolver(db)
-            .ResolveAsync(type, MessageDirection.Incoming, department.Id, branch.Id, ct));
+            .ResolveAsync(type, MessageDirection.Incoming, [department.Id], branch.Id, ct));
 
         var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
         var processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(ct),

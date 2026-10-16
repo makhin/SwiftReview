@@ -27,7 +27,7 @@ public sealed class GridQueryTests
     {
         Id = id, ExternalId = externalId, Direction = direction, MessageType = "MT199", BranchId = branch,
         Sender = "SENDER", Receiver = "RECEIVER",
-        DepartmentId = department, State = state, ReceivedAt = receivedAt ?? DateTimeOffset.Parse("2026-10-06T10:00:00+02:00"),
+        DepartmentIds = [department], State = state, ReceivedAt = receivedAt ?? DateTimeOffset.Parse("2026-10-06T10:00:00+02:00"),
         CurrentAssigneeId = assignee, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,
         UndoReviewId = null, WorkflowDefinitionId = 1, CanReview = false, CanChangeWorkflow = false, RequiredReviewLevels = [1, 2]
     };
@@ -181,8 +181,8 @@ public sealed class GridQueryTests
     {
         var source = new[] { Row(4, department: 2), Row(2, department: 1), Row(3, department: 2), Row(1, branch: 3) }.AsQueryable();
         Assert.Equal(new long[] { 1, 2, 3, 4 }, Prepare(new()).Page(source).Select(row => row.Id));
-        var options = Prepare(new(Skip: 1, Take: 2, Sort: [new("branchId", "asc"), new("departmentId", "desc")]));
-        Assert.Equal(new long[] { 4, 2 }, options.Page(source).Select(row => row.Id));
+        var options = Prepare(new(Skip: 1, Take: 2, Sort: [new("branchId", "asc"), new("id", "desc")]));
+        Assert.Equal(new long[] { 3, 2 }, options.Page(source).Select(row => row.Id));
         Assert.Equal(new long[] { 4, 3, 2, 1 }, Prepare(new(Sort: [new("ID", "DESC")])).Page(source).Select(row => row.Id));
         Assert.Equal(new long[] { 1, 2, 3, 4 }, Prepare(new(Sort: [])).Page(source).Select(row => row.Id));
         var recent = new[] { Row(1), Row(2, receivedAt: DateTimeOffset.Parse("2026-10-06T11:00:00+02:00")) }.AsQueryable();

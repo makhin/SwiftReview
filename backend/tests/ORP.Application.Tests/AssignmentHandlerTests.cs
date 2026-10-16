@@ -29,11 +29,11 @@ public sealed class AssignmentHandlerTests
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
+            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, [1], DateTimeOffset.UtcNow,
                 "A", "B", MessageDirection.Incoming));
-        access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, false, false));
+        access.CheckAsync(2, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, false, false));
         user.UserId.Returns(5);
-        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(5, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
 
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
@@ -58,10 +58,10 @@ public sealed class AssignmentHandlerTests
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B", MessageDirection.Incoming));
-        access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, [1], now, "A", "B", MessageDirection.Incoming));
+        access.CheckAsync(2, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         user.UserId.Returns(5);
-        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(5, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         clock.UtcNow.Returns(now);
         correlation.CorrelationId.Returns("assign-correlation");
         store.When(x => x.AddAudit(Arg.Any<AuditEvent>())).Do(x => audit = x.Arg<AuditEvent>());
@@ -159,7 +159,7 @@ public sealed class AssignmentHandlerTests
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
         user.UserId.Returns(5);
-        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(5, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         correlation.CorrelationId.Returns("assignment-test");
         return (store, access, user, clock, correlation);
@@ -170,10 +170,10 @@ public sealed class AssignmentHandlerTests
     {
         store.FindMessageAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
         store.FindMessageSourceAsync(message.Id, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
+            new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, [1], DateTimeOffset.UtcNow,
                 "A", "B", MessageDirection.Incoming));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
-        access.CheckAsync(assigneeId, 1, 1, reviewPermission, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(assigneeId, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), reviewPermission, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
     }
     private sealed class InlineTransactions : ITransactionExecutor
     {

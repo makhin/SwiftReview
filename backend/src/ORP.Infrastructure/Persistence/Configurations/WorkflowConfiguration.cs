@@ -16,12 +16,24 @@ public sealed class WorkflowDefinitionConfiguration : IEntityTypeConfiguration<W
         builder.Property(x => x.UndoActiveReviewMode).HasDefaultValue(UndoActiveReviewMode.Block);
         builder.ToTable(t => t.HasCheckConstraint("CK_WorkflowDefinitions_UndoPolicy",
             "[UndoApprovalMode] IN (0, 1, 2) AND [UndoActorMode] IN (0, 1) AND [UndoActiveReviewMode] IN (0, 1)"));
-        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.Ignore(x => x.DepartmentIds);
+        builder.HasMany(x => x.Departments).WithOne().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(x => x.Departments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         builder.Navigation(x => x.Steps).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.ToTable(t => t.HasCheckConstraint("CK_WorkflowDefinitions_Direction", "[Direction] IN (1, 2)"));
-        builder.HasIndex(x => new { x.MessageType, x.Direction, x.DepartmentId, x.BranchId })
-            .IsUnique().HasFilter("[IsActive] = 1");
+        builder.HasIndex(x => new { x.MessageType, x.Direction, x.BranchId });
+    }
+}
+
+public sealed class WorkflowDepartmentConfiguration : IEntityTypeConfiguration<WorkflowDepartment>
+{
+    public void Configure(EntityTypeBuilder<WorkflowDepartment> builder)
+    {
+        builder.ToTable("WorkflowDepartments");
+        builder.HasKey(x => new { x.WorkflowDefinitionId, x.DepartmentId });
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.DepartmentId);
     }
 }
 

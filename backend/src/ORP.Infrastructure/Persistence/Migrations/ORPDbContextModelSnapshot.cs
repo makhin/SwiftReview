@@ -315,9 +315,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<int?>("CurrentAssigneeId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("DepartmentId")
-                        .HasColumnType("int");
-
                     b.Property<DateTimeOffset?>("ReceivedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -335,11 +332,24 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CurrentAssigneeId");
 
-                    b.HasIndex("DepartmentId");
-
                     b.HasIndex("WorkflowDefinitionId");
 
                     b.ToTable("Messages", "orp");
+                });
+
+            modelBuilder.Entity("ORP.Domain.Messages.MessageDepartment", b =>
+                {
+                    b.Property<long>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("MessageId", "DepartmentId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("MessageDepartments", "orp");
                 });
 
             modelBuilder.Entity("ORP.Domain.Reviews.Review", b =>
@@ -396,9 +406,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<int?>("BranchId")
                         .HasColumnType("int");
 
-                    b.Property<int>("DepartmentId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Direction")
                         .HasColumnType("int");
 
@@ -434,11 +441,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("MessageType", "Direction", "DepartmentId", "BranchId")
-                        .IsUnique()
-                        .HasFilter("[IsActive] = 1");
+                    b.HasIndex("MessageType", "Direction", "BranchId");
 
                     b.ToTable("WorkflowDefinitions", "orp", t =>
                         {
@@ -446,6 +449,21 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_WorkflowDefinitions_UndoPolicy", "[UndoApprovalMode] IN (0, 1, 2) AND [UndoActorMode] IN (0, 1) AND [UndoActiveReviewMode] IN (0, 1)");
                         });
+                });
+
+            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDepartment", b =>
+                {
+                    b.Property<int>("WorkflowDefinitionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("WorkflowDefinitionId", "DepartmentId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("WorkflowDepartments", "orp");
                 });
 
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowStep", b =>
@@ -504,9 +522,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int>("Priority")
-                        .HasColumnType("int");
-
                     b.Property<string>("SourceFile")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -526,7 +541,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("Direction", "BranchId", "Priority");
+                    b.HasIndex("Direction", "BranchId");
 
                     b.ToTable("DepartmentRoutingRules", "orp", t =>
                         {
@@ -759,11 +774,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CurrentAssigneeId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("ORP.Domain.Identity.Department", null)
-                        .WithMany()
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("ORP.Infrastructure.Persistence.SwiftMessageRecord", null)
                         .WithOne()
                         .HasForeignKey("ORP.Domain.Messages.Message", "Id")
@@ -773,6 +783,21 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
                         .WithMany()
                         .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ORP.Domain.Messages.MessageDepartment", b =>
+                {
+                    b.HasOne("ORP.Domain.Identity.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ORP.Domain.Messages.Message", null)
+                        .WithMany("Departments")
+                        .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -798,10 +823,19 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
 
+            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDepartment", b =>
+                {
                     b.HasOne("ORP.Domain.Identity.Department", null)
                         .WithMany()
                         .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
+                        .WithMany("Departments")
+                        .HasForeignKey("WorkflowDefinitionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -839,8 +873,15 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Navigation("Roles");
                 });
 
+            modelBuilder.Entity("ORP.Domain.Messages.Message", b =>
+                {
+                    b.Navigation("Departments");
+                });
+
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDefinition", b =>
                 {
+                    b.Navigation("Departments");
+
                     b.Navigation("Steps");
                 });
 #pragma warning restore 612, 618

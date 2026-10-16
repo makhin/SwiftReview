@@ -8,23 +8,28 @@ namespace ORP.Infrastructure.Persistence;
 
 public sealed class WorkflowResolver(ORPDbContext db) : IWorkflowResolver
 {
-    public async Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, int departmentId, int branchId,
+    public async Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, IReadOnlyList<int> departmentIds, int branchId,
         CancellationToken cancellationToken)
     {
         if (!Enum.IsDefined(direction)) throw new ValidationException("A valid message direction is required to select a workflow.");
-        var candidates = await db.WorkflowDefinitions.Include(x => x.Steps)
-            .Where(x => x.IsActive && x.Direction == direction && x.DepartmentId == departmentId &&
+        var candidates = await db.WorkflowDefinitions.Include(x => x.Steps).Include(x => x.Departments)
+            .Where(x => x.IsActive && x.Direction == direction &&
                 (x.BranchId == branchId || x.BranchId == null))
             .ToListAsync(cancellationToken);
-        var preferred = WorkflowMatching.GetPreferred(candidates, messageType, direction, departmentId, branchId);
+        var preferred = WorkflowMatching.GetPreferred(candidates, messageType, direction, departmentIds, branchId);
 
         if (preferred.Length == 0)
-            throw new ResourceNotFoundException("No active workflow matches the message type, direction, department and branch.");
+            throw new ResourceNotFoundException("No active workflow matches the message type, direction, departments and branch.");
 
         if (preferred.Length != 1)
             throw new ValidationException("More than one active workflow matches the same message scope.");
 
         _ = preferred[0].RequiredLevels();
+        if (preferred[0].Steps.Any(step => step.ReviewLevel > 2) &&
+            await db.Departments.AnyAsync(d => departmentIds.Contains(d.Id) &&
+                (d.Name.ToUpper() == "CS" || d.Name.ToUpper() == "TFO"),
+                cancellationToken))
+            throw new ValidationException("CS and TFO messages cannot use a workflow with review level 3.");
         return preferred[0];
     }
 }

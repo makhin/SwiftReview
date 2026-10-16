@@ -8,7 +8,7 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class AssignmentCandidateQueries(ORPDbContext db) : IAssignmentCandidateQueries
 {
     public async Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId,
-        int departmentId, int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId,
+        IReadOnlyList<int> departmentIds, int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId,
         int? currentAssigneeId, CancellationToken cancellationToken)
     {
         var reviewPermission = ReviewAssignmentRules.PermissionForLevel(reviewLevel);
@@ -17,9 +17,9 @@ public sealed class AssignmentCandidateQueries(ORPDbContext db) : IAssignmentCan
             .Distinct().ToArray();
         return await db.Users.AsNoTracking()
             .Where(user => user.Id != currentAssigneeId && (user.IsGlobalAdministrator || (!excluded.Contains(user.Id) &&
-                user.Roles.Any(r => r.BranchId == branchId && r.DepartmentId == departmentId &&
-                    r.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)) &&
-                user.Roles.Any(r => r.BranchId == branchId && r.DepartmentId == departmentId &&
+                user.Roles.Any(r => r.BranchId == branchId && departmentIds.Contains(r.DepartmentId) &&
+                    user.Roles.Any(view => view.BranchId == branchId && view.DepartmentId == r.DepartmentId &&
+                        view.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)) &&
                     r.Role.Permissions.Any(p => p.Permission.Name == reviewPermission)))))
             .OrderBy(user => user.DisplayName).ThenBy(user => user.Id)
             .Select(user => new AssignmentCandidateDto(user.Id, user.UserName, user.DisplayName))

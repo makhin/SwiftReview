@@ -12,13 +12,12 @@ public sealed class SaaDepartmentRule
     public SaaMessageDirection Direction { get; set; }
     public SaaDepartmentMatchKind MatchKind { get; set; }
     public string MessageTypePattern { get; set; } = null!;
-    public int Priority { get; set; }
     public bool IsActive { get; set; }
 }
 
-public sealed class SaaDepartmentResolution(int departmentId, IReadOnlyList<int> ruleIds)
+public sealed class SaaDepartmentResolution(IReadOnlyList<int> departmentIds, IReadOnlyList<int> ruleIds)
 {
-    public int DepartmentId { get; } = departmentId;
+    public IReadOnlyList<int> DepartmentIds { get; } = departmentIds;
     public IReadOnlyList<int> RuleIds { get; } = ruleIds;
 }
 
@@ -44,11 +43,8 @@ public sealed class SaaDepartmentRuleResolver : ISaaMessageDepartmentResolver
         var matches = rules.Where(rule => (rule.BranchId is null || rule.BranchId == branchId) &&
             rule.Direction == direction && Matches(rule, messageType)).ToArray();
         if (matches.Length == 0) return null;
-        var highest = matches.Max(rule => rule.Priority);
-        var winners = matches.Where(rule => rule.Priority == highest).ToArray();
-        if (winners.Select(rule => rule.DepartmentId).Distinct().Count() != 1)
-            throw new FormatException("Department rules with the highest priority disagree.");
-        return new SaaDepartmentResolution(winners[0].DepartmentId, winners.Select(rule => rule.Id).OrderBy(id => id).ToArray());
+        return new SaaDepartmentResolution(matches.Select(rule => rule.DepartmentId).Distinct().OrderBy(id => id).ToArray(),
+            matches.Select(rule => rule.Id).OrderBy(id => id).ToArray());
     }
 
     private static bool ValidPattern(SaaDepartmentRule rule) => rule.MatchKind switch

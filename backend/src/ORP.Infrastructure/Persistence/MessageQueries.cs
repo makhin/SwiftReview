@@ -21,7 +21,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             .Where(message => message.MessageId == id)
             .Select(message => message.Body)
             .SingleOrDefaultAsync(ct);
-        return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
+        return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentIds,
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction);
     }
 
@@ -32,7 +32,8 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         var f = request.Filter;
         if (f?.States is { Count: > 0 }) query = query.Where(x => f.States.Contains(x.State));
         if (f?.Branches is { Count: > 0 }) query = query.Where(x => f.Branches.Contains(x.BranchId));
-        if (f?.Departments is { Count: > 0 }) query = query.Where(x => f.Departments.Contains(x.DepartmentId));
+        if (f?.Departments is { Count: > 0 }) query = query.Where(x => db.MessageDepartments.Any(
+            department => department.MessageId == x.Id && f.Departments.Contains(department.DepartmentId)));
         if (f?.MessageTypes is { Count: > 0 }) query = query.Where(x => f.MessageTypes.Contains(x.MessageType));
         if (f?.DateFrom is not null) query = query.Where(x => x.ReceivedAt >= f.DateFrom);
         if (f?.DateTo is not null) query = query.Where(x => x.ReceivedAt <= f.DateTo);
@@ -40,7 +41,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         query = ApplySort(query, request.Sort);
         var items = await query.Skip(request.Skip).Take(request.Take)
             .Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
-            x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
+            x.DepartmentIds, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
             x.ActiveReviewerId, x.Direction)).ToListAsync(ct);
         return new(items, count);
     }
@@ -75,7 +76,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             row.UserName ?? string.Empty, row.DisplayName ?? string.Empty);
         var details = new AuditEventDetailsDto(stored.WorkflowDefinitionId, stored.PreviousAssigneeId,
             stored.AssigneeId ?? stored.AssignedTo, row.ReviewId, stored.ReviewLevel ?? stored.Level, stored.Comment,
-            stored.PreviousBranchId, stored.BranchId, stored.PreviousDepartmentId, stored.DepartmentId,
+            stored.PreviousBranchId, stored.BranchId, stored.PreviousDepartmentIds, stored.DepartmentIds,
             stored.PreviousWorkflowDefinitionId);
         return new AuditEventDto(row.Id, row.EventType, row.Timestamp, row.OldState?.ToString(), row.NewState?.ToString(),
             actor, details, row.CorrelationId);
@@ -114,5 +115,5 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     private sealed record StoredAuditDetails(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
         int? AssigneeId = null, int? AssignedTo = null, int? ReviewLevel = null, int? Level = null,
         string? Comment = null, int? PreviousBranchId = null, int? BranchId = null,
-        int? PreviousDepartmentId = null, int? DepartmentId = null, int? PreviousWorkflowDefinitionId = null);
+        IReadOnlyList<int>? PreviousDepartmentIds = null, IReadOnlyList<int>? DepartmentIds = null, int? PreviousWorkflowDefinitionId = null);
 }

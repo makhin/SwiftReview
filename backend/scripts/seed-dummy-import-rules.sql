@@ -48,9 +48,20 @@ BEGIN TRY
     CROSS JOIN (VALUES (1),(2)) d(Direction)
     WHERE t.NeedsRouting=1 OR d.Direction=1;
 
+    IF EXISTS (
+        SELECT 1 FROM @Resolved t JOIN orp.DepartmentRoutingRules r
+          ON r.IsActive=1 AND r.DepartmentId<>@departmentId AND r.Direction=t.Direction
+          AND (r.BranchId IS NULL OR r.BranchId=t.BranchId)
+          AND (r.MatchKind=1 AND r.MessageTypePattern COLLATE Latin1_General_100_CI_AS=t.MessageType COLLATE Latin1_General_100_CI_AS
+            OR r.MatchKind=2 AND LEFT(r.MessageTypePattern,3) COLLATE Latin1_General_100_CI_AS=LEFT(t.MessageType,3) COLLATE Latin1_General_100_CI_AS
+            OR r.MatchKind=3 AND (r.MessageTypePattern COLLATE Latin1_General_100_CI_AS=t.MessageType COLLATE Latin1_General_100_CI_AS
+              OR t.MessageType COLLATE Latin1_General_100_CI_AS LIKE (r.MessageTypePattern+N'.%') COLLATE Latin1_General_100_CI_AS))
+        WHERE t.NeedsRouting=1
+    ) THROW 51000, 'Dummy routing overlaps another department; configure a shared workflow instead.', 1;
+
     INSERT INTO orp.DepartmentRoutingRules
-        (DepartmentId,BranchId,Direction,MatchKind,MessageTypePattern,Priority,IsActive,SourceFile,SourceSheet,SourceRow)
-    SELECT @departmentId,t.BranchId,t.Direction,1,t.MessageType,-100,1,@SourceFile,N'Dummy sample matrix',t.Ordinal
+        (DepartmentId,BranchId,Direction,MatchKind,MessageTypePattern,IsActive,SourceFile,SourceSheet,SourceRow)
+    SELECT @departmentId,t.BranchId,t.Direction,1,t.MessageType,1,@SourceFile,N'Dummy sample matrix',t.Ordinal
     FROM @Resolved t WHERE t.NeedsRouting=1 AND NOT EXISTS (
         SELECT 1 FROM orp.DepartmentRoutingRules r WHERE r.SourceFile=@SourceFile
         AND r.DepartmentId=@departmentId AND r.BranchId=t.BranchId AND r.Direction=t.Direction
@@ -60,13 +71,16 @@ BEGIN TRY
 
     DECLARE @NewWorkflows TABLE (Id int PRIMARY KEY);
     INSERT INTO orp.WorkflowDefinitions
-        (Name,MessageType,DepartmentId,BranchId,IsActive,Direction,UndoApprovalMode,UndoActorMode,UndoActiveReviewMode)
+        (Name,MessageType,BranchId,IsActive,Direction,UndoApprovalMode,UndoActorMode,UndoActiveReviewMode)
     OUTPUT inserted.Id INTO @NewWorkflows
     SELECT N'DUMMY import - '+b.Name+N' - '+t.MessageType+CASE t.Direction WHEN 1 THEN N' - IN' ELSE N' - OUT' END,
-        t.MessageType,@departmentId,t.BranchId,1,t.Direction,0,0,0
+        t.MessageType,t.BranchId,1,t.Direction,0,0,0
     FROM @Resolved t JOIN orp.Branches b ON b.Id=t.BranchId
     WHERE NOT EXISTS (
-        SELECT 1 FROM orp.WorkflowDefinitions w WHERE w.IsActive=1 AND w.DepartmentId=@departmentId
+        SELECT 1 FROM orp.WorkflowDefinitions w JOIN orp.WorkflowDepartments wd ON wd.WorkflowDefinitionId=w.Id
+        WHERE w.IsActive=1 AND wd.DepartmentId=@departmentId
+        AND NOT EXISTS (SELECT 1 FROM orp.WorkflowDepartments other
+            WHERE other.WorkflowDefinitionId=w.Id AND other.DepartmentId<>@departmentId)
         AND w.Direction=t.Direction AND (w.BranchId=t.BranchId OR w.BranchId IS NULL)
         AND (
             w.MessageType COLLATE Latin1_General_100_CI_AS = t.MessageType COLLATE Latin1_General_100_CI_AS
@@ -77,6 +91,8 @@ BEGIN TRY
                 AND LEFT(w.MessageType,3) COLLATE Latin1_General_100_CI_AS = LEFT(t.MessageType,3) COLLATE Latin1_General_100_CI_AS)
         )
     );
+    INSERT INTO orp.WorkflowDepartments (WorkflowDefinitionId,DepartmentId)
+    SELECT Id,@departmentId FROM @NewWorkflows;
     INSERT INTO orp.WorkflowSteps (WorkflowDefinitionId,[Order],ReviewLevel,Required)
     SELECT w.Id,s.Level,s.Level,1 FROM @NewWorkflows w CROSS JOIN (VALUES (1),(2)) s(Level);
 

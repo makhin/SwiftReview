@@ -6,6 +6,7 @@ namespace ORP.Domain.Messages;
 
 public sealed class Message
 {
+    private readonly List<MessageDepartment> _departments = [];
     private Message() { }
 
     public Message(long messageId, int workflowDefinitionId)
@@ -16,23 +17,28 @@ public sealed class Message
         State = MessageState.New;
     }
 
-    public Message(long messageId, int workflowDefinitionId, int branchId, int departmentId, DateTimeOffset receivedAt)
+    public Message(long messageId, int workflowDefinitionId, int branchId, IReadOnlyCollection<int> departmentIds, DateTimeOffset receivedAt)
         : this(messageId, workflowDefinitionId)
     {
         if (workflowDefinitionId <= 0) throw new ArgumentOutOfRangeException(nameof(workflowDefinitionId));
         if (branchId <= 0) throw new ArgumentOutOfRangeException(nameof(branchId));
-        if (departmentId <= 0) throw new ArgumentOutOfRangeException(nameof(departmentId));
+        if (departmentIds is null || departmentIds.Count == 0 || departmentIds.Any(id => id <= 0))
+            throw new ArgumentException("At least one positive department ID is required.", nameof(departmentIds));
         BranchId = branchId;
-        DepartmentId = departmentId;
+        _departments.AddRange(departmentIds.Distinct().Order().Select(id => new MessageDepartment(messageId, id)));
         ReceivedAt = receivedAt;
     }
+
+    public Message(long messageId, int workflowDefinitionId, int branchId, int departmentId, DateTimeOffset receivedAt)
+        : this(messageId, workflowDefinitionId, branchId, [departmentId], receivedAt) { }
 
     public long Id { get; private set; }
     public MessageState State { get; private set; }
     public int? CurrentAssigneeId { get; private set; }
     public int WorkflowDefinitionId { get; private set; }
     public int? BranchId { get; private set; }
-    public int? DepartmentId { get; private set; }
+    public IReadOnlyCollection<MessageDepartment> Departments => _departments;
+    public IReadOnlyList<int> DepartmentIds => _departments.Select(x => x.DepartmentId).Order().ToArray();
     public DateTimeOffset? ReceivedAt { get; private set; }
 
     public void Assign(int assigneeId)

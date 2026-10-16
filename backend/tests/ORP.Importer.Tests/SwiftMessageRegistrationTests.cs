@@ -13,11 +13,11 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             var series = Workflow(type: "MT1xx");
-            Assert.Same(series, SqlSaaImportStore.SelectWorkflow([series], result, "CS"));
+            Assert.Same(series, SqlSaaImportStore.SelectWorkflow([series], result, ["CS"]));
             var exact = Workflow();
-            Assert.Same(exact, SqlSaaImportStore.SelectWorkflow([series, exact], result, "CS"));
+            Assert.Same(exact, SqlSaaImportStore.SelectWorkflow([series, exact], result, ["CS"]));
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow([series, Workflow(type: "MT1xx")], result, "CS")).Message);
+                SqlSaaImportStore.SelectWorkflow([series, Workflow(type: "MT1xx")], result, ["CS"])).Message);
         });
     }
 
@@ -28,7 +28,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var general = Workflow();
             var scoped = Workflow(branch: 3);
-            Assert.Same(scoped, SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, "DC"));
+            Assert.Same(scoped, SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, ["DC"]));
         });
     }
 
@@ -42,7 +42,7 @@ public sealed class SwiftMessageRegistrationTests
             inactive.Deactivate();
             var candidates = new[] { Workflow(type: "MT299"), Workflow(direction: MessageDirection.Outgoing),
                 Workflow(branch: 4), Workflow(department: 8), inactive, valid };
-            Assert.Same(valid, SqlSaaImportStore.SelectWorkflow(candidates, result, "DC"));
+            Assert.Same(valid, SqlSaaImportStore.SelectWorkflow(candidates, result, ["DC"]));
         });
     }
 
@@ -52,9 +52,9 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow() }, result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow() }, result, ["DC"])).Message);
             Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow(branch: 3), Workflow(branch: 3) }, result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { Workflow(), Workflow(branch: 3), Workflow(branch: 3) }, result, ["DC"])).Message);
         });
     }
 
@@ -64,10 +64,10 @@ public sealed class SwiftMessageRegistrationTests
         WithProcessed(result =>
         {
             Assert.Contains("No active", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(Array.Empty<WorkflowDefinition>(), result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(Array.Empty<WorkflowDefinition>(), result, ["DC"])).Message);
             var invalid = new WorkflowDefinition(MessageDirection.Incoming, "Invalid", "MT199", 7);
             Assert.Contains("review steps", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { invalid }, result, "DC")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { invalid }, result, ["DC"])).Message);
         });
     }
 
@@ -84,7 +84,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var workflow = Workflow().AddStep(2, 2).AddStep(3, 3, thirdRequired);
             var error = Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, departmentName));
+                SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, [departmentName]));
             Assert.Contains("CS and TFO", error.Message);
         });
     }
@@ -103,7 +103,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             var workflow = Workflow();
             for (var level = 2; level <= levels; level++) workflow.AddStep(level, level);
-            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, departmentName));
+            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, [departmentName]));
         });
     }
 
@@ -115,7 +115,7 @@ public sealed class SwiftMessageRegistrationTests
             var general = Workflow();
             var scoped = Workflow(branch: 3).AddStep(2, 2).AddStep(3, 3, required: false);
             Assert.Contains("CS and TFO", Assert.Throws<FormatException>(() =>
-                SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, "CS")).Message);
+                SqlSaaImportStore.SelectWorkflow(new[] { general, scoped }, result, ["CS"])).Message);
         });
     }
 
@@ -142,7 +142,7 @@ public sealed class SwiftMessageRegistrationTests
         {
             SqlSaaImportStore.ValidateRouting(result);
             var workflow = Workflow(direction: expected);
-            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, "DC"));
+            Assert.Same(workflow, SqlSaaImportStore.SelectWorkflow(new[] { workflow }, result, ["DC"]));
             var record = SqlSaaImportStore.CreateRecord(result.Document, Path.GetTempPath(), result.Direction);
             Assert.Equal(expected, record.Direction);
             Assert.Null(result.Document.Header.Direction);
@@ -156,7 +156,7 @@ public sealed class SwiftMessageRegistrationTests
     private sealed class Departments : ISaaMessageDepartmentResolver
     {
         public SaaDepartmentResolution? Resolve(int branchId, string messageType, SaaMessageDirection direction) =>
-            new(7, new[] { 1 });
+            new([7], new[] { 1 });
     }
 
     private static void WithProcessed(Action<SaaProcessedMessage> action, bool department = true,

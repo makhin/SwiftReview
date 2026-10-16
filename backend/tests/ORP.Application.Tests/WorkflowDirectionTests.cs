@@ -14,6 +14,36 @@ namespace ORP.Application.Tests;
 
 public sealed class WorkflowDirectionTests
 {
+    [Fact]
+    public async Task ManualChangeRequiresTheExactDepartmentSet()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var store = Substitute.For<IORPStore>();
+        var users = Substitute.For<IUserAuthorizationQueries>();
+        var actor = Substitute.For<ICurrentUser>();
+        var clock = Substitute.For<IClock>();
+        var correlation = Substitute.For<ICorrelationContext>();
+        actor.UserId.Returns(7);
+        var message = new Message(1, 99);
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Single", "MT199", 20).AddStep(1, 1);
+        store.FindMessageAsync(1, ct).Returns(message);
+        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT199", 10,
+            [20, 30], DateTimeOffset.UtcNow, "A", "B", MessageDirection.Incoming));
+        store.GetReviewsAsync(1, ct).Returns([]);
+        store.FindWorkflowAsync(42, ct).Returns(workflow);
+        users.CheckAsync(7, 10, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 20, 30 })),
+            Permissions.WorkflowManage, ct).Returns(new UserPermissionCheck(false, true, true));
+        users.CanAccessWorkflowAsync(7, workflow.Id, ct).Returns(true);
+        var authorization = new MessageAuthorizationService(store, users, actor, correlation,
+            NullLogger<MessageAuthorizationService>.Instance);
+        var handler = new ChangeMessageWorkflowHandler(store, new ChangeMessageWorkflowValidator(), users, actor,
+            clock, correlation, new InlineTransactions(), authorization);
+        await Assert.ThrowsAsync<DomainRuleViolationException>(() => handler.HandleAsync(1,
+            new ChangeMessageWorkflowRequest(42), ct));
+        Assert.Equal(99, message.WorkflowDefinitionId);
+        await store.DidNotReceive().SaveChangesAsync(ct);
+    }
+
     [Theory]
     [InlineData(MessageDirection.Incoming, false, true)]
     [InlineData(MessageDirection.Incoming, true, true)]
@@ -44,16 +74,16 @@ public sealed class WorkflowDirectionTests
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         correlation.CorrelationId.Returns("direction-test");
         var message = new Message(1, 99);
-        // Different type/department/branch remains a permitted manual override within access rights.
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Manual", "MT999", 30, 40).AddStep(1, 1);
+        // A different type and branch remain permitted; the departments must match exactly.
+        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Manual", "MT999", 20, 40).AddStep(1, 1);
         for (var level = 2; level <= levels; level++) workflow.AddStep(level, level, level != 3 || thirdRequired);
         store.FindDepartmentNameAsync(20, ct).Returns(department);
         store.FindMessageAsync(1, ct).Returns(message);
-        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT299", 10, 20,
+        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT299", 10, [20],
             DateTimeOffset.UtcNow, "A", "B", sourceDirection));
         store.GetReviewsAsync(1, ct).Returns([]);
         store.FindWorkflowAsync(42, ct).Returns(workflow);
-        users.CheckAsync(7, 10, 20, Permissions.WorkflowManage, ct).Returns(new UserPermissionCheck(administrator, true, true));
+        users.CheckAsync(7, 10, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 20 })), Permissions.WorkflowManage, ct).Returns(new UserPermissionCheck(administrator, true, true));
         users.CanAccessWorkflowAsync(7, workflow.Id, ct).Returns(true);
         var authorization = new MessageAuthorizationService(store, users, actor, correlation, NullLogger<MessageAuthorizationService>.Instance);
         var handler = new ChangeMessageWorkflowHandler(store, new ChangeMessageWorkflowValidator(), users, actor, clock,

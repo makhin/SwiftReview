@@ -14,7 +14,8 @@ public record GridRequest(int Skip = 0, int Take = 20,
 [JsonNumberHandling(JsonNumberHandling.Strict)]
 public sealed record MessageGridRequest(string? Search = null, string? Status = null,
     string? MessageType = null, string? Branch = null, string? DateFrom = null, string? DateTo = null,
-    int Page = 1, int PageSize = 20, IReadOnlyList<SortClause>? Sort = null, string? AssignmentScope = null);
+    int Page = 1, int PageSize = 20, IReadOnlyList<SortClause>? Sort = null, string? AssignmentScope = null,
+    IReadOnlyList<int>? Departments = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 [JsonNumberHandling(JsonNumberHandling.Strict)]
@@ -38,7 +39,7 @@ public static class GridFields
 {
     public static IReadOnlyList<string> Messages { get; } = Array.AsReadOnly(new[]
     {
-        "Id", "ExternalId", "Sender", "Receiver", "Direction", "MessageType", "BranchId", "DepartmentId", "State", "ReceivedAt",
+        "Id", "ExternalId", "Sender", "Receiver", "Direction", "MessageType", "BranchId", "State", "ReceivedAt",
         "CurrentAssigneeId", "ActiveReviewId", "ActiveReviewLevel", "ActiveReviewerId", "WorkflowDefinitionId"
     });
     public static IReadOnlyList<string> Users { get; } = Array.AsReadOnly(new[] { "Id", "UserName", "DisplayName" });
@@ -53,7 +54,7 @@ public sealed class MessageGridRowDto
     public required MessageDirection? Direction { get; init; }
     public required string MessageType { get; init; }
     public required int BranchId { get; init; }
-    public required int DepartmentId { get; init; }
+    public required int[] DepartmentIds { get; init; }
     public required MessageState State { get; init; }
     public required DateTimeOffset ReceivedAt { get; init; }
     public required int? CurrentAssigneeId { get; init; }

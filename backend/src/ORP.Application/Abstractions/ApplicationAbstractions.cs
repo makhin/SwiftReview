@@ -26,7 +26,7 @@ public interface IORPStore
 }
 
 public sealed record MessageSourceDto(long MessageId, string ExternalId, string MessageType, int BranchId,
-    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver, MessageDirection? Direction);
+    IReadOnlyList<int> DepartmentIds, DateTimeOffset ReceivedAt, string Sender, string Receiver, MessageDirection? Direction);
 
 public interface IMessageQueries
 {
@@ -44,7 +44,7 @@ public interface IUserAccessService
 
 public interface IAssignmentCandidateQueries
 {
-    Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId, int departmentId,
+    Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId, IReadOnlyList<int> departmentIds,
         int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId, int? currentAssigneeId,
         CancellationToken cancellationToken);
 }
@@ -54,7 +54,7 @@ public sealed class ConcurrentUpdateException(string message, Exception innerExc
 
 public interface IWorkflowResolver
 {
-    Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, int departmentId, int branchId,
+    Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, IReadOnlyList<int> departmentIds, int branchId,
         CancellationToken cancellationToken);
 }
 

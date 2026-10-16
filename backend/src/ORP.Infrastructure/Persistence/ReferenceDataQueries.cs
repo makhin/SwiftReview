@@ -8,12 +8,13 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
 {
     public async Task<IReadOnlyList<WorkflowSummaryDto>> GetWorkflowsAsync(UserAccess access, CancellationToken ct)
     {
-        var workflows = await db.WorkflowDefinitions.AsNoTracking().Include(x => x.Steps)
+        var workflows = await db.WorkflowDefinitions.AsNoTracking().Include(x => x.Steps).Include(x => x.Departments)
             .Where(x => access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
-                role.DepartmentId == x.DepartmentId && (x.BranchId == null || role.BranchId == x.BranchId) &&
+                x.Departments.Any(d => d.DepartmentId == role.DepartmentId) &&
+                (x.BranchId == null || role.BranchId == x.BranchId) &&
                 role.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
             .OrderBy(x => x.MessageType).ToListAsync(ct);
-        return workflows.Select(x => new WorkflowSummaryDto(x.Id, x.Name, x.MessageType, x.DepartmentId, x.BranchId, x.IsActive,
+        return workflows.Select(x => new WorkflowSummaryDto(x.Id, x.Name, x.MessageType, x.DepartmentIds, x.BranchId, x.IsActive,
             x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList(), x.Direction)).ToList();
     }
 

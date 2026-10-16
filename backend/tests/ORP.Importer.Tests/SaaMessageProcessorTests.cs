@@ -14,7 +14,7 @@ public sealed class SaaMessageProcessorTests
         var processor = Processor(defaultDirection: fallback);
         var result = processor.Process(new SaaMessageParser().ParseFile(file.Path));
         Assert.Equal(fallback, result.Direction);
-        Assert.Equal(7, result.DepartmentId);
+        Assert.Equal([7], result.DepartmentIds);
         Assert.Null(result.Document.Header.Direction);
         file.Write();
         Assert.Equal(SaaMessageDirection.Incoming, processor.Process(new SaaMessageParser().ParseFile(file.Path)).Direction);
@@ -39,7 +39,7 @@ public sealed class SaaMessageProcessorTests
         var processor = Processor(new SaaDepartmentRuleResolver(new[] { rule }), SaaMessageDirection.Outgoing);
         var result = processor.Process(new SaaMessageParser().ParseFile(file.Path));
         Assert.Equal(SaaRoutingStatus.Matched, result.Status);
-        Assert.Equal(7, result.DepartmentId);
+        Assert.Equal([7], result.DepartmentIds);
         Assert.Null(result.Document.Header.Direction);
     }
 
@@ -59,7 +59,7 @@ public sealed class SaaMessageProcessorTests
         Assert.Equal(SaaRoutingStatus.Matched, result.Status);
         Assert.Equal("mt199", result.MessageType);
         Assert.Equal(3, result.BranchId);
-        Assert.Equal(7, result.DepartmentId);
+        Assert.Equal([7], result.DepartmentIds);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class SaaMessageProcessorTests
         var result = Processor(new SaaDepartmentRuleResolver(new[] { ImportTestFile.Rule("MT199") }))
             .Process(new SaaMessageParser().ParseFile(file.Path));
         Assert.Equal(SaaRoutingStatus.NoDepartmentRule, result.Status);
-        Assert.Null(result.DepartmentId);
+        Assert.Empty(result.DepartmentIds);
     }
 
     [Theory]
@@ -89,7 +89,7 @@ public sealed class SaaMessageProcessorTests
     }
 
     [Fact]
-    public void ReportsAmbiguousRulesWithFileContext()
+    public void RoutesOverlappingRulesToBothDepartments()
     {
         using var file = new ImportTestFile();
         file.Write();
@@ -97,9 +97,7 @@ public sealed class SaaMessageProcessorTests
         other.Id = 2;
         other.DepartmentId = 8;
         var processor = Processor(new SaaDepartmentRuleResolver(new[] { ImportTestFile.Rule("MT199"), other }));
-        var error = Assert.Throws<SaaMessageFormatException>(() => processor.Process(new SaaMessageParser().ParseFile(file.Path)));
-        Assert.Equal(file.Path, error.FilePath);
-        Assert.Contains("disagree", error.Message);
+        Assert.Equal([7, 8], processor.Process(new SaaMessageParser().ParseFile(file.Path)).DepartmentIds);
     }
 
     internal static SaaMessageProcessor Processor(ISaaMessageDepartmentResolver? departments = null,
@@ -117,7 +115,7 @@ public sealed class SaaMessageProcessorTests
         public SaaDepartmentResolution? Resolve(int branchId, string messageType, SaaMessageDirection direction)
         {
             Calls++;
-            return new SaaDepartmentResolution(7, new[] { 1 });
+            return new SaaDepartmentResolution([7], new[] { 1 });
         }
     }
 }

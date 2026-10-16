@@ -30,11 +30,16 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
                 throw new DomainRuleViolationException("Message direction is required to change workflow.");
             if (workflow.Direction != access.Source.Direction)
                 throw new DomainRuleViolationException("The selected workflow direction must match the message direction.");
+            if (!workflow.DepartmentIds.SequenceEqual(access.Source.DepartmentIds.Order()))
+                throw new DomainRuleViolationException("The selected workflow must cover exactly the message departments.");
             if (workflow.Steps.Any(step => step.ReviewLevel > 2))
             {
-                var department = await store.FindDepartmentNameAsync(access.Source.DepartmentId, ct)
-                    ?? throw new ResourceNotFoundException("Message department was not found.");
-                if (department.Equals("CS", StringComparison.OrdinalIgnoreCase) || department.Equals("TFO", StringComparison.OrdinalIgnoreCase))
+                var names = new List<string?>();
+                foreach (var id in access.Source.DepartmentIds)
+                    names.Add(await store.FindDepartmentNameAsync(id, ct));
+                if (names.Any(name => name is null)) throw new ResourceNotFoundException("Message department was not found.");
+                if (names.Any(name => name!.Equals("CS", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("TFO", StringComparison.OrdinalIgnoreCase)))
                     throw new DomainRuleViolationException("CS and TFO messages cannot use a workflow with review level 3.");
             }
             var reviews = access.Reviews;

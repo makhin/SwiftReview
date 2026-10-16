@@ -17,12 +17,12 @@ internal static partial class ImporterLog
     public static partial void BranchResolutionFailed(ILogger logger, string filePath, string branch, string reason);
 
     [LoggerMessage(EventId = 3003, EventName = "DepartmentResolutionFailed", Level = LogLevel.Warning,
-        Message = "Department rules could not resolve DepartmentId for SAA file {FilePath}: {Reason}")]
+        Message = "Department rules could not resolve departments for SAA file {FilePath}: {Reason}")]
     public static partial void DepartmentResolutionFailed(ILogger logger, string filePath, string reason);
 
     [LoggerMessage(EventId = 3009, EventName = "DepartmentResolved", Level = LogLevel.Information,
-        Message = "Resolved DepartmentId {DepartmentId} for SAA file {FilePath} using rules {RuleIds}; branch {BranchId}, type {MessageType}, direction {Direction}")]
-    public static partial void DepartmentResolved(ILogger logger, string filePath, int departmentId, string ruleIds,
+        Message = "Resolved departments {DepartmentIds} for SAA file {FilePath} using rules {RuleIds}; branch {BranchId}, type {MessageType}, direction {Direction}")]
+    public static partial void DepartmentResolved(ILogger logger, string filePath, string departmentIds, string ruleIds,
         int branchId, string messageType, SaaMessageDirection direction);
 
     [LoggerMessage(EventId = 3010, EventName = "DepartmentRuleNotMatched", Level = LogLevel.Information,

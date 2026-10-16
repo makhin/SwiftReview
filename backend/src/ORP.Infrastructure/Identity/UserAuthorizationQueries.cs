@@ -16,17 +16,20 @@ public sealed class UserAuthorizationQueries(ORPDbContext db) : IUserAuthorizati
     public Task<UserIdentity?> GetIdentityAsync(string userName, CancellationToken ct) =>
         Identities(db.Users.Where(u => u.UserName == userName)).SingleOrDefaultAsync(ct);
 
-    public Task<UserPermissionCheck?> CheckAsync(int userId, int branchId, int departmentId, string permission, CancellationToken ct) =>
+    public Task<UserPermissionCheck?> CheckAsync(int userId, int branchId, IReadOnlyList<int> departmentIds, string permission, CancellationToken ct) =>
         db.Users.AsNoTracking().Where(u => u.Id == userId)
             .Select(u => new UserPermissionCheck(u.IsGlobalAdministrator,
-                db.UserRoles.Any(r => r.UserId == u.Id && r.BranchId == branchId && r.DepartmentId == departmentId &&
+                db.UserRoles.Any(r => r.UserId == u.Id && r.BranchId == branchId && departmentIds.Contains(r.DepartmentId) &&
                     r.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)),
-                db.UserRoles.Any(r => r.UserId == u.Id && r.BranchId == branchId && r.DepartmentId == departmentId &&
+                db.UserRoles.Any(r => r.UserId == u.Id && r.BranchId == branchId && departmentIds.Contains(r.DepartmentId) &&
+                    db.UserRoles.Any(view => view.UserId == u.Id && view.BranchId == branchId &&
+                        view.DepartmentId == r.DepartmentId &&
+                        view.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)) &&
                     r.Role.Permissions.Any(p => p.Permission.Name == permission))))
             .SingleOrDefaultAsync(ct);
 
     public Task<bool> CanAccessWorkflowAsync(int userId, int workflowId, CancellationToken ct) =>
         db.WorkflowDefinitions.AnyAsync(w => w.Id == workflowId && db.UserRoles.Any(r => r.UserId == userId &&
-            r.DepartmentId == w.DepartmentId && (w.BranchId == null || r.BranchId == w.BranchId) &&
+            w.Departments.Any(d => d.DepartmentId == r.DepartmentId) && (w.BranchId == null || r.BranchId == w.BranchId) &&
             r.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)), ct);
 }

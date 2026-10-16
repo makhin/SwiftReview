@@ -12,6 +12,8 @@ public static class MessageGridOptions
             throw new FormatException("page must be positive, pageSize must be between 1 and 500, and the page offset must fit Int32.");
         if (request.AssignmentScope is not (null or MessageAssignmentScopes.Mine or MessageAssignmentScopes.Departments or MessageAssignmentScopes.Assignable))
             throw new FormatException("Unsupported message assignment scope.");
+        if (request.Departments is { Count: > 100 } || request.Departments?.Any(id => id <= 0) == true)
+            throw new FormatException("departments must contain at most 100 positive IDs.");
         var filters = new List<GridFilter>();
         void Add(string field, string op, object value) => filters.Add(Condition(field, op, value));
         if (!string.IsNullOrWhiteSpace(request.Status)) Add("state", "eq", request.Status.Trim());

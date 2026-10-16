@@ -17,7 +17,7 @@ public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries q
             ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
         var source = access.Source;
         var reviews = access.Reviews;
-        return await queries.GetEligibleAsync(source.BranchId, source.DepartmentId, reviewLevel,
+        return await queries.GetEligibleAsync(source.BranchId, source.DepartmentIds, reviewLevel,
             ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId,
             cancellationToken);
     }

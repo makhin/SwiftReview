@@ -20,10 +20,10 @@ public sealed record CurrentUserResponse(int UserId, string UserName, string Dis
     IReadOnlyList<int> Branches, IReadOnlyList<int> Departments, bool IsGlobalAdministrator,
     IReadOnlyList<UserScopeAccess> Scopes);
 
-public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
+public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, IReadOnlyList<int> DepartmentIds,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
     string? Body, MessageDirection? Direction);
-public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, int DepartmentId,
+public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, IReadOnlyList<int> DepartmentIds,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
     int? ActiveReviewLevel, int? ActiveReviewerId, MessageDirection? Direction);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
@@ -48,13 +48,13 @@ public sealed record DashboardSummaryDto(int TotalMessages, int Unassigned, int 
 public sealed record AuditActorDto(int UserId, string UserName, string DisplayName);
 public sealed record AuditEventDetailsDto(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
     int? AssigneeId = null, long? ReviewId = null, int? ReviewLevel = null, string? Comment = null,
-    int? PreviousBranchId = null, int? BranchId = null, int? PreviousDepartmentId = null,
-    int? DepartmentId = null, int? PreviousWorkflowDefinitionId = null);
+    int? PreviousBranchId = null, int? BranchId = null, IReadOnlyList<int>? PreviousDepartmentIds = null,
+    IReadOnlyList<int>? DepartmentIds = null, int? PreviousWorkflowDefinitionId = null);
 public sealed record AuditEventDto(long Id, AuditEventType EventType, DateTimeOffset Timestamp,
     string? OldState, string? NewState, AuditActorDto? Actor,
     AuditEventDetailsDto Details, string CorrelationId);
 public sealed record WorkflowStepDto(int Order, int ReviewLevel, bool Required);
-public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType, int DepartmentId, int? BranchId,
+public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType, IReadOnlyList<int> DepartmentIds, int? BranchId,
     bool IsActive, IReadOnlyList<WorkflowStepDto> Steps, MessageDirection Direction);
 public sealed record UserSummaryDto(int Id, string UserName, string DisplayName, IReadOnlyList<int> BranchIds,
     IReadOnlyList<int> DepartmentIds);

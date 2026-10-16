@@ -53,9 +53,9 @@ public sealed class ImporterLoggingTests
             var branches = new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) });
             var document = new SaaMessageParser().ParseFile(path);
             var processor = new SaaMessageProcessor(departments, branches, logger);
-            Assert.Equal(7, processor.Process(document).DepartmentId);
+            Assert.Equal(7, processor.Process(document).DepartmentIds.Single());
             var resolved = logger.Entries.Single(entry => entry.Event.Id == 3009);
-            Assert.Equal(7, resolved.Properties["DepartmentId"]);
+            Assert.Equal("7", resolved.Properties["DepartmentIds"]);
             Assert.Equal("12", resolved.Properties["RuleIds"]);
             Assert.Equal(3, resolved.Properties["BranchId"]);
             Assert.Equal("MXpain.001.001.09", resolved.Properties["MessageType"]);

@@ -11,7 +11,7 @@ internal sealed class MessageReadRow
     public MessageDirection? Direction { get; init; }
     public string MessageType { get; init; } = null!;
     public int BranchId { get; init; }
-    public int DepartmentId { get; init; }
+    public int[] DepartmentIds { get; init; } = [];
     public Domain.Messages.MessageState State { get; init; }
     public int WorkflowDefinitionId { get; init; }
     public DateTimeOffset ReceivedAt { get; init; }
@@ -33,12 +33,13 @@ internal static class MessageReadModels
     public static IQueryable<MessageReadRow> ReadAccessibleMessages(this ORPDbContext db, int userId,
         string permission = Domain.Identity.Permissions.MessageView) => db.ReadMessages().Where(message =>
         db.Users.Any(user => user.Id == userId && user.IsGlobalAdministrator) ||
-        (db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
-            role.DepartmentId == message.DepartmentId && role.Role.Permissions.Any(grant =>
-                grant.Permission.Name == Domain.Identity.Permissions.MessageView)) &&
         db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
-            role.DepartmentId == message.DepartmentId && role.Role.Permissions.Any(grant =>
-                grant.Permission.Name == permission))));
+            db.MessageDepartments.Any(department => department.MessageId == message.Id &&
+                department.DepartmentId == role.DepartmentId) &&
+            db.UserRoles.Any(view => view.UserId == userId && view.BranchId == message.BranchId &&
+                view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
+                    grant.Permission.Name == Domain.Identity.Permissions.MessageView)) &&
+            role.Role.Permissions.Any(grant => grant.Permission.Name == permission)));
 
     public static IQueryable<MessageReadRow> ReadMessages(this ORPDbContext db) =>
         from message in db.Messages.AsNoTracking()
@@ -53,7 +54,7 @@ internal static class MessageReadModels
             MessageType = source.MessageType!,
             Direction = source.Direction,
             BranchId = message.BranchId!.Value,
-            DepartmentId = message.DepartmentId!.Value,
+            DepartmentIds = message.Departments.OrderBy(x => x.DepartmentId).Select(x => x.DepartmentId).ToArray(),
             State = message.State,
             WorkflowDefinitionId = message.WorkflowDefinitionId,
             ReceivedAt = message.ReceivedAt!.Value,

@@ -36,7 +36,7 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQuer
             var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
                 ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
             var source = access.Source;
-            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, source.DepartmentId,
+            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, source.DepartmentIds,
                 ReviewAssignmentRules.PermissionForLevel(reviewLevel), ct)
                 ?? throw new ResourceNotFoundException("Assignee was not found.");
             var reviews = access.Reviews;

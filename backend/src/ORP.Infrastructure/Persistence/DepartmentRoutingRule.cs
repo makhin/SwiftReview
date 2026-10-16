@@ -8,7 +8,6 @@ public sealed class DepartmentRoutingRule
     public int Direction { get; set; }
     public int MatchKind { get; set; }
     public string MessageTypePattern { get; set; } = null!;
-    public int Priority { get; set; }
     public bool IsActive { get; set; }
     public string SourceFile { get; set; } = null!;
     public string SourceSheet { get; set; } = null!;

@@ -20,6 +20,6 @@ public sealed class DepartmentRoutingRuleConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.MessageTypePattern).HasMaxLength(100).IsRequired();
         builder.Property(x => x.SourceFile).HasMaxLength(255).IsRequired();
         builder.Property(x => x.SourceSheet).HasMaxLength(100).IsRequired();
-        builder.HasIndex(x => new { x.Direction, x.BranchId, x.Priority });
+        builder.HasIndex(x => new { x.Direction, x.BranchId });
     }
 }

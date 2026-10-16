@@ -11,10 +11,12 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbContext(options)
 {
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageDepartment> MessageDepartments => Set<MessageDepartment>();
     public DbSet<SwiftMessageRecord> SwiftMessages => Set<SwiftMessageRecord>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
+    public DbSet<WorkflowDepartment> WorkflowDepartments => Set<WorkflowDepartment>();
     public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();

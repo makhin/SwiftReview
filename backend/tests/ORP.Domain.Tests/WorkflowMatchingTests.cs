@@ -82,6 +82,19 @@ public sealed class WorkflowMatchingTests
         Assert.Equal(2, Select([Workflow(pattern), Workflow(pattern)], type).Length);
     }
 
+    [Fact]
+    public void RequiresTheExactDepartmentSet()
+    {
+        var single = Workflow("MT450");
+        var joint = new WorkflowDefinition(MessageDirection.Incoming, "Joint", "MT450", [7, 8]).AddStep(1, 1);
+        Assert.Same(joint, Assert.Single(WorkflowMatching.GetPreferred([single, joint], "MT450",
+            MessageDirection.Incoming, [8, 7], 3)));
+        Assert.Same(single, Assert.Single(WorkflowMatching.GetPreferred([single, joint], "MT450",
+            MessageDirection.Incoming, [7], 3)));
+        Assert.Empty(WorkflowMatching.GetPreferred([single, joint], "MT450",
+            MessageDirection.Incoming, [7, 9], 3));
+    }
+
     private static WorkflowDefinition[] Select(WorkflowDefinition[] workflows, string type) =>
         WorkflowMatching.GetPreferred(workflows, type, MessageDirection.Incoming, 7, 3);
 

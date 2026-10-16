@@ -17,10 +17,11 @@ public static class WorkflowMatching
     // Selection returns every equally preferred candidate; callers reject ambiguity
     // and validate the selected workflow's review steps in their own error vocabulary.
     public static WorkflowDefinition[] GetPreferred(IEnumerable<WorkflowDefinition> candidates,
-        string messageType, MessageDirection direction, int departmentId, int branchId)
+        string messageType, MessageDirection direction, IReadOnlyCollection<int> departmentIds, int branchId)
     {
+        var requested = departmentIds.Order().ToArray();
         var matches = candidates.Where(candidate => candidate.IsActive &&
-            candidate.Direction == direction && candidate.DepartmentId == departmentId &&
+            candidate.Direction == direction && candidate.DepartmentIds.SequenceEqual(requested) &&
             (candidate.BranchId is null || candidate.BranchId == branchId) &&
             Matches(candidate.MessageType, messageType)).ToArray();
         var scoped = matches.Where(candidate => candidate.BranchId == branchId).ToArray();
@@ -29,6 +30,10 @@ public static class WorkflowMatching
             string.Equals(candidate.MessageType, messageType, StringComparison.OrdinalIgnoreCase)).ToArray();
         return exact.Length > 0 ? exact : preferred;
     }
+
+    public static WorkflowDefinition[] GetPreferred(IEnumerable<WorkflowDefinition> candidates,
+        string messageType, MessageDirection direction, int departmentId, int branchId) =>
+        GetPreferred(candidates, messageType, direction, [departmentId], branchId);
 
     private static bool Matches(string pattern, string messageType)
     {

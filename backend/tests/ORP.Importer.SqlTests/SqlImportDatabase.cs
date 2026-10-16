@@ -52,7 +52,7 @@ internal sealed class SqlImportDatabase : IAsyncDisposable
             db.DepartmentRoutingRules.Add(new DepartmentRoutingRule
             {
                 DepartmentId = department.Id, Direction = 1, MatchKind = 1, MessageTypePattern = "MT199",
-                IsActive = true, Priority = 100, SourceFile = "test", SourceSheet = "rules", SourceRow = 1
+                IsActive = true, SourceFile = "test", SourceSheet = "rules", SourceRow = 1
             });
             await db.SaveChangesAsync();
             var catalog = new SaaRoutingCatalog(fixture.ConnectionString);

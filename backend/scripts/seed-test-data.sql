@@ -48,11 +48,13 @@ BEGIN TRY
     DELETE FROM [orp].[AccessAuditEvents];
     DELETE FROM [orp].[Reviews];
     DELETE FROM [orp].[Assignments];
+    DELETE FROM [orp].[MessageDepartments];
     DELETE FROM [orp].[Messages];
     DELETE FROM [orp].[SwiftMessages];
     IF OBJECT_ID(N'orp.IgnoredImportFiles', N'U') IS NOT NULL
         DELETE FROM [orp].[IgnoredImportFiles];
     DELETE FROM [orp].[WorkflowSteps];
+    DELETE FROM [orp].[WorkflowDepartments];
     DELETE FROM [orp].[WorkflowDefinitions];
     DELETE FROM [orp].[UserRoles];
     IF OBJECT_ID(N'orp.DepartmentRoutingRules', N'U') IS NOT NULL
@@ -123,21 +125,26 @@ BEGIN TRY
         (3,N'MT299',N'Outgoing confirmation - no undo',N'TFO',1,@Outgoing,
             @UndoDisabled,@AnyAuthorizedUser,@BlockActiveReview);
     INSERT INTO [orp].[WorkflowDefinitions]
-        ([Name],[MessageType],[DepartmentId],[BranchId],[IsActive],[Direction],
+        ([Name],[MessageType],[BranchId],[IsActive],[Direction],
          [UndoApprovalMode],[UndoActorMode],[UndoActiveReviewMode])
-    SELECT v.[Name],v.[MessageType],d.[Id],NULL,1,v.[Direction],
-        v.[UndoApprovalMode],v.[UndoActorMode],v.[UndoActiveReviewMode] FROM @workflows v
-    JOIN [orp].[Departments] d ON d.[Name]=v.[DepartmentName];
+    SELECT v.[Name],v.[MessageType],NULL,1,v.[Direction],
+        v.[UndoApprovalMode],v.[UndoActorMode],v.[UndoActiveReviewMode] FROM @workflows v;
+    INSERT INTO [orp].[WorkflowDepartments] ([WorkflowDefinitionId],[DepartmentId])
+    SELECT w.[Id],d.[Id] FROM @workflows v
+    JOIN [orp].[Departments] d ON d.[Name]=v.[DepartmentName]
+    JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=v.[MessageType] AND w.[Direction]=v.[Direction];
     INSERT INTO [orp].[WorkflowSteps] ([WorkflowDefinitionId],[Order],[ReviewLevel],[Required])
     SELECT w.[Id],level.[Value],level.[Value],1 FROM @workflows v
     JOIN [orp].[Departments] d ON d.[Name]=v.[DepartmentName]
-    JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=v.[MessageType] AND w.[Direction]=v.[Direction] AND w.[DepartmentId]=d.[Id]
+    JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=v.[MessageType] AND w.[Direction]=v.[Direction]
+    JOIN [orp].[WorkflowDepartments] wd ON wd.[WorkflowDefinitionId]=w.[Id] AND wd.[DepartmentId]=d.[Id]
     JOIN (VALUES (1),(2),(3)) level([Value]) ON level.[Value]<=v.[Levels];
 
     IF EXISTS (
         SELECT 1 FROM [orp].[WorkflowSteps] step
         JOIN [orp].[WorkflowDefinitions] workflow ON workflow.[Id]=step.[WorkflowDefinitionId]
-        JOIN [orp].[Departments] department ON department.[Id]=workflow.[DepartmentId]
+        JOIN [orp].[WorkflowDepartments] wd ON wd.[WorkflowDefinitionId]=workflow.[Id]
+        JOIN [orp].[Departments] department ON department.[Id]=wd.[DepartmentId]
         WHERE department.[Name] IN (N'CS',N'TFO') AND step.[ReviewLevel]>2
     ) THROW 50001, 'CS and TFO workflows may not use review level 3.', 1;
 
@@ -165,12 +172,15 @@ BEGIN TRY
         CHAR(10),N':79:SYNTHETIC TEST MESSAGE - ',v.[Name],CHAR(10),N'-}')) body([Value]);
 
     INSERT INTO [orp].[Messages]
-        ([MessageId],[State],[CurrentAssigneeId],[WorkflowDefinitionId],[BranchId],[DepartmentId],[ReceivedAt])
-    SELECT s.[MessageId],N'New',NULL,w.[Id],b.[Id],w.[DepartmentId],TODATETIMEOFFSET(s.[Time], '+00:00')
+        ([MessageId],[State],[CurrentAssigneeId],[WorkflowDefinitionId],[BranchId],[ReceivedAt])
+    SELECT s.[MessageId],N'New',NULL,w.[Id],b.[Id],TODATETIMEOFFSET(s.[Time], '+00:00')
     FROM [orp].[SwiftMessages] s
     JOIN [orp].[Branches] b ON b.[Name]=s.[Branch]
     JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=s.[MessageType]
         AND w.[Direction]=s.[Direction] AND w.[IsActive]=1 AND w.[BranchId] IS NULL;
+    INSERT INTO [orp].[MessageDepartments] ([MessageId],[DepartmentId])
+    SELECT m.[MessageId],wd.[DepartmentId] FROM [orp].[Messages] m
+    JOIN [orp].[WorkflowDepartments] wd ON wd.[WorkflowDefinitionId]=m.[WorkflowDefinitionId];
 
     -- 6. Initial audit trail; later decisions are recorded by the application.
     INSERT INTO [orp].[AuditEvents]
@@ -192,7 +202,8 @@ BEGIN TRY
         CASE v.[UndoActiveReviewMode] WHEN 0 THEN N'Block undo' ELSE N'Cancel the active next review' END AS [DuringActiveReview]
     FROM @workflows v
     JOIN [orp].[Departments] d ON d.[Name]=v.[DepartmentName]
-    JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=v.[MessageType] AND w.[Direction]=v.[Direction] AND w.[DepartmentId]=d.[Id]
+    JOIN [orp].[WorkflowDefinitions] w ON w.[MessageType]=v.[MessageType] AND w.[Direction]=v.[Direction]
+    JOIN [orp].[WorkflowDepartments] wd ON wd.[WorkflowDefinitionId]=w.[Id] AND wd.[DepartmentId]=d.[Id]
     ORDER BY v.[Ordinal];
 
     SELECT [UserName],[DisplayName],[RoleName] AS [Role],

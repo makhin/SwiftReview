@@ -16,10 +16,23 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.ToTable("Messages"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).HasColumnName("MessageId").ValueGeneratedNever();
         builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.Ignore(x => x.DepartmentIds);
+        builder.HasMany(x => x.Departments).WithOne().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(x => x.Departments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasOne<SwiftMessageRecord>().WithOne().HasForeignKey<Message>(x => x.Id).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CurrentAssigneeId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class MessageDepartmentConfiguration : IEntityTypeConfiguration<MessageDepartment>
+{
+    public void Configure(EntityTypeBuilder<MessageDepartment> builder)
+    {
+        builder.ToTable("MessageDepartments");
+        builder.HasKey(x => new { x.MessageId, x.DepartmentId });
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.DepartmentId);
     }
 }
 
