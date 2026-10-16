@@ -84,6 +84,17 @@ workflows remain an error, as does the absence of a match. The importer and appl
 workflow resolver share this selection logic; review-step validation remains required.
 Existing Workflow data is unchanged; patterns can be configured separately without a migration.
 
+For testing the additional sample types outside the approved matrix, optionally run
+`scripts/seed-dummy-import-rules.sql` after the approved routing seed. This manual,
+transactional script adds eight branch/type combinations in both directions with
+temporary CS routing at priority -100 and source `dummy-import-testing-2026-10-16`.
+It also adds missing CS workflows with two required reviews, including Incoming
+`MXcamt.055.001.08` for London. Existing matching active workflows are reused;
+their steps and settings are preserved. Directory entries must already exist and
+must be unambiguous. Rerunning the script adds no duplicates. These are dummy test
+assignments, not approved Department rules; the script is not run by migrations or startup.
+Run the importer with `--retry-ignored` after applying it to reconsider cached ignored files.
+
 Each file must begin with the import metadata line
 `Branch:...|MessageType:...|Reference#:...|DIRECTION:...|SENDER:...|RECEIVER:...|Host:...|Time:...`,
 followed by the SAA print timestamp and separator. Raw SAA print reports starting directly

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><IsTestProject>true</IsTestProject><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup>
+    <None Include="../../scripts/seed-dummy-import-rules.sql" Link="Fixtures/seed-dummy-import-rules.sql" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/ORP.Infrastructure/ORP.Infrastructure.csproj" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
