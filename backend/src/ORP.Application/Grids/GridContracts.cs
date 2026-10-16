@@ -57,7 +57,7 @@ public sealed class MessageGridRowDto
     public required int BranchId { get; init; }
     public required string BranchName { get; init; }
     public required int[] DepartmentIds { get; init; }
-    public required string[] DepartmentNames { get; init; }
+    public required string DepartmentNames { get; init; }
     public required MessageState State { get; init; }
     public string StateName => MessageStates.GetName(State);
     public required DateTimeOffset ReceivedAt { get; init; }

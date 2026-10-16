@@ -26,7 +26,7 @@ public sealed record MessageDetailsDto(long Id, string ExternalId, string Messag
     string? Body, MessageDirection? Direction)
 {
     public string BranchName { get; init; } = string.Empty;
-    public IReadOnlyList<string> DepartmentNames { get; init; } = [];
+    public string DepartmentNames { get; init; } = string.Empty;
     public string? CurrentAssigneeName { get; init; }
     public string StateName => MessageStates.GetName(State);
 }
@@ -35,7 +35,7 @@ public sealed record MessageListItemDto(long Id, string ExternalId, string Messa
     int? ActiveReviewLevel, int? ActiveReviewerId, MessageDirection? Direction)
 {
     public string BranchName { get; init; } = string.Empty;
-    public IReadOnlyList<string> DepartmentNames { get; init; } = [];
+    public string DepartmentNames { get; init; } = string.Empty;
     public string? CurrentAssigneeName { get; init; }
     public string? ActiveReviewerName { get; init; }
     public string StateName => MessageStates.GetName(State);

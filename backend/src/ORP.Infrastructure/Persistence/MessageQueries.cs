@@ -25,7 +25,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction)
         {
             BranchName = x.BranchName,
-            DepartmentNames = x.DepartmentNames,
+            DepartmentNames = string.Join(", ", x.DepartmentNames),
             CurrentAssigneeName = x.CurrentAssigneeName
         };
     }
@@ -50,7 +50,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             x.ActiveReviewerId, x.Direction)
             {
                 BranchName = x.BranchName,
-                DepartmentNames = x.DepartmentNames,
+                DepartmentNames = string.Join(", ", x.DepartmentNames),
                 CurrentAssigneeName = x.CurrentAssigneeName,
                 ActiveReviewerName = x.ActiveReviewerName
             }).ToListAsync(ct);

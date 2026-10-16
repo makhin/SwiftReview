@@ -36,7 +36,7 @@ public sealed class MessageNamesSqlTests
         var unassigned = Assert.Single((await gridQueries.LoadAsync(new(), access, ct)).Items);
         Assert.Equal("Paris", unassigned.BranchName);
         Assert.Equal([department.Id, extraDepartment.Id], unassigned.DepartmentIds);
-        Assert.Equal(["CS", "Accounting"], unassigned.DepartmentNames);
+        Assert.Equal("CS, Accounting", unassigned.DepartmentNames);
         Assert.Equal(workflow.Name, unassigned.WorkflowDefinitionName);
         Assert.Null(unassigned.CurrentAssigneeName);
         Assert.Null(unassigned.ActiveReviewerName);

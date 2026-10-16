@@ -54,7 +54,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 Direction = x.Direction,
                 BranchId = x.BranchId,
                 BranchName = x.BranchName,
-                DepartmentNames = x.DepartmentNames,
+                DepartmentNames = string.Join(", ", x.DepartmentNames),
                 CurrentAssigneeName = x.CurrentAssigneeName,
                 ActiveReviewerName = x.ActiveReviewerName,
                 WorkflowDefinitionName = x.WorkflowDefinitionName,
