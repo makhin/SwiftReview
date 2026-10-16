@@ -143,12 +143,8 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
             SaaMessageDirection.Outgoing => MessageDirection.Outgoing,
             _ => throw new FormatException("Message direction is required to select a workflow.")
         };
-        var matches = candidates.Where(candidate => candidate.IsActive && candidate.Direction == direction &&
-            candidate.DepartmentId == processed.DepartmentId &&
-            (candidate.BranchId == null || candidate.BranchId == processed.BranchId) &&
-            string.Equals(candidate.MessageType, processed.MessageType, StringComparison.OrdinalIgnoreCase)).ToArray();
-        var scoped = matches.Where(candidate => candidate.BranchId == processed.BranchId).ToArray();
-        var preferred = scoped.Length > 0 ? scoped : matches;
+        var preferred = WorkflowMatching.GetPreferred(candidates, processed.MessageType, direction,
+            processed.DepartmentId!.Value, processed.BranchId);
         if (preferred.Length != 1)
             throw new FormatException(preferred.Length == 0
                 ? "No active workflow matches the message type, direction, branch and department."

@@ -73,6 +73,17 @@ and MX families/versions with a four-letter name, three-digit message number and
 three-digit/two-digit version suffix. Invalid patterns, including unsupported wildcards,
 fail startup instead of causing unmatched messages to be ignored.
 
+Workflow selection also supports patterns in the existing `WorkflowDefinitions.MessageType`
+field: exact types (`MT450`, `MXpacs.008.001.08`), MT series (`MT4xx`, covering MT400–499),
+and MX families (`MXpacs.008`, matching that type and its versions). Matching is case-insensitive;
+versioned MX patterns match only that version. Other wildcard syntax is not supported.
+Active workflows must match the direction and Department. A matching branch-specific
+workflow takes precedence over a workflow for all branches; within that branch scope,
+an exact type takes precedence over a series or family. Multiple equally preferred
+workflows remain an error, as does the absence of a match. The importer and application
+workflow resolver share this selection logic; review-step validation remains required.
+Existing Workflow data is unchanged; patterns can be configured separately without a migration.
+
 Each file must begin with the import metadata line
 `Branch:...|MessageType:...|Reference#:...|DIRECTION:...|SENDER:...|RECEIVER:...|Host:...|Time:...`,
 followed by the SAA print timestamp and separator. Raw SAA print reports starting directly

@@ -8,6 +8,20 @@ namespace ORP.Importer.Tests;
 public sealed class SwiftMessageRegistrationTests
 {
     [Fact]
+    public void SelectsSeriesWorkflowAndPrefersAnExactOverride()
+    {
+        WithProcessed(result =>
+        {
+            var series = Workflow(type: "MT1xx");
+            Assert.Same(series, SqlSaaImportStore.SelectWorkflow([series], result, "CS"));
+            var exact = Workflow();
+            Assert.Same(exact, SqlSaaImportStore.SelectWorkflow([series, exact], result, "CS"));
+            Assert.Contains("Multiple", Assert.Throws<FormatException>(() =>
+                SqlSaaImportStore.SelectWorkflow([series, Workflow(type: "MT1xx")], result, "CS")).Message);
+        });
+    }
+
+    [Fact]
     public void PrefersBranchSpecificWorkflowOverTheGeneralWorkflow()
     {
         WithProcessed(result =>
