@@ -92,8 +92,8 @@ MT999 Frankfurt and pacs.008 Dubai share one two-confirmation cycle between CS a
 For MT999/pacs.008 London, CS processes and TFO only views. The runtime has no special
 case for these names: the rules and saved processing scope determine behavior.
 
-ViewOnly is separate from New and Completed. It contributes only to Total in the
-business dashboard and appears separately in technical state counts and filters.
+ViewOnly is separate from New and Completed. It contributes to Total and its own
+`viewOnly` count in the business dashboard, and appears separately in technical state counts and filters.
 Registration writes MessageRegistered with NewState=ViewOnly, not MessageCompleted.
 
 ## Applying configuration

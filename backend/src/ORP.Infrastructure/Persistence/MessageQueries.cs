@@ -68,7 +68,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
 
     public async Task<DashboardSummaryDto> DashboardAsync(UserAccess access, CancellationToken ct)
     {
-        if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0);
+        if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0, 0);
         var counts = await Accessible(access).CountByStateAsync(ct);
         return DashboardSummaryDto.FromStateCounts(counts);
     }

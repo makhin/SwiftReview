@@ -125,6 +125,8 @@ public sealed class WorkflowMatrixSqlTests
         var adminAccess = (await new UserAccessService(db).GetByIdAsync(admin.Id, ct))!;
         var summary = await new MessageQueries(db).DashboardAsync(adminAccess, ct);
         Assert.Equal(9, summary.TotalMessages);
+        Assert.Equal(2, summary.ViewOnly);
+        Assert.Equal(0, (await new MessageQueries(db).DashboardAsync(tfoAccess, ct)).ViewOnly);
         Assert.Equal(7, summary.Unassigned);
         Assert.Equal(0, summary.Completed);
         var states = await new MessageGridQueries(db).StateCountsAsync(adminAccess, ct);

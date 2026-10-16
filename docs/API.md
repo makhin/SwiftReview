@@ -84,8 +84,8 @@ supported. The frontend adapts its `CustomStore` requests to this contract.
 
 ### State counts
 
-`GET /api/messages/state-counts` returns every technical state, including zero
-counts, with a message-type breakdown:
+`GET /api/messages/state-counts` returns only technical states with a positive
+count, with `stateName` and a message-type breakdown:
 
 ```json
 {
@@ -96,8 +96,11 @@ counts, with a message-type breakdown:
 }
 ```
 
-The example shows one entry; the actual response includes all states. Counts
-cover accessible messages independently of grid filters and `assignmentScope`.
+An absent state means zero accessible messages in that state. No accessible messages
+returns `{ "items": [], "total": { "count": 0, "breakdown": [] } }`. Populated
+InProgress, Rejected and third-review states are included without special exclusions.
+Counts cover accessible messages independently of grid filters and `assignmentScope`.
+The full state catalog remains available from `/api/message-states`.
 
 ## Reviews
 
@@ -165,12 +168,23 @@ The following GET operations return 200 with their typed result:
 - `/api/dashboard/summary`
 - `/api/me`
 
-`GET /api/dashboard/summary` returns `totalMessages`, `unassigned` (`New`),
+`GET /api/dashboard/summary` returns `totalMessages`, `viewOnly` (`ViewOnly`), `unassigned` (`New`),
 `pendingFirstConfirmation` (`Assigned` and `FirstReviewInProgress`),
 `pendingSecondConfirmation` (`WaitingForSecondReview` and `SecondReviewInProgress`)
-and `completed` (`Completed`). ViewOnly, Rejected and third-review messages contribute only
-to `totalMessages`, so the other four counts need not sum to the total. These
-counts cover accessible messages before grid filters.
+and `completed` (`Completed`). All six fields are always returned, including zeros.
+Rejected and third-review messages contribute only to `totalMessages`, so the other
+five counts need not sum to the total. Counts cover accessible messages before grid filters.
+
+```json
+{
+  "totalMessages": 570,
+  "viewOnly": 46,
+  "unassigned": 524,
+  "pendingFirstConfirmation": 0,
+  "pendingSecondConfirmation": 0,
+  "completed": 0
+}
+```
 
 ### Workflow definitions
 
@@ -184,8 +198,8 @@ The matrix uses `VIEW_ONLY`, `SINGLE_CONFIRMATION` and `DOUBLE_CONFIRMATION`.
 
 `ViewOnly` is appended to `MessageState` (existing numeric values are unchanged).
 `/api/message-states` describes it with label `View only`, phase `ViewOnly` and no
-review level. Grid/search filters and state counts support it. No new business
-summary field is added. Frontend contract regeneration is a separate follow-up.
+review level. Grid/search filters and state counts support it. The business summary
+exposes its count as `viewOnly`. Frontend contract regeneration is a separate follow-up.
 
 ## Administration
 

@@ -57,11 +57,12 @@ public sealed record MessageFilter(IReadOnlyList<MessageState>? States, IReadOnl
     DateTimeOffset? DateTo);
 public sealed record MessageSearchRequest([property: Range(0, int.MaxValue)] int Skip,
     [property: Range(1, 500)] int Take, IReadOnlyList<SortClause>? Sort, MessageFilter? Filter);
-public sealed record DashboardSummaryDto(int TotalMessages, int Unassigned, int PendingFirstConfirmation,
+public sealed record DashboardSummaryDto(int TotalMessages, int ViewOnly, int Unassigned, int PendingFirstConfirmation,
     int PendingSecondConfirmation, int Completed)
 {
     public static DashboardSummaryDto FromStateCounts(IReadOnlyDictionary<MessageState, int> counts) => new(
         counts.Values.Sum(),
+        counts.GetValueOrDefault(MessageState.ViewOnly),
         counts.GetValueOrDefault(MessageState.New),
         counts.GetValueOrDefault(MessageState.Assigned) + counts.GetValueOrDefault(MessageState.FirstReviewInProgress),
         counts.GetValueOrDefault(MessageState.WaitingForSecondReview) + counts.GetValueOrDefault(MessageState.SecondReviewInProgress),

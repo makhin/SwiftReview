@@ -14,7 +14,7 @@ public sealed class MessageStateCountsTests
         var result = MessageStateCounts.FromTypeCounts([
             (MessageState.New, "M456", 15), (MessageState.Assigned, "M123", 3),
             (MessageState.New, "M123", 10), (MessageState.Completed, "M123", 7)]);
-        Assert.Equal(Enum.GetValues<MessageState>(), result.Items.Select(x => x.State));
+        Assert.Equal(new[] { MessageState.New, MessageState.Assigned, MessageState.Completed }, result.Items.Select(x => x.State));
         Assert.Equal(35, result.Total.Count);
         Assert.Equal(new[] { "M123", "M456" }, result.Total.Breakdown.Select(x => x.MessageType));
         Assert.Equal(new[] { 20, 15 }, result.Total.Breakdown.Select(x => x.Count));
@@ -28,21 +28,31 @@ public sealed class MessageStateCountsTests
         Assert.Equal(3, assigned.Count);
         Assert.Equal("M123", Assert.Single(assigned.Breakdown).MessageType);
         Assert.All(result.Items, x => Assert.Equal(x.Count, x.Breakdown.Sum(type => type.Count)));
-        Assert.All(result.Items.Where(x => x.State is not (MessageState.New or MessageState.Assigned or MessageState.Completed)), x =>
-        {
-            Assert.Equal(0, x.Count);
-            Assert.Empty(x.Breakdown);
-        });
+        Assert.All(result.Items, x => Assert.True(x.Count > 0));
     }
 
     [Fact]
-    public void NoAccessibleMessagesReturnsEveryStateWithZeroAndEmptyBreakdown()
+    public void NoAccessibleMessagesReturnsEmptyItemsAndZeroTotal()
     {
         var result = MessageStateCounts.FromTypeCounts([]);
-        Assert.Equal(Enum.GetValues<MessageState>(), result.Items.Select(x => x.State));
+        Assert.Empty(result.Items);
         Assert.Equal(0, result.Total.Count);
         Assert.Empty(result.Total.Breakdown);
-        Assert.All(result.Items, x => { Assert.Equal(0, x.Count); Assert.Empty(x.Breakdown); });
+    }
+
+    [Fact]
+    public void ZeroCountStatesAreOmittedWithoutExcludingAnyPopulatedState()
+    {
+        foreach (var state in Enum.GetValues<MessageState>())
+        {
+            var populated = MessageStateCounts.FromTypeCounts([(state, "MT999", 1)]);
+            Assert.Equal(state, Assert.Single(populated.Items).State);
+            Assert.Equal(1, populated.Total.Count);
+            var empty = MessageStateCounts.FromTypeCounts([(state, "MT999", 0)]);
+            Assert.Empty(empty.Items);
+            Assert.Equal(0, empty.Total.Count);
+            Assert.Empty(empty.Total.Breakdown);
+        }
     }
 
     [Fact]
@@ -74,12 +84,11 @@ public sealed class MessageStateCountsTests
         var row = items[0];
         Assert.Equal("New", row.GetProperty("state").GetString());
         Assert.Equal("New", row.GetProperty("stateName").GetString());
-        Assert.Equal("Waiting for second review", items[3].GetProperty("stateName").GetString());
+        Assert.Equal(1, items.GetArrayLength());
         Assert.Equal(25, row.GetProperty("count").GetInt32());
         Assert.Equal("M123", row.GetProperty("breakdown")[0].GetProperty("messageType").GetString());
         Assert.Equal(10, row.GetProperty("breakdown")[0].GetProperty("count").GetInt32());
         Assert.Equal("M456", row.GetProperty("breakdown")[1].GetProperty("messageType").GetString());
         Assert.Equal(15, row.GetProperty("breakdown")[1].GetProperty("count").GetInt32());
-        Assert.Equal(0, items[1].GetProperty("breakdown").GetArrayLength());
     }
 }

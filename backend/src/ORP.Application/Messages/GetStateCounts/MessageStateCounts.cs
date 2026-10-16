@@ -14,7 +14,7 @@ public static class MessageStateCounts
             var breakdown = byState[state].OrderBy(x => x.MessageType, StringComparer.Ordinal)
                 .Select(x => new MessageTypeCountDto(x.MessageType, x.Count)).ToArray();
             return new MessageStateCountDto(state, breakdown.Sum(x => x.Count), breakdown);
-        }).ToArray();
+        }).Where(item => item.Count > 0).ToArray();
         var breakdown = items.SelectMany(x => x.Breakdown)
             .GroupBy(x => x.MessageType, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal)

@@ -7,7 +7,7 @@ Display stage cards or badges using counts of messages accessible to the current
 Call these authenticated endpoints with the same user identity as the grid:
 
 - `GET /api/message-states` returns `{ code, label, description, reviewLevel, phase, assignedDescription }` for each state. Cache metadata for the current session. This endpoint requires message-view permission.
-- `GET /api/messages/state-counts` returns `{ items, total }`, where `items` contains `{ state, count, breakdown }` for every state, including zeros, and `total` contains `{ count, breakdown }`. `total.count` is the sum of all state counts; `total.breakdown` sums each message type across all states. Each state breakdown entry is `{ messageType, count }`; its counts sum to the state total. Reload counts when the component opens and after successful assignment, review, undo or workflow actions; refresh manually or periodically if other users can change messages.
+- `GET /api/messages/state-counts` returns `{ items, total }`, where `items` contains `{ state, stateName, count, breakdown }` only for states with a positive count, and `total` contains `{ count, breakdown }`. `total.count` is the sum of all state counts; `total.breakdown` sums each message type across all states. Each state breakdown entry is `{ messageType, count }`; its counts sum to the state total. Reload counts when the component opens and after successful assignment, review, undo or workflow actions; refresh manually or periodically if other users can change messages.
 
 For local Development, use `X-Debug-User: admin` or a reviewer username. Full schemas are available at `/openapi/v1.json` and `/scalar`.
 
@@ -20,20 +20,19 @@ Example counts response:
     "breakdown": [{"messageType": "M123", "count": 46}, {"messageType": "M456", "count": 15}]
   },
   "items": [
-    {"state": "New", "count": 25, "breakdown": [{"messageType": "M123", "count": 10}, {"messageType": "M456", "count": 15}]},
-    {"state": "Assigned", "count": 5, "breakdown": [{"messageType": "M123", "count": 5}]},
-    {"state": "FirstReviewInProgress", "count": 2, "breakdown": [{"messageType": "M123", "count": 2}]},
-    {"state": "WaitingForSecondReview", "count": 4, "breakdown": [{"messageType": "M123", "count": 4}]},
-    {"state": "SecondReviewInProgress", "count": 1, "breakdown": [{"messageType": "M123", "count": 1}]},
-    {"state": "WaitingForThirdReview", "count": 3, "breakdown": [{"messageType": "M123", "count": 3}]},
-    {"state": "ThirdReviewInProgress", "count": 0, "breakdown": []},
-    {"state": "Completed", "count": 20, "breakdown": [{"messageType": "M123", "count": 20}]},
-    {"state": "Rejected", "count": 1, "breakdown": [{"messageType": "M123", "count": 1}]}
+    {"state": "New", "stateName": "New", "count": 25, "breakdown": [{"messageType": "M123", "count": 10}, {"messageType": "M456", "count": 15}]},
+    {"state": "Assigned", "stateName": "Assigned", "count": 5, "breakdown": [{"messageType": "M123", "count": 5}]},
+    {"state": "FirstReviewInProgress", "stateName": "First review in progress", "count": 2, "breakdown": [{"messageType": "M123", "count": 2}]},
+    {"state": "WaitingForSecondReview", "stateName": "Waiting for second review", "count": 4, "breakdown": [{"messageType": "M123", "count": 4}]},
+    {"state": "SecondReviewInProgress", "stateName": "Second review in progress", "count": 1, "breakdown": [{"messageType": "M123", "count": 1}]},
+    {"state": "WaitingForThirdReview", "stateName": "Waiting for third review", "count": 3, "breakdown": [{"messageType": "M123", "count": 3}]},
+    {"state": "Completed", "stateName": "Completed", "count": 20, "breakdown": [{"messageType": "M123", "count": 20}]},
+    {"state": "Rejected", "stateName": "Rejected", "count": 1, "breakdown": [{"messageType": "M123", "count": 1}]}
   ]
 }
 ```
 
-Use `breakdown` for a card tooltip or list of message types. Entries are sorted by message type; types with no messages in that state are omitted, and zero-count states return `breakdown: []`. On a type-entry click, set `status` and `messageType` together in the grid request.
+Use `breakdown` for a card tooltip or list of message types. Entries are sorted by message type; types with no messages in that state are omitted, and zero-count states are omitted from `items`. An absent state means zero accessible messages; with no accessible messages the response is `{ "items": [], "total": { "count": 0, "breakdown": [] } }`. On a type-entry click, set `status` and `messageType` together in the grid request.
 
 Join by code, not array position. Render cards in metadata order, with `label` as the title and `description` as the tooltip:
 
