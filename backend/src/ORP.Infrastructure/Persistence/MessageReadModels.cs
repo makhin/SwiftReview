@@ -11,6 +11,11 @@ internal sealed class MessageReadRow
     public MessageDirection? Direction { get; init; }
     public string MessageType { get; init; } = null!;
     public int BranchId { get; init; }
+    public string BranchName { get; init; } = null!;
+    public string[] DepartmentNames { get; init; } = [];
+    public string? CurrentAssigneeName { get; init; }
+    public string? ActiveReviewerName { get; init; }
+    public string WorkflowDefinitionName { get; init; } = null!;
     public int[] DepartmentIds { get; init; } = [];
     public Domain.Messages.MessageState State { get; init; }
     public int WorkflowDefinitionId { get; init; }
@@ -54,6 +59,16 @@ internal static class MessageReadModels
             MessageType = source.MessageType!,
             Direction = source.Direction,
             BranchId = message.BranchId!.Value,
+            BranchName = db.Branches.Where(branch => branch.Id == message.BranchId).Select(branch => branch.Name).First(),
+            DepartmentNames = message.Departments.OrderBy(x => x.DepartmentId)
+                .Select(x => db.Departments.Where(department => department.Id == x.DepartmentId)
+                    .Select(department => department.Name).First()).ToArray(),
+            CurrentAssigneeName = db.Users.Where(user => user.Id == message.CurrentAssigneeId)
+                .Select(user => user.DisplayName).FirstOrDefault(),
+            ActiveReviewerName = db.Users.Where(user => activeReview != null && user.Id == activeReview.ReviewerId)
+                .Select(user => user.DisplayName).FirstOrDefault(),
+            WorkflowDefinitionName = db.WorkflowDefinitions.Where(workflow => workflow.Id == message.WorkflowDefinitionId)
+                .Select(workflow => workflow.Name).First(),
             DepartmentIds = message.Departments.OrderBy(x => x.DepartmentId).Select(x => x.DepartmentId).ToArray(),
             State = message.State,
             WorkflowDefinitionId = message.WorkflowDefinitionId,

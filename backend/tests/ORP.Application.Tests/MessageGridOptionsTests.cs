@@ -14,6 +14,8 @@ public sealed class MessageGridOptionsTests
         string sender = "SENDER", string receiver = "RECEIVER") => new()
     {
         Id = id, ExternalId = externalId, MessageType = type, BranchId = branch, DepartmentIds = [1],
+        BranchName = "Paris", DepartmentNames = ["CS"], CurrentAssigneeName = null,
+        ActiveReviewerName = null, WorkflowDefinitionName = "Default",
         Sender = sender, Receiver = receiver,
         State = MessageState.New, ReceivedAt = DateTimeOffset.Parse(date), Direction = null,
         CurrentAssigneeId = null, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,

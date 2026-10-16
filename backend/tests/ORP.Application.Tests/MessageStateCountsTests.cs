@@ -73,6 +73,8 @@ public sealed class MessageStateCountsTests
         var items = json.RootElement.GetProperty("items");
         var row = items[0];
         Assert.Equal("New", row.GetProperty("state").GetString());
+        Assert.Equal("New", row.GetProperty("stateName").GetString());
+        Assert.Equal("Waiting for second review", items[3].GetProperty("stateName").GetString());
         Assert.Equal(25, row.GetProperty("count").GetInt32());
         Assert.Equal("M123", row.GetProperty("breakdown")[0].GetProperty("messageType").GetString());
         Assert.Equal(10, row.GetProperty("breakdown")[0].GetProperty("count").GetInt32());

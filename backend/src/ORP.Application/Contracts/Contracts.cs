@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ORP.Application.ReferenceData;
 using ORP.Domain.Auditing;
 using ORP.Domain.Messages;
 
@@ -22,10 +23,23 @@ public sealed record CurrentUserResponse(int UserId, string UserName, string Dis
 
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, IReadOnlyList<int> DepartmentIds,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
-    string? Body, MessageDirection? Direction);
+    string? Body, MessageDirection? Direction)
+{
+    public string BranchName { get; init; } = string.Empty;
+    public IReadOnlyList<string> DepartmentNames { get; init; } = [];
+    public string? CurrentAssigneeName { get; init; }
+    public string StateName => MessageStates.GetName(State);
+}
 public sealed record MessageListItemDto(long Id, string ExternalId, string MessageType, int BranchId, IReadOnlyList<int> DepartmentIds,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
-    int? ActiveReviewLevel, int? ActiveReviewerId, MessageDirection? Direction);
+    int? ActiveReviewLevel, int? ActiveReviewerId, MessageDirection? Direction)
+{
+    public string BranchName { get; init; } = string.Empty;
+    public IReadOnlyList<string> DepartmentNames { get; init; } = [];
+    public string? CurrentAssigneeName { get; init; }
+    public string? ActiveReviewerName { get; init; }
+    public string StateName => MessageStates.GetName(State);
+}
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount);
 public sealed record AuditTrailRequest(int Skip = 0, int Take = 100);
 public sealed record SortClause([property: Required] string Field,
@@ -64,7 +78,10 @@ public sealed record MessageStateCountsDto(IReadOnlyList<MessageStateCountDto> I
 public record MessageCountDto(int Count, IReadOnlyList<MessageTypeCountDto> Breakdown);
 public sealed record MessageTypeCountDto(string MessageType, int Count);
 public sealed record MessageStateCountDto(MessageState State, int Count, IReadOnlyList<MessageTypeCountDto> Breakdown)
-    : MessageCountDto(Count, Breakdown);
+    : MessageCountDto(Count, Breakdown)
+{
+    public string StateName => MessageStates.GetName(State);
+}
 public enum MessageStagePhase { Waiting, Assigned, Reviewing, Completed, Rejected }
 
 // AssignedDescription overrides Description when the message has an assignee.

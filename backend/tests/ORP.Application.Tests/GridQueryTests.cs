@@ -26,6 +26,8 @@ public sealed class GridQueryTests
         MessageDirection? direction = MessageDirection.Incoming, DateTimeOffset? receivedAt = null) => new()
     {
         Id = id, ExternalId = externalId, Direction = direction, MessageType = "MT199", BranchId = branch,
+        BranchName = "Paris", DepartmentNames = ["CS"], CurrentAssigneeName = null,
+        ActiveReviewerName = null, WorkflowDefinitionName = "Default",
         Sender = "SENDER", Receiver = "RECEIVER",
         DepartmentIds = [department], State = state, ReceivedAt = receivedAt ?? DateTimeOffset.Parse("2026-10-06T10:00:00+02:00"),
         CurrentAssigneeId = assignee, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,

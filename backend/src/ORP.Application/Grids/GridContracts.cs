@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ORP.Application.Abstractions;
+using ORP.Application.ReferenceData;
 using ORP.Domain.Messages;
 
 namespace ORP.Application.Grids;
@@ -54,15 +55,21 @@ public sealed class MessageGridRowDto
     public required MessageDirection? Direction { get; init; }
     public required string MessageType { get; init; }
     public required int BranchId { get; init; }
+    public required string BranchName { get; init; }
     public required int[] DepartmentIds { get; init; }
+    public required string[] DepartmentNames { get; init; }
     public required MessageState State { get; init; }
+    public string StateName => MessageStates.GetName(State);
     public required DateTimeOffset ReceivedAt { get; init; }
     public required int? CurrentAssigneeId { get; init; }
+    public required string? CurrentAssigneeName { get; init; }
     public required long? ActiveReviewId { get; init; }
     public required int? ActiveReviewLevel { get; init; }
     public required int? ActiveReviewerId { get; init; }
+    public required string? ActiveReviewerName { get; init; }
     public required long? UndoReviewId { get; init; }
     public required int WorkflowDefinitionId { get; init; }
+    public required string WorkflowDefinitionName { get; init; }
     public required bool CanReview { get; init; }
     public required bool CanChangeWorkflow { get; init; }
     public required int[] RequiredReviewLevels { get; init; }
