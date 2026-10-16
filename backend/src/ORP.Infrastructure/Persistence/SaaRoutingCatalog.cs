@@ -26,7 +26,7 @@ public sealed class SaaRoutingCatalog(string connectionString)
         var rules = await db.DepartmentRoutingRules.AsNoTracking().Where(rule => rule.IsActive)
             .Select(rule => new SaaDepartmentRule
             {
-                Id = rule.Id, DepartmentId = rule.DepartmentId, BranchId = rule.BranchId,
+                Id = rule.Id, WorkflowDefinitionId = rule.WorkflowDefinitionId, DepartmentId = rule.DepartmentId, BranchId = rule.BranchId,
                 Direction = (SaaMessageDirection)rule.Direction, MatchKind = (SaaDepartmentMatchKind)rule.MatchKind,
                 MessageTypePattern = rule.MessageTypePattern, IsActive = true
             }).ToListAsync(cancellationToken);

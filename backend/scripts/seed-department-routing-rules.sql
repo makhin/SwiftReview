@@ -1,11 +1,37 @@
 -- Initial Department routing matrix. Apply after EF migrations; safe to rerun.
 -- Source workbooks are held outside this repository in backend/docs/Message_Rules.
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
 IF OBJECT_ID(N'orp.DepartmentRoutingRules', N'U') IS NULL
     THROW 51000, 'Apply AddDepartmentRoutingRules migration first.', 1;
 BEGIN TRY
     BEGIN TRANSACTION;
+    DECLARE @Profiles TABLE (Code nvarchar(100), Name nvarchar(100), Levels int);
+    INSERT INTO @Profiles VALUES
+        (N'VIEW_ONLY',N'View only',0),
+        (N'SINGLE_CONFIRMATION',N'Single confirmation',1),
+        (N'DOUBLE_CONFIRMATION',N'Double confirmation',2);
+    INSERT INTO orp.WorkflowDefinitions
+        (Code,Name,IsActive,ConfirmationMode,ConfirmationActorMode,AllowReviewerReuse,AssignmentRetentionMode,RejectAllowed,
+         UndoApprovalMode,UndoActorMode,UndoActiveReviewMode)
+    SELECT p.Code,p.Name,1,CASE WHEN p.Levels=0 THEN 2 ELSE 1 END,1,1,1,0,
+        CASE WHEN p.Levels=2 THEN 1 ELSE 0 END,1,CASE WHEN p.Levels=2 THEN 1 ELSE 0 END
+    FROM @Profiles p WHERE NOT EXISTS (SELECT 1 FROM orp.WorkflowDefinitions w WHERE w.Code=p.Code);
+    INSERT INTO orp.WorkflowSteps (WorkflowDefinitionId,[Order],ReviewLevel,Required)
+    SELECT w.Id,n.Level,n.Level,1 FROM @Profiles p JOIN orp.WorkflowDefinitions w ON w.Code=p.Code
+    CROSS JOIN (VALUES (1),(2)) n(Level)
+    WHERE n.Level<=p.Levels AND NOT EXISTS (SELECT 1 FROM orp.WorkflowSteps s WHERE s.WorkflowDefinitionId=w.Id AND s.ReviewLevel=n.Level);
+    IF EXISTS (SELECT 1 FROM @Profiles p JOIN orp.WorkflowDefinitions w ON w.Code=p.Code
+        WHERE w.IsActive<>1 OR w.ConfirmationMode<>CASE WHEN p.Levels=0 THEN 2 ELSE 1 END
+        OR w.ConfirmationActorMode<>1 OR w.AllowReviewerReuse<>1 OR w.AssignmentRetentionMode<>1 OR w.RejectAllowed<>0
+        OR w.UndoApprovalMode<>CASE WHEN p.Levels=2 THEN 1 ELSE 0 END OR w.UndoActorMode<>1
+        OR w.UndoActiveReviewMode<>CASE WHEN p.Levels=2 THEN 1 ELSE 0 END
+        OR (SELECT COUNT(*) FROM orp.WorkflowSteps s WHERE s.WorkflowDefinitionId=w.Id)<>p.Levels
+        OR EXISTS (SELECT 1 FROM orp.WorkflowSteps s WHERE s.WorkflowDefinitionId=w.Id AND (s.Required<>1 OR s.[Order]<>s.ReviewLevel)))
+        THROW 51000, 'Existing common workflow conflicts with approved policy.', 1;
+
     DECLARE @Branches TABLE (Name nvarchar(80) NOT NULL PRIMARY KEY);
     INSERT INTO @Branches (Name) VALUES (N'London'), (N'SMBC London'), (N'Brussels'), (N'Dubai'), (N'Dublin'), (N'Dusseldorf'), (N'Frankfurt'), (N'Paris'), (N'Milan');
     IF EXISTS (SELECT 1 FROM @Branches expected JOIN [orp].[Branches] actual ON actual.[Name] COLLATE Latin1_General_100_CI_AS = expected.Name COLLATE Latin1_General_100_CI_AS GROUP BY expected.Name HAVING COUNT(*) > 1)
@@ -337,9 +363,14 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM @Rules GROUP BY DepartmentName, BranchName, Direction, MatchKind, MessageTypePattern HAVING COUNT(*) > 1)
         THROW 51000, 'Duplicate source rules detected.', 1;
     DELETE FROM [orp].[DepartmentRoutingRules] WHERE SourceFile IN (N'CS_Message Processing Review Matrix  Volume.xlsx', N'Message Processing Review Matrix Volume - Data Control 260904.xlsx', N'TFO Message Processing, Review Matrix & Volume.xlsx');
-    INSERT INTO [orp].[DepartmentRoutingRules] (DepartmentId, BranchId, Direction, MatchKind, MessageTypePattern, IsActive, SourceFile, SourceSheet, SourceRow)
-    SELECT d.Id, b.Id, r.Direction, r.MatchKind, r.MessageTypePattern, 1, r.SourceFile, r.SourceSheet, r.SourceRow
+    INSERT INTO [orp].[DepartmentRoutingRules] (DepartmentId, BranchId, Direction, MatchKind, MessageTypePattern, IsActive, SourceFile, SourceSheet, SourceRow, WorkflowDefinitionId)
+    SELECT d.Id, b.Id, r.Direction, r.MatchKind, r.MessageTypePattern, 1, r.SourceFile, r.SourceSheet, r.SourceRow, w.Id
     FROM @Rules r JOIN [orp].[Departments] d ON d.[Name] COLLATE Latin1_General_100_CI_AS = r.DepartmentName COLLATE Latin1_General_100_CI_AS
+    JOIN orp.WorkflowDefinitions w ON w.Code=CASE
+        WHEN r.DepartmentName=N'CS' THEN N'DOUBLE_CONFIRMATION'
+        WHEN r.DepartmentName=N'DC' THEN CASE WHEN r.MessageTypePattern=N'MT094' THEN N'VIEW_ONLY' ELSE N'SINGLE_CONFIRMATION' END
+        WHEN r.BranchName IN (N'Dubai',N'Dusseldorf',N'Frankfurt') THEN CASE WHEN r.Direction=1 THEN N'DOUBLE_CONFIRMATION' ELSE N'SINGLE_CONFIRMATION' END
+        ELSE N'VIEW_ONLY' END
     LEFT JOIN [orp].[Branches] b ON b.[Name] COLLATE Latin1_General_100_CI_AS = r.BranchName COLLATE Latin1_General_100_CI_AS;
     COMMIT TRANSACTION;
 END TRY

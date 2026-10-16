@@ -1,10 +1,9 @@
-using ORP.Domain.Messages;
-using ORP.Domain.Workflows;
+using ORP.Importer;
 using Xunit;
 
-namespace ORP.Domain.Tests;
+namespace ORP.Importer.Tests;
 
-public sealed class WorkflowMatchingTests
+public sealed class WorkflowRoutingMatchTests
 {
     [Theory]
     [InlineData("MT4xx", "MT400", true)]
@@ -67,10 +66,10 @@ public sealed class WorkflowMatchingTests
     {
         var valid = Workflow("MT4xx");
         var inactive = Workflow("MT450", branch: 3);
-        inactive.Deactivate();
+        inactive.IsActive = false;
         Assert.Same(valid, Assert.Single(Select([
-            Workflow("MT4xx", branch: 4), Workflow("MT4xx", department: 8),
-            Workflow("MT4xx", direction: MessageDirection.Outgoing), inactive, valid], "MT450")));
+            Workflow("MT4xx", branch: 4),
+            Workflow("MT4xx", direction: SaaMessageDirection.Outgoing), inactive, valid], "MT450")));
     }
 
     [Theory]
@@ -83,22 +82,32 @@ public sealed class WorkflowMatchingTests
     }
 
     [Fact]
-    public void RequiresTheExactDepartmentSet()
+    public void ResolvesDepartmentsIndependently()
     {
-        var single = Workflow("MT450");
-        var joint = new WorkflowDefinition(MessageDirection.Incoming, "Joint", "MT450", [7, 8]).AddStep(1, 1);
-        Assert.Same(joint, Assert.Single(WorkflowMatching.GetPreferred([single, joint], "MT450",
-            MessageDirection.Incoming, [8, 7], 3)));
-        Assert.Same(single, Assert.Single(WorkflowMatching.GetPreferred([single, joint], "MT450",
-            MessageDirection.Incoming, [7], 3)));
-        Assert.Empty(WorkflowMatching.GetPreferred([single, joint], "MT450",
-            MessageDirection.Incoming, [7, 9], 3));
+        var rules = new[] { Workflow("MT450"), Workflow("MT4xx", department: 8) };
+        Assert.Equal(new[] { 7, 8 }, Select(rules, "MT450").Select(x => x.DepartmentId).Order());
     }
 
-    private static WorkflowDefinition[] Select(WorkflowDefinition[] workflows, string type) =>
-        WorkflowMatching.GetPreferred(workflows, type, MessageDirection.Incoming, 7, 3);
+    [Fact]
+    public void ConflictingPreferredPoliciesAreRejected()
+    {
+        var first = Workflow("MT450");
+        var second = Workflow("MT450");
+        first.WorkflowDefinitionId = 1;
+        second.WorkflowDefinitionId = 2;
+        Assert.Throws<FormatException>(() => Select([first, second], "MT450"));
+    }
 
-    private static WorkflowDefinition Workflow(string pattern, int? branch = null, int department = 7,
-        MessageDirection direction = MessageDirection.Incoming) =>
-        new WorkflowDefinition(direction, "Workflow", pattern, department, branch).AddStep(1, 1);
+    private static SaaDepartmentRule[] Select(SaaDepartmentRule[] rules, string type) =>
+        SaaDepartmentRuleResolver.SelectRules(rules, 3, type, SaaMessageDirection.Incoming);
+
+    private static SaaDepartmentRule Workflow(string pattern, int? branch = null, int department = 7,
+        SaaMessageDirection direction = SaaMessageDirection.Incoming) => new()
+        {
+            Id = 1, DepartmentId = department, BranchId = branch, Direction = direction, IsActive = true,
+            WorkflowDefinitionId = 1, MessageTypePattern = pattern,
+            MatchKind = pattern.EndsWith("xx", StringComparison.OrdinalIgnoreCase) ? SaaDepartmentMatchKind.MtSeries :
+                pattern.StartsWith("MX", StringComparison.OrdinalIgnoreCase) && pattern.Count(c => c == '.') == 1
+                    ? SaaDepartmentMatchKind.MxFamily : SaaDepartmentMatchKind.Exact
+        };
 }

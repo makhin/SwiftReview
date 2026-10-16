@@ -15,6 +15,7 @@ public sealed class DepartmentRoutingRuleConfiguration : IEntityTypeConfiguratio
             table.HasCheckConstraint("CK_DepartmentRoutingRules_SourceRow", "[SourceRow] > 0");
         });
         builder.HasKey(x => x.Id);
+        builder.HasOne<ORP.Domain.Workflows.WorkflowDefinition>().WithMany().HasForeignKey(x => x.WorkflowDefinitionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         builder.Property(x => x.MessageTypePattern).HasMaxLength(100).IsRequired();

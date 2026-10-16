@@ -41,7 +41,8 @@ internal static class MessageReadModels
         db.Users.Any(user => user.Id == userId && user.IsGlobalAdministrator) ||
         db.UserRoles.Any(role => role.UserId == userId && role.BranchId == message.BranchId &&
             db.MessageDepartments.Any(department => department.MessageId == message.Id &&
-                department.DepartmentId == role.DepartmentId) &&
+                department.DepartmentId == role.DepartmentId &&
+                (permission == Domain.Identity.Permissions.MessageView || permission == Domain.Identity.Permissions.AuditView || department.CanProcess)) &&
             db.UserRoles.Any(view => view.UserId == userId && view.BranchId == message.BranchId &&
                 view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
                     grant.Permission.Name == Domain.Identity.Permissions.MessageView)) &&

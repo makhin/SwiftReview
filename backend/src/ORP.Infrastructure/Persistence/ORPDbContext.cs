@@ -16,7 +16,6 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
-    public DbSet<WorkflowDepartment> WorkflowDepartments => Set<WorkflowDepartment>();
     public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
@@ -50,6 +49,17 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
 
     private void EnsureWriteRules()
     {
+        var changedProcessingScopes = ChangeTracker.Entries<MessageDepartment>()
+            .Where(x => x.State == EntityState.Modified && x.Property(d => d.CanProcess).IsModified)
+            .Select(x => x.Entity.MessageId).ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<Message>().Where(x =>
+                     x.State is EntityState.Unchanged or EntityState.Modified && changedProcessingScopes.Contains(x.Entity.Id)))
+        {
+            // SQL rowversion belongs to Messages. Updating a child scope must also
+            // update its parent, even when the workflow ID itself stays the same.
+            entry.Property(x => x.WorkflowDefinitionId).IsModified = true;
+        }
+
         var changedWorkflowIds = ChangeTracker.Entries<WorkflowStep>()
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .Select(x => x.Entity.WorkflowDefinitionId)

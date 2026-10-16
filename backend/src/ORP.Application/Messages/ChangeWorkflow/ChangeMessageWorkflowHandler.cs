@@ -14,7 +14,7 @@ public sealed class ChangeMessageWorkflowValidator : AbstractValidator<ChangeMes
 }
 
 public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<ChangeMessageWorkflowRequest> validator,
-    IUserAuthorizationQueries users, ICurrentUser user, IClock clock, ICorrelationContext correlation,
+    IWorkflowResolver routing, ICurrentUser user, IClock clock, ICorrelationContext correlation,
     ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
     public Task HandleAsync(long messageId, ChangeMessageWorkflowRequest request, CancellationToken ct)
@@ -24,23 +24,21 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var workflow = await store.FindWorkflowAsync(request.WorkflowDefinitionId, ct) ?? throw new ResourceNotFoundException("Workflow was not found.");
-            if (!access.IsGlobalAdministrator && !await users.CanAccessWorkflowAsync(user.UserId, workflow.Id, ct))
-                throw new UnauthorizedAccessException("The selected workflow is outside your access scope.");
             if (access.Source.Direction is null)
                 throw new DomainRuleViolationException("Message direction is required to change workflow.");
-            if (workflow.Direction != access.Source.Direction)
-                throw new DomainRuleViolationException("The selected workflow direction must match the message direction.");
-            if (!workflow.DepartmentIds.SequenceEqual(access.Source.DepartmentIds.Order()))
-                throw new DomainRuleViolationException("The selected workflow must cover exactly the message departments.");
-            if (ORP.Domain.Workflows.WorkflowMatching.GetPreferred([workflow], access.Source.MessageType,
-                    access.Source.Direction.Value, access.Source.DepartmentIds, access.Source.BranchId).Length != 1)
-                throw new DomainRuleViolationException("The selected workflow must match the message type, direction, departments and branch.");
+            var resolved = await routing.ResolveAsync(access.Source.MessageType, access.Source.Direction.Value,
+                access.Source.DepartmentIds, access.Source.BranchId, ct);
+            if (workflow.Id != resolved.Workflow.Id)
+                throw new DomainRuleViolationException("The selected workflow does not match the message routing rules.");
             var reviews = access.Reviews;
             var previous = message.WorkflowDefinitionId;
+            var previousState = message.State;
+            var previousProcessing = message.ProcessingDepartmentIds.ToArray();
             message.ChangeWorkflow(workflow, reviews);
-            if (previous == workflow.Id) return;
+            message.ApplyRouting(workflow, resolved.ProcessingDepartmentIds);
+            if (previous == workflow.Id && previousProcessing.SequenceEqual(message.ProcessingDepartmentIds)) return;
             store.AddAudit(AuditEventFactory.Create(messageId, AuditEventType.MessageWorkflowChanged, user.UserId,
-                clock.UtcNow, message.State, message.State,
+                clock.UtcNow, previousState, message.State,
                 new AuditEventDetailsDto(WorkflowDefinitionId: workflow.Id, PreviousWorkflowDefinitionId: previous), correlation.CorrelationId));
             await store.SaveChangesAsync(ct);
         }, ct);

@@ -10,5 +10,6 @@ public enum MessageState
     WaitingForThirdReview,
     ThirdReviewInProgress,
     Completed,
-    Rejected
+    Rejected,
+    ViewOnly
 }

@@ -3,6 +3,7 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class DepartmentRoutingRule
 {
     public int Id { get; set; }
+    public int? WorkflowDefinitionId { get; set; }
     public int DepartmentId { get; set; }
     public int? BranchId { get; set; }
     public int Direction { get; set; }

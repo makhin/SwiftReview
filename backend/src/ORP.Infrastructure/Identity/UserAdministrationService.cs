@@ -115,7 +115,7 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
             where review.Status == ReviewStatus.InProgress && userIds.Contains(review.ReviewerId) &&
                 !db.Users.Any(u => u.Id == review.ReviewerId && u.IsGlobalAdministrator)
             select new { review.ReviewerId, review.Level, message.BranchId,
-                DepartmentIds = message.Departments.Select(d => d.DepartmentId).ToArray() }).ToListAsync(ct);
+                DepartmentIds = message.Departments.Where(d => d.CanProcess).Select(d => d.DepartmentId).ToArray() }).ToListAsync(ct);
         foreach (var review in active)
         {
             if (!assignments.Where(r => r.UserId == review.ReviewerId && r.BranchId == review.BranchId &&

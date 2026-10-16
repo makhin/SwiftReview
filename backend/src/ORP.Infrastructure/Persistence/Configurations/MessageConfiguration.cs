@@ -18,6 +18,7 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(x => x.State).HasConversion<string>().HasMaxLength(40);
         builder.HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         builder.Ignore(x => x.DepartmentIds);
+        builder.Ignore(x => x.ProcessingDepartmentIds);
         builder.HasMany(x => x.Departments).WithOne().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Restrict);
         builder.Navigation(x => x.Departments).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasOne<SwiftMessageRecord>().WithOne().HasForeignKey<Message>(x => x.Id).OnDelete(DeleteBehavior.Restrict);

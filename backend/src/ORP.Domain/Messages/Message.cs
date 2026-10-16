@@ -37,10 +37,27 @@ public sealed class Message
     public MessageState State { get; private set; }
     public int? CurrentAssigneeId { get; private set; }
     public int WorkflowDefinitionId { get; private set; }
+    public IReadOnlyList<int> ProcessingDepartmentIds => _departments.Where(x => x.CanProcess).Select(x => x.DepartmentId).Order().ToArray();
     public int? BranchId { get; private set; }
     public IReadOnlyCollection<MessageDepartment> Departments => _departments;
     public IReadOnlyList<int> DepartmentIds => _departments.Select(x => x.DepartmentId).Order().ToArray();
     public DateTimeOffset? ReceivedAt { get; private set; }
+
+    public void ApplyRouting(WorkflowDefinition workflow, IReadOnlyCollection<int> processingDepartmentIds)
+    {
+        if (State is not (MessageState.New or MessageState.Assigned))
+            throw new DomainRuleViolationException("Routing can only be applied before processing starts.");
+        if (!workflow.IsActive || processingDepartmentIds.Except(DepartmentIds).Any())
+            throw new DomainRuleViolationException("Invalid workflow processing scope.");
+        _ = workflow.RequiredLevels();
+        var viewOnly = workflow.ConfirmationMode == ConfirmationMode.None;
+        if (viewOnly != (processingDepartmentIds.Count == 0) || (viewOnly && CurrentAssigneeId is not null))
+            throw new DomainRuleViolationException("The processing scope must match the workflow confirmation policy.");
+        WorkflowDefinitionId = workflow.Id;
+        foreach (var department in _departments)
+            department.SetProcessing(processingDepartmentIds.Contains(department.DepartmentId));
+        if (viewOnly) State = MessageState.ViewOnly;
+    }
 
     public void Assign(int assigneeId)
     {

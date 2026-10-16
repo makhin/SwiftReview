@@ -59,45 +59,19 @@ BEGIN TRY
         WHERE t.NeedsRouting=1
     ) THROW 51000, 'Dummy routing overlaps another department; configure a shared workflow instead.', 1;
 
+    DECLARE @workflowId int=(SELECT Id FROM orp.WorkflowDefinitions WHERE Code=N'DOUBLE_CONFIRMATION' AND IsActive=1);
+    IF @workflowId IS NULL THROW 51000, 'Run the approved workflow routing seed first.', 1;
     INSERT INTO orp.DepartmentRoutingRules
-        (DepartmentId,BranchId,Direction,MatchKind,MessageTypePattern,IsActive,SourceFile,SourceSheet,SourceRow)
-    SELECT @departmentId,t.BranchId,t.Direction,1,t.MessageType,1,@SourceFile,N'Dummy sample matrix',t.Ordinal
+        (DepartmentId,BranchId,Direction,MatchKind,MessageTypePattern,IsActive,SourceFile,SourceSheet,SourceRow,WorkflowDefinitionId)
+    SELECT @departmentId,t.BranchId,t.Direction,1,t.MessageType,1,@SourceFile,N'Dummy sample matrix',t.Ordinal,@workflowId
     FROM @Resolved t WHERE t.NeedsRouting=1 AND NOT EXISTS (
         SELECT 1 FROM orp.DepartmentRoutingRules r WHERE r.SourceFile=@SourceFile
         AND r.DepartmentId=@departmentId AND r.BranchId=t.BranchId AND r.Direction=t.Direction
         AND r.MatchKind=1 AND r.MessageTypePattern=t.MessageType
     );
     DECLARE @rulesAdded int = @@ROWCOUNT;
-
-    DECLARE @NewWorkflows TABLE (Id int PRIMARY KEY);
-    INSERT INTO orp.WorkflowDefinitions
-        (Name,MessageType,BranchId,IsActive,Direction,UndoApprovalMode,UndoActorMode,UndoActiveReviewMode)
-    OUTPUT inserted.Id INTO @NewWorkflows
-    SELECT N'DUMMY import - '+b.Name+N' - '+t.MessageType+CASE t.Direction WHEN 1 THEN N' - IN' ELSE N' - OUT' END,
-        t.MessageType,t.BranchId,1,t.Direction,0,0,0
-    FROM @Resolved t JOIN orp.Branches b ON b.Id=t.BranchId
-    WHERE NOT EXISTS (
-        SELECT 1 FROM orp.WorkflowDefinitions w JOIN orp.WorkflowDepartments wd ON wd.WorkflowDefinitionId=w.Id
-        WHERE w.IsActive=1 AND wd.DepartmentId=@departmentId
-        AND NOT EXISTS (SELECT 1 FROM orp.WorkflowDepartments other
-            WHERE other.WorkflowDefinitionId=w.Id AND other.DepartmentId<>@departmentId)
-        AND w.Direction=t.Direction AND (w.BranchId=t.BranchId OR w.BranchId IS NULL)
-        AND (
-            w.MessageType COLLATE Latin1_General_100_CI_AS = t.MessageType COLLATE Latin1_General_100_CI_AS
-            OR (LEN(w.MessageType)=10 AND w.MessageType COLLATE Latin1_General_100_CI_AS LIKE N'MX[a-z][a-z][a-z][a-z].[0-9][0-9][0-9]'
-                AND LEFT(t.MessageType,11) COLLATE Latin1_General_100_CI_AS = (w.MessageType+N'.') COLLATE Latin1_General_100_CI_AS)
-            OR (w.MessageType COLLATE Latin1_General_100_CI_AS LIKE N'MT[0-9]xx'
-                AND t.MessageType COLLATE Latin1_General_100_CI_AS LIKE N'MT[0-9][0-9][0-9]'
-                AND LEFT(w.MessageType,3) COLLATE Latin1_General_100_CI_AS = LEFT(t.MessageType,3) COLLATE Latin1_General_100_CI_AS)
-        )
-    );
-    INSERT INTO orp.WorkflowDepartments (WorkflowDefinitionId,DepartmentId)
-    SELECT Id,@departmentId FROM @NewWorkflows;
-    INSERT INTO orp.WorkflowSteps (WorkflowDefinitionId,[Order],ReviewLevel,Required)
-    SELECT w.Id,s.Level,s.Level,1 FROM @NewWorkflows w CROSS JOIN (VALUES (1),(2)) s(Level);
-
     COMMIT TRANSACTION;
-    SELECT @rulesAdded AS DummyRulesAdded,(SELECT COUNT(*) FROM @NewWorkflows) AS DummyWorkflowsAdded;
+    SELECT @rulesAdded AS DummyRulesAdded,0 AS DummyWorkflowsAdded;
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

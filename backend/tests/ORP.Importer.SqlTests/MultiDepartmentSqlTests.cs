@@ -31,7 +31,7 @@ public sealed class MultiDepartmentSqlTests
                 MessageTypePattern = "MT199", IsActive = true, SourceFile = "overlap", SourceSheet = "rules", SourceRow = 1 },
             new DepartmentRoutingRule { DepartmentId = dc.Id, Direction = 1, MatchKind = 1,
                 MessageTypePattern = "MT199", IsActive = true, SourceFile = "overlap", SourceSheet = "rules", SourceRow = 2 });
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "CS + DC", "MT199", [cs.Id, dc.Id], branch.Id).AddStep(1, 1);
+        var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "CS + DC").AddStep(1, 1);
         db.WorkflowDefinitions.Add(workflow);
         var view = await db.Permissions.SingleAsync(p => p.Name == Permissions.MessageView, ct);
         var assign = await db.Permissions.SingleAsync(p => p.Name == Permissions.MessageAssign, ct);
@@ -63,6 +63,7 @@ public sealed class MultiDepartmentSqlTests
             new UserRole { UserId = sameScopeUser.Id, BranchId = branch.Id, DepartmentId = cs.Id, RoleId = assignRole.Id });
         await db.SaveChangesAsync(ct);
 
+        await db.DepartmentRoutingRules.ExecuteUpdateAsync(set => set.SetProperty(x => x.WorkflowDefinitionId, workflow.Id), ct);
         var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
         var processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(ct),
             await catalog.LoadBranchResolverAsync(ct));
@@ -77,7 +78,7 @@ public sealed class MultiDepartmentSqlTests
         Assert.Single(await db.SwiftMessages.ToListAsync(ct));
         Assert.Single(await db.AuditEvents.ToListAsync(ct));
         Assert.Equal(workflow.Id, (await new WorkflowResolver(db).ResolveAsync("MT199",
-            MessageDirection.Incoming, [cs.Id, dc.Id], branch.Id, ct)).Id);
+            MessageDirection.Incoming, [cs.Id, dc.Id], branch.Id, ct)).Workflow.Id);
 
         foreach (var user in new[] { csUser, dcUser })
         {
@@ -106,7 +107,7 @@ public sealed class MultiDepartmentSqlTests
             Assert.Equal([visibleDepartmentId], details.DepartmentIds);
             Assert.Equal(visibleDepartmentName, details.DepartmentNames);
             var workflows = await new ReferenceDataQueries(db).GetWorkflowsAsync(access, ct);
-            Assert.Equal([visibleDepartmentId], Assert.Single(workflows, w => w.Id == workflow.Id).DepartmentIds);
+            Assert.Equal(workflow.Code, Assert.Single(workflows, w => w.Id == workflow.Id).Code);
             var history = await new MessageQueries(db).AuditAsync(message.Id, new AuditTrailRequest(0, 20), access, ct);
             Assert.NotNull(history);
             Assert.Equal([visibleDepartmentId], Assert.Single(history.Items).Details.DepartmentIds);
@@ -121,8 +122,8 @@ public sealed class MultiDepartmentSqlTests
         var adminAccess = (await new UserAccessService(db).GetByIdAsync(admin.Id, ct))!;
         Assert.Equal([cs.Id, dc.Id], Assert.Single((await new MessageGridQueries(db).LoadAsync(
             new MessageGridRequest(), adminAccess, ct)).Items).DepartmentIds);
-        Assert.Equal([cs.Id, dc.Id], Assert.Single(await new ReferenceDataQueries(db)
-            .GetWorkflowsAsync(adminAccess, ct), w => w.Id == workflow.Id).DepartmentIds);
+        Assert.Equal(workflow.Code, Assert.Single(await new ReferenceDataQueries(db)
+            .GetWorkflowsAsync(adminAccess, ct), w => w.Id == workflow.Id).Code);
         Assert.Equal([cs.Id, dc.Id], Assert.Single((await new MessageQueries(db).AuditAsync(
             message.Id, new AuditTrailRequest(), adminAccess, ct))!.Items).Details.DepartmentIds);
         var splitAccess = (await new UserAccessService(db).GetByIdAsync(splitUser.Id, ct))!;
@@ -179,13 +180,14 @@ public sealed class MultiDepartmentSqlTests
         db.DepartmentRoutingRules.Add(new DepartmentRoutingRule { DepartmentId = dc.Id, Direction = 1,
             MatchKind = 1, MessageTypePattern = "MT199", IsActive = true,
             SourceFile = "overlap", SourceSheet = "rules", SourceRow = 1 });
-        db.WorkflowDefinitions.Add(new WorkflowDefinition(MessageDirection.Incoming, "Invalid joint", "MT199",
-            [cs.Id, dc.Id]).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
+        db.WorkflowDefinitions.Add(new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Invalid joint").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         await db.SaveChangesAsync(ct);
+        var three = await db.WorkflowDefinitions.SingleAsync(x => x.Name == "Invalid joint", ct);
+        await db.DepartmentRoutingRules.ExecuteUpdateAsync(set => set.SetProperty(x => x.WorkflowDefinitionId, three.Id), ct);
         var branch = await db.Branches.SingleAsync(ct);
         var resolved = await new WorkflowResolver(db).ResolveAsync(
             "MT199", MessageDirection.Incoming, [cs.Id, dc.Id], branch.Id, ct);
-        Assert.Equal(new[] { 1, 2, 3 }, resolved.RequiredLevels());
+        Assert.Equal(new[] { 1, 2, 3 }, resolved.Workflow.RequiredLevels());
         var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
         var processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(ct),
             await catalog.LoadBranchResolverAsync(ct));

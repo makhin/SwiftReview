@@ -5,6 +5,7 @@ using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
 using ORP.Application.Authorization;
 using ORP.Application.Reviews;
+using ORP.Application.Messages.ChangeWorkflow;
 using ORP.Domain.Auditing;
 using ORP.Domain.Common;
 using ORP.Domain.Messages;
@@ -147,6 +148,87 @@ public sealed class ConfirmationSqlTests
         Assert.Empty(await verify.Reviews.ToListAsync(ct));
         Assert.False(await verify.AuditEvents.AnyAsync(x => x.EventType == AuditEventType.ReviewStarted || x.EventType == AuditEventType.ReviewApproved, ct));
         Assert.Equal(version, Convert.ToBase64String(message.RowVersion));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProcessingScopeRefreshUpdatesVersionAtomically(bool failAfterSave)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        int workflowId, tfoId, adminId;
+        string initialVersion;
+        await using (var db = new ORPDbContext(fixture.Options))
+        {
+            var message = await db.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+            workflowId = message.WorkflowDefinitionId;
+            tfoId = await db.Departments.Where(x => x.Name == "TFO").Select(x => x.Id).SingleAsync(ct);
+            adminId = await db.Users.Where(x => x.IsGlobalAdministrator).Select(x => x.Id).SingleAsync(ct);
+            var viewOnly = await db.WorkflowDefinitions.SingleAsync(x => x.Code == "VIEW_ONLY", ct);
+            db.MessageDepartments.Add(new MessageDepartment(message.Id, tfoId, true));
+            db.DepartmentRoutingRules.Add(new DepartmentRoutingRule
+            {
+                DepartmentId = tfoId, Direction = 1, MatchKind = 1, MessageTypePattern = "MT199",
+                IsActive = true, WorkflowDefinitionId = viewOnly.Id,
+                SourceFile = "scope-refresh-test", SourceSheet = "rules", SourceRow = 1
+            });
+            await db.SaveChangesAsync(ct);
+            initialVersion = Convert.ToBase64String(message.RowVersion);
+        }
+        var options = failAfterSave
+            ? new DbContextOptionsBuilder<ORPDbContext>(fixture.Options).AddInterceptors(new FailAfterSave()).Options
+            : fixture.Options;
+        await using (var db = new ORPDbContext(options))
+        {
+            var change = ChangeHandler(db, adminId);
+            if (failAfterSave)
+                await Assert.ThrowsAsync<IOException>(() => change.HandleAsync(setup.Message, new(workflowId), ct));
+            else
+                await change.HandleAsync(setup.Message, new(workflowId), ct);
+        }
+        await using var verify = new ORPDbContext(fixture.Options);
+        var persisted = await verify.Messages.Include(x => x.Departments).SingleAsync(x => x.Id == setup.Message, ct);
+        var version = Convert.ToBase64String(persisted.RowVersion);
+        Assert.Equal(workflowId, persisted.WorkflowDefinitionId);
+        Assert.Equal(MessageState.Assigned, persisted.State);
+        Assert.Equal(setup.Assignee, persisted.CurrentAssigneeId);
+        Assert.Equal(failAfterSave, persisted.Departments.Single(x => x.DepartmentId == tfoId).CanProcess);
+        Assert.Equal(failAfterSave ? 0 : 1, await verify.AuditEvents.CountAsync(x =>
+            x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
+        Assert.Empty(await verify.Reviews.ToListAsync(ct));
+        if (failAfterSave)
+        {
+            Assert.Equal(initialVersion, version);
+            return;
+        }
+        Assert.NotEqual(initialVersion, version);
+        // An unchanged scope must not invalidate versions or create another audit event.
+        await ChangeHandler(verify, adminId).HandleAsync(setup.Message, new(workflowId), ct);
+        var access = (await new UserAccessService(verify).GetByIdAsync(setup.Actor, ct))!;
+        Assert.Equal(version, (await DetailsAsync(verify, setup.Message, access, ct)).Version);
+        Assert.Equal(1, await verify.AuditEvents.CountAsync(x =>
+            x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
+        var error = await Assert.ThrowsAsync<DomainRuleViolationException>(() =>
+            Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1, initialVersion), ct));
+        Assert.Contains("version has changed", error.Message);
+        Assert.Empty(await verify.Reviews.ToListAsync(ct));
+        await Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1, version), ct);
+        Assert.Equal(MessageState.WaitingForSecondReview,
+            (await DetailsAsync(verify, setup.Message, access, ct)).State);
+    }
+
+    private static ChangeMessageWorkflowHandler ChangeHandler(ORPDbContext db, int actor)
+    {
+        var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
+        var store = new ORPStore(db, log);
+        var user = new Actor(actor);
+        var correlation = new Correlation();
+        var authorization = new MessageAuthorizationService(store, new UserAuthorizationQueries(db), user,
+            correlation, NullLogger<MessageAuthorizationService>.Instance);
+        return new(store, new ChangeMessageWorkflowValidator(), new WorkflowResolver(db), user,
+            new Clock(), correlation, new TransactionExecutor(db, log), authorization);
     }
 
     private static async Task<MessageDetailsDto> DetailsAsync(ORPDbContext db, long id, UserAccess access, CancellationToken ct) =>

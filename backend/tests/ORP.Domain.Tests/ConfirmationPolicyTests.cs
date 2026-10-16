@@ -111,7 +111,7 @@ public sealed class ConfirmationPolicyTests
 
     private static WorkflowDefinition Workflow(int levels = 1)
     {
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Configurable", "TYPE", 7);
+        var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Configurable");
         for (var level = 1; level <= levels; level++) workflow.AddStep(level, level);
         return workflow;
     }

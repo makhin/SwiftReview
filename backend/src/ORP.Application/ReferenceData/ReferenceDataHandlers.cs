@@ -77,6 +77,8 @@ public static class MessageStates
                 "All required reviews completed", null, MessageStagePhase.Completed, null),
             MessageState.Rejected => new MessageStateReferenceDto(state.ToString(), "Rejected",
                 "Review rejected", null, MessageStagePhase.Rejected, null),
+            MessageState.ViewOnly => new MessageStateReferenceDto(state.ToString(), "View only",
+                "No confirmation required", null, MessageStagePhase.ViewOnly, null),
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Missing message stage metadata.")
         }).ToArray();
 

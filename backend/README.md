@@ -75,28 +75,27 @@ and MX families/versions with a four-letter name, three-digit message number and
 three-digit/two-digit version suffix. Invalid patterns, including unsupported wildcards,
 fail startup instead of causing unmatched messages to be ignored.
 
-Workflow selection also supports patterns in the existing `WorkflowDefinitions.MessageType`
-field: exact types (`MT450`, `MXpacs.008.001.08`), MT series (`MT4xx`, covering MT400–499),
-and MX families (`MXpacs.008`, matching that type and its versions). Matching is case-insensitive;
-versioned MX patterns match only that version. Other wildcard syntax is not supported.
-Active workflows must match the direction and exact set of Departments. A matching branch-specific
-workflow takes precedence over a workflow for all branches; within that branch scope,
-an exact type takes precedence over a series or family. Multiple equally preferred
-workflows remain an error, as does the absence of a match. The importer and application
-workflow resolver share this selection logic; review-step validation remains required.
-Existing workflows retain their single Department through the migration. Configure a shared
-workflow by inserting one row in `orp.WorkflowDefinitions`, its steps in `orp.WorkflowSteps`,
-and one row per Department in `orp.WorkflowDepartments`. A message routed to CS and DC
-requires a workflow with exactly CS and DC. Until one exists, import fails without saving
-the message. CS and TFO still prohibit review level 3, including in a shared workflow.
+Workflow definitions now contain reusable behavior only. Apply `ReusableWorkflowRouting`
+and run `scripts/seed-department-routing-rules.sql` to link the 315 matrix rules to
+VIEW_ONLY (49), SINGLE_CONFIRMATION (96) and DOUBLE_CONFIRMATION (170).
+Within each Department, branch-specific rules win, followed by exact types over
+series/families. Equally preferred conflicting policies fail. All selected Departments
+retain visibility; processing Departments must agree on one confirmation workflow.
+View-only Departments do not add stages. The engine supports Review3 without checking
+Department names. See [Workflow configuration](../docs/WORKFLOW_CONFIGURATION.md).
+
+The migration preserves existing message/workflow IDs and audit, but does not migrate
+legacy test routing or reassign old messages. Old definitions receive LEGACY_<Id> codes;
+existing message processing flags default to false. New routing rules require a workflow
+reference. Restart the importer after configuration changes. Do not leave conflicting
+legacy/test rules active alongside the approved matrix.
 
 For testing the additional sample types outside the approved matrix, optionally run
 `scripts/seed-dummy-import-rules.sql` after the approved routing seed. This manual,
 transactional script adds eight branch/type combinations in both directions with
 temporary CS routing and source `dummy-import-testing-2026-10-16`.
-It also adds missing CS workflows with two required reviews, including Incoming
-`MXcamt.055.001.08` for London. Existing matching active workflows are reused;
-their steps and settings are preserved. Directory entries must already exist and
+It reuses DOUBLE_CONFIRMATION without creating more definitions. Incoming
+`MXcamt.055.001.08` for London already uses the approved matrix. Directory entries must already exist and
 must be unambiguous. Rerunning the script adds no duplicates. These are dummy test
 assignments, not approved Department rules; the script is not run by migrations or startup.
 Run the importer with `--retry-ignored` after applying it to reconsider cached ignored files.
@@ -149,10 +148,10 @@ registered, changed content never overwrites an existing message. Both registrat
 use a transaction-owned `sp_getapplock` for the path and recheck registration after acquiring it.
 This prevents competing runs from creating duplicate dispositions; registered messages take precedence.
 
-Workflow selection matches the full header type (ignoring case), direction and Department.
-A branch-specific Workflow takes precedence over a general one. Review steps must be valid;
-CS and TFO cannot use review level 3, including optional steps. New messages have state `New`,
-no assignee and a UTC `ReceivedAt`; the original header's `Time` remains timezone-free.
+New processing messages have state `New`; no-confirmation messages have state
+`ViewOnly`. Both start without an assignee and with UTC `ReceivedAt`; the original
+header's `Time` remains timezone-free. Workflow and per-Department `CanProcess` flags
+are stored atomically and are not recalculated when routing rules change.
 
 The final scan reports `Imported`, `AlreadyImported`, `Ignored`, `AlreadyIgnored` and errors.
 Ignoring is a normal outcome: it does not increment errors or cause a nonzero exit code.
@@ -212,39 +211,28 @@ in SSMS, select the target database, and execute the whole script.
 history, and replaces it with samples. Stop the application and other writers first.**
 
 The script creates three branches, three departments, four reviewers and one global
-administrator (`admin`), four workflows and 100
+administrator (`admin`), three common workflows and 100
 synthetic Swift messages with registration audit events. Messages start in `New` state
 without an assignee. The single `Reviewer` role grants message viewing, Assign, review
 levels 1–3, Undo and audit viewing. Three reviewers have access to all nine branch/department
 pairs; Amelia is scoped to London/CS for access-control examples. `Operations manager`
 retains all permissions; reviewers do not receive workflow management or global
-administrator access. Three distinct reviewers can complete
-a three-level workflow and assign messages to one another.
+administrator access.
 
-The seed explicitly configures four demo workflows, including their Undo policies:
+The demo has four synthetic routes using the common profiles:
 
-| Workflow | Direction and sample scope | Confirmations | Ordinary Undo |
-|---|---|---|---|
-| Single confirmation - no undo | Incoming / MT199 / CS | 1 | Disabled |
-| Two confirmations - undo first | Incoming / MT299 / TFO | 1, 2 | Any authorised reviewer can undo the first before the second is approved; an active second attempt is cancelled |
-| Three reviews - owner undo | Incoming / MT671 / DC | 1, 2, 3 | Original reviewer can undo the latest approval, including the final one, while no review is active |
-| Outgoing confirmation - no undo | Outgoing / MT299 / TFO | 1 | Disabled |
+| Route | Confirmations | Ordinary Undo |
+| --- | --- | --- |
+| Incoming MT199 / CS | 1, 2 | First only, before second completes |
+| Incoming MT299 / TFO | 1, 2 | First only, before second completes |
+| Incoming MT671 / DC | 1 | Disabled |
+| Outgoing MT299 / TFO | 1 | Disabled |
 
-These are synthetic examples of supported policies, not the production routing or
-confirmation matrix. The 100 messages (25 per scenario) cover all nine branch/department
-pairs, with receipt times in the past 100 hours. Their bodies include the scenario name.
-`TEST-00001` demonstrates single confirmation in London, `TEST-00002` two confirmations
-in Dublin, and `TEST-00003` three reviews in Singapore. All start `New` and unassigned.
-`TEST-00001`–`TEST-00075` are Incoming; `TEST-00076`–`TEST-00100` are Outgoing.
-The script finishes with readable workflow and user summaries. No separate policy script
-or manual permission change is needed to try Undo; schema migrations must be applied first.
-
-To try two-step Undo, sign in as `theo.mercer`, assign `TEST-00002` to `priya.nair`,
-and approve its first step as Priya. Theo can then undo Priya's approval from Message
-Review. To test cancellation of an active next attempt, assign the second step to
-`lucas.bennett` and start it before Theo performs Undo. To test the final-approval lock,
-complete both steps instead. Global administrators retain their exception when no review
-is active; see [Undo policy](../docs/ACCESS_ADMINISTRATION.md#workflow-undo-policy).
+These are demo routes, not the business matrix. All 100 demo messages start New.
+TEST-00001 and TEST-00002 demonstrate two confirmations; TEST-00003 demonstrates
+one. TEST-00001–TEST-00075 are Incoming; TEST-00076–TEST-00100 are Outgoing.
+The actual routing matrix is seeded separately. Confirmation is immediate via the
+backend Confirm API; the existing frontend flow needs a separate update.
 
 The reviewers are `amelia.hart`, `theo.mercer`, `priya.nair` and `lucas.bennett`.
 Branches are London, Dublin and Singapore; departments are CS, TFO and DC.

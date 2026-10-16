@@ -102,7 +102,7 @@ public sealed class SqlSaaImportStoreTests
         await fixture.Store.IgnoreAsync(file, TestContext.Current.CancellationToken);
         await using var db = new ORPDbContext(fixture.Options);
         await db.WorkflowSteps.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
-        await db.WorkflowDepartments.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
+        await db.DepartmentRoutingRules.ExecuteUpdateAsync(s => s.SetProperty(x => x.WorkflowDefinitionId, (int?)null), TestContext.Current.CancellationToken);
         await db.WorkflowDefinitions.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
         await Assert.ThrowsAsync<FormatException>(() => fixture.Store.RegisterAsync(file, fixture.Route(file), TestContext.Current.CancellationToken));
         Assert.Single(await db.IgnoredImportFiles.ToListAsync(TestContext.Current.CancellationToken));
@@ -128,11 +128,9 @@ public sealed class SqlSaaImportStoreTests
             var dc = new Department("DC");
             setup.Departments.Add(dc);
             await setup.SaveChangesAsync(TestContext.Current.CancellationToken);
-            setup.DepartmentRoutingRules.Add(new DepartmentRoutingRule { DepartmentId = dc.Id, Direction = 1,
+            setup.DepartmentRoutingRules.Add(new DepartmentRoutingRule { WorkflowDefinitionId = (await setup.WorkflowDefinitions.SingleAsync(TestContext.Current.CancellationToken)).Id, DepartmentId = dc.Id, Direction = 1,
                 MatchKind = 1, MessageTypePattern = "MT199", IsActive = true,
                 SourceFile = "overlap", SourceSheet = "rules", SourceRow = 1 });
-            setup.WorkflowDefinitions.Add(new ORP.Domain.Workflows.WorkflowDefinition(MessageDirection.Incoming,
-                "Joint", "MT199", [cs.Id, dc.Id]).AddStep(1, 1));
             await setup.SaveChangesAsync(TestContext.Current.CancellationToken);
             var catalog = new SaaRoutingCatalog(fixture.ConnectionString);
             processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(TestContext.Current.CancellationToken),

@@ -26,10 +26,6 @@ internal static class UndoReviewQueries
             db.WorkflowSteps.Any(step => step.WorkflowDefinitionId == workflow.Id && step.Required && step.ReviewLevel == review.Level) &&
             !db.Reviews.Any(later => later.MessageId == message.Id && later.Status == ReviewStatus.Approved && later.Level > review.Level &&
                 db.WorkflowSteps.Any(step => step.WorkflowDefinitionId == workflow.Id && step.Required && step.ReviewLevel == later.Level)) &&
-            (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
-                workflow.Departments.Any(d => d.DepartmentId == role.DepartmentId) &&
-                (workflow.BranchId == null || role.BranchId == workflow.BranchId) &&
-                role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.MessageView))) &&
             ((access.IsGlobalAdministrator && message.ActiveReviewId == null) ||
                 ((workflow.UndoApprovalMode == UndoApprovalMode.Latest ||
                     (workflow.UndoApprovalMode == UndoApprovalMode.LatestNonFinal &&

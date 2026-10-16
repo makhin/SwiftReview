@@ -32,11 +32,17 @@ Assign requires an unassigned message; reassign requires an assigned message.
 Both accept `{ "assignedTo": 12 }`. Workflow accepts `{ "workflowDefinitionId": 1 }`.
 Search accepts `skip`, `take`, `sort` and a message `filter` in JSON; `take` is
 limited to 500. Audit accepts query parameters `skip` and `take` (defaults 0 and 100).
-Manual workflow changes require an active workflow with a matching message type
-(or an existing supported MT-series/MX-family pattern), direction, exact set of
-message departments, and matching or unrestricted branch. These checks also apply
-to administrators. Review levels come from workflow configuration; no department
-or message-type names are checked by the workflow engine.
+Manual workflow changes require the workflow selected by current routing rules for
+the message type, direction, branch and departments, including for administrators.
+They refresh the saved processing scope and remain subject to review-history checks.
+Definitions contain reusable behavior; routing rules contain applicability.
+
+Ordinary users may mutate messages only through a message department with
+`CanProcess=true`, with both view and action permission in the same branch/department.
+This applies to assignment, reassignment, candidates, confirmations, Undo and workflow
+changes, even when the user's role normally grants these actions. Other departments
+retain read access, including audit when permitted. Messages in `ViewOnly` cannot be
+mutated, including by administrators. They have no assignments or confirmations.
 
 ### Message grid
 
@@ -128,7 +134,7 @@ operation even for administrators. Allowed rejection is final. Cancel keeps the
 assignment. Assignment ends after each approval in `PerConfirmation` mode, or only
 at workflow completion in `UntilWorkflowCompleted` mode.
 
-Undo requires scoped `message.view` and `review.undo`, access to the workflow, and
+Undo requires scoped `message.view` and `review.undo` in a saved processing department, and
 an approval eligible under its undo policy. It may cancel the active next review
 atomically. Undo retains the current assignment in `UntilWorkflowCompleted` mode;
 `PerConfirmation` ends it. It does not recreate an assignment already ended by
@@ -144,8 +150,8 @@ Details and grid rows expose `version`, `confirmationMode` (`ReviewSession`,
 `confirmationLevel` is null when confirmation is unavailable. `canReview` applies
 to legacy review sessions; `canConfirm` applies to immediate confirmation. These
 flags are advisory snapshots; commands always recheck authorization and state.
-Workflows without confirmations expose neither action and do not complete
-messages automatically. Comments are optional and limited to 2,000 characters.
+Workflows without confirmations register messages as `ViewOnly`, expose neither
+action and do not mark messages `Completed`. Comments are optional and limited to 2,000 characters.
 
 The review and workflow-change handlers execute access checks and mutations
 through `ITransactionExecutor`.
@@ -162,9 +168,24 @@ The following GET operations return 200 with their typed result:
 `GET /api/dashboard/summary` returns `totalMessages`, `unassigned` (`New`),
 `pendingFirstConfirmation` (`Assigned` and `FirstReviewInProgress`),
 `pendingSecondConfirmation` (`WaitingForSecondReview` and `SecondReviewInProgress`)
-and `completed` (`Completed`). Rejected and third-review messages contribute only
+and `completed` (`Completed`). ViewOnly, Rejected and third-review messages contribute only
 to `totalMessages`, so the other four counts need not sum to the total. These
 counts cover accessible messages before grid filters.
+
+### Workflow definitions
+
+`GET /api/workflows` returns reusable definitions with `id`, `code`, `name`,
+`isActive`, `steps`, `confirmationMode`, `confirmationActorMode`, `allowReviewerReuse`,
+`assignmentRetentionMode`, `rejectAllowed`, `undoApprovalMode`, `undoActorMode` and
+`undoActiveReviewMode`. The former `messageType`, `direction`, `branchId` and
+`departmentIds` fields are removed. Ordinary users see definitions referenced by
+active routing rules in their visible scopes; administrators can inspect all definitions.
+The matrix uses `VIEW_ONLY`, `SINGLE_CONFIRMATION` and `DOUBLE_CONFIRMATION`.
+
+`ViewOnly` is appended to `MessageState` (existing numeric values are unchanged).
+`/api/message-states` describes it with label `View only`, phase `ViewOnly` and no
+review level. Grid/search filters and state counts support it. No new business
+summary field is added. Frontend contract regeneration is a separate follow-up.
 
 ## Administration
 
@@ -211,11 +232,11 @@ are deferred to the frontend follow-up for the confirmation API.
 ## Message direction
 
 Message detail, search and grid rows expose `direction` as `"Incoming"`, `"Outgoing"`,
-or `null` when the source has no direction. Workflow summaries expose the same enum,
-but never `null`. Incoming/Outgoing are relative to the bank.
+or `null` when the source has no direction. Incoming/Outgoing are relative to the bank.
+Direction belongs to routing rules, not workflow definitions.
 
 The message grid can sort by `direction`. Its current request has no direction
 filter or grouping option; `direction` is returned in each row.
 Manual workflow changes require a matching direction, including for administrators.
 A mismatch or missing message direction returns `409` without changing state or audit.
-The type, branch and department compatibility rules described above also apply.
+The routing rules described above also apply.

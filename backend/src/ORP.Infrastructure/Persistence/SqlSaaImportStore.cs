@@ -101,22 +101,20 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
         var departmentCount = await db.Departments.CountAsync(department => processed.DepartmentIds.Contains(department.Id), cancellationToken);
         if (departmentCount != processed.DepartmentIds.Count)
             throw new FormatException("A resolved department does not exist in the department directory.");
-        var candidates = await db.WorkflowDefinitions.AsNoTracking().Include(candidate => candidate.Steps)
-            .Include(candidate => candidate.Departments)
-            .Where(candidate => candidate.IsActive &&
-                (candidate.BranchId == null || candidate.BranchId == processed.BranchId))
-            .ToListAsync(cancellationToken);
-        var workflow = SelectWorkflow(candidates, processed);
+        var routing = await new WorkflowResolver(db).ResolveAsync(processed.MessageType,
+            (MessageDirection)processed.Direction, processed.DepartmentIds, processed.BranchId, cancellationToken);
+        var workflow = routing.Workflow;
         db.SwiftMessages.Add(record);
         await db.SaveChangesAsync(cancellationToken);
         var receivedAt = clock.UtcNow;
         var message = new Message(record.MessageId, workflow.Id, processed.BranchId,
             processed.DepartmentIds, receivedAt);
+        message.ApplyRouting(workflow, routing.ProcessingDepartmentIds);
         db.Messages.Add(message);
         var details = JsonSerializer.Serialize(new AuditEventDetailsDto(WorkflowDefinitionId: workflow.Id,
             BranchId: message.BranchId, DepartmentIds: message.DepartmentIds), AuditJsonOptions);
         db.AuditEvents.Add(new AuditEvent(message, AuditEventType.MessageRegistered, null, receivedAt,
-            null, MessageState.New, details, Guid.NewGuid().ToString("N")));
+            null, message.State, details, Guid.NewGuid().ToString("N")));
         await db.IgnoredImportFiles.Where(row => row.FilePath == file.RelativePath).ExecuteDeleteAsync(cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -133,28 +131,6 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
         if (processed.DepartmentIds.Count == 0 || processed.DepartmentIds.Any(id => id <= 0) ||
             processed.DepartmentIds.Distinct().Count() != processed.DepartmentIds.Count)
             throw new FormatException("Unique positive department IDs are required before registration.");
-    }
-
-    internal static WorkflowDefinition SelectWorkflow(IEnumerable<WorkflowDefinition> candidates, SaaProcessedMessage processed)
-    {
-        var direction = processed.Direction switch
-        {
-            SaaMessageDirection.Incoming => MessageDirection.Incoming,
-            SaaMessageDirection.Outgoing => MessageDirection.Outgoing,
-            _ => throw new FormatException("Message direction is required to select a workflow.")
-        };
-        var preferred = WorkflowMatching.GetPreferred(candidates, processed.MessageType, direction,
-            processed.DepartmentIds, processed.BranchId);
-        if (preferred.Length != 1)
-            throw new FormatException(preferred.Length == 0
-                ? "No active workflow matches the message type, direction, branch and department."
-                : "Multiple active workflows match the message routing fields.");
-        try { _ = preferred[0].RequiredLevels(); }
-        catch (ORP.Domain.Common.DomainRuleViolationException exception)
-        {
-            throw new FormatException("The matching workflow has invalid review steps.", exception);
-        }
-        return preferred[0];
     }
 
     private SaaFileImportResult LogResult(string path, string hash, SaaFileImportResult result)

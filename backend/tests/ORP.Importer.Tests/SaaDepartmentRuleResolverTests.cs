@@ -118,7 +118,7 @@ public sealed class SaaDepartmentRuleResolverTests
         });
         var result = resolver.Resolve(1, "MT199", SaaMessageDirection.Incoming)!;
         Assert.Equal([1], result.DepartmentIds);
-        Assert.Equal(new[] { 1, 2 }, result.RuleIds);
+        Assert.Equal(new[] { 2 }, result.RuleIds);
         Assert.Null(resolver.Resolve(1, "MT299", SaaMessageDirection.Incoming));
     }
 

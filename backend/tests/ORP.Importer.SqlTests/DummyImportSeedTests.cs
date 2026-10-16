@@ -23,8 +23,7 @@ public sealed class DummyImportSeedTests
         await db.SaveChangesAsync(ct);
         await db.Database.ExecuteSqlRawAsync(await Script("seed-department-routing-rules.sql"), ct);
         var department = await db.Departments.SingleAsync(d => d.Name == "CS", ct);
-        var family = new WorkflowDefinition(MessageDirection.Incoming, "Existing family", "MXcamt.053",
-            department.Id).AddStep(1, 1);
+        var family = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Existing family").AddStep(1, 1);
         db.WorkflowDefinitions.Add(family);
         await db.SaveChangesAsync(ct);
         var approvedIds = await db.DepartmentRoutingRules.Select(r => r.Id).OrderBy(id => id).ToArrayAsync(ct);
@@ -35,7 +34,7 @@ public sealed class DummyImportSeedTests
             .OrderBy(r => r.Id).Select(r => r.Id).ToArrayAsync(ct);
         var workflowIds = await db.WorkflowDefinitions.OrderBy(w => w.Id).Select(w => w.Id).ToArrayAsync(ct);
         Assert.Equal(16, dummyIds.Length);
-        Assert.Equal(15, workflowIds.Length); // Fixture + existing family + 13 uncovered routes.
+        Assert.Equal(5, workflowIds.Length); // Fixture + three common definitions + unrelated definition.
         await db.Database.ExecuteSqlRawAsync(sql, ct);
         Assert.Equal(dummyIds, await db.DepartmentRoutingRules.Where(r => r.SourceFile == Source)
             .OrderBy(r => r.Id).Select(r => r.Id).ToArrayAsync(ct));
@@ -59,8 +58,8 @@ public sealed class DummyImportSeedTests
                 (MessageDirection)rule.Direction, [department.Id], rule.BranchId.Value, ct);
             Assert.NotNull(workflow);
         }
-        Assert.Equal(family.Id, (await new WorkflowResolver(db).ResolveAsync("MXcamt.053.001.14",
-            MessageDirection.Incoming, [department.Id], branches["Brussels"], ct)).Id);
+        Assert.Equal((await db.WorkflowDefinitions.SingleAsync(w => w.Code == "DOUBLE_CONFIRMATION", ct)).Id, (await new WorkflowResolver(db).ResolveAsync("MXcamt.053.001.14",
+            MessageDirection.Incoming, [department.Id], branches["Brussels"], ct)).Workflow.Id);
         Assert.NotNull(await new WorkflowResolver(db).ResolveAsync("MXcamt.055.001.08",
             MessageDirection.Incoming, [department.Id], branches["London"], ct));
 
@@ -78,12 +77,8 @@ public sealed class DummyImportSeedTests
         Assert.Contains(tfo.Id, departments.Resolve(branches["Dubai"], "MT081", SaaMessageDirection.Incoming)!.DepartmentIds);
     }
 
-    [Theory]
-    [InlineData("MXcamt.053.001.08", false)]
-    [InlineData("MXcamt.053.001.08", true)]
-    [InlineData("MXcamt.053", false)]
-    [InlineData("MXcamt.053", true)]
-    public async Task JointWorkflowDoesNotSuppressSingletonWorkflow(string pattern, bool branchSpecific)
+    [Fact]
+    public async Task UnroutedDefinitionDoesNotAffectDummyRouting()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -94,8 +89,7 @@ public sealed class DummyImportSeedTests
         var cs = await db.Departments.SingleAsync(d => d.Name == "CS", ct);
         var dc = await db.Departments.SingleAsync(d => d.Name == "DC", ct);
         var paris = await db.Branches.SingleAsync(b => b.Name == "Paris", ct);
-        var joint = new WorkflowDefinition(MessageDirection.Incoming, "Existing joint workflow", pattern,
-            new[] { cs.Id, dc.Id }, branchSpecific ? paris.Id : null).AddStep(1, 1);
+        var joint = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Existing joint workflow").AddStep(1, 1);
         db.WorkflowDefinitions.Add(joint);
         await db.SaveChangesAsync(ct);
 
@@ -107,15 +101,15 @@ public sealed class DummyImportSeedTests
         Assert.Equal(new[] { cs.Id }, resolution.DepartmentIds);
         var workflow = await new WorkflowResolver(db).ResolveAsync("MXcamt.053.001.08",
             MessageDirection.Incoming, resolution.DepartmentIds, paris.Id, ct);
-        Assert.NotEqual(joint.Id, workflow.Id);
+        Assert.NotEqual(joint.Id, workflow.Workflow.Id);
         Assert.Equal(new[] { cs.Id }, workflow.DepartmentIds);
 
         var workflowIds = await db.WorkflowDefinitions.OrderBy(w => w.Id).Select(w => w.Id).ToArrayAsync(ct);
         await db.Database.ExecuteSqlRawAsync(sql, ct);
         Assert.Equal(workflowIds, await db.WorkflowDefinitions.OrderBy(w => w.Id).Select(w => w.Id).ToArrayAsync(ct));
         db.ChangeTracker.Clear();
-        var preserved = await db.WorkflowDefinitions.Include(w => w.Departments).SingleAsync(w => w.Id == joint.Id, ct);
-        Assert.Equal(new[] { cs.Id, dc.Id }.Order(), preserved.DepartmentIds);
+        var preserved = await db.WorkflowDefinitions.SingleAsync(w => w.Id == joint.Id, ct);
+        Assert.Equal(joint.Code, preserved.Code);
     }
 
     [Theory]

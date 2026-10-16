@@ -351,6 +351,9 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<int>("DepartmentId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("CanProcess")
+                        .HasColumnType("bit");
+
                     b.HasKey("MessageId", "DepartmentId");
 
                     b.HasIndex("DepartmentId");
@@ -419,8 +422,10 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("ConfirmationActorMode")
                         .ValueGeneratedOnAdd()
@@ -432,16 +437,8 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
-                    b.Property<int>("Direction")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<string>("MessageType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -470,33 +467,15 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("MessageType", "Direction", "BranchId");
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("WorkflowDefinitions", "orp", t =>
                         {
                             t.HasCheckConstraint("CK_WorkflowDefinitions_ConfirmationPolicy", "[ConfirmationMode] IN (0, 1, 2) AND [ConfirmationActorMode] IN (0, 1) AND [AssignmentRetentionMode] IN (0, 1)");
 
-                            t.HasCheckConstraint("CK_WorkflowDefinitions_Direction", "[Direction] IN (1, 2)");
-
                             t.HasCheckConstraint("CK_WorkflowDefinitions_UndoPolicy", "[UndoApprovalMode] IN (0, 1, 2) AND [UndoActorMode] IN (0, 1) AND [UndoActiveReviewMode] IN (0, 1)");
                         });
-                });
-
-            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDepartment", b =>
-                {
-                    b.Property<int>("WorkflowDefinitionId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DepartmentId")
-                        .HasColumnType("int");
-
-                    b.HasKey("WorkflowDefinitionId", "DepartmentId");
-
-                    b.HasIndex("DepartmentId");
-
-                    b.ToTable("WorkflowDepartments", "orp");
                 });
 
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowStep", b =>
@@ -568,11 +547,16 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("WorkflowDefinitionId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("WorkflowDefinitionId");
 
                     b.HasIndex("Direction", "BranchId");
 
@@ -850,29 +834,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDefinition", b =>
-                {
-                    b.HasOne("ORP.Domain.Identity.Branch", null)
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Restrict);
-                });
-
-            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDepartment", b =>
-                {
-                    b.HasOne("ORP.Domain.Identity.Department", null)
-                        .WithMany()
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
-                        .WithMany("Departments")
-                        .HasForeignKey("WorkflowDefinitionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowStep", b =>
                 {
                     b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
@@ -894,6 +855,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.Role", b =>
@@ -913,8 +879,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDefinition", b =>
                 {
-                    b.Navigation("Departments");
-
                     b.Navigation("Steps");
                 });
 #pragma warning restore 612, 618

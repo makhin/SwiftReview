@@ -76,9 +76,12 @@ public sealed record AuditEventDto(long Id, AuditEventType EventType, DateTimeOf
     string? OldState, string? NewState, AuditActorDto? Actor,
     AuditEventDetailsDto Details, string CorrelationId);
 public sealed record WorkflowStepDto(int Order, int ReviewLevel, bool Required);
-public sealed record WorkflowSummaryDto(int Id, string Name, string MessageType, IReadOnlyList<int> DepartmentIds, int? BranchId,
-    bool IsActive, IReadOnlyList<WorkflowStepDto> Steps, MessageDirection Direction)
+public sealed record WorkflowSummaryDto(int Id, string Code, string Name, bool IsActive,
+    IReadOnlyList<WorkflowStepDto> Steps)
 {
+    public UndoApprovalMode UndoApprovalMode { get; init; }
+    public UndoActorMode UndoActorMode { get; init; }
+    public UndoActiveReviewMode UndoActiveReviewMode { get; init; }
     public ConfirmationMode ConfirmationMode { get; init; }
     public ConfirmationActorMode ConfirmationActorMode { get; init; }
     public bool AllowReviewerReuse { get; init; }
@@ -97,7 +100,7 @@ public sealed record MessageStateCountDto(MessageState State, int Count, IReadOn
 {
     public string StateName => MessageStates.GetName(State);
 }
-public enum MessageStagePhase { Waiting, Assigned, Reviewing, Completed, Rejected }
+public enum MessageStagePhase { Waiting, Assigned, Reviewing, Completed, Rejected, ViewOnly }
 
 // AssignedDescription overrides Description when the message has an assignee.
 public sealed record MessageStateReferenceDto(string Code, string Label, string Description,

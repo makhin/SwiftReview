@@ -51,9 +51,11 @@ public interface IAssignmentCandidateQueries
 public sealed class ConcurrentUpdateException(string message, Exception innerException)
     : Exception(message, innerException);
 
+public sealed record WorkflowResolution(WorkflowDefinition Workflow, IReadOnlyList<int> DepartmentIds, IReadOnlyList<int> ProcessingDepartmentIds);
+
 public interface IWorkflowResolver
 {
-    Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, IReadOnlyList<int> departmentIds, int branchId,
+    Task<WorkflowResolution> ResolveAsync(string messageType, MessageDirection direction, IReadOnlyList<int> departmentIds, int branchId,
         CancellationToken cancellationToken);
 }
 

@@ -21,8 +21,11 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
         var message = await store.FindMessageAsync(messageId, ct) ?? throw new ResourceNotFoundException("Message not found.");
         var source = await store.FindMessageSourceAsync(messageId, ct) ?? throw new ResourceNotFoundException("SWIFT message not found.");
         var reviews = await store.GetReviewsAsync(messageId, ct);
+        if (message.State == MessageState.ViewOnly && permissionName != Permissions.MessageView)
+            throw new ORP.Domain.Common.DomainRuleViolationException("View-only messages cannot be changed.");
         var currentId = current.UserId;
-        var access = await users.CheckAsync(currentId, source.BranchId, source.DepartmentIds, permissionName, ct) ?? throw new UnauthorizedAccessException();
+        var access = await users.CheckAsync(currentId, source.BranchId,
+            permissionName == Permissions.MessageView ? source.DepartmentIds : message.ProcessingDepartmentIds, permissionName, ct) ?? throw new UnauthorizedAccessException();
         if (access.IsGlobalAdministrator) return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
         var permission = access.HasPermission;
         var branch = access.CanView;
@@ -45,8 +48,7 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
                 x.ReviewerId == currentId),
             _ => true
         };
-        if (permissionName == Permissions.ReviewUndo)
-            permission = permission && await users.CanAccessWorkflowAsync(currentId, message.WorkflowDefinitionId, ct);
+
         if (permission && branch && stateOk && fourEyes && ownership)
             return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
 

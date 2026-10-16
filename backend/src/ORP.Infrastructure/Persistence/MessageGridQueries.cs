@@ -74,7 +74,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                     !db.Reviews.Any(review => review.MessageId == x.Id && review.Status != ReviewStatus.Cancelled && review.Status != ReviewStatus.Undone) &&
                     (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
                         role.BranchId == x.BranchId && db.MessageDepartments.Any(d => d.MessageId == x.Id &&
-                            d.DepartmentId == role.DepartmentId) &&
+                            d.DepartmentId == role.DepartmentId && d.CanProcess) &&
                         db.UserRoles.Any(view => view.UserId == access.UserId && view.BranchId == x.BranchId &&
                             view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
                                 grant.Permission.Name == Permissions.MessageView)) &&

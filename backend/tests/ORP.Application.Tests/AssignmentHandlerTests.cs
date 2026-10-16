@@ -22,12 +22,12 @@ public sealed class AssignmentHandlerTests
     {
         var store = Substitute.For<IORPStore>();
         store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
-            new WorkflowDefinition(MessageDirection.Incoming, "Default", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
+            new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
-        var message = new Message(1, 1);
+        var message = new Message(1, 1, 1, 1, DateTimeOffset.UtcNow);
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
@@ -51,12 +51,12 @@ public sealed class AssignmentHandlerTests
     {
         var store = Substitute.For<IORPStore>();
         store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
-            new WorkflowDefinition(MessageDirection.Incoming, "Default", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
+            new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
-        var message = new Message(1, 1);
+        var message = new Message(1, 1, 1, 1, DateTimeOffset.UtcNow);
         var now = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
         AuditEvent? audit = null;
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
@@ -94,10 +94,11 @@ public sealed class AssignmentHandlerTests
     public async Task PreviousApprovedReviewer_CannotBeAssignedToTheNextLevel()
     {
         var (store, access, user, clock, correlation) = Dependencies();
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Two levels", "MT199", 1)
+        var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Two levels")
             .AddStep(1, 1)
             .AddStep(2, 2);
-        var message = new Message(1, workflow.Id);
+        typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 1);
+        var message = new Message(1, workflow.Id, 1, 1, DateTimeOffset.UtcNow);
         var reviews = new List<Review>();
         message.Assign(2);
         var review = message.StartReview(1, 2, workflow, reviews, DateTimeOffset.UtcNow);
@@ -123,11 +124,12 @@ public sealed class AssignmentHandlerTests
     public async Task ReviewerWithUndoneApproval_CanBeAssignedToThatLevelAgain()
     {
         var (store, access, user, clock, correlation) = Dependencies();
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Three levels", "MT199", 1)
+        var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Three levels")
             .AddStep(1, 1)
             .AddStep(2, 2)
             .AddStep(3, 3);
-        var message = new Message(1, workflow.Id);
+        typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 1);
+        var message = new Message(1, workflow.Id, 1, 1, DateTimeOffset.UtcNow);
         var reviews = new List<Review>();
         message.Assign(4);
         var first = message.StartReview(1, 4, workflow, reviews, DateTimeOffset.UtcNow);
@@ -159,7 +161,7 @@ public sealed class AssignmentHandlerTests
     {
         var store = Substitute.For<IORPStore>();
         store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
-            new WorkflowDefinition(MessageDirection.Incoming, "Default", "MT199", 1).AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
+            new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();

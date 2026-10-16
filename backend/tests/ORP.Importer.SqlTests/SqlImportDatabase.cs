@@ -47,11 +47,12 @@ internal sealed class SqlImportDatabase : IAsyncDisposable
             var department = new Department("CS");
             db.AddRange(branch, department);
             await db.SaveChangesAsync();
-            db.WorkflowDefinitions.Add(new WorkflowDefinition(MessageDirection.Incoming, "CS MT199", "MT199", department.Id)
-                .AddStep(1, 1));
+            var workflow = new WorkflowDefinition("TEST_SINGLE", "CS MT199").AddStep(1, 1);
+            db.WorkflowDefinitions.Add(workflow);
+            await db.SaveChangesAsync();
             db.DepartmentRoutingRules.Add(new DepartmentRoutingRule
             {
-                DepartmentId = department.Id, Direction = 1, MatchKind = 1, MessageTypePattern = "MT199",
+                WorkflowDefinitionId = workflow.Id, DepartmentId = department.Id, Direction = 1, MatchKind = 1, MessageTypePattern = "MT199",
                 IsActive = true, SourceFile = "test", SourceSheet = "rules", SourceRow = 1
             });
             await db.SaveChangesAsync();

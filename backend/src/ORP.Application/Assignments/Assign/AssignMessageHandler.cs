@@ -40,7 +40,7 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQuer
             if (!workflow.IsActive || !workflow.RequiredLevels().Contains(reviewLevel))
                 throw new DomainRuleViolationException("This workflow has no assignable confirmation at the current level.");
             var source = access.Source;
-            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, source.DepartmentIds,
+            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, message.ProcessingDepartmentIds,
                 ReviewAssignmentRules.PermissionForLevel(reviewLevel), ct)
                 ?? throw new ResourceNotFoundException("Assignee was not found.");
             var reviews = access.Reviews;

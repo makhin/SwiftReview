@@ -21,7 +21,7 @@ public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries q
             throw new DomainRuleViolationException("This workflow has no assignable confirmation at the current level.");
         var source = access.Source;
         var reviews = access.Reviews;
-        return await queries.GetEligibleAsync(source.BranchId, source.DepartmentIds, reviewLevel,
+        return await queries.GetEligibleAsync(source.BranchId, message.ProcessingDepartmentIds, reviewLevel,
             workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId,
             cancellationToken);
     }

@@ -129,7 +129,7 @@ public sealed class ConfirmReviewTests
     public async Task DisabledRejectionIsEnforcedForAdministratorInSessionMode()
     {
         var f = new Fixture();
-        var workflow = (await f.Store.FindWorkflowAsync(0, CancellationToken.None))!;
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
         workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, ConfirmationActorMode.AnyAuthorizedUser,
             true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
         var review = f.Message.StartReview(1, 22, workflow, f.Reviews, DateTimeOffset.UtcNow);
@@ -147,7 +147,7 @@ public sealed class ConfirmReviewTests
     public async Task SessionWorkflowCannotUseImmediateConfirm()
     {
         var f = new Fixture();
-        var workflow = (await f.Store.FindWorkflowAsync(0, CancellationToken.None))!;
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
         workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, ConfirmationActorMode.AnyAuthorizedUser,
             true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
         await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None));
@@ -161,7 +161,7 @@ public sealed class ConfirmReviewTests
     public async Task CapabilityUsesSameScopeOwnershipAndMode(bool viewInScope, bool actionInScope, bool expected)
     {
         var f = new Fixture();
-        var workflow = (await f.Store.FindWorkflowAsync(0, CancellationToken.None))!;
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
         var access = new UserAccess(22, "actor", "Actor", false,
         [
             new(5, 7, [], viewInScope ? actionInScope ? [Permissions.MessageView, Permissions.ReviewLevel1] : [Permissions.MessageView]
@@ -181,7 +181,7 @@ public sealed class ConfirmReviewTests
         public ICurrentUser Actor { get; } = Substitute.For<ICurrentUser>();
         public IClock Clock { get; } = Substitute.For<IClock>();
         public ICorrelationContext Correlation { get; } = Substitute.For<ICorrelationContext>();
-        public Message Message { get; } = new(1, 0);
+        public Message Message { get; } = new(1, 1, 5, 7, DateTimeOffset.UtcNow);
         public List<Review> Reviews { get; } = [];
         public Assignment Assignment { get; } = new(1, 99, 11, DateTimeOffset.UtcNow);
         public string Version => Convert.ToBase64String(Message.RowVersion);
@@ -192,7 +192,8 @@ public sealed class ConfirmReviewTests
 
         public Fixture(int levels = 1)
         {
-            var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Generic", "TYPE", 7);
+            var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Generic");
+            typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 1);
             for (var level = 1; level <= levels; level++) workflow.AddStep(level, level);
             workflow.ConfigureConfirmation(ConfirmationMode.Immediate, ConfirmationActorMode.AnyAuthorizedUser,
                 true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
@@ -204,7 +205,7 @@ public sealed class ConfirmReviewTests
             Clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             Correlation.CorrelationId.Returns("confirmation-test");
             Store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(Message);
-            Store.FindWorkflowAsync(0, Arg.Any<CancellationToken>()).Returns(workflow);
+            Store.FindWorkflowAsync(1, Arg.Any<CancellationToken>()).Returns(workflow);
             Store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(new MessageSourceDto(1, "MSG", "TYPE", 5, [7], DateTimeOffset.UtcNow, "", "", MessageDirection.Incoming));
             Store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns(Reviews);
             Store.GetActiveAssignmentAsync(1, Arg.Any<CancellationToken>()).Returns(Assignment);

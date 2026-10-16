@@ -49,10 +49,10 @@ public sealed class ReferenceDataHandlerTests
 
         var states = await new GetMessageStatesHandler(users, current).HandleAsync(ct);
 
-        Assert.Equal(9, states.Count);
+        Assert.Equal(10, states.Count);
         Assert.Equal("New", states[0].Label);
         Assert.Contains(states, state => state.Code == "WaitingForSecondReview" && state.Label == "Waiting for second review");
-        Assert.Equal("Rejected", states[^1].Label);
+        Assert.Equal("View only", states[^1].Label);
         Assert.Equal(Enum.GetNames<ORP.Domain.Messages.MessageState>(), states.Select(state => state.Code));
     }
 
@@ -66,6 +66,7 @@ public sealed class ReferenceDataHandlerTests
     [InlineData("ThirdReviewInProgress", 3, MessageStagePhase.Reviewing, "Third review in progress", null)]
     [InlineData("Completed", null, MessageStagePhase.Completed, "All required reviews completed", null)]
     [InlineData("Rejected", null, MessageStagePhase.Rejected, "Review rejected", null)]
+    [InlineData("ViewOnly", null, MessageStagePhase.ViewOnly, "No confirmation required", null)]
     public async Task MessageStates_DescribeEveryStage(string code, int? level, MessageStagePhase phase,
         string description, string? assignedDescription)
     {

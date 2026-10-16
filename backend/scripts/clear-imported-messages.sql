@@ -1,6 +1,8 @@
 -- Run manually after stopping the API and importer. Preserves users, roles, directories,
 -- routing rules, workflows, and source files. This script does not run at startup.
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 BEGIN TRANSACTION;
 DELETE FROM [orp].[AuditEvents];
 DELETE FROM [orp].[Reviews];

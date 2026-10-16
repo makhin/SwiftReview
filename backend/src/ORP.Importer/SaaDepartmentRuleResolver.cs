@@ -7,6 +7,7 @@ public enum SaaDepartmentMatchKind { Exact = 1, MtSeries = 2, MxFamily = 3 }
 public sealed class SaaDepartmentRule
 {
     public int Id { get; set; }
+    public int? WorkflowDefinitionId { get; set; }
     public int DepartmentId { get; set; }
     public int? BranchId { get; set; }
     public SaaMessageDirection Direction { get; set; }
@@ -40,11 +41,27 @@ public sealed class SaaDepartmentRuleResolver : ISaaMessageDepartmentResolver
 
     public SaaDepartmentResolution? Resolve(int branchId, string messageType, SaaMessageDirection direction)
     {
-        var matches = rules.Where(rule => (rule.BranchId is null || rule.BranchId == branchId) &&
-            rule.Direction == direction && Matches(rule, messageType)).ToArray();
+        var matches = SelectRules(rules, branchId, messageType, direction);
         if (matches.Length == 0) return null;
         return new SaaDepartmentResolution(matches.Select(rule => rule.DepartmentId).Distinct().OrderBy(id => id).ToArray(),
             matches.Select(rule => rule.Id).OrderBy(id => id).ToArray());
+    }
+
+    public static SaaDepartmentRule[] SelectRules(IEnumerable<SaaDepartmentRule> rules, int branchId,
+        string messageType, SaaMessageDirection direction)
+    {
+        return rules.Where(rule => rule.IsActive && (rule.BranchId is null || rule.BranchId == branchId) &&
+                rule.Direction == direction && Matches(rule, messageType))
+            .GroupBy(rule => rule.DepartmentId).SelectMany(group =>
+            {
+                var scoped = group.Where(rule => rule.BranchId == branchId).ToArray();
+                var candidates = scoped.Length > 0 ? scoped : group.ToArray();
+                var exact = candidates.Where(rule => rule.MatchKind == SaaDepartmentMatchKind.Exact).ToArray();
+                var preferred = exact.Length > 0 ? exact : candidates;
+                if (preferred.Select(rule => rule.WorkflowDefinitionId).Distinct().Count() != 1)
+                    throw new FormatException("Equally preferred department rules select different workflows.");
+                return preferred;
+            }).ToArray();
     }
 
     private static bool ValidPattern(SaaDepartmentRule rule) => rule.MatchKind switch
@@ -64,10 +81,10 @@ public sealed class SaaDepartmentRuleResolver : ISaaMessageDepartmentResolver
         SaaDepartmentMatchKind.Exact => string.Equals(rule.MessageTypePattern, messageType, StringComparison.OrdinalIgnoreCase),
         SaaDepartmentMatchKind.MtSeries => messageType.Length == 5 &&
             messageType.StartsWith(rule.MessageTypePattern.Substring(0, 3), StringComparison.OrdinalIgnoreCase) &&
-            char.IsDigit(messageType[3]) && char.IsDigit(messageType[4]),
-        SaaDepartmentMatchKind.MxFamily => string.Equals(rule.MessageTypePattern, messageType, StringComparison.OrdinalIgnoreCase) ||
+            messageType[3] >= '0' && messageType[3] <= '9' && messageType[4] >= '0' && messageType[4] <= '9',
+        SaaDepartmentMatchKind.MxFamily => MxPattern.IsMatch(messageType) && (string.Equals(rule.MessageTypePattern, messageType, StringComparison.OrdinalIgnoreCase) ||
             (rule.MessageTypePattern.Count(c => c == '.') == 1 &&
-             messageType.StartsWith(rule.MessageTypePattern + ".", StringComparison.OrdinalIgnoreCase)),
+             messageType.StartsWith(rule.MessageTypePattern + ".", StringComparison.OrdinalIgnoreCase))),
         _ => false
     };
 }

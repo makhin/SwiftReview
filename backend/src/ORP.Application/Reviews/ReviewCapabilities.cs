@@ -23,7 +23,7 @@ public sealed record ReviewCapabilities(ConfirmationMode ConfirmationMode, bool 
             _ => 0
         };
         if (level == 0) return unavailable;
-        var permitted = access.IsGlobalAdministrator || departmentIds.Any(department =>
+        var permitted = access.IsGlobalAdministrator || message.ProcessingDepartmentIds.Any(department =>
             access.CanAccess(branchId, department) &&
             access.HasPermission(MessageAuthorizationService.ReviewPermission(level), branchId, department));
         if (!permitted) return unavailable;
