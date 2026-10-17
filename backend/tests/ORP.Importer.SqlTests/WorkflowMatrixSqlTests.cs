@@ -122,6 +122,8 @@ public sealed class WorkflowMatrixSqlTests
         var viewOnly = await db.Messages.FirstAsync(x => x.State == MessageState.ViewOnly, ct);
         await Assert.ThrowsAsync<DomainRuleViolationException>(() => Authorization(db, admin.Id).RequireAsync(viewOnly.Id, Permissions.MessageAssign, ct));
         await Assert.ThrowsAsync<DomainRuleViolationException>(() => Authorization(db, admin.Id).RequireAsync(viewOnly.Id, Permissions.ReviewLevel1, ct));
+        foreach (var permission in new[] { Permissions.MessageAssign, Permissions.WorkflowManage, Permissions.ReviewLevel1 })
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Authorization(db, tfo.Id).RequireAsync(viewOnly.Id, permission, ct));
         var adminAccess = (await new UserAccessService(db).GetByIdAsync(admin.Id, ct))!;
         var summary = await new MessageQueries(db).DashboardAsync(adminAccess, ct);
         Assert.Equal(9, summary.TotalMessages);
