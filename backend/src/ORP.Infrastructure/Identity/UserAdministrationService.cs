@@ -111,18 +111,21 @@ public sealed class UserAdministrationService(ORPDbContext db, ICurrentUser curr
         CancellationToken ct, int? changedRoleId = null, IReadOnlyList<string>? changedPermissions = null)
     {
         var active = await (from review in db.Reviews
-            join source in db.SwiftMessages on review.MessageId equals source.MessageId
+            join message in db.Messages on review.MessageId equals message.Id
             where review.Status == ReviewStatus.InProgress && userIds.Contains(review.ReviewerId) &&
                 !db.Users.Any(u => u.Id == review.ReviewerId && u.IsGlobalAdministrator)
-            select new { review.ReviewerId, review.Level, source.BranchId, source.DepartmentId }).ToListAsync(ct);
+            select new { review.ReviewerId, review.Level, message.BranchId,
+                DepartmentIds = message.Departments.Where(d => d.CanProcess).Select(d => d.DepartmentId).ToArray() }).ToListAsync(ct);
         foreach (var review in active)
         {
-            var permissions = assignments.Where(r => r.UserId == review.ReviewerId &&
-                    r.BranchId == review.BranchId && r.DepartmentId == review.DepartmentId)
-                .SelectMany(r => r.RoleId == changedRoleId ? changedPermissions! :
-                    r.Role.Permissions.Select(p => p.Permission.Name)).ToHashSet();
-            if (!permissions.Contains(Permissions.MessageView) ||
-                !permissions.Contains(ReviewAssignmentRules.PermissionForLevel(review.Level)))
+            if (!assignments.Where(r => r.UserId == review.ReviewerId && r.BranchId == review.BranchId &&
+                    review.DepartmentIds.Contains(r.DepartmentId)).GroupBy(r => r.DepartmentId).Any(group =>
+                {
+                    var permissions = group.SelectMany(r => r.RoleId == changedRoleId ? changedPermissions! :
+                        r.Role.Permissions.Select(p => p.Permission.Name)).ToHashSet();
+                    return permissions.Contains(Permissions.MessageView) &&
+                        permissions.Contains(ReviewAssignmentRules.PermissionForLevel(review.Level));
+                }))
                 throw new DomainRuleViolationException("These changes would prevent a reviewer from completing an active review.");
         }
     }

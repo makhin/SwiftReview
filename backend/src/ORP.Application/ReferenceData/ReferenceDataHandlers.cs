@@ -54,9 +54,9 @@ public sealed class GetMessageTypesHandler(IReferenceDataQueries queries, IUserA
     }
 }
 
-public sealed class GetMessageStatesHandler(IUserAccessService users, ICurrentUser current)
+public static class MessageStates
 {
-    private static readonly IReadOnlyList<MessageStateReferenceDto> States = Enum.GetValues<MessageState>()
+    public static readonly IReadOnlyList<MessageStateReferenceDto> States = Enum.GetValues<MessageState>()
         .Select(state => state switch
         {
             MessageState.New => new MessageStateReferenceDto(state.ToString(), "New",
@@ -77,14 +77,21 @@ public sealed class GetMessageStatesHandler(IUserAccessService users, ICurrentUs
                 "All required reviews completed", null, MessageStagePhase.Completed, null),
             MessageState.Rejected => new MessageStateReferenceDto(state.ToString(), "Rejected",
                 "Review rejected", null, MessageStagePhase.Rejected, null),
+            MessageState.ViewOnly => new MessageStateReferenceDto(state.ToString(), "View only",
+                "No confirmation required", null, MessageStagePhase.ViewOnly, null),
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Missing message stage metadata.")
         }).ToArray();
 
+    public static string GetName(MessageState state) => States.Single(x => x.Code == state.ToString()).Label;
+}
+
+public sealed class GetMessageStatesHandler(IUserAccessService users, ICurrentUser current)
+{
     public async Task<IReadOnlyList<MessageStateReferenceDto>> HandleAsync(CancellationToken ct)
     {
         var access = await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException();
         if (!access.Permissions.Contains(Permissions.MessageView)) throw new UnauthorizedAccessException();
-        return States;
+        return MessageStates.States;
     }
 
 }

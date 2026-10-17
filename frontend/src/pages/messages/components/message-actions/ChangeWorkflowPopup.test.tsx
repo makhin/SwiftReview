@@ -4,14 +4,12 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PropsWithChildren } from 'react';
 import { createTestQueryClient } from '../../../../test/createTestQueryClient';
-import { referenceDataKeys } from '../../../../shared/api/referenceDataQueries';
 import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import type { MessageRow } from '../../api/messagesApi';
-const { changeMessageWorkflow, getWorkflows } = vi.hoisted(() => ({
-  changeMessageWorkflow: vi.fn(), getWorkflows: vi.fn(),
+const { changeMessageWorkflow, getWorkflowCandidates } = vi.hoisted(() => ({
+  changeMessageWorkflow: vi.fn(), getWorkflowCandidates: vi.fn(),
 }));
-vi.mock('../../api/messagesApi', () => ({ changeMessageWorkflow }));
-vi.mock('../../../../shared/api/referenceDataApi', () => ({ getWorkflows, getDepartments: vi.fn(() => new Promise(() => undefined)) }));
+vi.mock('../../api/messagesApi', () => ({ changeMessageWorkflow, getWorkflowCandidates }));
 vi.mock('devextreme/ui/notify', () => ({ default: vi.fn() }));
 vi.mock('devextreme-react/popup', () => ({ default: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }));
 vi.mock('devextreme-react/button', () => ({ default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{text}</button> }));
@@ -21,35 +19,30 @@ vi.mock('devextreme-react/select-box', () => ({ default: ({ items, value, disabl
   {items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
 </select> }));
 import ChangeWorkflowPopup from './ChangeWorkflowPopup';
-const message: MessageRow = { id: 42, externalId: 'MSG-42', messageType: 'MT199', direction: 'Incoming', branchId: 1, departmentId: 1,
+const message: MessageRow = { id: 42, externalId: 'MSG-42', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow", messageType: 'MT199', direction: 'Incoming', branchId: 1,
   receivedAt: '2026-09-10T10:00:00Z', state: 'Assigned', currentAssigneeId: 1,
   activeReviewId: null, activeReviewLevel: null, activeReviewerId: null, workflowDefinitionId: 1, canChangeWorkflow: true,
   undoReviewId: null, canReview: true, requiredReviewLevels: [1] };
 function setup(selectedMessage: MessageRow = message) {
   const client = createTestQueryClient();
-  client.setQueryData(referenceDataKeys.departments, [{ id: 1, name: 'CS' }, { id: 2, name: 'TFO' }, { id: 3, name: 'DC' }]);
-  client.setQueryData(referenceDataKeys.workflows, [1, 2, 3, 4, 5].map((id) => ({ id, name: `Workflow ${id}`, departmentId: 3, messageType: 'MT199', direction: id === 4 ? 'Outgoing' : 'Incoming', isActive: id !== 3,
-    steps: (id === 5 ? [1, 2, 3] : [1]).map((level) => ({ order: level, reviewLevel: level, required: true })) })));
+  getWorkflowCandidates.mockResolvedValue([{ id: 2, code: 'ROUTED', name: 'Workflow 2', isActive: true, confirmationMode: 'ReviewSession', steps: [] }]);
+  client.setQueryData(['messages', selectedMessage.id, 'workflow-candidates'], [{ id: 2, code: 'ROUTED', name: 'Workflow 2', isActive: true, confirmationMode: 'ReviewSession', steps: [] }]);
   const onClose = vi.fn(); const onChanged = vi.fn();
   render(<QueryClientProvider client={client}><ChangeWorkflowPopup message={selectedMessage} onClose={onClose} onChanged={onChanged} /></QueryClientProvider>);
   return { onClose, onChanged };
 }
 describe('ChangeWorkflowPopup', () => {
   afterEach(() => vi.resetAllMocks());
-  it.each([1, 2, 99])('excludes third-level workflows for restricted or unknown department %s', (departmentId) => {
-    setup({ ...message, departmentId });
-    expect(screen.queryByRole('option', { name: /Workflow 5/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Workflow 2/ })).toBeInTheDocument();
-  });
-  it('allows DC messages to select a third-level workflow', () => {
-    setup({ ...message, departmentId: 3 });
-    expect(screen.getByRole('option', { name: /Workflow 5/ })).toBeInTheDocument();
+  it('shows only the workflow returned by server routing', () => {
+    setup();
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: /ROUTED.*Workflow 2/ })).toBeInTheDocument();
   });
   it('saves an active alternative and prevents duplicate submission', async () => {
     let resolve!: () => void;
     changeMessageWorkflow.mockReturnValue(new Promise<void>((done) => { resolve = done; }));
     const { onClose, onChanged } = setup();
-    expect(screen.getByRole('button', { name: 'Save workflow' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save workflow' })).toBeEnabled();
     expect(screen.queryByRole('option', { name: /Workflow 3/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Workflow 4/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Workflow'), { target: { value: '2' } });
@@ -72,17 +65,12 @@ describe('ChangeWorkflowPopup', () => {
     expect(notify).toHaveBeenCalledExactlyOnceWith('All review attempts must be cancelled or undone.', 'error', 4000);
     expect(onChanged).toHaveBeenCalledOnce();
   });
-  it('offers no workflow when message direction is unknown', () => {
-    setup({ ...message, direction: null });
-    expect(screen.queryAllByRole('option')).toHaveLength(0);
+  it('does not offer a workflow when the server returns no candidates', async () => {
+    getWorkflowCandidates.mockResolvedValue([]);
+    const client = createTestQueryClient();
+    render(<QueryClientProvider client={client}><ChangeWorkflowPopup message={message} onClose={vi.fn()} onChanged={vi.fn()} /></QueryClientProvider>);
+    expect(await screen.findByText('No workflow can be applied in the current state.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save workflow' })).toBeDisabled();
-    expect(screen.getByText(/Direction: Unknown/)).toBeInTheDocument();
-  });
-
-  it('offers only outgoing workflows for outgoing messages', () => {
-    setup({ ...message, direction: 'Outgoing' });
-    expect(screen.getAllByRole('option')).toHaveLength(1);
-    expect(screen.getByRole('option', { name: /Workflow 4.*Outgoing/ })).toBeInTheDocument();
   });
 
   it('cancels without changing the workflow', () => {
@@ -93,15 +81,15 @@ describe('ChangeWorkflowPopup', () => {
   });
 
   it('recovers workflow loading after a transport failure', async () => {
-    getWorkflows.mockRejectedValueOnce(new ApiRequestError('Connection lost.', 'network'))
-      .mockResolvedValueOnce([{ id: 2, name: 'Alternative', messageType: 'MT199', direction: 'Incoming', isActive: true,
+    getWorkflowCandidates.mockRejectedValueOnce(new ApiRequestError('Connection lost.', 'network'))
+      .mockResolvedValueOnce([{ id: 2, code: 'ALT', name: 'Alternative', confirmationMode: 'ReviewSession', isActive: true,
         steps: [{ order: 2, reviewLevel: 2, required: true }, { order: 1, reviewLevel: 1, required: true }] }]);
     const client = createTestQueryClient();
     render(<QueryClientProvider client={client}><ChangeWorkflowPopup
       message={message} onClose={vi.fn()} onChanged={vi.fn()} /></QueryClientProvider>);
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('option', { name: 'Alternative — MT199 — Incoming — levels 1, 2' })).toBeInTheDocument();
-    expect(getWorkflows).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('option', { name: 'ALT — Alternative — ReviewSession' })).toBeInTheDocument();
+    expect(getWorkflowCandidates).toHaveBeenCalledTimes(2);
     expect(changeMessageWorkflow).not.toHaveBeenCalled();
   });
 

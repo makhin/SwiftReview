@@ -21,19 +21,21 @@ public sealed class AssignmentHandlerTests
     public async Task AssigneeOutsideMessageScope_IsRejected()
     {
         var store = Substitute.For<IORPStore>();
+        store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
-        var message = new Message(1, 1);
+        var message = new Message(1, 1, 1, 1, DateTimeOffset.UtcNow);
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
+            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, [1], DateTimeOffset.UtcNow,
                 "A", "B", MessageDirection.Incoming));
-        access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, false, false));
+        access.CheckAsync(2, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, false, false));
         user.UserId.Returns(5);
-        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(5, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
 
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
@@ -48,20 +50,22 @@ public sealed class AssignmentHandlerTests
     public async Task SuccessfulAssignment_WritesCompleteAuditEvent()
     {
         var store = Substitute.For<IORPStore>();
+        store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
-        var message = new Message(1, 1);
+        var message = new Message(1, 1, 1, 1, DateTimeOffset.UtcNow);
         var now = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero);
         AuditEvent? audit = null;
         store.FindMessageAsync(1, Arg.Any<CancellationToken>()).Returns(message);
         store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns([]);
         store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, 1, now, "A", "B", MessageDirection.Incoming));
-        access.CheckAsync(2, 1, 1, Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+            new MessageSourceDto(1, "EXT-ASSIGN", "MT199", 1, [1], now, "A", "B", MessageDirection.Incoming));
+        access.CheckAsync(2, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.ReviewLevel1, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         user.UserId.Returns(5);
-        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(5, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         clock.UtcNow.Returns(now);
         correlation.CorrelationId.Returns("assign-correlation");
         store.When(x => x.AddAudit(Arg.Any<AuditEvent>())).Do(x => audit = x.Arg<AuditEvent>());
@@ -90,10 +94,11 @@ public sealed class AssignmentHandlerTests
     public async Task PreviousApprovedReviewer_CannotBeAssignedToTheNextLevel()
     {
         var (store, access, user, clock, correlation) = Dependencies();
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Two levels", "MT199", 1)
+        var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Two levels")
             .AddStep(1, 1)
             .AddStep(2, 2);
-        var message = new Message(1, workflow.Id);
+        typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 1);
+        var message = new Message(1, workflow.Id, 1, 1, DateTimeOffset.UtcNow);
         var reviews = new List<Review>();
         message.Assign(2);
         var review = message.StartReview(1, 2, workflow, reviews, DateTimeOffset.UtcNow);
@@ -119,11 +124,12 @@ public sealed class AssignmentHandlerTests
     public async Task ReviewerWithUndoneApproval_CanBeAssignedToThatLevelAgain()
     {
         var (store, access, user, clock, correlation) = Dependencies();
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Three levels", "MT199", 1)
+        var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Three levels")
             .AddStep(1, 1)
             .AddStep(2, 2)
             .AddStep(3, 3);
-        var message = new Message(1, workflow.Id);
+        typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 1);
+        var message = new Message(1, workflow.Id, 1, 1, DateTimeOffset.UtcNow);
         var reviews = new List<Review>();
         message.Assign(4);
         var first = message.StartReview(1, 4, workflow, reviews, DateTimeOffset.UtcNow);
@@ -154,12 +160,14 @@ public sealed class AssignmentHandlerTests
         ICorrelationContext Correlation) Dependencies()
     {
         var store = Substitute.For<IORPStore>();
+        store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
         var user = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
         user.UserId.Returns(5);
-        access.CheckAsync(5, 1, 1, Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(5, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), Permissions.MessageAssign, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         correlation.CorrelationId.Returns("assignment-test");
         return (store, access, user, clock, correlation);
@@ -170,10 +178,10 @@ public sealed class AssignmentHandlerTests
     {
         store.FindMessageAsync(message.Id, Arg.Any<CancellationToken>()).Returns(message);
         store.FindMessageSourceAsync(message.Id, Arg.Any<CancellationToken>()).Returns(
-            new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, 1, DateTimeOffset.UtcNow,
+            new MessageSourceDto(message.Id, "EXT-ASSIGN", "MT199", 1, [1], DateTimeOffset.UtcNow,
                 "A", "B", MessageDirection.Incoming));
         store.GetReviewsAsync(message.Id, Arg.Any<CancellationToken>()).Returns(reviews);
-        access.CheckAsync(assigneeId, 1, 1, reviewPermission, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
+        access.CheckAsync(assigneeId, 1, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })), reviewPermission, Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, true, true));
     }
     private sealed class InlineTransactions : ITransactionExecutor
     {

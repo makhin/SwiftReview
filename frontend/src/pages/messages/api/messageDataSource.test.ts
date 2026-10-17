@@ -24,4 +24,10 @@ describe('messageDataSource', () => {
 
     expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, 'mine');
   });
+  it('keeps multiple department filters separate from DevExtreme options', async () => {
+    getMessageGrid.mockResolvedValue({ data: [], totalCount: 0 });
+    await createMessageDataSource(undefined, [1, 2]).load({ skip: 0, take: 20 });
+    expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, undefined, [1, 2]);
+  });
+
 });

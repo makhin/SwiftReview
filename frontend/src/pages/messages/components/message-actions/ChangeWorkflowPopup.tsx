@@ -4,7 +4,7 @@ import Button from 'devextreme-react/button';
 import Popup from 'devextreme-react/popup';
 import SelectBox from 'devextreme-react/select-box';
 import notify from 'devextreme/ui/notify';
-import { departmentsQueryOptions, workflowsQueryOptions } from '../../../../shared/api/referenceDataQueries';
+import { getWorkflowCandidates } from '../../api/messagesApi';
 import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import PageError from '../../../../shared/components/feedback/PageError';
 import { type MessageRow } from '../../api/messagesApi';
@@ -15,19 +15,15 @@ import './message-action-popup.css';
 export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
   message: MessageRow; onClose: () => void; onChanged: RefreshData;
 }) {
-  const workflows = useQuery(workflowsQueryOptions());
-  const departments = useQuery(departmentsQueryOptions());
-  const departmentName = departments.data?.find((department) => department.id === message.departmentId)?.name.toUpperCase();
-  const [selectedId, setSelectedId] = useState<number | null>(message.workflowDefinitionId ?? null);
-  const candidates = workflows.data?.filter((workflow) => workflow.isActive && message.direction != null && workflow.direction === message.direction &&
-    (!workflow.steps.some((step) => step.reviewLevel > 2) ||
-      (departmentName != null && departmentName !== 'CS' && departmentName !== 'TFO'))).map((workflow) => ({
+  const workflows = useQuery({ queryKey: ['messages', message.id, 'workflow-candidates'], queryFn: ({ signal }) => getWorkflowCandidates(message.id, signal) });
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const candidates = workflows.data?.map((workflow) => ({
     ...workflow,
-    label: `${workflow.name} — ${workflow.messageType} — ${workflow.direction} — levels ${workflow.steps.filter((step) => step.required)
-      .sort((a, b) => Number(a.order) - Number(b.order)).map((step) => step.reviewLevel).join(', ')}`,
+    label: `${workflow.code} — ${workflow.name} — ${workflow.confirmationMode}`,
   }));
-  const changed = selectedId != null && String(selectedId) !== String(message.workflowDefinitionId);
-  const selected = candidates?.find((workflow) => String(workflow.id) === String(selectedId));
+  const effectiveId = selectedId ?? candidates?.[0]?.id;
+  const changed = effectiveId != null;
+  const selected = candidates?.find((workflow) => String(workflow.id) === String(effectiveId));
   const mutation = useChangeMessageWorkflow(message.id, {
     onChanged,
     onSuccess: () => { onClose(); notify('Workflow changed.', 'success', 4000); },
@@ -44,20 +40,18 @@ export default function ChangeWorkflowPopup({ message, onClose, onChanged }: {
     elementAttr={{ 'aria-label': 'Change workflow' }}>
     <div className="review-decision-popup__content">
       <p>Change workflow for <strong>{message.externalId}</strong>. Available when there are no reviews or all previous review attempts are cancelled or undone.</p>
-      <p>Direction: {message.direction ?? 'Unknown'}. The selected workflow must have the same direction.</p>
-      <p>The current assignment, branch and department will stay the same.</p>
+      <p>The allowed workflow is determined by the routing matrix for this message.</p>
+      <p>The current assignment, branch and departments will stay the same.</p>
       {workflows.isPending && <p role="status">Loading workflows…</p>}
-      {departments.isError && <PageError title="Unable to verify department workflow limits" message="Check your connection and retry."
-        actionLabel="Retry departments" onAction={() => void departments.refetch()} />}
       {workflows.isError && <PageError title="Unable to load workflows" message="Check your connection and retry."
         actionLabel="Retry" onAction={() => void workflows.refetch()} />}
       {workflows.isSuccess && <>
-        <p>Current workflow: {workflows.data.find((workflow) => String(workflow.id) === String(message.workflowDefinitionId))?.name ?? message.workflowDefinitionId ?? 'Unknown'}</p>
+        <p>Current workflow: {message.workflowDefinitionName ?? message.workflowDefinitionId ?? 'Unknown'}</p>
         <label className="app-label" htmlFor="message-workflow">Workflow</label>
-        <SelectBox items={candidates} value={selectedId} valueExpr="id" displayExpr="label" searchEnabled
+        <SelectBox items={candidates} value={effectiveId} valueExpr="id" displayExpr="label" searchEnabled
           disabled={pending} onValueChanged={(event) => setSelectedId(event.value)}
           inputAttr={{ id: 'message-workflow', 'aria-label': 'Workflow' }} />
-        {!candidates?.some((workflow) => String(workflow.id) !== String(message.workflowDefinitionId)) && <p>No alternative active workflows are available.</p>}
+        {!candidates?.length && <p>No workflow can be applied in the current state.</p>}
       </>}
       {error && <div className="app-callout app-callout--danger" role="alert">{error}</div>}
       <div className="review-decision-popup__actions">

@@ -35,13 +35,17 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQuer
                 throw new DomainRuleViolationException("An assigned message must be reassigned instead of assigned.");
             var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
                 ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
+            var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
+                ?? throw new ResourceNotFoundException("Workflow was not found.");
+            if (!workflow.IsActive || !workflow.RequiredLevels().Contains(reviewLevel))
+                throw new DomainRuleViolationException("This workflow has no assignable confirmation at the current level.");
             var source = access.Source;
-            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, source.DepartmentId,
+            var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, message.ProcessingDepartmentIds,
                 ReviewAssignmentRules.PermissionForLevel(reviewLevel), ct)
                 ?? throw new ResourceNotFoundException("Assignee was not found.");
             var reviews = access.Reviews;
             if (!ReviewAssignmentRules.IsEligible(request.AssignedTo, target,
-                    ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
+                    workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
                 throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
             await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
                 ct, access.IsGlobalAdministrator);

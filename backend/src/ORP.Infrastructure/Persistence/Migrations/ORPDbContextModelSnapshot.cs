@@ -309,8 +309,20 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("MessageId");
 
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CurrentAssigneeId")
                         .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -322,11 +334,31 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("CurrentAssigneeId");
 
                     b.HasIndex("WorkflowDefinitionId");
 
                     b.ToTable("Messages", "orp");
+                });
+
+            modelBuilder.Entity("ORP.Domain.Messages.MessageDepartment", b =>
+                {
+                    b.Property<long>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("CanProcess")
+                        .HasColumnType("bit");
+
+                    b.HasKey("MessageId", "DepartmentId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("MessageDepartments", "orp");
                 });
 
             modelBuilder.Entity("ORP.Domain.Reviews.Review", b =>
@@ -380,27 +412,43 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
+                    b.Property<bool>("AllowReviewerReuse")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
-                    b.Property<int>("DepartmentId")
-                        .HasColumnType("int");
+                    b.Property<int>("AssignmentRetentionMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
-                    b.Property<int>("Direction")
-                        .HasColumnType("int");
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ConfirmationActorMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("ConfirmationMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<string>("MessageType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("RejectAllowed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("UndoActiveReviewMode")
                         .ValueGeneratedOnAdd()
@@ -419,17 +467,12 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("MessageType", "Direction", "DepartmentId", "BranchId")
-                        .IsUnique()
-                        .HasFilter("[IsActive] = 1");
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("WorkflowDefinitions", "orp", t =>
                         {
-                            t.HasCheckConstraint("CK_WorkflowDefinitions_Direction", "[Direction] IN (1, 2)");
+                            t.HasCheckConstraint("CK_WorkflowDefinitions_ConfirmationPolicy", "[ConfirmationMode] IN (0, 1, 2) AND [ConfirmationActorMode] IN (0, 1) AND [AssignmentRetentionMode] IN (0, 1)");
 
                             t.HasCheckConstraint("CK_WorkflowDefinitions_UndoPolicy", "[UndoApprovalMode] IN (0, 1, 2) AND [UndoActorMode] IN (0, 1) AND [UndoActiveReviewMode] IN (0, 1)");
                         });
@@ -463,6 +506,98 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkflowSteps", "orp");
                 });
 
+            modelBuilder.Entity("ORP.Infrastructure.Persistence.DepartmentRoutingRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MatchKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessageTypePattern")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SourceFile")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("SourceRow")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceSheet")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("WorkflowDefinitionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.HasIndex("Direction", "BranchId");
+
+                    b.ToTable("DepartmentRoutingRules", "orp", t =>
+                        {
+                            t.HasCheckConstraint("CK_DepartmentRoutingRules_Direction", "[Direction] IN (1, 2)");
+
+                            t.HasCheckConstraint("CK_DepartmentRoutingRules_MatchKind", "[MatchKind] IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("CK_DepartmentRoutingRules_SourceRow", "[SourceRow] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ORP.Infrastructure.Persistence.IgnoredImportFile", b =>
+                {
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)")
+                        .UseCollation("Latin1_General_100_CI_AS");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("IgnoredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("FilePath");
+
+                    b.ToTable("IgnoredImportFiles", "orp", t =>
+                        {
+                            t.HasCheckConstraint("CK_IgnoredImportFiles_Reason", "[Reason] = N'NoDepartmentRule'");
+                        });
+                });
+
             modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>
                 {
                     b.Property<long>("MessageId")
@@ -471,127 +606,61 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("MessageId"));
 
-                    b.Property<string>("BackendDirection")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("Body")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("BodyContainsMt")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("BodyContainsMx")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("CounterParty")
+                    b.Property<string>("Branch")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("CounterPartyCountry")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTimeOffset?>("CreationDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int?>("DepartmentId")
-                        .HasColumnType("int");
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
 
                     b.Property<int?>("Direction")
                         .HasColumnType("int");
 
-                    b.Property<string>("Json")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
-                    b.Property<DateTimeOffset?>("LastModificationDate")
-                        .HasColumnType("datetimeoffset");
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)")
+                        .UseCollation("Latin1_General_100_CI_AS");
 
-                    b.Property<DateTimeOffset>("LastSynchronizedAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset?>("MessageDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("MessageFormatVersion")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("MessageInputReference")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("MessageLength")
-                        .HasColumnType("int");
+                    b.Property<string>("Host")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("MessageType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("MessageTypeShort")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("ReceiverResponder")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("RoutingError")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("RoutingStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("SenderRequestor")
+                    b.Property<string>("Receiver")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("SequenceNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("Service")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                    b.Property<string>("Sender")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("SessionNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("SourceInterface")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("Status")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTimeOffset?>("StatusDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("WarehouseId")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                    b.Property<DateTime?>("Time")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("MessageId");
 
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("DepartmentId");
-
-                    b.HasIndex("WarehouseId")
+                    b.HasIndex("FilePath")
                         .IsUnique();
 
                     b.ToTable("SwiftMessages", "orp", t =>
@@ -712,6 +781,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ORP.Domain.Messages.Message", b =>
                 {
+                    b.HasOne("ORP.Domain.Identity.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ORP.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("CurrentAssigneeId")
@@ -726,6 +800,21 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
                         .WithMany()
                         .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ORP.Domain.Messages.MessageDepartment", b =>
+                {
+                    b.HasOne("ORP.Domain.Identity.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ORP.Domain.Messages.Message", null)
+                        .WithMany("Departments")
+                        .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -745,7 +834,16 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDefinition", b =>
+            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowStep", b =>
+                {
+                    b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
+                        .WithMany("Steps")
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ORP.Infrastructure.Persistence.DepartmentRoutingRule", b =>
                 {
                     b.HasOne("ORP.Domain.Identity.Branch", null)
                         .WithMany()
@@ -757,27 +855,10 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-                });
 
-            modelBuilder.Entity("ORP.Domain.Workflows.WorkflowStep", b =>
-                {
                     b.HasOne("ORP.Domain.Workflows.WorkflowDefinition", null)
-                        .WithMany("Steps")
+                        .WithMany()
                         .HasForeignKey("WorkflowDefinitionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("ORP.Infrastructure.Persistence.SwiftMessageRecord", b =>
-                {
-                    b.HasOne("ORP.Domain.Identity.Branch", null)
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("ORP.Domain.Identity.Department", null)
-                        .WithMany()
-                        .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -789,6 +870,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ORP.Domain.Identity.User", b =>
                 {
                     b.Navigation("Roles");
+                });
+
+            modelBuilder.Entity("ORP.Domain.Messages.Message", b =>
+                {
+                    b.Navigation("Departments");
                 });
 
             modelBuilder.Entity("ORP.Domain.Workflows.WorkflowDefinition", b =>

@@ -3,8 +3,8 @@ using NSubstitute;
 using ORP.Application.Abstractions;
 using ORP.Application.Authorization;
 using ORP.Application.Messages.ChangeWorkflow;
-using ORP.Domain.Auditing;
 using ORP.Domain.Common;
+using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Workflows;
@@ -15,63 +15,76 @@ namespace ORP.Application.Tests;
 public sealed class WorkflowDirectionTests
 {
     [Theory]
-    [InlineData(MessageDirection.Incoming, false, true)]
-    [InlineData(MessageDirection.Incoming, true, true)]
-    [InlineData(MessageDirection.Outgoing, false, false)]
-    [InlineData(MessageDirection.Outgoing, true, false)]
-    [InlineData(null, false, false)]
-    [InlineData(null, true, false)]
-    [InlineData(MessageDirection.Incoming, false, false, "CS", 3)]
-    [InlineData(MessageDirection.Incoming, true, false, "CS", 3)]
-    [InlineData(MessageDirection.Incoming, false, false, "TFO", 3)]
-    [InlineData(MessageDirection.Incoming, true, false, "TFO", 3)]
-    [InlineData(MessageDirection.Incoming, true, false, "cs", 3, false)]
-    [InlineData(MessageDirection.Incoming, true, true, "CS", 2)]
-    [InlineData(MessageDirection.Incoming, false, true, "TFO", 2)]
-    [InlineData(MessageDirection.Incoming, true, true, "DC", 3)]
-    [InlineData(MessageDirection.Incoming, false, true, "DC", 3)]
-    public async Task ManualChangeRequiresAllowedWorkflow_EvenForAdministrator(
-        MessageDirection? sourceDirection, bool administrator, bool allowed,
-        string department = "DC", int levels = 1, bool thirdRequired = true)
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, true, true)]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, false, true)]
+    public async Task ManualChangeMustMatchRoutingAndRefreshesProcessingScope(bool administrator, bool matches, bool viewOnly, bool assigned = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var store = Substitute.For<IORPStore>();
         var users = Substitute.For<IUserAuthorizationQueries>();
+        var resolver = Substitute.For<IWorkflowResolver>();
         var actor = Substitute.For<ICurrentUser>();
         var clock = Substitute.For<IClock>();
         var correlation = Substitute.For<ICorrelationContext>();
         actor.UserId.Returns(7);
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
-        correlation.CorrelationId.Returns("direction-test");
-        var message = new Message(1, 99);
-        // Different type/department/branch remains a permitted manual override within access rights.
-        var workflow = new WorkflowDefinition(MessageDirection.Incoming, "Manual", "MT999", 30, 40).AddStep(1, 1);
-        for (var level = 2; level <= levels; level++) workflow.AddStep(level, level, level != 3 || thirdRequired);
-        store.FindDepartmentNameAsync(20, ct).Returns(department);
+        correlation.CorrelationId.Returns("routing-change");
+        var message = new Message(1, 99, 10, [20, 30], DateTimeOffset.UtcNow);
+        if (assigned) message.Assign(8);
+        var workflow = new WorkflowDefinition("TARGET", "Target");
+        if (viewOnly)
+            workflow.ConfigureConfirmation(ConfirmationMode.None, ConfirmationActorMode.AnyAuthorizedUser, true,
+                AssignmentRetentionMode.UntilWorkflowCompleted, false);
+        else workflow.AddStep(1, 1);
+        typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 42);
+        var other = new WorkflowDefinition("OTHER", "Other").AddStep(1, 1);
         store.FindMessageAsync(1, ct).Returns(message);
-        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT299", 10, 20,
-            DateTimeOffset.UtcNow, "A", "B", sourceDirection));
+        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT299", 10, [20, 30],
+            DateTimeOffset.UtcNow, "A", "B", MessageDirection.Outgoing));
         store.GetReviewsAsync(1, ct).Returns([]);
         store.FindWorkflowAsync(42, ct).Returns(workflow);
-        users.CheckAsync(7, 10, 20, Permissions.WorkflowManage, ct).Returns(new UserPermissionCheck(administrator, true, true));
-        users.CanAccessWorkflowAsync(7, workflow.Id, ct).Returns(true);
-        var authorization = new MessageAuthorizationService(store, users, actor, correlation, NullLogger<MessageAuthorizationService>.Instance);
-        var handler = new ChangeMessageWorkflowHandler(store, new ChangeMessageWorkflowValidator(), users, actor, clock,
-            correlation, new InlineTransactions(), authorization);
-
-        if (allowed)
+        users.CheckAsync(7, 10, Arg.Any<IReadOnlyList<int>>(), Permissions.WorkflowManage, ct)
+            .Returns(new UserPermissionCheck(administrator, true, true));
+        resolver.ResolveAsync("MT299", MessageDirection.Outgoing,
+            Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 20, 30 })), 10, ct)
+            .Returns(new WorkflowResolution(matches ? workflow : other, [20, 30], viewOnly ? [] : [20]));
+        var authorization = new MessageAuthorizationService(store, users, actor, correlation,
+            NullLogger<MessageAuthorizationService>.Instance);
+        var handler = new ChangeMessageWorkflowHandler(store, new ChangeMessageWorkflowValidator(), resolver, actor,
+            clock, correlation, new InlineTransactions(), authorization);
+        if (matches)
+        {
+            var candidates = await handler.GetCandidatesAsync(1, ct);
+            if (assigned && viewOnly)
+            {
+                Assert.Empty(candidates);
+                await Assert.ThrowsAsync<DomainRuleViolationException>(() => handler.HandleAsync(1, new ChangeMessageWorkflowRequest(42), ct));
+                await store.DidNotReceive().SaveChangesAsync(ct);
+                return;
+            }
+            Assert.Equal(42, Assert.Single(candidates).Id);
+        }
+        if (matches)
         {
             await handler.HandleAsync(1, new ChangeMessageWorkflowRequest(42), ct);
-            Assert.Equal(workflow.Id, message.WorkflowDefinitionId);
-            store.Received(1).AddAudit(Arg.Any<AuditEvent>());
+            Assert.Equal(42, message.WorkflowDefinitionId);
+            Assert.Equal(new[] { 20, 30 }, message.DepartmentIds);
+            Assert.Equal(viewOnly ? Array.Empty<int>() : new[] { 20 }, message.ProcessingDepartmentIds);
+            Assert.Equal(viewOnly ? MessageState.ViewOnly : assigned ? MessageState.Assigned : MessageState.New, message.State);
+            store.Received(1).AddAudit(Arg.Is<AuditEvent>(e => e.OldState == (assigned ? MessageState.Assigned : MessageState.New) && e.NewState == message.State));
             await store.Received(1).SaveChangesAsync(ct);
         }
         else
         {
             await Assert.ThrowsAsync<DomainRuleViolationException>(() => handler.HandleAsync(1, new ChangeMessageWorkflowRequest(42), ct));
             Assert.Equal(99, message.WorkflowDefinitionId);
-            Assert.Equal(MessageState.New, message.State);
-            store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
             await store.DidNotReceive().SaveChangesAsync(ct);
         }
     }

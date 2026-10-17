@@ -17,6 +17,13 @@ import {
 } from './messagesApi';
 
 describe('getMessageGrid', () => {
+  it('sends department IDs as repeated query values with the DevExtreme GET request', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"data":[],"totalCount":0}')));
+    await getMessageGrid({ take: 20 }, undefined, [1, 2]);
+    const url = new URL(vi.mocked(fetch).mock.calls[0][0] as string, 'http://localhost');
+    expect(url.pathname).toBe('/api/messages/grid');
+    expect(url.searchParams.getAll('departments')).toEqual(['1', '2']);
+  });
   afterEach(() => {
     window.history.replaceState(null, '', '/');
     window.sessionStorage.clear();
@@ -197,7 +204,7 @@ describe('workflow and state counts', () => {
   });
 
   it('loads counts and forwards cancellation', async () => {
-    const result = [{ state: 'New', count: 2 }];
+    const result = { items: [{ state: 'New', count: 2, breakdown: [{ messageType: 'MT199', count: 2 }] }], total: { count: 2, breakdown: [{ messageType: 'MT199', count: 2 }] } };
     const signal = new AbortController().signal;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
     await expect(getMessageStateCounts(signal)).resolves.toEqual(result);
@@ -205,7 +212,7 @@ describe('workflow and state counts', () => {
   });
 
   it('loads the business summary for the cards', async () => {
-    const result = { totalMessages: 9, unassigned: 2, pendingFirstConfirmation: 3, pendingSecondConfirmation: 1, completed: 2 };
+    const result = { totalMessages: 9, viewOnly: 1, unassigned: 2, pendingFirstConfirmation: 3, pendingSecondConfirmation: 1, completed: 2 };
     const signal = new AbortController().signal;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
     await expect(getDashboardSummary(signal)).resolves.toEqual(result);

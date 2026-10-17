@@ -3,6 +3,10 @@ using ORP.Domain.Messages;
 
 namespace ORP.Domain.Workflows;
 
+public enum ConfirmationMode { ReviewSession, Immediate, None }
+public enum ConfirmationActorMode { Assignee, AnyAuthorizedUser }
+public enum AssignmentRetentionMode { PerConfirmation, UntilWorkflowCompleted }
+
 public enum UndoApprovalMode { Disabled, LatestNonFinal, Latest }
 public enum UndoActorMode { OriginalReviewer, AnyAuthorizedUser }
 public enum UndoActiveReviewMode { Block, Cancel }
@@ -10,31 +14,46 @@ public enum UndoActiveReviewMode { Block, Cancel }
 public sealed class WorkflowDefinition
 {
     private readonly List<WorkflowStep> _steps = [];
-
     private WorkflowDefinition() { }
 
-    public WorkflowDefinition(MessageDirection direction, string name, string messageType, int departmentId, int? branchId = null)
+    public WorkflowDefinition(string code, string name)
     {
-        if (!Enum.IsDefined(direction)) throw new DomainRuleViolationException("Unsupported message direction.");
-        Direction = direction;
+        Code = Required(code, nameof(code));
         Name = Required(name, nameof(name));
-        MessageType = Required(messageType, nameof(messageType));
-        DepartmentId = departmentId;
-        BranchId = branchId;
         IsActive = true;
     }
 
-    public MessageDirection Direction { get; private set; }
     public int Id { get; private set; }
+    public string Code { get; private set; } = null!;
     public string Name { get; private set; } = null!;
-    public string MessageType { get; private set; } = null!;
-    public int DepartmentId { get; private set; }
-    public int? BranchId { get; private set; }
     public bool IsActive { get; private set; }
+    public ConfirmationMode ConfirmationMode { get; private set; }
+    public ConfirmationActorMode ConfirmationActorMode { get; private set; }
+    public bool AllowReviewerReuse { get; private set; }
+    public AssignmentRetentionMode AssignmentRetentionMode { get; private set; }
+    public bool RejectAllowed { get; private set; } = true;
     public UndoApprovalMode UndoApprovalMode { get; private set; }
     public UndoActorMode UndoActorMode { get; private set; }
     public UndoActiveReviewMode UndoActiveReviewMode { get; private set; }
     public IReadOnlyCollection<WorkflowStep> Steps => _steps;
+
+    public void ConfigureConfirmation(ConfirmationMode mode, ConfirmationActorMode actorMode,
+        bool allowReviewerReuse, AssignmentRetentionMode assignmentRetentionMode, bool rejectAllowed)
+    {
+        if (!Enum.IsDefined(mode) || !Enum.IsDefined(actorMode) || !Enum.IsDefined(assignmentRetentionMode))
+            throw new DomainRuleViolationException("Unsupported confirmation policy.");
+        ConfirmationMode = mode;
+        ConfirmationActorMode = actorMode;
+        AllowReviewerReuse = allowReviewerReuse;
+        AssignmentRetentionMode = assignmentRetentionMode;
+        RejectAllowed = rejectAllowed;
+    }
+
+    public void RequireReviewSession()
+    {
+        if (ConfirmationMode != ConfirmationMode.ReviewSession)
+            throw new DomainRuleViolationException("This workflow does not use review sessions.");
+    }
 
     public void ConfigureUndo(UndoApprovalMode approvalMode, UndoActorMode actorMode, UndoActiveReviewMode activeReviewMode)
     {
@@ -56,6 +75,12 @@ public sealed class WorkflowDefinition
 
     public IReadOnlyList<int> RequiredLevels()
     {
+        if (ConfirmationMode == ConfirmationMode.None)
+        {
+            if (_steps.Count != 0)
+                throw new DomainRuleViolationException("A workflow without confirmations cannot contain review steps.");
+            return [];
+        }
         if (_steps.Any(x => x.ReviewLevel is < 1 or > 3))
             throw new DomainRuleViolationException("Review level must be between 1 and 3.");
         if (_steps.Select(x => x.ReviewLevel).Distinct().Count() != _steps.Count)

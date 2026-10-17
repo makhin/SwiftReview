@@ -51,11 +51,13 @@ business assignments; its global-administrator flag provides the same bypass eve
 
 Both message grids expose **Undo** to global administrators and users with
 `review.undo` in the message's exact branch/department scope. Ordinary users also
-need `message.view` in that scope and access to the message's workflow. The server
+need `message.view` in a saved message department with `CanProcess=true`. The server
 returns `undoReviewId` only when the current confirmation is eligible; the API
 rechecks permissions, policy and state inside the mutation transaction.
 Undo requires confirmation with an optional comment (up to 2,000 characters),
-closes the current assignment and refreshes the grid and state counts. The undo
+uses the workflow assignment-retention policy. `PerConfirmation` closes the
+assignment; `UntilWorkflowCompleted` preserves it. The frontend refreshes the grid
+and state counts; its confirmation UI update is a separate follow-up. The undo
 comment is stored in its audit event; the original approval comment is preserved.
 The selected review ID is sent explicitly, so retrying an old request cannot undo
 an earlier level or a replacement attempt.
@@ -78,9 +80,10 @@ required steps. `OriginalReviewer` additionally requires the original confirmer;
 `AnyAuthorizedUser` still requires scoped permissions, not just authentication.
 
 `Cancel` permits undo while the next required review is active. The transaction
-marks that attempt `Cancelled`, marks the selected approval `Undone`, closes its
-assignment, and reopens the selected level for a new manual assignment. History
-is retained; `ReviewCancelled`, `ConfirmationUndone` and, when assigned,
+marks that attempt `Cancelled`, marks the selected approval `Undone`, and reopens
+the selected level. The workflow assignment policy determines whether the current
+assignment is preserved or closed. History is retained; `ReviewCancelled`,
+`ConfirmationUndone` and, when an assignment is closed,
 `MessageUnassigned` record the actual actor and correlation ID. Review cancellation
 and confirmation undo are parts of the same state transition. Stale decisions for
 the cancelled attempt fail. `Block` requires ending the active review first.
@@ -96,7 +99,7 @@ existing administrator-only behavior. Apply the migration before starting the
 updated application. The existing
 [`seed-test-data.sql`](../backend/scripts/seed-test-data.sql) explicitly configures the
 demo workflow policies and grants `review.undo` to the demo Reviewer role. Its workflow
-table is the single place to edit the sample scenarios; it also prints a readable summary.
+table defines the sample routes; definitions are shared by behavior.
 The seed replaces all application data and is for test databases only. It is not an
 upgrade/configuration procedure for an existing business database.
 
@@ -104,9 +107,10 @@ For the two-stage CS/TFO requirements, use `1 / 1 / 1`; the two-confirmation see
 scenario demonstrates this policy with reviewer permissions already enabled. For an
 existing business database, policy changes and scoped `review.undo` grants are a
 separate provisioning task. Neither department names nor role
-names are hard-coded in the policy. This configuration does not change step counts,
-four-eyes rules, rejection behavior, or policies of other workflows. There is no
-workflow policy editor/API in this version.
+names are hard-coded in the policy. Confirmation mode, actor restrictions, reviewer
+reuse, assignment retention and rejection are separately configured; see
+[Workflow configuration](WORKFLOW_CONFIGURATION.md). There is no workflow policy
+editor/API in this version.
 
 Each saved user/role change appends an `AccessAuditEvents` record containing the
 actor, target, timestamp, before/after state and correlation ID in the same database
@@ -126,19 +130,14 @@ Sync is outside this feature's scope.
 
 The assignments page is available with `message.assign` or `workflow.manage`. Changing a workflow requires `workflow.manage` in the message's branch and department, with message visibility; global administrators bypass permission checks. Assignment itself still requires `message.assign`.
 
-The Change workflow action selects an accessible active workflow as a manual override and preserves the message's branch, department and assignment. It is allowed before review, or after every review attempt has been Cancelled or Undone. Active, Approved or Rejected reviews prevent the change, including for global administrators. A tooltip on the disabled action explains this restriction, and server refusals appear in the dialog. History is preserved; MessageWorkflowChanged records the previous and new workflow IDs and actual actor.
+The Change workflow API requires the definition selected by current routing rules,
+including for administrators. It refreshes the saved processing departments without
+changing message visibility. It is allowed only before review or after every review
+attempt has been Cancelled or Undone. Active, Approved or Rejected reviews prevent
+the change. ViewOnly messages cannot change workflow. History is preserved;
+MessageWorkflowChanged records previous/new workflow IDs and the actual actor.
 
-Review-level row colours apply to all messages at that stage, independently of the
-viewer, permissions or assignment. A separate Traditional Green leading stripe and
-Assigned to you badge identify the current user's assignments without changing the
-stage colour. Ready for review remains a personal action cue. Completed, rejected
-and new messages have no review-level fill.
-
-Both message grids share the GridStateCards radio filter above the grid. All is
-selected initially. Selecting a state resets pagination and applies a server-side
-filter; All removes this card filter while preserving column filters. Counts cover
-all accessible messages before grid filters and paging, refresh after actions and
-manual grid refresh, and periodically refresh while the screen is open. Counts are
-never calculated from the current page. The API state catalog and zero-inclusive
-counts are generated from MessageState, so new states appear automatically.
-Cards reuse the row review-level colour tokens; unknown stages use neutral colours.
+For ordinary users, all mutating operations require `CanProcess=true` in a message
+department with both view and action permissions. Role permissions alone cannot
+turn a view-only department into a processing department. Read access and permitted
+audit access remain available. See [Workflow configuration](WORKFLOW_CONFIGURATION.md).

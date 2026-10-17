@@ -18,7 +18,8 @@ public sealed record DevExtremeGridRequest(
     [property: FromQuery(Name = "requireTotalCount")] bool RequireTotalCount = false,
     [property: FromQuery(Name = "requireGroupCount")] bool RequireGroupCount = false,
     [property: FromQuery(Name = "isCountQuery")] bool IsCountQuery = false,
-    [property: FromQuery(Name = "assignmentScope")] string? AssignmentScope = null);
+    [property: FromQuery(Name = "assignmentScope")] string? AssignmentScope = null,
+    [property: FromQuery(Name = "departments")] int[]? Departments = null);
 
 public static class DevExtremeLoadOptions
 {
@@ -31,7 +32,8 @@ public static class DevExtremeLoadOptions
         ["direction"] = "Direction",
         ["messageType"] = "MessageType",
         ["branchId"] = "BranchId",
-        ["departmentId"] = "DepartmentId",
+        ["sender"] = "Sender",
+        ["receiver"] = "Receiver",
         ["state"] = "State",
         ["receivedAt"] = "ReceivedAt",
         ["currentAssigneeId"] = "CurrentAssigneeId",
@@ -59,7 +61,9 @@ public static class DevExtremeLoadOptions
         options.RemoteSelect = true;
         options.RemoteGrouping = true;
         options.StringToLower = false;
-        options.PreSelect = [.. Fields.Values, "RequiredReviewLevels", "UndoReviewId", "WorkflowDefinitionId", "CanChangeWorkflow", "CanReview"];
+        options.PreSelect = [.. Fields.Values, "RequiredReviewLevels", "UndoReviewId", "WorkflowDefinitionId", "CanChangeWorkflow", "CanReview", "RejectAllowed",
+            "Version", "ConfirmationMode", "CanConfirm", "ConfirmationLevel", "CanAssign", "CanViewAudit",
+            "BranchName", "DepartmentIds", "DepartmentNames", "CurrentAssigneeName", "ActiveReviewerName", "WorkflowDefinitionName", "StateName"];
         if (options.Sort is not { Length: > 0 } && options.Group is not { Length: > 0 })
             options.Sort = [new SortingInfo { Selector = "ReceivedAt", Desc = true }];
         return options;
@@ -79,7 +83,7 @@ public static class DevExtremeLoadOptions
         foreach (var summary in (options.TotalSummary ?? []).Concat(options.GroupSummary ?? []))
             if (!string.IsNullOrWhiteSpace(summary.Selector)) summary.Selector = NormalizeField(summary.Selector);
         if (options.Select is not null)
-            for (var i = 0; i < options.Select.Length; i++) options.Select[i] = NormalizeField(options.Select[i]);
+            for (var i = 0; i < options.Select.Length; i++) options.Select[i] = NormalizeSelection(options.Select[i]);
 
         var conditions = 0;
         NormalizeFilter(options.Filter, 0, ref conditions);
@@ -105,6 +109,16 @@ public static class DevExtremeLoadOptions
 
         foreach (var item in filter)
             if (item is IList nested) NormalizeFilter(nested, depth + 1, ref conditions);
+    }
+
+    private static string NormalizeSelection(string field)
+    {
+        if (Fields.TryGetValue(field, out var scalar)) return scalar;
+        string[] additional = ["RequiredReviewLevels", "UndoReviewId", "WorkflowDefinitionId", "CanChangeWorkflow", "CanReview", "RejectAllowed",
+            "Version", "ConfirmationMode", "CanConfirm", "ConfirmationLevel", "CanAssign", "CanViewAudit",
+            "BranchName", "DepartmentIds", "DepartmentNames", "CurrentAssigneeName", "ActiveReviewerName", "WorkflowDefinitionName", "StateName"];
+        return additional.FirstOrDefault(value => string.Equals(value, field, StringComparison.OrdinalIgnoreCase))
+            ?? throw new FormatException($"Unsupported grid field '{field}'.");
     }
 
     private static string NormalizeField(string? field)

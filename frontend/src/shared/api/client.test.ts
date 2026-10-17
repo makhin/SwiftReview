@@ -27,6 +27,21 @@ describe('apiRequest', () => {
     expect(headers.has('Content-Type')).toBe(false);
   });
 
+  it('loads a PDF with the same authentication and preserves binary bytes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('%PDF-example', { headers: { 'Content-Type': 'application/pdf' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const blob = await apiRequest('/api/messages/42/pdf', { ...options, responseType: 'blob' });
+    expect(await blob.text()).toBe('%PDF-example');
+    const headers = new Headers(fetchMock.mock.calls[0][1].headers);
+    expect(headers.get('X-Debug-User')).toBe('admin');
+    expect(headers.get('Accept')).toContain('application/pdf');
+  });
+
+  it('rejects an HTML login page returned instead of PDF', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>Sign in</html>', { headers: { 'Content-Type': 'text/html' } })));
+    await expect(apiRequest('/api/messages/42/pdf', { ...options, responseType: 'blob' })).rejects.toMatchObject({ kind: 'invalid-response' });
+  });
+
   it('keeps a URL debug user for navigation in the same tab', async () => {
     window.history.replaceState(null, '', '/messages?user=5');
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));

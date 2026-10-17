@@ -20,8 +20,8 @@ describe('business message stages', () => {
     expect(businessStageFilter(null)).toBeNull();
   });
 
-  it('uses the five server counts without deriving total from the displayed groups', () => {
-    expect(businessStageCards({ totalMessages: 10, unassigned: 1, pendingFirstConfirmation: 2, pendingSecondConfirmation: 3, completed: 2 })
-      .map(({ count }) => count)).toEqual([10, 1, 2, 3, 2]);
+  it('uses the server counts including view only without deriving total from the displayed groups', () => {
+    expect(businessStageCards({ totalMessages: 10, viewOnly: 1, unassigned: 1, pendingFirstConfirmation: 2, pendingSecondConfirmation: 3, completed: 2 })
+      .map(({ count }) => count)).toEqual([10, 1, 1, 2, 3, 2]);
   });
 });

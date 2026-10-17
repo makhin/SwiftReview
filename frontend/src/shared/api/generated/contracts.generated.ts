@@ -27,6 +27,10 @@ export interface AssignmentCandidateDto {
   displayName: string;
 }
 
+export type AssignmentRetentionMode =
+  | "PerConfirmation"
+  | "UntilWorkflowCompleted";
+
 export interface AuditActorDto {
   userId: number;
   userName: string;
@@ -42,8 +46,8 @@ export interface AuditEventDetailsDto {
   comment?: string | null;
   previousBranchId?: number | null;
   branchId?: number | null;
-  previousDepartmentId?: number | null;
-  departmentId?: number | null;
+  previousDepartmentIds?: number[] | null;
+  departmentIds?: number[] | null;
   previousWorkflowDefinitionId?: number | null;
 }
 
@@ -80,6 +84,21 @@ export interface ChangeMessageWorkflowRequest {
   workflowDefinitionId: number;
 }
 
+export interface ConfirmReviewRequest {
+  level: number;
+  expectedVersion: string;
+  comment?: string | null;
+}
+
+export type ConfirmationActorMode =
+  | "Assignee"
+  | "AnyAuthorizedUser";
+
+export type ConfirmationMode =
+  | "ReviewSession"
+  | "Immediate"
+  | "None";
+
 export interface CurrentUserResponse {
   userId: number;
   userName: string;
@@ -93,6 +112,7 @@ export interface CurrentUserResponse {
 
 export interface DashboardSummaryDto {
   totalMessages: number;
+  viewOnly: number;
   unassigned: number;
   pendingFirstConfirmation: number;
   pendingSecondConfirmation: number;
@@ -106,12 +126,17 @@ export interface LoadResult {
   summary?: unknown[] | null;
 }
 
+export interface MessageCountDto {
+  count: number;
+  breakdown: MessageTypeCountDto[];
+}
+
 export interface MessageDetailsDto {
   id: number;
   externalId: string;
   messageType: string;
   branchId: number;
-  departmentId: number;
+  departmentIds: number[];
   state: MessageState;
   receivedAt: string;
   currentAssigneeId: number | null;
@@ -119,6 +144,15 @@ export interface MessageDetailsDto {
   receiver: string;
   body: string | null;
   direction: MessageDirection | null;
+  version?: string;
+  confirmationMode?: ConfirmationMode;
+  canConfirm?: boolean;
+  confirmationLevel?: number | null;
+  canReview?: boolean;
+  branchName?: string;
+  departmentNames?: string;
+  currentAssigneeName?: string | null;
+  stateName?: string | null;
 }
 
 export type MessageDirection =
@@ -142,21 +176,36 @@ export interface MessageGridLoadResultDto {
 }
 
 export interface MessageGridRowDto {
+  version?: string;
+  confirmationMode?: ConfirmationMode;
+  canConfirm?: boolean;
+  confirmationLevel?: number | null;
   id: number;
   externalId: string;
+  sender: string;
+  receiver: string;
   direction: MessageDirection | null;
   messageType: string;
   branchId: number;
-  departmentId: number;
+  branchName: string;
+  departmentIds: number[];
+  departmentNames: string;
   state: MessageState;
+  stateName?: string | null;
   receivedAt: string;
   currentAssigneeId: number | null;
+  currentAssigneeName: string | null;
   activeReviewId: number | null;
   activeReviewLevel: number | null;
   activeReviewerId: number | null;
+  activeReviewerName: string | null;
   undoReviewId: number | null;
   workflowDefinitionId: number;
-  canReview: boolean;
+  workflowDefinitionName: string;
+  canReview?: boolean;
+  rejectAllowed?: boolean;
+  canAssign?: boolean;
+  canViewAudit?: boolean;
   canChangeWorkflow: boolean;
   requiredReviewLevels: number[];
 }
@@ -166,7 +215,7 @@ export interface MessageListItemDto {
   externalId: string;
   messageType: string;
   branchId: number;
-  departmentId: number;
+  departmentIds: number[];
   state: MessageState;
   receivedAt: string;
   currentAssigneeId: number | null;
@@ -174,6 +223,11 @@ export interface MessageListItemDto {
   activeReviewLevel: number | null;
   activeReviewerId: number | null;
   direction: MessageDirection | null;
+  branchName?: string;
+  departmentNames?: string;
+  currentAssigneeName?: string | null;
+  activeReviewerName?: string | null;
+  stateName?: string | null;
 }
 
 export interface MessageSearchRequest {
@@ -188,7 +242,8 @@ export type MessageStagePhase =
   | "Assigned"
   | "Reviewing"
   | "Completed"
-  | "Rejected";
+  | "Rejected"
+  | "ViewOnly";
 
 export type MessageState =
   | "New"
@@ -199,11 +254,19 @@ export type MessageState =
   | "WaitingForThirdReview"
   | "ThirdReviewInProgress"
   | "Completed"
-  | "Rejected";
+  | "Rejected"
+  | "ViewOnly";
 
 export interface MessageStateCountDto {
   state: MessageState;
+  stateName?: string | null;
   count: number;
+  breakdown: MessageTypeCountDto[];
+}
+
+export interface MessageStateCountsDto {
+  items: MessageStateCountDto[];
+  total: MessageCountDto;
 }
 
 export interface MessageStateReferenceDto {
@@ -213,6 +276,11 @@ export interface MessageStateReferenceDto {
   reviewLevel: number | null;
   phase: MessageStagePhase;
   assignedDescription: string | null;
+}
+
+export interface MessageTypeCountDto {
+  messageType: string;
+  count: number;
 }
 
 export interface PagedResultOfAuditEventDto {
@@ -269,6 +337,19 @@ export interface StartReviewResponse {
   reviewId: number;
 }
 
+export type UndoActiveReviewMode =
+  | "Block"
+  | "Cancel";
+
+export type UndoActorMode =
+  | "OriginalReviewer"
+  | "AnyAuthorizedUser";
+
+export type UndoApprovalMode =
+  | "Disabled"
+  | "LatestNonFinal"
+  | "Latest";
+
 export interface UndoReviewRequest {
   reviewId: number;
   comment?: string | null;
@@ -313,11 +394,16 @@ export interface WorkflowStepDto {
 
 export interface WorkflowSummaryDto {
   id: number;
+  code: string;
   name: string;
-  messageType: string;
-  departmentId: number;
-  branchId: number | null;
   isActive: boolean;
   steps: WorkflowStepDto[];
-  direction: MessageDirection;
+  undoApprovalMode?: UndoApprovalMode;
+  undoActorMode?: UndoActorMode;
+  undoActiveReviewMode?: UndoActiveReviewMode;
+  confirmationMode?: ConfirmationMode;
+  confirmationActorMode?: ConfirmationActorMode;
+  allowReviewerReuse?: boolean;
+  assignmentRetentionMode?: AssignmentRetentionMode;
+  rejectAllowed?: boolean;
 }

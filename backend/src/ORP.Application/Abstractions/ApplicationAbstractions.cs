@@ -16,7 +16,6 @@ public interface IORPStore
     Task<Message?> FindMessageAsync(long id, CancellationToken cancellationToken);
     Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken cancellationToken);
     Task<WorkflowDefinition?> FindWorkflowAsync(int id, CancellationToken cancellationToken);
-    Task<string?> FindDepartmentNameAsync(int id, CancellationToken cancellationToken);
     Task<List<Review>> GetReviewsAsync(long messageId, CancellationToken cancellationToken);
     Task<Assignment?> GetActiveAssignmentAsync(long messageId, CancellationToken cancellationToken);
     void AddReview(Review review);
@@ -26,7 +25,7 @@ public interface IORPStore
 }
 
 public sealed record MessageSourceDto(long MessageId, string ExternalId, string MessageType, int BranchId,
-    int DepartmentId, DateTimeOffset ReceivedAt, string Sender, string Receiver, MessageDirection? Direction);
+    IReadOnlyList<int> DepartmentIds, DateTimeOffset ReceivedAt, string Sender, string Receiver, MessageDirection? Direction);
 
 public interface IMessageQueries
 {
@@ -44,7 +43,7 @@ public interface IUserAccessService
 
 public interface IAssignmentCandidateQueries
 {
-    Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId, int departmentId,
+    Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId, IReadOnlyList<int> departmentIds,
         int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId, int? currentAssigneeId,
         CancellationToken cancellationToken);
 }
@@ -52,9 +51,11 @@ public interface IAssignmentCandidateQueries
 public sealed class ConcurrentUpdateException(string message, Exception innerException)
     : Exception(message, innerException);
 
+public sealed record WorkflowResolution(WorkflowDefinition Workflow, IReadOnlyList<int> DepartmentIds, IReadOnlyList<int> ProcessingDepartmentIds);
+
 public interface IWorkflowResolver
 {
-    Task<WorkflowDefinition> ResolveAsync(string messageType, MessageDirection direction, int departmentId, int branchId,
+    Task<WorkflowResolution> ResolveAsync(string messageType, MessageDirection direction, IReadOnlyList<int> departmentIds, int branchId,
         CancellationToken cancellationToken);
 }
 

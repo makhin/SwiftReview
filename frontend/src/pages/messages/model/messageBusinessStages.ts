@@ -1,9 +1,10 @@
 import type { DashboardSummaryDto, MessageState } from '../../../shared/api/generated/contracts.generated';
 
-export type BusinessStage = 'unassigned' | 'pendingFirstConfirmation' | 'pendingSecondConfirmation' | 'completed';
+export type BusinessStage = 'viewOnly' | 'unassigned' | 'pendingFirstConfirmation' | 'pendingSecondConfirmation' | 'completed';
 
 export function businessStageLabel(state: MessageState, fallback: string): string {
   switch (state) {
+    case 'ViewOnly': return 'View only';
     case 'New': return 'Unassigned';
     case 'Assigned':
     case 'FirstReviewInProgress': return 'Pending 1st Confirmation';
@@ -16,6 +17,7 @@ export function businessStageLabel(state: MessageState, fallback: string): strin
 
 export function businessStageFilter(stage: BusinessStage | null) {
   switch (stage) {
+    case 'viewOnly': return ['state', '=', 'ViewOnly'];
     case 'unassigned': return ['state', '=', 'New'];
     case 'pendingFirstConfirmation': return [['state', '=', 'Assigned'], 'or', ['state', '=', 'FirstReviewInProgress']];
     case 'pendingSecondConfirmation': return [['state', '=', 'WaitingForSecondReview'], 'or', ['state', '=', 'SecondReviewInProgress']];
@@ -27,6 +29,7 @@ export function businessStageFilter(stage: BusinessStage | null) {
 export function businessStageCards(summary: DashboardSummaryDto | undefined) {
   return [
     { value: null, label: 'Total Messages', count: summary?.totalMessages ?? null },
+    { value: 'viewOnly', label: 'View only', count: summary?.viewOnly ?? null },
     { value: 'unassigned', label: 'Unassigned', count: summary?.unassigned ?? null },
     { value: 'pendingFirstConfirmation', label: 'Pending 1st Confirmation', count: summary?.pendingFirstConfirmation ?? null,
       surface: 'var(--color-review-level-1-surface)', accent: 'var(--color-review-level-1)' },

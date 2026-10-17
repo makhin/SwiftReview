@@ -8,6 +8,9 @@ public static class ReviewEndpoints
     public static void MapReviewEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/messages/{id:long}/reviews").WithTags("Review");
+        group.MapPost("/confirm", ConfirmReview)
+            .WithName(nameof(ConfirmReview)).WithSummary("Complete the next confirmation atomically using the current message version.")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapPost("/start", StartReview)
             .WithName(nameof(StartReview)).WithSummary("Start or resume a review.")
             .Produces<StartReviewResponse>().ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
@@ -23,6 +26,12 @@ public static class ReviewEndpoints
         group.MapPost("/undo", UndoReview)
             .WithName(nameof(UndoReview)).WithSummary("Undo a review confirmation allowed by scoped permissions and workflow policy.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
+    }
+
+    private static async Task<IResult> ConfirmReview(long id, ConfirmReviewRequest request, ConfirmReviewHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(id, request, ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> StartReview(long id, StartReviewRequest request, StartReviewHandler handler, CancellationToken ct) =>

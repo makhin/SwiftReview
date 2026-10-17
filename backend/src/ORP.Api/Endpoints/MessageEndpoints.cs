@@ -1,5 +1,6 @@
 using DevExtreme.AspNet.Data.ResponseModel;
 using ORP.Api.Infrastructure;
+using ORP.Application.Grids;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments.Assign;
 using ORP.Application.Assignments.GetCandidates;
@@ -20,14 +21,22 @@ public static class MessageEndpoints
         var group = api.MapGroup("/messages").WithTags("Message");
         group.MapGet("/state-counts", GetStateCounts)
             .WithName(nameof(GetStateCounts)).WithSummary("Get accessible message counts by state.")
-            .Produces<IReadOnlyList<MessageStateCountDto>>();
+            .WithDescription("Returns items for nonzero states, with count and a messageType/count breakdown, and total with the same count/breakdown structure summed across all states. Counts include only accessible messages; grid filters and assignmentScope do not apply.")
+            .Produces<MessageStateCountsDto>();
         group.MapGet("/grid", GetMessagesGrid)
-            .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages using DevExtreme options.")
+            .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages with paging, filtering and sorting.")
             .Produces<MessageGridLoadResultDto>().ProducesProblem(400)
             .AddOpenApiOperationTransformer(MessageGridOpenApi.DescribeResponse);
         group.MapGet("/{id:long}", GetMessage)
             .WithName(nameof(GetMessage)).WithSummary("Get an accessible message.")
             .Produces<MessageDetailsDto>().ProducesProblem(404);
+        group.MapGet("/{messageId:long}/pdf", GetMessagePdf)
+            .WithName(nameof(GetMessagePdf)).WithSummary("Get the PDF for an accessible message.")
+            .WithDescription("Returns PDF bytes. Currently returns a Hello World placeholder for every accessible message.")
+            .Produces(StatusCodes.Status200OK, contentType: "application/pdf").ProducesProblem(404);
+        group.MapGet("/{id:long}/workflow-candidates", GetWorkflowCandidates)
+            .WithName(nameof(GetWorkflowCandidates)).WithSummary("Get the workflow allowed by current routing rules.")
+            .Produces<IReadOnlyList<WorkflowSummaryDto>>().ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapPut("/{id:long}/workflow", ChangeMessageWorkflow)
             .WithName(nameof(ChangeMessageWorkflow)).WithSummary("Set the workflow for a message.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
@@ -48,12 +57,24 @@ public static class MessageEndpoints
             .Produces<PagedResult<AuditEventDto>>().ProducesProblem(400).ProducesProblem(404);
     }
 
-    private static async Task<IReadOnlyList<MessageStateCountDto>> GetStateCounts(MessageGridQueries queries,
+    private static async Task<MessageStateCountsDto> GetStateCounts(MessageGridQueries queries,
         IUserAccessService users, ICurrentUser current, CancellationToken ct) =>
         await queries.StateCountsAsync(await users.GetByIdAsync(current.UserId, ct)
             ?? throw new UnauthorizedAccessException(), ct);
 
     private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
+
+    private static async Task<IResult> GetMessagePdf(long messageId, GetMessageHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(messageId, ct);
+        using var pdf = typeof(MessageEndpoints).Assembly.GetManifestResourceStream("ORP.Api.HelloWorld.pdf")!;
+        using var buffer = new MemoryStream();
+        await pdf.CopyToAsync(buffer, ct);
+        return Results.File(buffer.ToArray(), "application/pdf");
+    }
+
+    private static Task<IReadOnlyList<WorkflowSummaryDto>> GetWorkflowCandidates(long id, ChangeMessageWorkflowHandler handler, CancellationToken ct) =>
+        handler.GetCandidatesAsync(id, ct);
 
     private static async Task<IResult> ChangeMessageWorkflow(long id, ChangeMessageWorkflowRequest request,
         ChangeMessageWorkflowHandler handler, CancellationToken ct)
@@ -69,7 +90,7 @@ public static class MessageEndpoints
         if (request.AssignmentScope == MessageAssignmentScopes.Assignable &&
             !access.Permissions.Contains(Permissions.MessageAssign))
             throw new UnauthorizedAccessException("The current user is not allowed to assign messages.");
-        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(httpRequest.Query), access, request.AssignmentScope, ct);
+        return await queries.LoadAsync(DevExtremeLoadOptions.Parse(httpRequest.Query), access, request.AssignmentScope, ct, request.Departments);
     }
 
     private static Task<PagedResult<MessageListItemDto>> SearchMessages(MessageSearchRequest request, SearchMessagesHandler handler, CancellationToken ct) => handler.HandleAsync(request, ct);

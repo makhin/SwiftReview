@@ -3,7 +3,7 @@ import { messageKeys } from '../../../shared/api/queryKeys';
 import { refreshAfterMutation, type RefreshData } from '../../../shared/api/refreshAfterMutation';
 import { useExclusiveMutation } from '../../../shared/api/useExclusiveMutation';
 import { ApiError, ApiRequestError } from '../../../shared/api/errors';
-import { assignMessage, changeMessageWorkflow, undoReview, startReview, approveReview, rejectReview, cancelReview } from './messagesApi';
+import { confirmReview, assignMessage, changeMessageWorkflow, undoReview, startReview, approveReview, rejectReview, cancelReview } from './messagesApi';
 
 export function useRefreshMessage(id: number, refresh?: RefreshData) {
   const client = useQueryClient();
@@ -46,4 +46,9 @@ export function useReviewOperations(id: number) {
     : input.action === 'approve' ? approveReview(id, input.level, input.comment, input.reviewId)
       : rejectReview(id, input.level, input.comment, input.reviewId) });
   return { start: start.mutateAsync, decide: decision.mutateAsync };
+}
+
+export function useConfirmReview(id: number, options: Options) {
+  return useMessageMutation(id, (body: import('../../../shared/api/generated/contracts.generated').ConfirmReviewRequest) =>
+    confirmReview(id, body), options, true);
 }

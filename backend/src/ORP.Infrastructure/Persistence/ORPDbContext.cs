@@ -11,6 +11,7 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbContext(options)
 {
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageDepartment> MessageDepartments => Set<MessageDepartment>();
     public DbSet<SwiftMessageRecord> SwiftMessages => Set<SwiftMessageRecord>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<Review> Reviews => Set<Review>();
@@ -23,6 +24,8 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<DepartmentRoutingRule> DepartmentRoutingRules => Set<DepartmentRoutingRule>();
+    public DbSet<IgnoredImportFile> IgnoredImportFiles => Set<IgnoredImportFile>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<AccessAuditEvent> AccessAuditEvents => Set<AccessAuditEvent>();
 
@@ -46,16 +49,25 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
 
     private void EnsureWriteRules()
     {
+        var changedProcessingScopes = ChangeTracker.Entries<MessageDepartment>()
+            .Where(x => x.State == EntityState.Modified && x.Property(d => d.CanProcess).IsModified)
+            .Select(x => x.Entity.MessageId).ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<Message>().Where(x =>
+                     x.State is EntityState.Unchanged or EntityState.Modified && changedProcessingScopes.Contains(x.Entity.Id)))
+        {
+            // SQL rowversion belongs to Messages. Updating a child scope must also
+            // update its parent, even when the workflow ID itself stays the same.
+            entry.Property(x => x.WorkflowDefinitionId).IsModified = true;
+        }
+
         var changedWorkflowIds = ChangeTracker.Entries<WorkflowStep>()
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .Select(x => x.Entity.WorkflowDefinitionId)
             .ToHashSet();
         foreach (var entry in ChangeTracker.Entries<WorkflowDefinition>().Where(x =>
                      x.State != EntityState.Deleted && x.Entity.IsActive &&
-                     (x.State == EntityState.Added || changedWorkflowIds.Contains(x.Entity.Id))))
+                     (x.State is EntityState.Added or EntityState.Modified || changedWorkflowIds.Contains(x.Entity.Id))))
             _ = entry.Entity.RequiredLevels();
-        if (ChangeTracker.Entries<SwiftMessageRecord>().Any(x => x.State != EntityState.Unchanged))
-            throw new InvalidOperationException("Swift messages are read-only in the application context.");
         if (ChangeTracker.Entries<AuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Audit events are append-only.");
         if (ChangeTracker.Entries<AccessAuditEvent>().Any(x => x.State is EntityState.Modified or EntityState.Deleted))

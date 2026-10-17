@@ -1,3 +1,8 @@
+import TagBox from 'devextreme-react/tag-box';
+import { useMemo } from 'react';
+import { createMessageDataSource } from '../../api/messageDataSource';
+import ConfirmMessagePopup from '../message-actions/ConfirmMessagePopup';
+import MessagePdfPopup from '../message-actions/MessagePdfPopup';
 import GridRefreshButton from '../../../../shared/components/GridRefreshButton';
 import DataGrid, {
   Column,
@@ -16,7 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { currentUserQueryOptions } from '../../../../shared/api/currentUserQueries';
-import { canAssignMessages, canManageWorkflows, canViewAudit, permissionsForScope } from '../../../../shared/auth/permissions';
+import { canAssignMessages, canManageWorkflows, canViewAudit, } from '../../../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
@@ -72,6 +77,10 @@ export default function MessagesGrid({
   enableUndoActions = false,
   enableWorkflowActions = false,
 }: MessagesGridProps) {
+  const [departmentIds, setDepartmentIds] = useState<number[]>([]);
+  const [selectedConfirmMessage, setSelectedConfirmMessage] = useState<MessageRow | null>(null);
+  const [selectedPdfMessage, setSelectedPdfMessage] = useState<MessageRow | null>(null);
+  const filteredSource = useMemo(() => departmentIds.length ? createMessageDataSource(undefined, departmentIds) : dataSource, [departmentIds, dataSource]);
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const [selectedStage, setSelectedStage] = useState<BusinessStage | null>(null);
   const summaryQuery = useQuery(messageSummaryQueryOptions(currentUser));
@@ -150,10 +159,7 @@ export default function MessagesGrid({
   }
 
   function canShowAssignment(message: MessageRow | undefined, assigned: boolean) {
-    if (!message || !canAssignMessages(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator)) return false;
-    const assignableState = message.state === 'New' || message.state === 'Assigned' ||
-      message.state === 'WaitingForSecondReview' || message.state === 'WaitingForThirdReview';
-    return assignableState && (message.currentAssigneeId != null) === assigned;
+    return message?.canAssign === true && (message.currentAssigneeId != null) === assigned;
   }
 
   function openReviewAction(message: MessageRow, preview = false) {
@@ -168,7 +174,7 @@ export default function MessagesGrid({
       return false;
     }
 
-    return (enableReviewActions || currentUser.isGlobalAdministrator) && canReviewMessage(message, currentUser.userId, permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser.isGlobalAdministrator);
+    return (enableReviewActions || currentUser.isGlobalAdministrator) && canReviewMessage(message);
   }
 
   useEffect(() => {
@@ -210,12 +216,17 @@ export default function MessagesGrid({
             <span className="message-attention-legend__marker" aria-hidden="true" />
             Messages that need your attention are marked with a green line.
           </p>
+          <div className="message-department-filter">
+          <TagBox width="100%" showDropDownButton items={departments} value={departmentIds} valueExpr="id" displayExpr="name" searchEnabled
+            placeholder="All departments" inputAttr={{ 'aria-label': 'Filter departments' }}
+            onValueChanged={(event) => { setDepartmentIds(event.value); dataGridRef.current?.instance().pageIndex(0); }} />
+          </div>
           <GridRefreshButton refresh={refreshMessages} />
         </div>
         <div className="app-table-shell">
         <DataGrid
           ref={dataGridRef}
-          dataSource={dataSource}
+          dataSource={filteredSource}
           width="100%"
           remoteOperations
           onRowPrepared={(event) => {
@@ -242,6 +253,8 @@ export default function MessagesGrid({
           />
 
           <Column dataField="externalId" caption="External ID" minWidth={140} />
+          <Column dataField="sender" caption="Sender" minWidth={120} />
+          <Column dataField="receiver" caption="Receiver" minWidth={120} />
           <Column dataField="messageType" caption="Message type" width={110} />
           <Column dataField="direction" caption="Direction" width={115}>
             <Lookup dataSource={['Incoming', 'Outgoing']} />
@@ -258,17 +271,8 @@ export default function MessagesGrid({
               <Lookup dataSource={branches} valueExpr="id" displayExpr="name" />
             )}
           </Column>
-          <Column
-            dataField="departmentId"
-            caption="Department"
-            dataType="number"
-            width={110}
-            allowSorting={false}
-          >
-            {departments && (
-              <Lookup dataSource={departments} valueExpr="id" displayExpr="name" />
-            )}
-          </Column>
+          <Column dataField="departmentNames" caption="Departments" minWidth={150}
+            allowFiltering={false} allowSorting={false} allowGrouping={false} />
           <Column
             dataField="state"
             caption="Stage"
@@ -319,7 +323,7 @@ export default function MessagesGrid({
               const message = cell.data as MessageRow;
               return (
                 <div className="message-actions">
-                  {showWorkflow && canManageWorkflows(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator) &&
+                  {showWorkflow && message.canChangeWorkflow &&
                     <span
                       title={!message.canChangeWorkflow ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.' : undefined}
                       aria-label={!message.canChangeWorkflow ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.' : undefined}
@@ -329,7 +333,7 @@ export default function MessagesGrid({
                         onClick={() => { if (message.canChangeWorkflow) setSelectedWorkflowMessage(message); }} />
                     </span>}
                   {showUndo && (currentUser?.isGlobalAdministrator ||
-                    permissionsForScope(currentUser, message.branchId, message.departmentId).includes('review.undo')) &&
+                    message.undoReviewId != null) &&
                     <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message} onChanged={refreshMessages} />}
                   {canShowAssignment(message, false) && (
                     <Button
@@ -354,8 +358,11 @@ export default function MessagesGrid({
                     stylingMode="outlined"
                     onClick={() => openReviewAction(message, true)}
                   />
+                  <Button text="PDF" hint="View PDF" stylingMode="outlined" onClick={() => setSelectedPdfMessage(message)} />
+                  {(enableReviewActions || currentUser?.isGlobalAdministrator) && message.canConfirm &&
+                    <Button text="Confirm" stylingMode="outlined" onClick={() => setSelectedConfirmMessage(message)} />}
                   {canShowReviewAction(message) && <Button text="Review" hint="Review message" stylingMode="outlined" onClick={() => openReviewAction(message)} />}
-                  {canViewAudit(permissionsForScope(currentUser, message.branchId, message.departmentId), currentUser?.isGlobalAdministrator) && (
+                  {message.canViewAudit && (
                     <Button
                       icon="search"
                       hint="View audit trail"
@@ -374,23 +381,26 @@ export default function MessagesGrid({
         </DataGrid>
         </div>
       </section>
+      {selectedConfirmMessage && <ConfirmMessagePopup key={selectedConfirmMessage.id} message={selectedConfirmMessage}
+        onClose={() => setSelectedConfirmMessage(null)} onChanged={refreshMessages} />}
+      {selectedPdfMessage && <MessagePdfPopup key={selectedPdfMessage.id} message={selectedPdfMessage} onClose={() => setSelectedPdfMessage(null)} />}
       {selectedReviewMessage && (
         <ReviewDecisionPopup
           key={String(selectedReviewMessage.id)}
           message={selectedReviewMessage}
           canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
-          canReject={!readOnly && canShowReviewAction(selectedReviewMessage)}
+          canReject={!readOnly && canShowReviewAction(selectedReviewMessage) && selectedReviewMessage.rejectAllowed === true}
           onClose={closeReviewAction}
-          onChanged={() => dataGridRef.current?.instance().refresh()}
+          onChanged={refreshMessages}
         />
       )}
       {selectedWorkflowMessage && <ChangeWorkflowPopup key={String(selectedWorkflowMessage.id)} message={selectedWorkflowMessage}
-        onClose={() => setSelectedWorkflowMessage(null)} onChanged={() => dataGridRef.current?.instance().refresh()} />}
+        onClose={() => setSelectedWorkflowMessage(null)} onChanged={refreshMessages} />}
       {selectedAssignmentMessage && (
         <AssignmentPopup
           message={selectedAssignmentMessage}
           onClose={closeAssignment}
-          onChanged={() => dataGridRef.current?.instance().refresh()}
+          onChanged={refreshMessages}
         />
       )}
       {selectedAuditMessage &&

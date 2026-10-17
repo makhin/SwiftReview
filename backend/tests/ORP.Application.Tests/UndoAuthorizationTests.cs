@@ -14,9 +14,9 @@ public sealed class UndoAuthorizationTests
     [InlineData(true, true, true, false, true)]
     [InlineData(false, true, true, false, false)]
     [InlineData(true, false, true, false, false)]
-    [InlineData(true, true, false, false, false)]
+    [InlineData(true, true, false, false, true)]
     [InlineData(false, false, false, true, true)]
-    public async Task UndoRequiresScopedViewActionAndWorkflowAccess_UnlessDatabaseIdentityIsAdministrator(
+    public async Task UndoUsesMessageSnapshotInsteadOfCurrentWorkflowVisibility(
         bool view, bool permission, bool workflow, bool administrator, bool allowed)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -27,10 +27,10 @@ public sealed class UndoAuthorizationTests
         actor.UserId.Returns(7);
         // A stale transport claim must neither grant nor remove administrative access.
         actor.IsGlobalAdministrator.Returns(!administrator);
-        store.FindMessageAsync(1, ct).Returns(new Message(1, 9));
-        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT199", 10, 20, DateTimeOffset.UtcNow, "", "", MessageDirection.Incoming));
+        store.FindMessageAsync(1, ct).Returns(new Message(1, 9, 10, 20, DateTimeOffset.UtcNow));
+        store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT199", 10, [20], DateTimeOffset.UtcNow, "", "", MessageDirection.Incoming));
         store.GetReviewsAsync(1, ct).Returns([]);
-        users.CheckAsync(7, 10, 20, Permissions.ReviewUndo, ct).Returns(new UserPermissionCheck(administrator, view, permission));
+        users.CheckAsync(7, 10, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 20 })), Permissions.ReviewUndo, ct).Returns(new UserPermissionCheck(administrator, view, permission));
         users.CanAccessWorkflowAsync(7, 9, ct).Returns(workflow);
         var service = new MessageAuthorizationService(store, users, actor, correlation, NullLogger<MessageAuthorizationService>.Instance);
         if (allowed)
@@ -39,6 +39,6 @@ public sealed class UndoAuthorizationTests
             Assert.Equal(administrator, result.IsGlobalAdministrator);
         }
         else await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RequireAsync(1, Permissions.ReviewUndo, ct));
-        await users.Received(1).CheckAsync(7, 10, 20, Permissions.ReviewUndo, ct);
+        await users.Received(1).CheckAsync(7, 10, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 20 })), Permissions.ReviewUndo, ct);
     }
 }

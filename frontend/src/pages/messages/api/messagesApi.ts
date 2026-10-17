@@ -8,7 +8,9 @@ import type {
   AssignMessageRequest,
   AssignmentCandidateDto,
   MessageDetailsDto,
-  MessageStateCountDto,
+  MessageStateCountsDto,
+  WorkflowSummaryDto,
+  ConfirmReviewRequest,
   MessageGridRowDto,
   RejectReviewRequest,
   StartReviewRequest,
@@ -49,11 +51,14 @@ const loadOptionNames = [
 function buildQuery(
   loadOptions: LoadOptions<MessageRow>,
   assignmentScope?: MessageAssignmentScope,
+  departments?: number[],
 ) {
   const query = new URLSearchParams({
     skip: String(loadOptions.skip ?? 0),
     take: String(loadOptions.take ?? 20),
   });
+
+  for (const id of departments ?? []) query.append('departments', String(id));
 
   if (assignmentScope) {
     query.set('assignmentScope', assignmentScope);
@@ -75,8 +80,9 @@ function buildQuery(
 export function getMessageGrid(
   loadOptions: LoadOptions<MessageRow>,
   assignmentScope?: MessageAssignmentScope,
+  departments?: number[],
 ): Promise<LoadResultObject<MessageRow>> {
-  return apiRequest(`/api/messages/grid?${buildQuery(loadOptions, assignmentScope)}`, {
+  return apiRequest(`/api/messages/grid?${buildQuery(loadOptions, assignmentScope, departments)}`, {
     errorMessage: 'Unable to load messages',
   });
 }
@@ -141,10 +147,24 @@ export function assignMessage(messageId: MessageRow['id'], assignedTo: AssignMes
   });
 }
 
-export function getMessageStateCounts(signal?: AbortSignal): Promise<MessageStateCountDto[]> {
+export function getMessageStateCounts(signal?: AbortSignal): Promise<MessageStateCountsDto> {
   return apiRequest('/api/messages/state-counts', { signal, errorMessage: 'Unable to load message counts' });
 }
 
 export function getDashboardSummary(signal?: AbortSignal): Promise<DashboardSummaryDto> {
   return apiRequest('/api/dashboard/summary', { signal, errorMessage: 'Unable to load message summary' });
+}
+
+export function getWorkflowCandidates(messageId: MessageRow['id'], signal?: AbortSignal): Promise<WorkflowSummaryDto[]> {
+  return apiRequest(`/api/messages/${messageId}/workflow-candidates`, { signal, errorMessage: 'Unable to load allowed workflow' });
+}
+
+export function confirmReview(messageId: MessageRow['id'], body: ConfirmReviewRequest) {
+  return apiRequest(`/api/messages/${messageId}/reviews/confirm`, {
+    method: 'POST', body, responseType: 'none', errorMessage: 'Unable to confirm message',
+  });
+}
+
+export function getMessagePdf(messageId: MessageRow['id'], signal?: AbortSignal) {
+  return apiRequest(`/api/messages/${messageId}/pdf`, { signal, responseType: 'blob', errorMessage: 'Unable to load PDF' });
 }

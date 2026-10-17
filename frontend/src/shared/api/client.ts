@@ -40,12 +40,13 @@ function isAbortError(cause: unknown): boolean {
   return typeof cause === 'object' && cause !== null && 'name' in cause && cause.name === 'AbortError';
 }
 
+export function apiRequest(path: string, options: RequestOptions & { responseType: 'blob' }): Promise<Blob>;
 export function apiRequest(path: string, options: RequestOptions & { responseType: 'none' }): Promise<void>;
 export function apiRequest<T>(path: string, options: RequestOptions & { responseType?: 'json' }): Promise<T>;
 export async function apiRequest<T>(
   path: string,
-  options: RequestOptions & { responseType?: 'json' | 'none' },
-): Promise<T | void> {
+  options: RequestOptions & { responseType?: 'json' | 'none' | 'blob' },
+): Promise<T | void | Blob> {
   const { method = 'GET', signal, errorMessage } = options;
   let sent = false;
   const requestError = (kind: ApiRequestError['kind'], cause?: unknown, status?: number) => {
@@ -61,7 +62,7 @@ export async function apiRequest<T>(
   if (signal?.aborted) throw requestError('aborted', signal.reason);
 
   const headers = new Headers(options.headers);
-  headers.set('Accept', 'application/json, application/problem+json');
+  headers.set('Accept', options.responseType === 'blob' ? 'application/pdf, application/problem+json' : 'application/json, application/problem+json');
   const body = options.body === undefined ? undefined : JSON.stringify(options.body);
   if (body !== undefined) headers.set('Content-Type', 'application/json');
   const debugUser = getDebugUser();
@@ -86,6 +87,13 @@ export async function apiRequest<T>(
     );
   }
   if (options.responseType === 'none') return;
+  if (options.responseType === 'blob') {
+    try {
+      const blob = await response.blob();
+      if (!response.headers.get('content-type')?.includes('application/pdf') || blob.size === 0) throw new Error('Invalid PDF');
+      return blob;
+    } catch (cause) { throw requestError('invalid-response', cause, response.status); }
+  }
 
   let text: string;
   try {

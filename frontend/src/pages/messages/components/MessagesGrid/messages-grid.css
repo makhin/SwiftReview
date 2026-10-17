@@ -19,6 +19,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   min-height: 36px;
+  flex-wrap: wrap;
 }
 
 .message-grid-toolbar .dx-button {
@@ -108,4 +109,10 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
+}
+
+.message-department-filter {
+  flex: 0 1 260px;
+  min-width: 180px;
+  max-width: 100%;
 }

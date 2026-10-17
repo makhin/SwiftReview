@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { componentProps, refreshGrid, getCurrentUser, getMessageStates, rowOverrides, summary, gridFilter, gridPageIndex } = vi.hoisted(() => ({
   componentProps: vi.fn(),
-  summary: vi.fn().mockResolvedValue({ totalMessages: 20, unassigned: 15, pendingFirstConfirmation: 5, pendingSecondConfirmation: 0, completed: 0 }),
+  summary: vi.fn().mockResolvedValue({ totalMessages: 20, viewOnly: 0, unassigned: 15, pendingFirstConfirmation: 5, pendingSecondConfirmation: 0, completed: 0 }),
   gridFilter: vi.fn(),
   gridPageIndex: vi.fn(),
   refreshGrid: vi.fn(),
@@ -33,11 +33,14 @@ vi.mock('devextreme-react/data-grid', () => {
   const rowData = {
     id: 42,
     canReview: true,
+    rejectAllowed: true,
+    canAssign: true,
+    canViewAudit: true,
     canChangeWorkflow: false,
     workflowDefinitionId: 1,
     undoReviewId: null,
     requiredReviewLevels: [1, 2, 3],
-    externalId: 'MSG-0042',
+    externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
     messageType: 'MT103', direction: 'Incoming',
     branchId: 10,
     departmentId: 20,
@@ -79,6 +82,7 @@ vi.mock('devextreme-react/data-grid', () => {
     Lookup: childComponent('Lookup'),
   };
 });
+vi.mock('devextreme-react/tag-box', () => ({ default: () => <div aria-label="Filter departments" /> }));
 vi.mock('devextreme-react/button', () => ({
   default: ({ text, onClick, elementAttr, ...props }: Record<string, unknown>) => {
     componentProps('Button', { text, onClick, ...props });
@@ -188,6 +192,7 @@ function renderPage(
   }
 
   if (withReferenceData) {
+    queryClient.setQueryData(referenceDataKeys.workflows, [{ id: 1, rejectAllowed: true }]);
     queryClient.setQueryData(referenceDataKeys.users, [
       {
         id: 1,
@@ -254,12 +259,13 @@ describe('MessagesPage', () => {
   });
 
   it('exposes Undo to an ordinary user with scoped review.undo permission', () => {
+    rowOverrides.undoReviewId = 73;
     renderPage(true, ['message.view', 'message.assign', 'review.undo']);
     expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
   });
 
   it('does not expose Undo outside the permission scope', () => {
-    Object.assign(rowOverrides, { branchId: 99, departmentId: 99, undoReviewId: 73 });
+    Object.assign(rowOverrides, { branchId: 99, departmentId: 99, undoReviewId: null });
     renderPage(true, ['message.view', 'message.assign', 'review.undo']);
     expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
   });
@@ -321,6 +327,7 @@ describe('MessagesPage', () => {
   it('opens a combined review, refreshes after saving and restores focus when closed', async () => {
     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1 });
     const queryClient = createTestQueryClient();
+    queryClient.setQueryData(referenceDataKeys.workflows, [{ id: 1, rejectAllowed: true }]);
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       permissions: ['message.view', 'review.level1'],
@@ -363,7 +370,7 @@ describe('MessagesPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('app-page--wide');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
-    expect(screen.getAllByTestId('Column')).toHaveLength(9);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
 
     const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
     expect(dataGridProps).toMatchObject({
@@ -381,10 +388,12 @@ describe('MessagesPage', () => {
       .map(([, props]) => props.caption);
     expect(captions).toEqual([
       'External ID',
+      'Sender',
+      'Receiver',
       'Message type',
       'Direction',
       'Branch',
-      'Department',
+      'Departments',
       'Stage',
       'Received',
       'Assignee',
@@ -404,16 +413,15 @@ describe('MessagesPage', () => {
       .filter(
         ([name, props]) =>
           name === 'Column' &&
-          ['branchId', 'departmentId', 'state', 'currentAssigneeId'].includes(
+          ['branchId', 'state', 'currentAssigneeId'].includes(
             props.dataField,
           ),
       )
       .map(([, props]) => props);
-    expect(lookupColumns).toHaveLength(4);
+    expect(lookupColumns).toHaveLength(3);
     expect(lookupColumns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ dataField: 'branchId', allowSorting: false }),
-        expect.objectContaining({ dataField: 'departmentId', allowSorting: false }),
         expect.objectContaining({ dataField: 'state' }),
         expect.objectContaining({ dataField: 'currentAssigneeId', allowSorting: false }),
       ]),
@@ -426,14 +434,6 @@ describe('MessagesPage', () => {
       { dataSource: ['Incoming', 'Outgoing'] },
       {
         dataSource: [{ id: 10, name: 'Warsaw' }],
-        valueExpr: 'id',
-        displayExpr: 'name',
-      },
-      {
-        dataSource: [
-          { id: 20, name: 'Operations' },
-          { id: 30, name: 'Compliance' },
-        ],
         valueExpr: 'id',
         displayExpr: 'name',
       },
@@ -480,7 +480,7 @@ describe('MessagesPage', () => {
   it('keeps numeric columns available while reference data is unavailable', () => {
     renderPage(false);
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(9);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(1);
   });
 
@@ -503,11 +503,11 @@ describe('MessagesPage', () => {
   });
 
   it('shows manual assignment only with permission', () => {
-    rowOverrides.departmentId = 30;
+    rowOverrides.canAssign = false;
     const withoutPermission = renderPage();
     expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
     withoutPermission.unmount();
-    delete rowOverrides.departmentId;
+    rowOverrides.canAssign = true;
 
     renderPage(true, ['message.view', 'message.assign']);
     fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
@@ -519,7 +519,7 @@ describe('MessagesPage', () => {
     const view = renderPage(true, ['message.view', 'message.assign', 'audit.view']);
     view.container.id = 'root';
 
-    expect(screen.getAllByTestId('Column')).toHaveLength(9);
+    expect(screen.getAllByTestId('Column')).toHaveLength(11);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
 
@@ -576,6 +576,7 @@ describe('MessagesPage', () => {
 
   it('uses department IDs until department metadata is available', () => {
     const queryClient = createTestQueryClient();
+    queryClient.setQueryData(referenceDataKeys.workflows, [{ id: 1, rejectAllowed: true }]);
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       userName: 'alex.morgan',
@@ -613,11 +614,11 @@ describe('MessagesPage', () => {
 
 
 describe('workflow action', () => {
-  it('explains why review history prevents changing workflow', () => {
+  it('hides workflow changes when the server disallows them', () => {
+    rowOverrides.canAssign = false;
+    rowOverrides.canChangeWorkflow = false;
     renderPage(true, ['message.view', 'workflow.manage']);
-    expect(screen.getByText('Change workflow')).toBeInTheDocument();
-    expect(screen.getByTitle(/Workflow cannot be changed/)).toHaveAttribute('tabindex', '0');
-    expect(componentProps).toHaveBeenCalledWith('Button', expect.objectContaining({ text: 'Change workflow', disabled: true }));
+    expect(screen.queryByRole('button', { name: 'Change workflow' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
   });
 
@@ -654,7 +655,7 @@ describe('workflow action', () => {
      { state: 'Completed', currentAssigneeId: null, canReview: false },
      { state: 'Assigned', currentAssigneeId: 7, canReview: false },
      { state: 'Assigned', currentAssigneeId: 1, canReview: false },
-     { state: 'Assigned', currentAssigneeId: 1, canReview: true, departmentId: 99 },
+     { state: 'Assigned', currentAssigneeId: 1, canReview: false, departmentIds: [99] },
    ])('hides Review when the row is not actionable: %j', (row) => {
      Object.assign(rowOverrides, row); queue();
      expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
@@ -671,6 +672,14 @@ describe('workflow action', () => {
      expect(rowElement).not.toHaveClass('message-assigned-to-you');
    });
 
+   it.each([true, false])('uses message rejection policy without a workflow catalog: %s', (rejectAllowed) => {
+     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1, rejectAllowed });
+     queue();
+     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+     if (rejectAllowed) expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
+     else expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+   });
    it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)('colours %s even without review rights and separately marks personal assignments', (state, level) => {
      queue(['message.view']);
      const rowElement = document.createElement('tr');

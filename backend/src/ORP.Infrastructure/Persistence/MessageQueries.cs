@@ -21,8 +21,19 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             .Where(message => message.MessageId == id)
             .Select(message => message.Body)
             .SingleOrDefaultAsync(ct);
-        return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentId,
-            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction);
+        var actions = (await db.ReadReviewCapabilitiesAsync(new Dictionary<long, byte[]> { [id] = x.RowVersion }, access, ct))[id];
+        return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentIds,
+            x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction)
+        {
+            Version = Convert.ToBase64String(x.RowVersion),
+            ConfirmationMode = actions.ConfirmationMode,
+            CanConfirm = actions.CanConfirm,
+            ConfirmationLevel = actions.ConfirmationLevel,
+            CanReview = actions.CanReview,
+            BranchName = x.BranchName,
+            DepartmentNames = string.Join(", ", x.DepartmentNames),
+            CurrentAssigneeName = x.CurrentAssigneeName
+        };
     }
 
     public async Task<PagedResult<MessageListItemDto>> SearchAsync(MessageSearchRequest request, UserAccess access, CancellationToken ct)
@@ -32,7 +43,11 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         var f = request.Filter;
         if (f?.States is { Count: > 0 }) query = query.Where(x => f.States.Contains(x.State));
         if (f?.Branches is { Count: > 0 }) query = query.Where(x => f.Branches.Contains(x.BranchId));
-        if (f?.Departments is { Count: > 0 }) query = query.Where(x => f.Departments.Contains(x.DepartmentId));
+        if (f?.Departments is { Count: > 0 }) query = query.Where(x => db.MessageDepartments.Any(
+            department => department.MessageId == x.Id && f.Departments.Contains(department.DepartmentId) &&
+                (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
+                    role.BranchId == x.BranchId && role.DepartmentId == department.DepartmentId &&
+                    role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.MessageView)))));
         if (f?.MessageTypes is { Count: > 0 }) query = query.Where(x => f.MessageTypes.Contains(x.MessageType));
         if (f?.DateFrom is not null) query = query.Where(x => x.ReceivedAt >= f.DateFrom);
         if (f?.DateTo is not null) query = query.Where(x => x.ReceivedAt <= f.DateTo);
@@ -40,14 +55,20 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         query = ApplySort(query, request.Sort);
         var items = await query.Skip(request.Skip).Take(request.Take)
             .Select(x => new MessageListItemDto(x.Id, x.ExternalId, x.MessageType, x.BranchId,
-            x.DepartmentId, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
-            x.ActiveReviewerId, x.Direction)).ToListAsync(ct);
+            x.DepartmentIds, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
+            x.ActiveReviewerId, x.Direction)
+            {
+                BranchName = x.BranchName,
+                DepartmentNames = string.Join(", ", x.DepartmentNames),
+                CurrentAssigneeName = x.CurrentAssigneeName,
+                ActiveReviewerName = x.ActiveReviewerName
+            }).ToListAsync(ct);
         return new(items, count);
     }
 
     public async Task<DashboardSummaryDto> DashboardAsync(UserAccess access, CancellationToken ct)
     {
-        if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0);
+        if (!access.Permissions.Contains(Permissions.MessageView)) return new(0, 0, 0, 0, 0, 0);
         var counts = await Accessible(access).CountByStateAsync(ct);
         return DashboardSummaryDto.FromStateCounts(counts);
     }
@@ -55,7 +76,9 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     public async Task<PagedResult<AuditEventDto>?> AuditAsync(long messageId, AuditTrailRequest request,
         UserAccess access, CancellationToken ct)
     {
-        if (!await db.ReadAccessibleMessages(access.UserId, Permissions.AuditView).AnyAsync(x => x.Id == messageId, ct)) return null;
+        var branchId = await db.ReadAccessibleMessages(access.UserId, Permissions.AuditView)
+            .Where(x => x.Id == messageId).Select(x => (int?)x.BranchId).SingleOrDefaultAsync(ct);
+        if (branchId is null) return null;
         var query = db.AuditEvents.AsNoTracking().Where(x => x.MessageId == messageId);
         var count = await query.CountAsync(ct);
         var rows = await query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.Id)
@@ -64,10 +87,10 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
                 x.UserId, x.User == null ? null : x.User.UserName, x.User == null ? null : x.User.DisplayName,
                 x.ReviewId, x.DetailsJson, x.CorrelationId))
             .ToListAsync(ct);
-        return new(rows.Select(MapAudit).ToList(), count);
+        return new(rows.Select(row => MapAudit(row, access, branchId.Value)).ToList(), count);
     }
 
-    private static AuditEventDto MapAudit(AuditRow row)
+    private static AuditEventDto MapAudit(AuditRow row, UserAccess access, int messageBranchId)
     {
         var stored = JsonSerializer.Deserialize<StoredAuditDetails>(row.DetailsJson, AuditJsonOptions)
             ?? new StoredAuditDetails();
@@ -75,7 +98,9 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             row.UserName ?? string.Empty, row.DisplayName ?? string.Empty);
         var details = new AuditEventDetailsDto(stored.WorkflowDefinitionId, stored.PreviousAssigneeId,
             stored.AssigneeId ?? stored.AssignedTo, row.ReviewId, stored.ReviewLevel ?? stored.Level, stored.Comment,
-            stored.PreviousBranchId, stored.BranchId, stored.PreviousDepartmentId, stored.DepartmentId,
+            stored.PreviousBranchId, stored.BranchId,
+            stored.PreviousDepartmentIds?.Where(id => access.CanAccess(stored.PreviousBranchId ?? messageBranchId, id)).ToArray(),
+            stored.DepartmentIds?.Where(id => access.CanAccess(stored.BranchId ?? messageBranchId, id)).ToArray(),
             stored.PreviousWorkflowDefinitionId);
         return new AuditEventDto(row.Id, row.EventType, row.Timestamp, row.OldState?.ToString(), row.NewState?.ToString(),
             actor, details, row.CorrelationId);
@@ -114,5 +139,5 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     private sealed record StoredAuditDetails(int? WorkflowDefinitionId = null, int? PreviousAssigneeId = null,
         int? AssigneeId = null, int? AssignedTo = null, int? ReviewLevel = null, int? Level = null,
         string? Comment = null, int? PreviousBranchId = null, int? BranchId = null,
-        int? PreviousDepartmentId = null, int? DepartmentId = null, int? PreviousWorkflowDefinitionId = null);
+        IReadOnlyList<int>? PreviousDepartmentIds = null, IReadOnlyList<int>? DepartmentIds = null, int? PreviousWorkflowDefinitionId = null);
 }

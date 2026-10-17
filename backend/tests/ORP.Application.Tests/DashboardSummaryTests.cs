@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NSubstitute;
 using ORP.Application.Abstractions;
 using ORP.Application.Dashboard.GetSummary;
@@ -22,14 +23,25 @@ public sealed class DashboardSummaryTests
             [MessageState.WaitingForThirdReview] = 3,
             [MessageState.ThirdReviewInProgress] = 2,
             [MessageState.Completed] = 20,
-            [MessageState.Rejected] = 1
+            [MessageState.Rejected] = 1,
+            [MessageState.ViewOnly] = 8
         };
 
         var summary = DashboardSummaryDto.FromStateCounts(counts);
 
-        Assert.Equal(new DashboardSummaryDto(50, 12, 7, 5, 20), summary);
-        Assert.Equal(new DashboardSummaryDto(0, 0, 0, 0, 0),
+        Assert.Equal(new DashboardSummaryDto(58, 8, 12, 7, 5, 20), summary);
+        Assert.Equal(new DashboardSummaryDto(0, 0, 0, 0, 0, 0),
             DashboardSummaryDto.FromStateCounts(new Dictionary<MessageState, int>()));
+    }
+
+    [Fact]
+    public void EmptySummarySerializesAllSixFieldsIncludingZeroViewOnly()
+    {
+        var summary = DashboardSummaryDto.FromStateCounts(new Dictionary<MessageState, int>());
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(summary, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        Assert.Equal(new[] { "totalMessages", "viewOnly", "unassigned", "pendingFirstConfirmation", "pendingSecondConfirmation", "completed" },
+            json.RootElement.EnumerateObject().Select(x => x.Name));
+        Assert.All(json.RootElement.EnumerateObject(), x => Assert.Equal(0, x.Value.GetInt32()));
     }
 
     [Fact]
@@ -43,7 +55,7 @@ public sealed class DashboardSummaryTests
             [new UserScopeAccess(10, 20, [], [Permissions.MessageView])]);
         current.UserId.Returns(1);
         users.GetByIdAsync(1, ct).Returns(access);
-        var expected = new DashboardSummaryDto(3, 1, 1, 1, 0);
+        var expected = new DashboardSummaryDto(4, 1, 1, 1, 1, 0);
         queries.DashboardAsync(access, ct).Returns(expected);
 
         var actual = await new GetDashboardSummaryHandler(queries, users, current).HandleAsync(ct);

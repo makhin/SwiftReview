@@ -16,6 +16,8 @@ OpenAPI is available at `/openapi/v1.json`, and the interactive reference at
 | GET | `/api/messages/grid` | 200, DevExtreme load result |
 | POST | `/api/messages/search` | 200, paged search result |
 | GET | `/api/messages/state-counts` | 200, counts by state |
+| GET | `/api/messages/{id}/pdf` | 200, placeholder PDF after visibility check |
+| GET | `/api/messages/{id}/workflow-candidates` | 200, workflow allowed by routing |
 | PUT | `/api/messages/{id}/workflow` | 204 |
 | POST | `/api/messages/{id}/assign` | 204 |
 | POST | `/api/messages/{id}/reassign` | 204 |
@@ -33,6 +35,7 @@ All review commands use `POST /api/messages/{id}/reviews/{action}`.
 
 | Action | Request | Success |
 | --- | --- | --- |
+| `confirm` | `{ "level": 1, "expectedVersion": "AAAAAAAAB9E=", "comment": "Checked" }` | 204 |
 | `start` | `{ "level": 1 }` | 200, `{ "reviewId": 123 }`, no Location header |
 | `approve` | `{ "level": 1, "reviewId": 123, "comment": "Checked" }` | 204 |
 | `reject` | `{ "level": 1, "reviewId": 123, "comment": "Reason" }` | 204 |
@@ -60,12 +63,12 @@ The following GET operations return 200 with their typed result:
 - `/api/dashboard/summary`
 - `/api/me`
 
-`/api/dashboard/summary` returns five counts over messages visible to the current
-user: `totalMessages`, `unassigned` (`New`), `pendingFirstConfirmation`
+`/api/dashboard/summary` returns six counts over messages visible to the current
+user: `totalMessages`, `viewOnly` (`ViewOnly`), `unassigned` (`New`), `pendingFirstConfirmation`
 (`Assigned` and `FirstReviewInProgress`), `pendingSecondConfirmation`
 (`WaitingForSecondReview` and `SecondReviewInProgress`), and `completed`
 (`Completed`). `Rejected` and third-review states contribute only to `totalMessages`,
-so the other four counts need not add up to the total. `Unassigned` is a lifecycle
+so the other five counts need not add up to the total. `Unassigned` is a lifecycle
 label for `New`, not a count of every message without a current assignee.
 
 The message grid keeps technical state codes for filtering. Its business stage
@@ -103,11 +106,37 @@ Generated contracts must not be edited manually.
 ## Message direction
 
 Message detail, search and grid rows expose `direction` as `"Incoming"`, `"Outgoing"`,
-or `null` when the source has no direction. Workflow summaries expose the same enum,
-but never `null`. Incoming/Outgoing are relative to the bank.
+or `null` when the source has no direction. Incoming/Outgoing are relative to the bank.
+Workflows are reusable and expose a stable code, confirmation and undo policies;
+message type, direction and department matching live in the routing matrix.
 
 The DevExtreme grid supports filtering, sorting and grouping by `direction`; for example,
 `filter=["direction","=","Outgoing"]` (URL-encode query values).
-Manual workflow changes require a matching direction, including for administrators.
-A mismatch or missing message direction returns `409` without changing state or audit.
-The other manual selection and authorization rules are unchanged.
+Manual workflow changes must match the current routing matrix, including for
+administrators. Use `workflow-candidates` to obtain the allowed workflow. PUT
+rechecks the rules; a changed route or an invalid state returns a conflict.
+
+## Multi-department messages and confirmation
+
+Message DTOs expose `departmentIds` and comma-separated `departmentNames`, restricted
+to visible departments. Processing rights are evaluated within a matching branch
+and processing department, with view permission in that same scope.
+The grid accepts repeated `departments` query values before DevExtreme filtering;
+array department fields are not sortable or groupable. Sender and receiver are
+available for server filtering, sorting and grouping.
+
+Rows expose `canReview`, `canConfirm`, `confirmationLevel`, `canAssign`,
+`canViewAudit`, `canChangeWorkflow` and `undoReviewId`; UI actions follow these
+server decisions. `rejectAllowed` is the policy of the message’s stored workflow,
+independent of current routing rules or the workflow reference catalog. `version` is the base64 SQL rowversion. Immediate confirmation
+uses `confirm` with that version; a stale version returns 409 and requires reload.
+`ReviewSession` uses the existing session actions and workflow policies;
+`None` produces `ViewOnly` messages without confirmation actions.
+
+State counts return `{ items, total }`, with per-state and overall message-type
+breakdowns. Zero states are omitted. Counts are independent of grid filters.
+
+The PDF endpoint currently returns a Hello World placeholder, displayed by the
+frontend after an authenticated binary request. Real PDF generation is separate.
+
+Workflow candidates exclude no-confirmation workflows while the message has an active assignment.

@@ -45,7 +45,7 @@ import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 
 const message = {
   id: 42,
-  externalId: 'MSG-0042',
+  externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
   messageType: 'MT103', direction: 'Incoming' as const,
   branchId: 10,
   departmentId: 20,

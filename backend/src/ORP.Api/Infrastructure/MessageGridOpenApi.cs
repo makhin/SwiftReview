@@ -1,7 +1,7 @@
 using DevExtreme.AspNet.Data.ResponseModel;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
-using ORP.Infrastructure.Persistence;
+using ORP.Application.Grids;
 
 namespace ORP.Api.Infrastructure;
 
