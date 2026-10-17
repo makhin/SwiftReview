@@ -115,8 +115,12 @@ export default function MessagesGrid({
     };
   });
 
+  function refreshGrid() {
+    return dataGridRef.current?.instance().refresh();
+  }
+
   async function refreshMessages() {
-    await Promise.all([dataGridRef.current?.instance().refresh(), summaryQuery.refetch({ throwOnError: true })]);
+    await Promise.all([refreshGrid(), summaryQuery.refetch({ throwOnError: true })]);
   }
 
   function selectState(value: string | null) {
@@ -334,7 +338,7 @@ export default function MessagesGrid({
                     </span>}
                   {showUndo && (currentUser?.isGlobalAdministrator ||
                     message.undoReviewId != null) &&
-                    <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message} onChanged={refreshMessages} />}
+                    <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message} onChanged={refreshGrid} />}
                   {canShowAssignment(message, false) && (
                     <Button
                       text="Assign"
@@ -382,7 +386,7 @@ export default function MessagesGrid({
         </div>
       </section>
       {selectedConfirmMessage && <ConfirmMessagePopup key={selectedConfirmMessage.id} message={selectedConfirmMessage}
-        onClose={() => setSelectedConfirmMessage(null)} onChanged={refreshMessages} />}
+        onClose={() => setSelectedConfirmMessage(null)} onChanged={refreshGrid} />}
       {selectedPdfMessage && <MessagePdfPopup key={selectedPdfMessage.id} message={selectedPdfMessage} onClose={() => setSelectedPdfMessage(null)} />}
       {selectedReviewMessage && (
         <ReviewDecisionPopup
@@ -391,16 +395,16 @@ export default function MessagesGrid({
           canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
           canReject={!readOnly && canShowReviewAction(selectedReviewMessage) && selectedReviewMessage.rejectAllowed === true}
           onClose={closeReviewAction}
-          onChanged={refreshMessages}
+          onChanged={refreshGrid}
         />
       )}
       {selectedWorkflowMessage && <ChangeWorkflowPopup key={String(selectedWorkflowMessage.id)} message={selectedWorkflowMessage}
-        onClose={() => setSelectedWorkflowMessage(null)} onChanged={refreshMessages} />}
+        onClose={() => setSelectedWorkflowMessage(null)} onChanged={refreshGrid} />}
       {selectedAssignmentMessage && (
         <AssignmentPopup
           message={selectedAssignmentMessage}
           onClose={closeAssignment}
-          onChanged={refreshMessages}
+          onChanged={refreshGrid}
         />
       )}
       {selectedAuditMessage &&

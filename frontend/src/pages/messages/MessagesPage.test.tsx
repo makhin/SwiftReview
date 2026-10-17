@@ -324,6 +324,20 @@ describe('MessagesPage', () => {
     expect(getCurrentUser).toHaveBeenCalledTimes(3);
   });
 
+  it('refreshes only the grid from a mutation callback and refreshes counts on manual Refresh', async () => {
+    Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1 });
+    renderPage(true, ['message.view', 'review.level1'], true, true);
+    await waitFor(() => expect(summary).toHaveBeenCalled());
+    const before = summary.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save review' }));
+    await waitFor(() => expect(refreshGrid).toHaveBeenCalledOnce());
+    expect(summary).toHaveBeenCalledTimes(before);
+    fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(summary).toHaveBeenCalledTimes(before + 1));
+  });
+
   it('opens a combined review, refreshes after saving and restores focus when closed', async () => {
     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1 });
     const queryClient = createTestQueryClient();

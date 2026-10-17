@@ -40,7 +40,7 @@ describe('UndoReviewButton', () => {
     const onChanged = vi.fn();
     render(<UndoReviewButton message={message} onChanged={onChanged} />);
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(screen.getByText(/ends any current assignment/)).toBeInTheDocument();
+    expect(screen.getByText(/Assignment retention follows the workflow policy/)).toBeInTheDocument();
     expect(undoReview).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Comment (optional)'), { target: { value: '  Please check again  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
@@ -53,7 +53,7 @@ describe('UndoReviewButton', () => {
     expect(onChanged).not.toHaveBeenCalled();
     resolve();
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining('Approval undone'), 'success', 4000);
+    expect(notify).toHaveBeenCalledWith('Approval undone.', 'success', 4000);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

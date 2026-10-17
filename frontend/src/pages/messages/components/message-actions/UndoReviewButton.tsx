@@ -19,7 +19,7 @@ export default function UndoReviewButton({ message, onChanged }: { message: Mess
     onChanged,
     onSuccess: () => {
       setOpen(false);
-      notify('Approval undone. Assign the message to a reviewer to continue.', 'success', 4000);
+      notify('Approval undone.', 'success', 4000);
     },
     onError: (error) => notify((error instanceof ApiError || error instanceof ApiRequestError) ? error.message
       : 'Unable to confirm the undo result. Refresh the grid and check the audit trail.', 'error', 4000),
@@ -37,8 +37,7 @@ export default function UndoReviewButton({ message, onChanged }: { message: Mess
       hideOnOutsideClick={!pending} dragEnabled={false} width="90vw" maxWidth={520} height="auto"
       onHiding={() => { if (!pending && !mutation.isLocked()) setOpen(false); }} elementAttr={{ 'aria-label': 'Undo approval' }}>
       <div className="review-decision-popup__content">
-        <p>Undo the latest approval for <strong>{message.externalId}</strong>? This ends any current assignment.
-          The reopened level will require a new assignment.</p>
+        <p>Undo the latest approval for <strong>{message.externalId}</strong>? Assignment retention follows the workflow policy.</p>
         {message.activeReviewId != null && <p>The active next review will also be cancelled. Its history will be preserved.</p>}
         <div>
           <label className="app-label" htmlFor={commentId}>Comment (optional)</label>
