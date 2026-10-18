@@ -9,15 +9,7 @@ import { createTestQueryClient } from '../../test/createTestQueryClient';
 const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
 
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser }));
-vi.mock('devextreme-react/button', () => ({
-  default: ({
-    elementAttr,
-    onClick,
-  }: {
-    elementAttr: Record<string, unknown>;
-    onClick: () => void;
-  }) => <button type="button" {...elementAttr} onClick={onClick} />,
-}));
+
 
 import GlobalHeader from './GlobalHeader';
 
@@ -121,3 +113,15 @@ describe('GlobalHeader', () => {
     );
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  Button: ({ onClick, devExtremeProps: { elementAttr } }: Omit<{
+    elementAttr: Record<string, unknown>;
+    onClick: () => void;
+  }, "elementAttr"> & { devExtremeProps: Pick<{
+    elementAttr: Record<string, unknown>;
+    onClick: () => void;
+  }, "elementAttr"> }) => <button type="button" {...elementAttr} onClick={onClick} />,
+}))()
+}));

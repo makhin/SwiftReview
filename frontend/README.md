@@ -1,12 +1,12 @@
 # Operations Reporting and Processing — Frontend
 
-The frontend is the React and TypeScript client for Operations Reporting and Processing. It uses Vite, DevExtreme, TanStack Query for non-grid server state, and a custom SMBC ThemeBuilder theme.
+The frontend is the React and TypeScript client for Operations Reporting and Processing. It uses Vite, the shared `@smbc/ui` and `@smbc/devextreme-theme` packages, Tailwind, and TanStack Query for non-grid server state. DevExtreme is the implementation behind the shared components.
 
 The implementation and UI conventions are documented in [`docs/DESIGN_GUIDE.md`](docs/DESIGN_GUIDE.md).
 
 ## Prerequisites
 
-- Node.js 20.19 or any supported newer LTS release (22.12+ or 24+).
+- Node.js 22.12+ or 24+ (CI uses Node.js 24).
 - npm.
 - .NET SDK 10.0.302 for contract generation.
 - The backend running at <http://localhost:5080> for live API data and OpenAPI generation.
@@ -54,7 +54,9 @@ npm run test:coverage  # Run tests with coverage thresholds
 npm run test:watch     # Run tests in watch mode
 npm run api:generate   # Regenerate DTO contracts from the backend OpenAPI document
 npm run api:check      # Check that generated DTO contracts are current
-npm run theme:build    # Regenerate the DevExtreme theme
+npm run test:smbc      # Build and exercise real SMBC controls in Chromium
+npm run refresh:smbc -- /path/to/smbc  # Check, pack and update the shared libraries
+npm run test:refresh-smbc  # Test same-version archive replacement and clean installation
 ```
 
 ## Routes
@@ -74,7 +76,8 @@ All routes render inside `RootLayout`, which provides the global header and resp
 - `src/pages` — route-level slices and their page-specific API code.
 - `src/shared/api` — generated DTO contracts, the shared HTTP client, current-user queries, and reference-data access.
 - `src/shared/hooks`, `src/shared/lib`, and `src/shared/types` — proven cross-page abstractions.
-- `src/theme` and `src/styles` — design tokens, generated DevExtreme theme files, and application styles.
+- `src/styles` — the layered CSS entry, document baseline and scoped application interaction styles.
+- `vendor` — versioned, built archives of the two SMBC packages.
 
 Dependencies flow from `app` to `pages` to `shared`. ESLint checks static imports
 and re-exports, including types: shared code must not import pages or app code;
@@ -126,25 +129,44 @@ The generic result type is a TypeScript contract, not runtime schema validation.
 The transport never retries requests. An HTTP error (especially 5xx) is not a guarantee
 that the server rolled back an operation. A pre-aborted signal prevents dispatch.
 
-## Styling and theme generation
+## Shared UI packages and styling
 
-`src/theme/tokens.css` is the source of truth for colours, typography, spacing, radii, shadows, and motion. Global styles are loaded in this order:
+`vendor/` contains the built SMBC archives referenced by `package.json` and
+`package-lock.json`. A fresh clone needs only `npm ci`; it does not need a
+checkout of the library sources or a private registry. Keep the two archives,
+manifest and lockfile together when updating or rolling back a release.
 
-1. Local fonts, application tokens, and shared patterns.
-2. Generated DevExtreme theme.
-3. SMBC DevExtreme overrides.
-4. DevExtreme visualisation palette.
-5. Minimal application-root CSS.
-
-Run the theme build after changing mapped design tokens or ThemeBuilder settings:
+To develop the libraries, check out `devextreme-theme` and `smbc-ui` below one
+`smbc` directory and install Chromium once (`npx playwright install chromium`).
+From `frontend`, run:
 
 ```bash
-npm run theme:build
+npm run refresh:smbc -- /path/to/smbc
+# Windows example:
+npm run refresh:smbc -- C:/Projects/smbc
 ```
 
-The command synchronizes ThemeBuilder metadata and regenerates `src/theme/dx.smbc.css`. Keep both generated files under source control and do not edit the generated CSS manually.
+The command installs and checks the theme, packs it, refreshes the UI's local
+theme dependency, checks and packs UI, then copies both archives here and
+refreshes their installed files and lockfile integrity. A failure stops the
+sequence. Before installing rebuilt archives, it removes only their old lockfile
+entries and installed package directories, and invalidates npm's hidden tree
+cache. This also applies to the theme installed in `smbc-ui`, so reusing a
+package version and archive filename cannot silently retain an older build.
+Review library source changes separately and commit the resulting
+archives and dependency files with the consumer changes. Normal frontend
+builds never regenerate the theme. No absolute source paths are saved in
+SwiftReview dependencies. If a package version changes, remove its superseded
+archive from `vendor` after the update.
 
-Myriad Pro is the default interface typeface. Capitolium 2 is reserved for explicit display headings. Fonts, the SMBC logo, and the favicon are bundled locally.
+`src/styles/app.css` is the sole style entry, with layers
+`theme, base, vendor, components, utilities`. It loads the theme and UI CSS,
+uses the theme's semantic Tailwind bridge, and scans only application source.
+There is no Preflight or scan of `node_modules`. Tokens, fonts, logo and favicon
+come from the theme package; common controls and semantic primitives come from
+UI. Keep only complex local interactions and scoped vendor contexts in CSS.
+
+See [the UI guide](docs/DESIGN_GUIDE.md) for API boundaries and ownership.
 
 ## Verification
 
@@ -153,4 +175,8 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npx playwright install chromium  # first browser setup
+npm run test:smbc
 ```
+
+Browser checks use controlled HTTP fixtures and the production build, without SQL or a running API. Screenshots and request evidence are written to ignored `artifacts/smbc/`. Live SQL integration remains a backend responsibility.

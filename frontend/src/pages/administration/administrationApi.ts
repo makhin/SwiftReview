@@ -1,4 +1,6 @@
-import CustomStore from 'devextreme/data/custom_store';
+import {
+  CustomStore,
+} from '@smbc/ui/data-grid';
 import { apiRequest } from '../../shared/api/client';
 import type {
   AccessCatalogDto, UserAccessDetailsDto, UpdateUserAccessRequest, UpdateRolePermissionsRequest,

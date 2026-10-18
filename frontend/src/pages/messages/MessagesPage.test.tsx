@@ -29,103 +29,11 @@ vi.mock('../../shared/api/currentUserApi', () => ({
   getCurrentUser,
 }));
 
-vi.mock('devextreme-react/data-grid', () => {
-  const rowData = {
-    id: 42,
-    canReview: true,
-    rejectAllowed: true,
-    canAssign: true,
-    canViewAudit: true,
-    canChangeWorkflow: false,
-    workflowDefinitionId: 1,
-    undoReviewId: null,
-    requiredReviewLevels: [1, 2, 3],
-    externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
-    messageType: 'MT103', direction: 'Incoming',
-    branchId: 10,
-    departmentId: 20,
-    state: 'New',
-    receivedAt: '2026-09-05T08:00:00Z',
-    currentAssigneeId: null,
-    activeReviewId: null,
-    activeReviewLevel: null,
-    activeReviewerId: null,
-  };
-  const childComponent = (name: string) =>
-    (props: PropsWithChildren<Record<string, unknown>>) => {
-      componentProps(name, props);
-      return (
-        <span data-testid={name}>
-          {String(props.caption ?? name)}
-          {props.children}
-          {name === 'Column' && props.caption === 'Actions' &&
-            (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
-              data: { ...rowData, ...rowOverrides },
-            })}
-        </span>
-      );
-    };
 
-  return {
-    default: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
-      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid; filter: typeof gridFilter; pageIndex: typeof gridPageIndex; beginUpdate: () => void; endUpdate: () => void } }>;
-    }>) {
-      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid, filter: gridFilter, pageIndex: gridPageIndex, beginUpdate: () => undefined, endUpdate: () => undefined }) }));
-      componentProps('DataGrid', props);
-      return <div aria-label="Messages">{children}</div>;
-    },
-    Column: childComponent('Column'),
-    FilterRow: childComponent('FilterRow'),
-    HeaderFilter: childComponent('HeaderFilter'),
-    Pager: childComponent('Pager'),
-    Paging: childComponent('Paging'),
-    Lookup: childComponent('Lookup'),
-  };
-});
-vi.mock('devextreme-react/tag-box', () => ({ default: () => <div aria-label="Filter departments" /> }));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick, elementAttr, ...props }: Record<string, unknown>) => {
-    componentProps('Button', { text, onClick, ...props });
-    const attributes = elementAttr as { 'aria-label'?: string } | undefined;
-    return (
-      <button
-        type="button"
-        aria-label={attributes?.['aria-label']}
-        onClick={() => (onClick as () => void)()}
-      >
-        {text == null ? null : String(text)}
-      </button>
-    );
-  },
-}));
-vi.mock('devextreme-react/radio-group', () => ({
-  default: ({ items, value, name, elementAttr, onValueChanged, itemRender }: {
-    items: { selectionKey: number; label: string }[];
-    value: number | null;
-    name: string;
-    elementAttr: { 'aria-labelledby': string };
-    onValueChanged: (event: { value: number }) => void;
-    itemRender: (item: { selectionKey: number; label: string }) => React.ReactNode;
-  }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{items.map((item) =>
-    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
-      checked={value === item.selectionKey} onChange={() => onValueChanged({ value: item.selectionKey })} />
-      {itemRender(item)}</label>)}</div>,
-}));
-vi.mock('devextreme-react/drawer', () => ({
-  default: ({
-    children,
-    render: renderPanel,
-    ...props
-  }: PropsWithChildren<Record<string, unknown> & { opened: boolean }>) => {
-    componentProps('Drawer', props);
-    return (
-      <div>
-        {children}
-        {props.opened && (renderPanel as () => React.ReactNode)()}
-      </div>
-    );
-  },
-}));
+
+
+
+
 vi.mock('./components/AuditTrailDrawer/AuditTrailDrawer', () => ({
   default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
     <aside aria-label="Audit trail">
@@ -382,7 +290,7 @@ describe('MessagesPage', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveClass('app-page--wide');
+    expect(screen.getByRole('main')).toHaveClass('max-w-none');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
 
@@ -504,8 +412,8 @@ describe('MessagesPage', () => {
     const rawButton = componentProps.mock.calls
       .filter(([name]) => name === 'Button')
       .map(([, props]) => props)
-      .find((props) => props.hint === 'View message');
-    expect(rawButton).toMatchObject({ icon: 'doc', stylingMode: 'outlined' });
+      .find((props) => props.children === 'View');
+    expect(rawButton).toMatchObject({ icon: 'doc', variant: 'secondary' });
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
@@ -545,7 +453,7 @@ describe('MessagesPage', () => {
       .filter(([name]) => name === 'Drawer')
       .at(-1)?.[1];
     expect(drawerProps).toMatchObject({
-      opened: true,
+      open: true,
       openedStateMode: 'overlap',
       position: 'right',
       animationEnabled: true,
@@ -639,7 +547,7 @@ describe('workflow action', () => {
   it('enables changing workflow when the server allows it', () => {
     rowOverrides.canChangeWorkflow = true;
     renderPage(true, [], true, true);
-    expect(componentProps).toHaveBeenCalledWith('Button', expect.objectContaining({ text: 'Change workflow', disabled: false }));
+    expect(componentProps).toHaveBeenCalledWith('Button', expect.objectContaining({ children: 'Change workflow', disabled: false }));
     expect(screen.queryByTitle(/Workflow cannot be changed/)).not.toBeInTheDocument();
   });
 });
@@ -762,3 +670,166 @@ it('keeps rejected and third-review states in the Stage column lookup', async ()
     ]),
   })));
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => {
+  const rowData = {
+    id: 42,
+    canReview: true,
+    rejectAllowed: true,
+    canAssign: true,
+    canViewAudit: true,
+    canChangeWorkflow: false,
+    workflowDefinitionId: 1,
+    undoReviewId: null,
+    requiredReviewLevels: [1, 2, 3],
+    externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
+    messageType: 'MT103', direction: 'Incoming',
+    branchId: 10,
+    departmentId: 20,
+    state: 'New',
+    receivedAt: '2026-09-05T08:00:00Z',
+    currentAssigneeId: null,
+    activeReviewId: null,
+    activeReviewLevel: null,
+    activeReviewerId: null,
+  };
+  const childComponent = (name: string) =>
+    (props: PropsWithChildren<Record<string, unknown>>) => {
+      componentProps(name, props);
+      return (
+        <span data-testid={name}>
+          {String(props.caption ?? name)}
+          {props.children}
+          {name === 'Column' && props.caption === 'Actions' &&
+            (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
+              data: { ...rowData, ...rowOverrides },
+            })}
+        </span>
+      );
+    };
+
+  return {
+    DataGrid: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
+      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid; filter: typeof gridFilter; pageIndex: typeof gridPageIndex; beginUpdate: () => void; endUpdate: () => void } }>;
+    }>) {
+      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid, filter: gridFilter, pageIndex: gridPageIndex, beginUpdate: () => undefined, endUpdate: () => undefined }) }));
+      componentProps('DataGrid', { ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
+      return <div aria-label="Messages">{children}</div>;
+    },
+    Column: childComponent('Column'),
+    FilterRow: childComponent('FilterRow'),
+    HeaderFilter: childComponent('HeaderFilter'),
+    Pager: childComponent('Pager'),
+    Paging: childComponent('Paging'),
+    Lookup: childComponent('Lookup'),
+  };
+})(),
+...(() => ({ MultiSelect: () => <div aria-label="Filter departments" /> }))(),
+...(() => ({
+  Button: ({ children, onClick, devExtremeProps: { elementAttr } = { elementAttr: undefined }, ...props }: Omit<Record<string, unknown>, "elementAttr"> & { devExtremeProps: Pick<Record<string, unknown>, "elementAttr"> }) => {
+    componentProps('Button', { children, onClick, ...props });
+    const attributes = elementAttr as { 'aria-label'?: string } | undefined;
+    return (
+      <button
+        type="button"
+        aria-label={attributes?.['aria-label']}
+        onClick={() => (onClick as () => void)()}
+      >
+        {children == null ? null : String(children)}
+      </button>
+    );
+  },
+}))(),
+...(() => ({
+  RadioGroup: ({ options, value, onChange, devExtremeProps: { name, elementAttr, itemRender } }: Omit<{
+    options: { selectionKey: number; label: string }[];
+    value: number | null;
+    name: string;
+    elementAttr: { 'aria-labelledby': string };
+    onChange: (value: number) => void;
+    itemRender: (item: { selectionKey: number; label: string }) => React.ReactNode;
+  }, "name" | "elementAttr" | "itemRender"> & { devExtremeProps: Pick<{
+    options: { selectionKey: number; label: string }[];
+    value: number | null;
+    name: string;
+    elementAttr: { 'aria-labelledby': string };
+    onChange: (value: number) => void;
+    itemRender: (item: { selectionKey: number; label: string }) => React.ReactNode;
+  }, "name" | "elementAttr" | "itemRender"> }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{options.map((item) =>
+    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
+      checked={value === item.selectionKey} onChange={() => onChange(item.selectionKey)} />
+      {itemRender(item)}</label>)}</div>,
+}))(),
+...(() => ({
+  Drawer: ({
+    children,
+    panel: renderPanel,
+    ...props
+  }: PropsWithChildren<Record<string, unknown> & { open: boolean }>) => {
+    componentProps('Drawer', { ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
+    return (
+      <div>
+        {children}
+        {props.open && (renderPanel as () => React.ReactNode)()}
+      </div>
+    );
+  },
+}))()
+}));
+
+vi.mock('@smbc/ui/data-grid', async (original) => ({ ...await original<typeof import('@smbc/ui/data-grid')>(),
+...(() => {
+  const rowData = {
+    id: 42,
+    canReview: true,
+    rejectAllowed: true,
+    canAssign: true,
+    canViewAudit: true,
+    canChangeWorkflow: false,
+    workflowDefinitionId: 1,
+    undoReviewId: null,
+    requiredReviewLevels: [1, 2, 3],
+    externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
+    messageType: 'MT103', direction: 'Incoming',
+    branchId: 10,
+    departmentId: 20,
+    state: 'New',
+    receivedAt: '2026-09-05T08:00:00Z',
+    currentAssigneeId: null,
+    activeReviewId: null,
+    activeReviewLevel: null,
+    activeReviewerId: null,
+  };
+  const childComponent = (name: string) =>
+    (props: PropsWithChildren<Record<string, unknown>>) => {
+      componentProps(name, props);
+      return (
+        <span data-testid={name}>
+          {String(props.caption ?? name)}
+          {props.children}
+          {name === 'Column' && props.caption === 'Actions' &&
+            (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
+              data: { ...rowData, ...rowOverrides },
+            })}
+        </span>
+      );
+    };
+
+  return {
+    DataGrid: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
+      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid; filter: typeof gridFilter; pageIndex: typeof gridPageIndex; beginUpdate: () => void; endUpdate: () => void } }>;
+    }>) {
+      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid, filter: gridFilter, pageIndex: gridPageIndex, beginUpdate: () => undefined, endUpdate: () => undefined }) }));
+      componentProps('DataGrid', { ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
+      return <div aria-label="Messages">{children}</div>;
+    },
+    DataGridColumn: childComponent('Column'),
+    DataGridFilterRow: childComponent('FilterRow'),
+    DataGridHeaderFilter: childComponent('HeaderFilter'),
+    DataGridPager: childComponent('Pager'),
+    DataGridPaging: childComponent('Paging'),
+    DataGridLookup: childComponent('Lookup'),
+  };
+})()
+}));

@@ -11,34 +11,11 @@ const { assignMessage, getAssignmentCandidates, notify } = vi.hoisted(() => ({
   getAssignmentCandidates: vi.fn(),
 }));
 
-vi.mock('devextreme/ui/notify', () => ({ default: notify }));
+vi.mock('../../../../shared/notifications/notifications', () => ({ useNotify: () => notify }));
 vi.mock('../../api/messagesApi', () => ({ assignMessage, getAssignmentCandidates }));
-vi.mock('devextreme-react/popup', () => ({
-  default: ({ children, title, width, maxWidth }: PropsWithChildren<{
-    title: string;
-    width: string;
-    maxWidth: number;
-  }>) =>
-    <section role="dialog" aria-label={title} data-width={width} data-max-width={maxWidth}>{children}</section>,
-}));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick, disabled }: { text: string; onClick: () => void; disabled?: boolean }) =>
-    <button type="button" disabled={disabled} onClick={onClick}>{text}</button>,
-}));
-vi.mock('devextreme-react/select-box', () => ({
-  default: ({ items, onValueChanged, inputAttr, placeholder }: {
-    items: Array<{ id: number; displayName: string }>;
-    onValueChanged: (event: { value: number }) => void;
-    inputAttr: { id: string; 'aria-label': string };
-    placeholder: string;
-  }) => (
-    <select id={inputAttr.id} aria-label={inputAttr['aria-label']} data-placeholder={placeholder} onChange={(event) =>
-      onValueChanged({ value: Number(event.target.value) })}>
-      <option value="">Select</option>
-      {items.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-    </select>
-  ),
-}));
+
+
+
 
 import AssignmentPopup from './AssignmentPopup';
 import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
@@ -140,3 +117,41 @@ describe('AssignmentPopup', () => {
 function render(ui: ReactElement) {
   return renderComponent(<QueryClientProvider client={createTestQueryClient()}>{ui}</QueryClientProvider>);
 }
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({
+  Dialog: ({ children, title, width, devExtremeProps: { maxWidth } }: Omit<PropsWithChildren<{
+    title: string;
+    width: string;
+    maxWidth: number;
+  }>, "maxWidth"> & { devExtremeProps: Pick<PropsWithChildren<{
+    title: string;
+    width: string;
+    maxWidth: number;
+  }>, "maxWidth"> }) =>
+    <section role="dialog" aria-label={title} data-width={width} data-max-width={maxWidth}>{children}</section>,
+}))(),
+...(() => ({
+  Button: ({ children, onClick, disabled }: { children: string; onClick: () => void; disabled?: boolean }) =>
+    <button type="button" disabled={disabled} onClick={onClick}>{children}</button>,
+}))(),
+...(() => ({
+  Select: ({ options, onChange, placeholder, devExtremeProps: { inputAttr } }: Omit<{
+    options: Array<{ id: number; displayName: string }>;
+    onChange: (value: number) => void;
+    inputAttr: { id: string; 'aria-label': string };
+    placeholder: string;
+  }, "inputAttr"> & { devExtremeProps: Pick<{
+    options: Array<{ id: number; displayName: string }>;
+    onChange: (value: number) => void;
+    inputAttr: { id: string; 'aria-label': string };
+    placeholder: string;
+  }, "inputAttr"> }) => (
+    <select id={inputAttr.id} aria-label={inputAttr['aria-label']} data-placeholder={placeholder} onChange={(event) =>
+      onChange(Number(event.target.value))}>
+      <option value="">Select</option>
+      {options.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+    </select>
+  ),
+}))()
+}));

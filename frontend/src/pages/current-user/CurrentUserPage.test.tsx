@@ -10,10 +10,7 @@ import { createTestQueryClient } from '../../test/createTestQueryClient';
 const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }));
 
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser }));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick }: { text: string; onClick: () => void }) =>
-    <button type="button" onClick={onClick}>{text}</button>,
-}));
+
 
 import CurrentUserPage from './CurrentUserPage';
 
@@ -169,3 +166,10 @@ describe('CurrentUserPage', () => {
     await waitFor(() => expect(signal?.aborted).toBe(true));
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  Button: ({ children, onClick }: { children: string; onClick: () => void }) =>
+    <button type="button" onClick={onClick}>{children}</button>,
+}))()
+}));

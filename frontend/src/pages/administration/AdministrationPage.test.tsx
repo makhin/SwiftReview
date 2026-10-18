@@ -11,63 +11,16 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock('./administrationApi', () => mocks);
-vi.mock('devextreme-react/data-grid', () => ({
-  default: function MockDataGrid({ children, ref }: { children: ReactNode; ref?: Ref<unknown> }) {
-    useImperativeHandle(ref, () => ({ instance: () => ({ refresh: mocks.refreshGrid }) }));
-    return <div>{children}</div>;
-  },
-  Column: ({ cellRender }: { cellRender?: (cell: { data: { id: number; userName: string; displayName: string } }) => ReactNode }) =>
-    cellRender?.({ data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' } }),
-  Pager: () => null, Paging: () => null,
-}));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick, useSubmitBehavior, disabled = false }: {
-    text: string; onClick?: () => void; useSubmitBehavior?: boolean; disabled?: boolean;
-  }) => useSubmitBehavior
-    ? <button type="submit" disabled={disabled} onClick={onClick}>{text}</button>
-    // DevExtreme buttons are divs: a disabled fieldset does not disable them.
-    : <div role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled}
-        onClick={() => { if (!disabled) onClick?.(); }}>{text}</div>,
-}));
-vi.mock('devextreme/ui/dialog', () => ({ confirm: mocks.confirmDialog }));
-vi.mock('devextreme/ui/notify', () => ({ default: mocks.notify }));
-vi.mock('devextreme-react/tabs', () => ({
-  default: ({ items, selectedIndex, elementAttr, onSelectionChanging, onSelectedIndexChange }: {
-    items: { id: string; text: string }[];
-    selectedIndex: number;
-    elementAttr: { 'aria-label': string };
-    onSelectionChanging: (event: { cancel: boolean | PromiseLike<boolean> }) => void;
-    onSelectedIndexChange: (index: number) => void;
-  }) => <div role="tablist" aria-label={elementAttr['aria-label']}>{items.map((item, index) =>
-    <button key={item.id} type="button" role="tab" aria-selected={selectedIndex === index}
-      onClick={() => { const event = { cancel: false as boolean | PromiseLike<boolean> }; onSelectionChanging(event);
-        void Promise.resolve(event.cancel).then((cancelled) => { if (!cancelled) onSelectedIndexChange(index); }); }}>{item.text}</button>)}</div>,
-}));
-vi.mock('devextreme-react/text-box', () => ({
-  default: ({ value, maxLength, inputAttr, placeholder, onValueChanged }: {
-    value: string;
-    maxLength: number;
-    inputAttr: { id: string };
-    placeholder: string;
-    onValueChanged: (event: { value: string }) => void;
-  }) => <input id={inputAttr.id} value={value} maxLength={maxLength} placeholder={placeholder}
-    onChange={(event) => onValueChanged({ value: event.target.value })} />,
-}));
-type SelectProps = { items: (string | { id: number; name: string })[]; value: number | string | number[] | string[] | null;
-  inputAttr: { 'aria-label': string }; onValueChanged: (event: { value: unknown }) => void };
-vi.mock('devextreme-react/select-box', () => ({
-  default: ({ items, value, inputAttr, onValueChanged }: SelectProps) => <select aria-label={inputAttr['aria-label']}
-    value={value as number ?? ''} onChange={(e) => onValueChanged({ value: Number(e.target.value) })}>
-    <option value="">Choose</option>{items.map((item) => typeof item === 'string' ? <option key={item}>{item}</option> :
-      <option key={item.id} value={item.id}>{item.name}</option>)}</select>,
-}));
-vi.mock('devextreme-react/tag-box', () => ({
-  default: ({ items, value, inputAttr, onValueChanged }: SelectProps) => <select multiple aria-label={inputAttr['aria-label']}
-    value={(value as (string | number)[]).map(String)} onChange={(e) => onValueChanged({ value: Array.from(e.target.selectedOptions).map((option) =>
-      typeof items[0] === 'string' ? option.value : Number(option.value)) })}>
-    {items.map((item) => typeof item === 'string' ? <option key={item}>{item}</option> :
-      <option key={item.id} value={item.id}>{item.name}</option>)}</select>,
-}));
+
+
+
+vi.mock('../../shared/notifications/notifications', () => ({ useNotify: () => mocks.notify }));
+
+
+type SelectProps = { options: (string | { id: number; name: string })[]; value: number | string | number[] | string[] | null;
+  inputAttr: { 'aria-label': string }; onChange: (value: unknown) => void };
+
+
 
 import AdministrationPage from './AdministrationPage';
 
@@ -182,16 +135,54 @@ describe('AdministrationPage', () => {
   });
 
   it('asks before discarding unsaved edits when switching tabs', async () => {
-    mocks.confirmDialog.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    await waitFor(() => expect(mocks.confirmDialog).toHaveBeenCalledOnce());
+    expect(await screen.findByRole('dialog', { name: 'Unsaved changes' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard changes' }));
     expect(await screen.findByLabelText('Role')).toBeInTheDocument();
-    expect(mocks.confirmDialog).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps edits without prompting when the active tab is selected again', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Users' }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('ignores another transition while an unsaved-changes confirmation is pending', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+    await screen.findByRole('dialog', { name: 'Unsaved changes' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByRole('region', { name: 'User access editor' })).toBeInTheDocument();
+  });
+
+  it('does not reopen confirmation when a cancelled role selection is restored', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: 'Edit access' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+    fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
+    fireEvent.change(await screen.findByLabelText('Role permissions'), { target: { value: 'audit.view' } });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: '2' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep editing' }));
+    // Controlled widgets emit a value event when restoring the accepted value.
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: '1' } });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Role permissions')).toHaveValue(['audit.view']);
+    fireEvent.click(screen.getByRole('tab', { name: 'Users' }));
+    expect(await screen.findByRole('dialog', { name: 'Unsaved changes' })).toBeInTheDocument();
   });
 
   it.each([
@@ -241,3 +232,83 @@ describe('AdministrationPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: saveName })).toHaveAttribute('aria-disabled', 'false'));
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  DataGrid: function MockDataGrid({ children, ref }: { children: ReactNode; ref?: Ref<unknown> }) {
+    useImperativeHandle(ref, () => ({ instance: () => ({ refresh: mocks.refreshGrid }) }));
+    return <div>{children}</div>;
+  },
+  Column: ({ cellRender }: { cellRender?: (cell: { data: { id: number; userName: string; displayName: string } }) => ReactNode }) =>
+    cellRender?.({ data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' } }),
+  Pager: () => null, Paging: () => null,
+}))(),
+...(() => ({
+  Button: ({ children, onClick, submit, disabled = false }: {
+    children: string; onClick?: () => void; submit?: boolean; disabled?: boolean;
+  }) => submit
+    ? <button type="submit" disabled={disabled} onClick={onClick}>{children}</button>
+    // DevExtreme buttons are divs: a disabled fieldset does not disable them.
+    : <div role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled}
+        onClick={() => { if (!disabled) onClick?.(); }}>{children}</div>,
+}))(),
+...(() => ({
+  Tabs: ({ items, selectedIndex, onChange, devExtremeProps: { elementAttr, onSelectionChanging } }: Omit<{
+    items: { id: string; text: string }[];
+    selectedIndex: number;
+    elementAttr: { 'aria-label': string };
+    onSelectionChanging: (event: { cancel: boolean | PromiseLike<boolean> }) => void;
+    onChange: (index: number) => void;
+  }, "elementAttr" | "onSelectionChanging"> & { devExtremeProps: Pick<{
+    items: { id: string; text: string }[];
+    selectedIndex: number;
+    elementAttr: { 'aria-label': string };
+    onSelectionChanging: (event: { cancel: boolean | PromiseLike<boolean> }) => void;
+    onChange: (index: number) => void;
+  }, "elementAttr" | "onSelectionChanging"> }) => <div role="tablist" aria-label={elementAttr['aria-label']}>{items.map((item, index) =>
+    <button key={item.id} type="button" role="tab" aria-selected={selectedIndex === index}
+      onClick={() => { const event = { cancel: false as boolean | PromiseLike<boolean>, addedItems: [item] }; onSelectionChanging(event);
+        void Promise.resolve(event.cancel).then((cancelled) => { if (!cancelled) onChange(index); }); }}>{item.text}</button>)}</div>,
+}))(),
+...(() => ({
+  TextInput: ({ value, placeholder, onChange, devExtremeProps: { maxLength, inputAttr } }: Omit<{
+    value: string;
+    maxLength: number;
+    inputAttr: { id: string };
+    placeholder: string;
+    onChange: (value: string) => void;
+  }, "maxLength" | "inputAttr"> & { devExtremeProps: Pick<{
+    value: string;
+    maxLength: number;
+    inputAttr: { id: string };
+    placeholder: string;
+    onChange: (value: string) => void;
+  }, "maxLength" | "inputAttr"> }) => <input id={inputAttr.id} value={value} maxLength={maxLength} placeholder={placeholder}
+    onChange={(event) => onChange(event.target.value)} />,
+}))(),
+...(() => ({
+  Select: ({ options, value, onChange, devExtremeProps: { inputAttr } }: Omit<SelectProps, "inputAttr"> & { devExtremeProps: Pick<SelectProps, "inputAttr"> }) => <select aria-label={inputAttr['aria-label']}
+    value={value as number ?? ''} onChange={(e) => onChange(Number(e.target.value))}>
+    <option value="">Choose</option>{options.map((item) => typeof item === 'string' ? <option key={item}>{item}</option> :
+      <option key={item.id} value={item.id}>{item.name}</option>)}</select>,
+}))(),
+...(() => ({
+  MultiSelect: ({ options, value, onChange, devExtremeProps: { inputAttr } }: Omit<SelectProps, "inputAttr"> & { devExtremeProps: Pick<SelectProps, "inputAttr"> }) => <select multiple aria-label={inputAttr['aria-label']}
+    value={(value as (string | number)[]).map(String)} onChange={(e) => onChange(Array.from(e.target.selectedOptions).map((option) =>
+      typeof options[0] === 'string' ? option.value : Number(option.value)))}>
+    {options.map((item) => typeof item === 'string' ? <option key={item}>{item}</option> :
+      <option key={item.id} value={item.id}>{item.name}</option>)}</select>,
+}))()
+}));
+
+vi.mock('@smbc/ui/data-grid', async (original) => ({ ...await original<typeof import('@smbc/ui/data-grid')>(),
+...(() => ({
+  DataGrid: function MockDataGrid({ children, ref }: { children: ReactNode; ref?: Ref<unknown> }) {
+    useImperativeHandle(ref, () => ({ instance: () => ({ refresh: mocks.refreshGrid }) }));
+    return <div>{children}</div>;
+  },
+  DataGridColumn: ({ cellRender }: { cellRender?: (cell: { data: { id: number; userName: string; displayName: string } }) => ReactNode }) =>
+    cellRender?.({ data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' } }),
+  DataGridPager: () => null, DataGridPaging: () => null,
+}))()
+}));

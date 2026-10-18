@@ -2,19 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useState, type ReactNode } from 'react';
 
-vi.mock('devextreme-react/radio-group', () => ({
-  default: ({ items, value, name, elementAttr, onValueChanged, itemRender }: {
-    items: { selectionKey: number; label: string }[];
-    value: number | null;
-    name: string;
-    elementAttr: { 'aria-labelledby': string };
-    onValueChanged: (event: { value: number }) => void;
-    itemRender: (item: { selectionKey: number; label: string }) => ReactNode;
-  }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{items.map((item) =>
-    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
-      checked={value === item.selectionKey} onChange={() => onValueChanged({ value: item.selectionKey })} />
-      {itemRender(item)}</label>)}</div>,
-}));
+
 
 import GridStateCards from './GridStateCards';
 
@@ -46,3 +34,26 @@ describe('GridStateCards', () => {
     expect(groups[0].getAttribute('name')).not.toBe(groups[1].getAttribute('name'));
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  RadioGroup: ({ options, value, onChange, devExtremeProps: { name, elementAttr, itemRender } }: Omit<{
+    options: { selectionKey: number; label: string }[];
+    value: number | null;
+    name: string;
+    elementAttr: { 'aria-labelledby': string };
+    onChange: (value: number) => void;
+    itemRender: (item: { selectionKey: number; label: string }) => ReactNode;
+  }, "name" | "elementAttr" | "itemRender"> & { devExtremeProps: Pick<{
+    options: { selectionKey: number; label: string }[];
+    value: number | null;
+    name: string;
+    elementAttr: { 'aria-labelledby': string };
+    onChange: (value: number) => void;
+    itemRender: (item: { selectionKey: number; label: string }) => ReactNode;
+  }, "name" | "elementAttr" | "itemRender"> }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{options.map((item) =>
+    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
+      checked={value === item.selectionKey} onChange={() => onChange(item.selectionKey)} />
+      {itemRender(item)}</label>)}</div>,
+}))()
+}));

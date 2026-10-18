@@ -2,11 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const { notify } = vi.hoisted(() => ({ notify: vi.fn() }));
-vi.mock('devextreme/ui/notify', () => ({ default: notify }));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) =>
-    <button type="button" disabled={disabled} onClick={onClick}>{text}</button>,
-}));
+vi.mock('../notifications/notifications', () => ({ useNotify: () => notify }));
+
 import GridRefreshButton from './GridRefreshButton';
 
 describe('GridRefreshButton', () => {
@@ -33,3 +30,10 @@ describe('GridRefreshButton', () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  Button: ({ children, disabled, onClick }: { children: string; disabled: boolean; onClick: () => void }) =>
+    <button type="button" disabled={disabled} onClick={onClick}>{children}</button>,
+}))()
+}));

@@ -6,20 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { getMessageAudit } = vi.hoisted(() => ({ getMessageAudit: vi.fn() }));
 
 vi.mock('../../api/auditApi', () => ({ getMessageAudit }));
-vi.mock('devextreme-react/button', () => ({
-  default: function MockButton({ text, disabled, elementAttr, onClick, ref }: {
-    text?: string;
-    disabled?: boolean;
-    elementAttr?: { 'aria-label'?: string };
-    onClick: () => void;
-    ref?: Ref<{ instance: () => { focus: () => void } }>;
-  }) {
-    const elementRef = useRef<HTMLButtonElement>(null);
-    useImperativeHandle(ref, () => ({ instance: () => ({ focus: () => elementRef.current?.focus() }) }));
-    return <button ref={elementRef} type="button" disabled={disabled} aria-label={elementAttr?.['aria-label']}
-      onClick={onClick}>{text}</button>;
-  },
-}));
+
 
 import type { AuditEventDto } from '../../../../shared/api/generated/contracts.generated';
 import { createTestQueryClient } from '../../../../test/createTestQueryClient';
@@ -175,3 +162,26 @@ describe('AuditTrailDrawer', () => {
     outsideButton.remove();
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({
+  Button: function MockButton({ children, disabled, onClick, ref, devExtremeProps: { elementAttr } = {} }: Omit<{
+    children?: string;
+    disabled?: boolean;
+    elementAttr?: { 'aria-label'?: string };
+    onClick: () => void;
+    ref?: Ref<{ focus: () => void }>;
+  }, "elementAttr"> & { devExtremeProps: Pick<{
+    children?: string;
+    disabled?: boolean;
+    elementAttr?: { 'aria-label'?: string };
+    onClick: () => void;
+    ref?: Ref<{ focus: () => void }>;
+  }, "elementAttr"> }) {
+    const elementRef = useRef<HTMLButtonElement>(null);
+    useImperativeHandle(ref, () => ({ focus: () => elementRef.current?.focus() }));
+    return <button ref={elementRef} type="button" disabled={disabled} aria-label={elementAttr?.['aria-label']}
+      onClick={onClick}>{children}</button>;
+  },
+}))()
+}));

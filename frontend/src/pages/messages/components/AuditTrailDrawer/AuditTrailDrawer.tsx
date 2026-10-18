@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import Button from 'devextreme-react/button';
-import type { ButtonRef } from 'devextreme-react/button';
+import { Button, type ButtonRef } from '@smbc/ui';
+
 import { useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 
@@ -14,7 +14,6 @@ import PageError from '../../../../shared/components/feedback/PageError';
 import PageLoading from '../../../../shared/components/feedback/PageLoading';
 import { messageAuditQueryOptions } from '../../api/auditQueries';
 import type { MessageRow } from '../../api/messagesApi';
-import './audit-trail-drawer.css';
 
 const eventLabels: Record<AuditEventType, string> = {
   MessageRegistered: 'Message registered',
@@ -48,7 +47,7 @@ type AuditTrailDrawerProps = {
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="audit-event__detail">
+    <div className="grid grid-cols-1 gap-0 md:grid-cols-[120px_minmax(0,1fr)] md:gap-2 [&_dt]:text-fg-muted [&_dd]:min-w-0 [&_dd]:wrap-anywhere">
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
@@ -67,17 +66,20 @@ function AuditEvent({
   const stateLabel = (state: string | null) =>
     state === null
       ? '—'
-      : messageStates?.find((item) => item.code === state)?.label ?? state;
+      : (messageStates?.find((item) => item.code === state)?.label ?? state);
   const userLabel = (userId: number | string) =>
     users?.find((user) => String(user.id) === String(userId))?.displayName ??
     `User #${userId}`;
   const { details } = event;
 
   return (
-    <li className="audit-event">
-      <div className="audit-event__marker" aria-hidden="true" />
+    <li className="audit-event relative grid grid-cols-[var(--space-4)_minmax(0,1fr)] gap-3 pb-5">
+      <div
+        className="audit-event__marker z-1 size-4 mt-1 bg-primary border-[length:var(--border-width-emphasis)] border-surface rounded-circle shadow-[0_0_0_1px_var(--color-action-primary)]"
+        aria-hidden="true"
+      />
       <article>
-        <div className="audit-event__heading">
+        <div className="flex flex-col items-start justify-between gap-0 md:flex-row md:items-baseline md:gap-3 [&_time]:shrink-0 [&_time]:text-fg-muted [&_time]:text-sm">
           <strong>{eventLabels[event.eventType]}</strong>
           <time dateTime={event.timestamp}>
             {new Intl.DateTimeFormat(undefined, {
@@ -86,10 +88,10 @@ function AuditEvent({
             }).format(new Date(event.timestamp))}
           </time>
         </div>
-        <p className="audit-event__actor">
+        <p className="mt-1 text-fg-muted text-sm">
           {event.actor?.displayName || event.actor?.userName || 'System'}
         </p>
-        <dl className="audit-event__details">
+        <dl className="grid gap-1 mt-2">
           {(event.oldState !== null || event.newState !== null) && (
             <Detail
               label="State"
@@ -97,9 +99,17 @@ function AuditEvent({
             />
           )}
           {details.workflowDefinitionId != null && (
-            <Detail label="Workflow" value={String(details.workflowDefinitionId)} />
+            <Detail
+              label="Workflow"
+              value={String(details.workflowDefinitionId)}
+            />
           )}
-          {details.previousWorkflowDefinitionId != null && <Detail label="Previous workflow" value={String(details.previousWorkflowDefinitionId)} />}
+          {details.previousWorkflowDefinitionId != null && (
+            <Detail
+              label="Previous workflow"
+              value={String(details.previousWorkflowDefinitionId)}
+            />
+          )}
           {details.previousAssigneeId != null && (
             <Detail
               label="Previous assignee"
@@ -112,7 +122,9 @@ function AuditEvent({
           {details.reviewLevel != null && (
             <Detail label="Review level" value={String(details.reviewLevel)} />
           )}
-          {details.comment && <Detail label="Comment" value={details.comment} />}
+          {details.comment && (
+            <Detail label="Comment" value={details.comment} />
+          )}
         </dl>
       </article>
     </li>
@@ -129,10 +141,12 @@ export default function AuditTrailDrawer({
   const closeButtonRef = useRef<ButtonRef>(null);
   const auditQuery = useInfiniteQuery(messageAuditQueryOptions(message.id));
   const events = auditQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  const focusCloseButton = () => closeButtonRef.current?.instance().focus();
+  const focusCloseButton = () => closeButtonRef.current?.focus();
 
   useEffect(() => {
     focusCloseButton();
+    // Drawer positions its overlay after the panel mounts; focus once it is visible.
+    const focusFrame = requestAnimationFrame(focusCloseButton);
 
     const keepFocusInPanel = (event: FocusEvent) => {
       if (!panelRef.current?.contains(event.target as Node)) {
@@ -141,7 +155,10 @@ export default function AuditTrailDrawer({
     };
 
     document.addEventListener('focusin', keepFocusInPanel);
-    return () => document.removeEventListener('focusin', keepFocusInPanel);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('focusin', keepFocusInPanel);
+    };
   }, []);
 
   function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
@@ -171,30 +188,35 @@ export default function AuditTrailDrawer({
   return (
     <aside
       ref={panelRef}
-      className="audit-drawer-panel"
+      className="flex flex-col w-screen md:w-[440px] max-w-screen h-full bg-surface shadow-popup-elevation"
       role="dialog"
       aria-modal="true"
       aria-labelledby="audit-drawer-title"
       onKeyDown={trapFocus}
     >
-      <header className="audit-drawer-panel__header">
+      <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border [&_p]:mt-1 [&_p]:text-fg-muted">
         <div>
-          <h2 id="audit-drawer-title">Audit trail</h2>
+          <h2 className="text-xl font-semibold" id="audit-drawer-title">
+            Audit trail
+          </h2>
           <p>{message.externalId}</p>
         </div>
         <Button
+          ariaLabel="Close audit trail"
           ref={closeButtonRef}
-          className="audit-drawer-panel__close"
           icon="close"
-          stylingMode="text"
           width={36}
-          height={36}
-          elementAttr={{ 'aria-label': 'Close audit trail' }}
           onClick={onClose}
+          variant="tertiary"
+          devExtremeProps={{
+            className: 'shrink-0 text-fg-muted',
+            height: 36,
+            elementAttr: { 'aria-label': 'Close audit trail' },
+          }}
         />
       </header>
 
-      <div className="audit-drawer-panel__body">
+      <div className="flex-1 min-h-0 p-5 overflow-y-auto overscroll-contain">
         {auditQuery.isPending && <PageLoading message="Loading audit trail…" />}
 
         {auditQuery.isError && events.length === 0 && (
@@ -206,12 +228,14 @@ export default function AuditTrailDrawer({
           />
         )}
 
-        {!auditQuery.isPending && !auditQuery.isError && events.length === 0 && (
-          <p className="audit-drawer-panel__empty">No audit events found.</p>
-        )}
+        {!auditQuery.isPending &&
+          !auditQuery.isError &&
+          events.length === 0 && (
+            <p className="text-fg-muted">No audit events found.</p>
+          )}
 
         {events.length > 0 && (
-          <ol className="audit-trail">
+          <ol className="list-none p-0 m-0">
             {events.map((event) => (
               <AuditEvent
                 key={String(event.id)}
@@ -224,20 +248,27 @@ export default function AuditTrailDrawer({
         )}
 
         {auditQuery.isFetchNextPageError && (
-          <div className="audit-drawer-panel__load-error" role="alert">
+          <div
+            className="flex items-center justify-between gap-3 p-3 text-danger bg-danger-faint border-l-[length:var(--border-width-emphasis)] border-danger"
+            role="alert"
+          >
             <span>Unable to load more events.</span>
-            <Button text="Retry" stylingMode="outlined" onClick={() => void auditQuery.fetchNextPage()} />
+            <Button
+              onClick={() => void auditQuery.fetchNextPage()}
+              variant="secondary"
+              children="Retry"
+            />
           </div>
         )}
 
         {auditQuery.hasNextPage && !auditQuery.isFetchNextPageError && (
           <Button
-            className="audit-drawer-panel__load-more"
-            text={auditQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
-            stylingMode="outlined"
             width="100%"
             disabled={auditQuery.isFetchingNextPage}
             onClick={() => void auditQuery.fetchNextPage()}
+            variant="secondary"
+            children={auditQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            devExtremeProps={{ className: 'audit-drawer-panel__load-more' }}
           />
         )}
       </div>

@@ -1,4 +1,6 @@
-import CustomStore from 'devextreme/data/custom_store';
+import {
+  CustomStore,
+} from '@smbc/ui/data-grid';
 
 import { getMessageGrid } from './messagesApi';
 import type { MessageAssignmentScope, MessageRow } from './messagesApi';

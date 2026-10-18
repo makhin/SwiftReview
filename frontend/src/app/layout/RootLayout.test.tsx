@@ -5,19 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { drawerProps } = vi.hoisted(() => ({ drawerProps: vi.fn() }));
 
-vi.mock('devextreme-react/drawer', () => ({
-  default: ({ children, render: renderPanel, ...props }: React.PropsWithChildren<{
-    render: () => React.ReactNode;
-  }>) => {
-    drawerProps(props);
-    return (
-      <div>
-        {renderPanel()}
-        {children}
-      </div>
-    );
-  },
-}));
+
 
 vi.mock('./GlobalHeader', () => ({
   default: ({
@@ -94,7 +82,7 @@ describe('RootLayout', () => {
     expect(screen.getByText('Navigation open')).toBeInTheDocument();
     expect(drawerProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        opened: true,
+        open: true,
         openedStateMode: 'shrink',
         shading: false,
         animationEnabled: true,
@@ -112,7 +100,7 @@ describe('RootLayout', () => {
     expect(screen.getByText('Navigation closed')).toBeInTheDocument();
     expect(drawerProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        opened: false,
+        open: false,
         openedStateMode: 'overlap',
         shading: true,
         closeOnOutsideClick: true,
@@ -122,13 +110,13 @@ describe('RootLayout', () => {
     await user.click(screen.getByRole('button', { name: 'Toggle navigation' }));
     expect(screen.getByText('Navigation open')).toBeInTheDocument();
     expect(drawerProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({ opened: true }),
+      expect.objectContaining({ open: true }),
     );
 
     const openDrawerProps = drawerProps.mock.calls.at(-1)?.[0] as {
-      onOpenedChange: (opened: boolean) => void;
+      onOpenChange: (open: boolean) => void;
     };
-    act(() => openDrawerProps.onOpenedChange(false));
+    act(() => openDrawerProps.onOpenChange(false));
     expect(screen.getByText('Navigation closed')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Toggle navigation' }));
@@ -146,3 +134,19 @@ describe('RootLayout', () => {
     );
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  Drawer: ({ children, panel: renderPanel, ...props }: React.PropsWithChildren<{
+    panel: () => React.ReactNode;
+  }>) => {
+    drawerProps({ ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
+    return (
+      <div>
+        {renderPanel()}
+        {children}
+      </div>
+    );
+  },
+}))()
+}));

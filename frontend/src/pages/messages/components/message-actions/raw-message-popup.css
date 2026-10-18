@@ -1,13 +1,6 @@
-.raw-message-popup .dx-popup-content {
-  padding: 0;
-}
-
 .review-decision-popup .review-decision-popup__content {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: var(--space-4);
   overflow-y: auto;
 }
 
@@ -22,7 +15,8 @@
   padding: var(--space-4);
   margin: 0;
   overflow: auto;
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
   font-size: var(--font-size-sm);
   white-space: pre;
   color: var(--color-text-primary);
@@ -37,8 +31,4 @@
 
 .review-decision-popup .raw-message-popup__body {
   flex: 1 0 160px;
-}
-
-.review-decision-popup .review-decision-popup__actions {
-  flex-wrap: wrap;
 }

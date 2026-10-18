@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
-import { canOpenMessagesPage, canOpenReviewQueue } from '../../shared/auth/permissions';
+import {
+  canOpenMessagesPage,
+  canOpenReviewQueue,
+} from '../../shared/auth/permissions';
 import PageError from '../../shared/components/feedback/PageError';
 import PageLoading from '../../shared/components/feedback/PageLoading';
 import UserPreservingNavigate from '../../shared/routing/UserPreservingNavigate';
@@ -13,7 +16,7 @@ export default function MessagesPage() {
 
   if (currentUserQuery.isPending) {
     return (
-      <main className="app-content app-page">
+      <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
         <PageLoading message="Loading messages…" />
       </main>
     );
@@ -21,7 +24,7 @@ export default function MessagesPage() {
 
   if (currentUserQuery.error) {
     return (
-      <main className="app-content app-page">
+      <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
         <PageError
           title="Unable to verify access"
           message="Check your connection and try again."
@@ -32,22 +35,38 @@ export default function MessagesPage() {
     );
   }
 
-  if (!currentUserQuery.data || !canOpenMessagesPage(currentUserQuery.data.permissions, currentUserQuery.data.isGlobalAdministrator)) {
+  if (
+    !currentUserQuery.data ||
+    !canOpenMessagesPage(
+      currentUserQuery.data.permissions,
+      currentUserQuery.data.isGlobalAdministrator,
+    )
+  ) {
     const user = currentUserQuery.data;
-    const destination = user && canOpenReviewQueue(user.permissions, user.isGlobalAdministrator)
-      ? '/messages/assigned' : user?.isGlobalAdministrator ? '/admin' : '/me';
+    const destination =
+      user && canOpenReviewQueue(user.permissions, user.isGlobalAdministrator)
+        ? '/messages/assigned'
+        : user?.isGlobalAdministrator
+          ? '/admin'
+          : '/me';
     return <UserPreservingNavigate to={destination} replace />;
   }
 
   return (
-    <main className="app-content app-page app-page--wide">
-      <header className="app-page-header">
-        <div className="app-page-header__main">
-          <h1 className="app-page-title">Messages</h1>
-          <p className="app-page-subtitle">Find, assign, and manage messages across your accessible scopes.</p>
+    <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6 max-w-none">
+      <header className="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-start">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold leading-tight">Messages</h1>
+          <p className="mt-2 text-fg-muted">
+            Find, assign, and manage messages across your accessible scopes.
+          </p>
         </div>
       </header>
-      <MessagesGrid dataSource={messageDataSource} enableUndoActions enableWorkflowActions />
+      <MessagesGrid
+        dataSource={messageDataSource}
+        enableUndoActions
+        enableWorkflowActions
+      />
     </main>
   );
 }

@@ -10,7 +10,7 @@ import { useAssignMessage } from './messageMutations';
 
 const { assignMessage, notify } = vi.hoisted(() => ({ assignMessage: vi.fn(), notify: vi.fn() }));
 vi.mock('./messagesApi', () => ({ assignMessage }));
-vi.mock('devextreme/ui/notify', () => ({ default: notify }));
+vi.mock('../../../shared/notifications/notifications', () => ({ useNotify: () => notify }));
 beforeEach(() => { vi.resetAllMocks(); assignMessage.mockResolvedValue(undefined); });
 
 function setup(refresh = vi.fn().mockResolvedValue(undefined)) {

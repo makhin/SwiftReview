@@ -1,22 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('devextreme-react/stepper', () => ({
-  default: ({ selectedIndex, className, items }: {
-    selectedIndex: number;
-    className: string;
-    items: Array<{ hint: string }>;
-  }) => (
-    <div
-      data-testid="stepper"
-      data-selected-index={selectedIndex}
-      data-step-count={items.length}
-      className={className}
-    >
-      {items.map((item) => <span key={item.hint}>{item.hint}</span>)}
-    </div>
-  ),
-}));
+
 
 import type { MessageState, MessageStateReferenceDto } from '../../../../shared/api/generated/contracts.generated';
 import MessageStage from './MessageStage';
@@ -145,3 +130,26 @@ describe('MessageStage', () => {
   });
 
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({
+  Stepper: ({ selectedIndex, items, devExtremeProps: { className } }: Omit<{
+    selectedIndex: number;
+    className: string;
+    items: Array<{ hint: string }>;
+  }, "className"> & { devExtremeProps: Pick<{
+    selectedIndex: number;
+    className: string;
+    items: Array<{ hint: string }>;
+  }, "className"> }) => (
+    <div
+      data-testid="stepper"
+      data-selected-index={selectedIndex}
+      data-step-count={items.length}
+      className={className}
+    >
+      {items.map((item) => <span key={item.hint}>{item.hint}</span>)}
+    </div>
+  ),
+}))()
+}));

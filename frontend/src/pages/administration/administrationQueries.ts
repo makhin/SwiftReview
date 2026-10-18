@@ -1,3 +1,4 @@
+import { useNotify } from '../../shared/notifications/notifications';
 import { queryOptions, useQueryClient } from '@tanstack/react-query';
 import { administrationKeys, currentUserKey, messageKeys } from '../../shared/api/queryKeys';
 import { referenceDataKeys } from '../../shared/api/referenceDataQueries';
@@ -17,6 +18,7 @@ export const userAccessQueryOptions = (id: number | undefined) => queryOptions({
 type Options = { onSuccess: () => void; onError: (error: Error) => void };
 function useAccessMutation<T>(mutationFn: (input: T) => Promise<unknown>, keys: readonly (readonly unknown[])[], options: Options) {
   const client = useQueryClient();
+  const notify = useNotify();
   // Reference lists are scope-filtered by the backend; message-state definitions are static.
   const filters = [
     ...keys.map((queryKey) => ({ queryKey })),
@@ -28,11 +30,11 @@ function useAccessMutation<T>(mutationFn: (input: T) => Promise<unknown>, keys: 
     onError: async (error) => {
       options.onError(error);
       if ((error instanceof ApiError && error.status === 409) || (error instanceof ApiRequestError && error.outcomeUnknown))
-        await refreshAfterMutation(client, filters, undefined, false);
+        await refreshAfterMutation(client, filters, undefined, false, notify);
     },
     onSuccess: async () => {
       options.onSuccess();
-      await refreshAfterMutation(client, filters, undefined, true);
+      await refreshAfterMutation(client, filters, undefined, true, notify);
     },
   });
 }

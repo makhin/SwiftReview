@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
@@ -11,9 +12,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir,
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     test: {
       environment: 'jsdom',
+      server: { deps: { inline: [/@smbc\/ui/, /devextreme/] } },
       setupFiles: './src/test/setup.ts',
       coverage: {
         provider: 'v8',
@@ -25,10 +27,7 @@ export default defineConfig(({ mode }) => {
           'src/pages/current-user/**/*.{ts,tsx}',
           'src/pages/messages/**/*.{ts,tsx}',
         ],
-        exclude: [
-          'src/**/*.test.{ts,tsx}',
-          'src/theme/**',
-        ],
+        exclude: ['src/**/*.test.{ts,tsx}', 'src/theme/**'],
         thresholds: {
           branches: 80,
           functions: 90,

@@ -10,20 +10,8 @@ import RouteErrorBoundary from './RouteErrorBoundary';
 vi.mock('../layout/GlobalHeader', () => ({
   default: () => <header>Application header</header>,
 }));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick }: { text: string; onClick: () => void }) =>
-    <button type="button" onClick={onClick}>{text}</button>,
-}));
-vi.mock('devextreme-react/drawer', () => ({
-  default: ({ children, render: renderPanel }: React.PropsWithChildren<{
-    render: () => React.ReactNode;
-  }>) => (
-    <div>
-      {renderPanel()}
-      {children}
-    </div>
-  ),
-}));
+
+
 vi.mock('../layout/AppNavigation', () => ({
   default: () => <nav>Application navigation</nav>,
 }));
@@ -122,3 +110,20 @@ describe('RouteErrorBoundary', () => {
     expect(alert).toHaveTextContent(message);
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
+...(() => ({
+  Button: ({ children, onClick }: { children: string; onClick: () => void }) =>
+    <button type="button" onClick={onClick}>{children}</button>,
+}))(),
+...(() => ({
+  Drawer: ({ children, panel: renderPanel }: React.PropsWithChildren<{
+    panel: () => React.ReactNode;
+  }>) => (
+    <div>
+      {renderPanel()}
+      {children}
+    </div>
+  ),
+}))()
+}));

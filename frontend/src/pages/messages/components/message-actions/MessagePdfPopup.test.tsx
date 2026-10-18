@@ -5,8 +5,8 @@ import type { MessageRow } from '../../api/messagesApi';
 const { getMessagePdf, renderPage, destroy } = vi.hoisted(() => ({ getMessagePdf: vi.fn(), renderPage: vi.fn(), destroy: vi.fn() }));
 vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {}, getDocument: () => ({ destroy, promise: Promise.resolve({ numPages: 1, getPage: async () => ({ getViewport: () => ({ width: 100, height: 100 }), render: renderPage }) }) }) }));
 vi.mock('../../api/messagesApi', () => ({ getMessagePdf }));
-vi.mock('devextreme-react/popup', () => ({ default: ({ children }: PropsWithChildren) => <section>{children}</section> }));
-vi.mock('devextreme-react/button', () => ({ default: ({ text, onClick }: { text: string; onClick: () => void }) => <button onClick={onClick}>{text}</button> }));
+
+
 import MessagePdfPopup from './MessagePdfPopup';
 
 describe('PDF preview', () => {
@@ -33,3 +33,8 @@ describe('PDF preview', () => {
     expect(screen.queryByRole('img', { name: 'PDF page 1' })).not.toBeInTheDocument();
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({ Dialog: ({ children }: PropsWithChildren) => <section>{children}</section> }))(),
+...(() => ({ Button: ({ children, onClick }: { children: string; onClick: () => void }) => <button onClick={onClick}>{children}</button> }))()
+}));

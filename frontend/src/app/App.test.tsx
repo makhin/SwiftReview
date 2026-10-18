@@ -10,22 +10,9 @@ const { meModule } = vi.hoisted(() => {
   return { meModule: { loaded, resolve } };
 });
 
-vi.mock('devextreme-react/drawer', () => ({
-  default: ({ children, render: renderPanel }: React.PropsWithChildren<{
-    render: () => React.ReactNode;
-  }>) => (
-    <div>
-      {renderPanel()}
-      {children}
-    </div>
-  ),
-}));
-vi.mock('devextreme-react/list', () => ({
-  default: () => <div aria-label="Application pages" />,
-}));
-vi.mock('devextreme-react/button', () => ({
-  default: () => <button type="button">Navigation</button>,
-}));
+
+
+
 vi.mock('./providers/ReferenceDataPreloader', () => ({ default: () => null }));
 
 vi.mock('../shared/api/currentUserApi', () => ({
@@ -86,3 +73,19 @@ describe('App routing', () => {
     expect(router.state.location.search).toBe('?user=alex.morgan');
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../test/smbcMock'),
+...(() => ({
+  Drawer: ({ children, panel: renderPanel }: React.PropsWithChildren<{
+    panel: () => React.ReactNode;
+  }>) => (
+    <div>
+      {renderPanel()}
+      {children}
+    </div>
+  ),
+}))(),
+...(() => ({
+  Button: () => <button type="button">Navigation</button>,
+}))()
+}));

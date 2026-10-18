@@ -12,7 +12,7 @@ const { startReview, approveReview, rejectReview, cancelReview, getMessage, noti
   getMessage: vi.fn(), notify: vi.fn(),
 }));
 vi.mock('../api/messagesApi', () => ({ startReview, approveReview, rejectReview, cancelReview, getMessage }));
-vi.mock('devextreme/ui/notify', () => ({ default: notify }));
+vi.mock('../../../shared/notifications/notifications', () => ({ useNotify: () => notify }));
 
 const message: MessageRow = {
   id: 42, externalId: 'MSG-42', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow", messageType: 'MT103', direction: 'Incoming', state: 'Assigned', branchId: 1,

@@ -296,7 +296,7 @@ The server first applies authorization and assignment scope, projects allowed fi
 
 The review popup uses a reducer-based client state machine. It keeps the returned `reviewId`, blocks duplicate actions, handles conflicts, and reloads server state when a mutation's outcome is uncertain. The database remains the source of truth.
 
-Styles are split between design tokens, a generated DevExtreme theme, SMBC overrides, and page/component CSS. `tokens.css` is the source of truth; generated theme CSS is not edited manually.
+The frontend consumes versioned `@smbc/ui` and `@smbc/devextreme-theme` archives from `frontend/vendor`. The theme package owns tokens, generated DevExtreme styles and brand assets; UI owns reusable controls. Application composition uses semantic Tailwind utilities through a single layered CSS entry. Direct DevExtreme imports are restricted by ESLint. Grid `CustomStore` and configuration types are exposed through `@smbc/ui/data-grid`; server loading and HTTP contracts are unchanged.
 
 ## 7. End-to-end example: approving a message
 

@@ -8,10 +8,10 @@ import { ApiError } from '../../../../shared/api/errors';
 import type { MessageRow } from '../../api/messagesApi';
 const { confirmReview, getMessage, startReview } = vi.hoisted(() => ({ confirmReview: vi.fn(), getMessage: vi.fn(), startReview: vi.fn() }));
 vi.mock('../../api/messagesApi', async (original) => ({ ...await original<typeof import('../../api/messagesApi')>(), confirmReview, getMessage, startReview }));
-vi.mock('devextreme/ui/notify', () => ({ default: vi.fn() }));
-vi.mock('devextreme-react/popup', () => ({ default: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }));
-vi.mock('devextreme-react/button', () => ({ default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{text}</button> }));
-vi.mock('devextreme-react/text-area', () => ({ default: ({ value, disabled, onValueChanged }: { value: string; disabled: boolean; onValueChanged: (event: { value: string }) => void }) => <textarea aria-label="Comment" value={value} disabled={disabled} onChange={(event) => onValueChanged({ value: event.target.value })} /> }));
+vi.mock('../../../../shared/notifications/notifications', () => ({ useNotify: () => vi.fn() }));
+
+
+
 import ConfirmMessagePopup from './ConfirmMessagePopup';
 
 const message: MessageRow = { id: 42, externalId: 'MSG-42', sender: '', receiver: '', messageType: 'MT199', direction: 'Incoming',
@@ -59,3 +59,9 @@ describe('immediate confirmation', () => {
     expect(confirmReview).not.toHaveBeenCalled();
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({ Dialog: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }))(),
+...(() => ({ Button: ({ children, disabled, onClick }: { children: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{children}</button> }))(),
+...(() => ({ TextArea: ({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (event: string) => void }) => <textarea aria-label="Comment" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} /> }))()
+}));

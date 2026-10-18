@@ -15,46 +15,11 @@ const { approveReview, cancelReview, getMessage, notify, rejectReview, startRevi
   startReview: vi.fn(),
 }));
 
-vi.mock('devextreme/ui/notify', () => ({ default: notify }));
+vi.mock('../../../../shared/notifications/notifications', () => ({ useNotify: () => notify }));
 vi.mock('../../api/messagesApi', () => ({ approveReview, cancelReview, getMessage, rejectReview, startReview }));
-vi.mock('devextreme-react/popup', () => ({
-  default: ({ children, title, width, maxWidth }: PropsWithChildren<{
-    title: string;
-    width: string;
-    maxWidth: number;
-  }>) => (
-    <section role="dialog" aria-label={title} data-width={width} data-max-width={maxWidth}>{children}</section>
-  ),
-}));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, onClick, disabled }: {
-    text: string;
-    onClick: () => void;
-    disabled?: boolean;
-  }) => (
-    <button type="button" disabled={disabled} onClick={onClick}>{text}</button>
-  ),
-}));
-vi.mock('devextreme-react/text-area', () => ({
-  default: ({ value, onValueChanged, maxLength, disabled, inputAttr, placeholder }: {
-    value: string;
-    onValueChanged: (event: { value: string }) => void;
-    maxLength: number;
-    disabled?: boolean;
-    inputAttr: { id: string; 'aria-label': string };
-    placeholder: string;
-  }) => (
-    <textarea
-      aria-label={inputAttr['aria-label']}
-      id={inputAttr.id}
-      placeholder={placeholder}
-      value={value}
-      maxLength={maxLength}
-      disabled={disabled}
-      onChange={(event) => onValueChanged({ value: event.target.value })}
-    />
-  ),
-}));
+
+
+
 
 import ReviewDecisionPopup from './ReviewDecisionPopup';
 
@@ -405,3 +370,55 @@ describe('ReviewDecisionPopup', () => {
   });
 
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({
+  Dialog: ({ children, title, width, devExtremeProps: { maxWidth } }: Omit<PropsWithChildren<{
+    title: string;
+    width: string;
+    maxWidth: number;
+  }>, "maxWidth"> & { devExtremeProps: Pick<PropsWithChildren<{
+    title: string;
+    width: string;
+    maxWidth: number;
+  }>, "maxWidth"> }) => (
+    <section role="dialog" aria-label={title} data-width={width} data-max-width={maxWidth}>{children}</section>
+  ),
+}))(),
+...(() => ({
+  Button: ({ children, onClick, disabled }: {
+    children: string;
+    onClick: () => void;
+    disabled?: boolean;
+  }) => (
+    <button type="button" disabled={disabled} onClick={onClick}>{children}</button>
+  ),
+}))(),
+...(() => ({
+  TextArea: ({ value, onChange, disabled, placeholder, devExtremeProps: { maxLength, inputAttr } }: Omit<{
+    value: string;
+    onChange: (value: string) => void;
+    maxLength: number;
+    disabled?: boolean;
+    inputAttr: { id: string; 'aria-label': string };
+    placeholder: string;
+  }, "maxLength" | "inputAttr"> & { devExtremeProps: Pick<{
+    value: string;
+    onChange: (value: string) => void;
+    maxLength: number;
+    disabled?: boolean;
+    inputAttr: { id: string; 'aria-label': string };
+    placeholder: string;
+  }, "maxLength" | "inputAttr"> }) => (
+    <textarea
+      aria-label={inputAttr['aria-label']}
+      id={inputAttr.id}
+      placeholder={placeholder}
+      value={value}
+      maxLength={maxLength}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}))()
+}));

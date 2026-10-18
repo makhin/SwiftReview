@@ -1,4 +1,7 @@
-import type { LoadOptions, LoadResultObject } from 'devextreme/common/data';
+import {
+  type LoadOptions,
+  type LoadResultObject,
+} from '@smbc/ui/data-grid';
 
 import { apiRequest } from '../../../shared/api/client';
 import { ApiRequestError } from '../../../shared/api/errors';

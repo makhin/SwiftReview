@@ -1,4 +1,4 @@
-import Button from 'devextreme-react/button';
+import { Callout, Button } from '@smbc/ui';
 
 type PageErrorProps = {
   title: string;
@@ -14,10 +14,14 @@ export default function PageError({
   onAction,
 }: PageErrorProps) {
   return (
-    <div className="app-callout app-callout--danger app-page-error" role="alert">
+    <Callout
+      tone="danger"
+      className="flex flex-col items-start gap-2"
+      role="alert"
+    >
       <strong>{title}</strong>
       <p>{message}</p>
-      <Button text={actionLabel} stylingMode="outlined" onClick={onAction} />
-    </div>
+      <Button onClick={onAction} variant="secondary" children={actionLabel} />
+    </Callout>
   );
 }

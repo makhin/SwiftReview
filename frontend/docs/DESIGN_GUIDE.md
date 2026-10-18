@@ -1,531 +1,125 @@
-# SMBC Application UI Guide
-
-**Version:** 0.2
-**Scope:** this React + TypeScript repository  
-**UI foundation:** DevExtreme 26.1.4, Fluent Blue Light Compact
-**Visual reference:** SMBC EMEA
-
-## 1. Purpose
-
-This repository defines a reusable SMBC application theme and operational
-application shell. It translates the restrained SMBC EMEA visual language into
-a compact, accessible interface for operational applications.
-
-The public EMEA site is a visual reference, not a component specification.
-Approved internal SMBC standards take precedence over this guide.
-
-The intended result is a coherent SMBC application in which DevExtreme is the
-widget layer—not a default DevExtreme application recoloured green.
-
-## 2. Sources of truth
-
-Use this order when implementation details conflict:
-
-1. Approved internal SMBC standards.
-2. `src/theme/tokens.css` for reusable visual values.
-3. Shared application patterns in `src/styles` and DevExtreme overrides in
-   `src/theme/smbc-devextreme-overrides.css`.
-4. Production application pages for rendered states and regression review.
-5. Page-specific styles only for local layout constraints.
-
-Rules:
-
-- Components consume semantic tokens, not palette primitives.
-- Do not introduce a colour, spacing value, radius, shadow, or font size when a
-  suitable token already exists.
-- Keep responsive breakpoints and truly one-off dimensions local to the owning
-  component.
-- Do not duplicate shared theme corrections in page-specific CSS.
-
-## 3. Current application structure
-
-```text
-src/
-  main.tsx
-  index.css
-  app/
-    App.tsx
-    layout/
-    providers/
-    router/
-  assets/fonts/
-  pages/
-    current-user/
-    messages/
-      MessagesPage.tsx
-      AssignedMessagesPage.tsx
-      api/
-      model/
-      components/
-        MessagesGrid/
-        MessageStage/
-        AuditTrailDrawer/
-        message-actions/
-  shared/
-    api/
-    components/
-      data-display/
-      feedback/
-      forms/
-      layout/
-    hooks/
-    lib/
-    types/
-  styles/
-    fonts.css
-    typography.css
-    layout.css
-    components.css
-    pages.css
-    index.css
-  theme/
-    tokens.css
-    smbc-theme.metadata.json
-    dx.smbc.css
-    smbc-devextreme-overrides.css
-    smbc-viz-palette.ts
-```
-
-### Directory responsibilities
-
-| Path | Owns | Must not own |
-|---|---|---|
-| `src/theme/` | Brand and semantic tokens, ThemeBuilder input/output, global DevExtreme corrections, and the chart palette bridge | Application shell layout, page composition, or one-off component dimensions |
-| `src/styles/` | Application-level primitives and reusable `.app-*` patterns | Brand palette definitions, generated vendor CSS, or page-specific styles |
-| `src/app/` | Providers, routing, the root shell, and global navigation | Page-specific behavior or generally reusable components |
-| `src/pages/` | Route-level vertical slices and their page-specific data access | Application bootstrap or cross-page primitives |
-| `src/features/` (optional; not currently used) | Business actions reused independently across page slices | One-page-only code or generic UI primitives |
-| `src/shared/api/` | Generated API contracts and common HTTP infrastructure | Page-specific endpoint orchestration |
-| `src/shared/components/` | Reusable React components grouped by responsibility | Route composition or business workflows |
-| `src/shared/hooks/`, `src/shared/lib/`, `src/shared/types/` | Proven cross-page hooks, utilities, and types | Speculative abstractions with only one consumer |
-| `src/assets/` | Locally bundled fonts and other static brand assets | Remote asset references or component styles |
-
-### Import boundaries
-
-Dependencies flow from `app` to `pages` to `shared`. ESLint checks static imports
-and re-exports, including types, with these rules:
-
-- `shared` must not depend on `pages` or `app`.
-- `pages` must not depend on `app` or a different page slice.
-- Files within one page slice may import each other; both message routes share
-  the `pages/messages` slice.
-- `app` may compose pages and shared modules.
-
-New page directories are discovered automatically by the ESLint configuration.
-The checks cover relative imports and source-root paths; update the configured
-prefix if module aliases are introduced.
-
-Within `pages/messages`, route components and their tests stay at the slice root.
-`api/` contains endpoint access, audit query options, and the grid's `CustomStore`.
-`model/` contains review rules and state-card presentation helpers. Component
-directories keep their implementation, styles, and existing tests together;
-related action dialogs and buttons share `components/message-actions/` and its
-popup styles. API and model tests stay beside the modules they cover. Small page
-slices do not need these subdirectories until grouping their files is useful.
-
-Current-user API access and query options belong to `shared/api`, because the
-application shell and multiple pages consume them. Only the profile screen belongs
-to `pages/current-user`. Add the optional `features` layer when a business action
-needs independent reuse outside its owning page slice.
-
-### Theme ownership
-
-`src/theme/tokens.css` contains reusable visual decisions: palette primitives,
-semantic colours, type scale, spacing, shape, borders, shadows, motion, and
-focus roles. Components consume semantic tokens whenever one exists. A value
-belongs here only when changing it should consistently affect multiple
-components or application surfaces.
-
-Layout dimensions owned by one component remain with that component. For
-example, global-header dimensions live in `app/layout/global-header.css`, while
-application-shell dimensions live in `styles/layout.css`.
-
-The remaining theme files have narrow responsibilities:
-
-- `smbc-theme.metadata.json` is ThemeBuilder configuration updated by the theme
-  synchronisation script;
-- `dx.smbc.css` is generated vendor CSS and must never be edited manually;
-- `smbc-devextreme-overrides.css` contains shared corrections that cannot be
-  expressed through the public DevExtreme API or ThemeBuilder metadata;
-- `smbc-viz-palette.ts` exposes semantic CSS colours to DevExtreme charts.
-
-### Shared application-style ownership
-
-`src/styles/index.css` is an import manifest only. It defines the global loading
-order and should not contain selectors. The imported files are divided by
-purpose:
-
-- `fonts.css` registers locally bundled font files;
-- `typography.css` owns the document baseline and reusable text helpers;
-- `layout.css` owns reusable shell, page-header, grid, row, and stack patterns;
-- `components.css` owns reusable application components such as cards, badges,
-  filters, callouts, KPI blocks, empty states, and table shells;
-- `pages.css` owns compositions shared by a class of pages, such as review/detail
-  splits and sticky workflow action bars.
-
-Use `.app-*` for shared application patterns. A page-specific arrangement stays
-co-located with its page until it has a stable meaning and at least one other
-real consumer. File size alone is not a reason to promote local CSS into this
-directory.
-
-Message stages, grid actions, raw-message popups, review/assignment dialogs, and
-audit panels own their styles in `pages/messages`, including responsive rules.
-Each component imports its own stylesheet. Review and assignment dialogs both
-import their common local stylesheet; neither relies on the other being loaded.
-These selectors also apply to overlays rendered through portals. Audit headings
-use global theme typography so lazy stylesheet loading does not override it.
-
-Small DevExtreme integration rules are allowed here when they apply only inside
-an `.app-*` pattern, for example removing a nested grid border inside a table
-shell. A correction to DevExtreme itself belongs in
-`smbc-devextreme-overrides.css`.
-
-### Application ownership
-
-`src/app` owns runtime composition. `App.tsx` installs the router,
-`router.tsx` defines routes, and `RootLayout.tsx` provides cross-route structure.
-React components in this directory may have co-located CSS when the rules belong
-only to that component. `global-header.css`, for example, owns header structure,
-responsive behaviour, and its private dimensions; it still consumes colours,
-spacing, motion, and focus tokens from the theme.
-
-### Placement decision
-
-When adding a style, use this order:
-
-1. Use an existing semantic token or shared `.app-*` pattern.
-2. If it is a reusable visual value, add it to `theme/tokens.css`.
-3. If it is a reusable application structure, add it to the appropriate file
-   under `styles/`.
-4. If it corrects DevExtreme globally and cannot be configured through its API
-   or ThemeBuilder, add the smallest possible rule to
-   `smbc-devextreme-overrides.css`.
-5. Otherwise keep it with the owning application component or page.
-
-Selector prefixes communicate the same ownership boundary:
-
-- `--color-*`, `--space-*`, and similar semantic custom properties are theme
-  tokens;
-- `.app-*` is a reusable application contract;
-- component-specific selectors such as `.global-header*` stay with their React
-  component;
-- `.dx-*` selectors outside a scoped `.app-*` container belong only in the
-  shared DevExtreme override layer.
-
-Routes:
-
-- `/` redirects to `/messages`.
-- `/messages` renders the server-backed messages grid.
-- `/me` renders the current-user profile.
-
-All routes render inside `RootLayout`, which provides the skip link, global
-header, and responsive application navigation. `index.html` must retain:
-
-```html
-<body class="dx-viewport">
-  <div id="root"></div>
-</body>
-```
-
-## 4. Style loading and generation
-
-`src/main.tsx` loads styles in this order:
-
-1. Local fonts, tokens, and shared application styles.
-2. Generated DevExtreme theme (`dx.smbc.css`).
-3. Shared SMBC DevExtreme overrides.
-4. DevExtreme visualisation palette.
-5. Minimal application-root CSS.
-
-`dx.smbc.css` is generated and must not be edited manually. ThemeBuilder
-metadata and the generated theme remain under source control.
-
-When a mapped token or ThemeBuilder setting changes, run:
-
-```bash
-npm run theme:build
-```
-
-This synchronises metadata from `src/theme/tokens.css` before regenerating the
-theme. The `devextreme` and `devextreme-themebuilder` versions must remain
-compatible.
-
-## 5. Typography and local assets
-
-All brand assets load locally; production must not request Typekit or the SMBC
-website.
-
-- Myriad Pro is the default family for application text, navigation, controls,
-  grids, and operational headings.
-- Local Myriad Pro files provide weights 300, 400, and 700.
-- Capitolium 2 Bold is reserved for `.app-display-title` and
-  `.app-display-heading`; this is the approved application display exception,
-  not a general-purpose second UI family.
-- Arial and Georgia remain fallbacks only.
-- Use `/smbc-logo.svg` and `/favicon.ico`; do not redraw or remotely embed them.
-- Align body text left and use sentence case for headings and labels. Do not
-  force uppercase navigation labels or eyebrow text.
-- Trajan is not an application font and is reserved for the company name or
-  logo in source-controlled brand artwork.
-
-Current type scale:
-
-| Role | Token | Size |
-|---|---|---:|
-| Caption | `--font-size-xs` | 12px |
-| Label/dense UI | `--font-size-sm` | 13px |
-| Standard UI | `--font-size-md` | 14px |
-| Panel heading | `--font-size-lg` | 16px |
-| Section heading | `--font-size-xl` | 20px |
-| Page title | `--font-size-2xl` | 24px |
-| Display title | `--font-size-3xl` | 30px |
-
-Use sentence case, short labels, and explicit action verbs such as “Approve
-payment” or “Clear filters”.
-
-Application copy uses lining proportional figures by default. Data tables use
-lining tabular figures so numeric columns retain stable digit widths.
-
-## 6. Colour contract
-
-Palette primitives live at the top of `tokens.css`. Components use semantic
-roles such as the following:
-
-| Role | Current value | Use |
-|---|---:|---|
-| `--color-page-background` | `#F6F8F6` | Application canvas |
-| `--color-surface-default` | `#FFFFFF` | Cards, editors, overlays |
-| `--color-surface-alternate` | `#FBFCFB` | Alternate grid rows |
-| `--color-text-primary` | `#1F2522` | Primary content |
-| `--color-text-secondary` | `#68716C` | Supporting content |
-| `--color-border-default` | `#D8DDD9` | Decorative separators |
-| `--color-border-control` | `#7F8C85` | Interactive boundaries |
-| `--color-action-primary` | `#004831` | Primary actions and links |
-| `--color-header-background` | `#004831` | Global header |
-| `--color-action-accent` | `#C4D600` | Fresh Green accent |
-
-The theme also exposes the documented Traditional Green tint scale and the nine
-approved supplementary colours as palette primitives. They are reference
-values, not permission to decorate application surfaces indiscriminately.
-
-The supplied brand photograph lists Fresh Green as `#C4D700`; the application
-retains its existing `#C4D600` value until the original digital brand source is
-available for confirmation. Do not alter the checked-in logo to reconcile this
-photographic discrepancy.
-
-Feedback roles remain semantic; approved corporate colours are used where their
-meaning and contrast fit the state:
-
-| State | Token | Value |
-|---|---|---:|
-| Success | `--color-feedback-success` | `#007A52` |
-| Warning | `--color-feedback-warning` | `#A95A00` |
-| Error | `--color-feedback-danger` | `#C3272B` (Pure Crimson) |
-| Information | `--color-feedback-info` | `#317589` (Chigusa) |
-
-Fresh Green is an accent, not a default button background or universal success
-colour. Use dark text—not white—when Fresh Green is a large filled surface.
-Business state must always include text or another non-colour cue.
-
-## 7. Spacing, shape, and motion
-
-Use the shared 4px-based spacing scale with a 2px half-step:
-
-```text
-2, 4, 8, 12, 16, 20, 24, 32, 40, 48px
-```
-
-Defaults:
-
-- label to control: 4px;
-- related controls: 8–12px;
-- card padding and card gaps: 16px;
-- section spacing: 24–32px;
-- desktop gutters: 24–32px;
-- narrow gutters: 12–16px.
-
-Controls use a 3px radius, cards and dialogs 6px, and large containers at most
-8px. Prefer borders to shadows; reserve stronger elevation for overlays.
-
-Motion tokens are 120ms for small interactions and 180ms for structural
-transitions. Every animation must respect `prefers-reduced-motion`.
-
-## 8. Shell and navigation
-
-The global EMEA-style header is semantic React/HTML, not a DevExtreme Toolbar.
-Use DevExtreme for application widgets, not for structural branding.
-
-Current header behaviour:
-
-- local SMBC logo aligned near the left edge;
-- application name beside the logo on layouts where space permits;
-- current-user information aligned to the right;
-- sticky at the top of the viewport;
-- remains visible while the page scrolls;
-- exposes the navigation toggle below 760px.
-
-The header publishes `--sticky-header-offset` on `#main-content`. Sticky page
-elements consume that custom property instead of coupling header CSS to a page
-class. Hash targets include the visible header height in `scroll-margin-top`.
-
-The application uses a DevExtreme Drawer below the header for persistent module
-navigation. It stays open in `shrink` mode on desktop and becomes a shaded,
-dismissible `overlap` drawer below 760px. A DevExtreme List owns selection and
-keyboard interaction for the page entries. Drawer animation is disabled when
-the user requests reduced motion.
-
-## 9. DevExtreme integration
-
-Prefer, in order:
-
-1. DevExtreme component API.
-2. ThemeBuilder metadata.
-3. Shared application pattern.
-4. `smbc-devextreme-overrides.css`.
-5. Page-specific override as a last resort.
-
-Shared overrides currently integrate typography, editors, buttons, selection
-controls, DataGrid/TreeList, pager, tabs, lists, overlays, calendar, progress,
-and optional dark sidebars.
-
-Important editor rules:
-
-- outlined editors use `--color-border-control` at rest;
-- hover uses Trad Green;
-- focus is one continuous inset 2px outline, not stacked borders;
-- the Fluent outlined-editor `::before` accent is disabled;
-- invalid focused editors use the danger colour;
-- read-only and disabled states remain distinct.
-
-Do not colour `.dx-loadindicator-segment`: DevExtreme builds its spinner from
-transformed segments, and a background override produces a rotating square.
-
-After any DevExtreme upgrade, regenerate the theme and review the application
-shell, forms, grids, overlays, and feedback states in their production pages.
-
-## 10. Application patterns
-
-Use the shared `.app-*` patterns before creating new local equivalents:
-
-- layout: shell, sidebar, top bar, content, page header, grids, rows, stacks;
-- content: cards, toolbars, filters, details, KPI blocks, tables;
-- state: badges, callouts, loading, empty states, action bars;
-- typography: labels, captions, muted text, display headings.
-
-Use DevExtreme Button, editors, DataGrid, Tabs, Popup, Toast, and
-LoadIndicator when their behaviour fits the requirement. Do not wrap every
-widget merely for symmetry.
-
-Forms:
-
-- place labels above controls;
-- connect native editor inputs with `htmlFor` and `inputAttr.id`;
-- use `aria-labelledby` for composite widgets such as RadioGroup;
-- expose required and invalid state programmatically;
-- keep validation beside the affected control;
-- do not use a toast for field validation.
-
-Buttons:
-
-- one dominant primary action per action group where practical;
-- outlined or text styling for secondary actions;
-- danger styling for destructive actions;
-- icon-only buttons require an accessible name;
-- dark-surface hover/focus/active states must retain readable inverse text.
-
-Data grids:
-
-- use the compact theme; never scale with `zoom` or `transform`;
-- use semantic surface tokens for headers, alternate rows, hover, and selection;
-- make horizontal rules more prominent than vertical rules and avoid a heavy
-  box around every cell;
-- use the 70% Traditional Green tint for the emphasized header rule while
-  keeping header and row fills light enough for interactive states;
-- use lining tabular figures in grid cells and proportional figures in body
-  copy;
-- right-align numeric values and format dates/currencies consistently;
-- expose only frequent row actions and move the rest into an overflow menu;
-- distinguish loading, empty data, and no filter results.
-
-Feedback:
-
-- inline messages belong to a field or section;
-- banners communicate important page-level information;
-- toasts confirm completed, non-critical operations;
-- keep existing data visible during background refresh when unambiguous;
-- empty states explain the situation and offer a relevant next action.
-
-Charts read their palette from CSS semantic tokens through
-`smbc-viz-palette.ts`. Use feedback colours when values carry semantic meaning,
-and do not rely on colour alone to distinguish data.
-
-## 11. Accessibility baseline
-
-Target WCAG 2.2 AA.
-
-- Every interactive element must be keyboard-operable.
-- Every control must have a programmatic accessible name.
-- Icon-only controls need `aria-label`/`elementAttr` in addition to a tooltip.
-- Normal text targets 4.5:1 contrast; large text and essential control boundaries
-  target 3:1.
-- Meaning is never communicated by colour alone.
-- Controls should normally provide at least a 32×32px target; never fall below
-  the applicable WCAG 24×24px requirement without a valid exception.
-- Support 200% text enlargement and reflow at a 320 CSS-pixel viewport.
-- Keep complex-table horizontal scrolling inside the table container.
-- Sticky content must not obscure keyboard focus.
-- Respect reduced-motion preferences.
-
-Focus colours are contextual and opaque:
+# SwiftReview UI guide
+
+SwiftReview follows the `smbc-style` reference application. DevExtreme 26.1.4 is
+an implementation dependency of `@smbc/ui`; application code consumes the two
+SMBC packages instead of importing vendor controls, data types or utilities.
+
+## Ownership and application boundaries
+
+- `@smbc/devextreme-theme` owns canonical tokens, fonts, logo, favicon, generated
+  theme, corporate vendor corrections and the semantic Tailwind bridge.
+- `@smbc/ui` owns reusable controls, accessibility integration, primitives and
+  its compiled `ui:` utility styles. Add missing reusable functionality there.
+- Application JSX owns layout, responsive composition, routing, permissions,
+  workflow presentation and data access. Use ordinary flex/grid utilities, not
+  new Stack/Row/Grid abstractions or a parallel set of layout helper classes.
+- Application CSS owns complex local interactions and geometry. Keep scoped
+  vendor hooks in `src/styles/vendor-contexts.css`; place reusable corporate
+  corrections in the theme and private component integration in UI.
+
+`app` composes providers, layout and routes. `pages` contains independent feature
+slices. `shared` cannot import pages or app composition; pages cannot import one
+another. ESLint preserves these boundaries and prohibits direct imports of
+`devextreme`, `devextreme-react` and their subpaths, including type imports.
+
+## Style loading and tokens
+
+`main.tsx` imports only `src/styles/app.css`. The entry declares:
 
 ```css
-/* Light surface */
---focus-ring-color: var(--focus-ring-color-on-light); /* Trad Green */
-
-/* Dark surface */
---focus-ring-color: var(--focus-ring-color-on-dark);  /* Fresh Green */
+@layer theme, base, vendor, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "@smbc/devextreme-theme/styles.css" layer(vendor);
+@import "@smbc/ui/styles.css" layer(components);
+/* Local interaction CSS is also imported into components. */
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@reference "@smbc/devextreme-theme/tailwind.css";
+@source "..";
 ```
 
-Native links/buttons and shared DevExtreme controls consume
-`--focus-ring-color`. Dark containers override only that semantic context
-variable. Focus demonstrations must not rely on page-specific rules that hide a
-defect in the shared theme.
+Use the official Tailwind v4 Vite plugin. Do not add Preflight, a stock vendor
+theme, a second token scale, external font services or a UI node_modules scan.
+UI's archive already contains its compiled styles. Never edit generated CSS or
+installed package files. Rebuild and reinstall the archives after library changes.
 
-## 12. Responsive baseline
+Use semantic utilities such as `bg-surface`, `text-fg-muted`, `border-border`,
+`bg-primary`, `font-body` and `font-brand`. Myriad Pro is the default; Capitolium
+is reserved for explicit editorial/display headings. Operational headings stay
+in the body family. Brand assets are imported from
+`@smbc/devextreme-theme/assets`, including favicon setup in application startup.
 
-Shared application styles currently use 1100px, 980px, and 760px breakpoints
-according to the owning layout.
+Use standard `sm` 640px, `md` 768px, `lg` 1024px and `xl` 1280px breakpoints.
+The shell's JavaScript media query matches the `md` mobile boundary. Shared
+colours, radii, typography, spacing, focus and motion come from theme tokens.
+One-off content geometry can remain local. Respect reduced-motion preferences.
 
-At narrow widths:
+## Controls, forms and primitives
 
-- grids and forms collapse to fewer columns;
-- actions wrap;
-- the side navigation becomes an overlay Drawer controlled from the header;
-- DataGrid remains inside its horizontal-scroll container.
+Import controls from `@smbc/ui`. Buttons use string children, `variant`, `submit`
+and `onClick()`; icon-only buttons require `ariaLabel`. Editors use controlled
+`value` / `onChange(value)` or `defaultValue`, without switching modes. `Select`
+and `MultiSelect` use `options`, `optionLabel`, `optionValue`, `searchable` and
+`clearable`. Preserve nullable selection values and existing commit timing;
+use `devExtremeProps.valueChangeEvent = 'input'` for intentional live search.
 
-Breakpoints are layout tools, not minimum accessibility widths.
+Use `Field` for label/help/error associations, `Card` and its sections for
+surfaces, `TableShell` for grids, `Callout` for feedback, and `FilterPanel`,
+`StatusBadge`, `KpiCard` and `EmptyState` where appropriate. Field owns editor
+accessibility, while page JSX owns field placement. Do not inspect private
+`smbc-ui-*` or `ui:` implementation classes from application CSS.
 
-## 13. Change checklist
+`devExtremeProps` provides typed advanced configuration. Do not duplicate
+wrapper-owned props there, inject raw vendor widgets or bypass the shared API.
+Import validation controls from `@smbc/ui/validation` when needed; each field has
+one validation owner. Keep payload validation and mutation locks intact.
 
-Before considering UI work complete, confirm:
+## Server tables and workflow behaviour
 
-- each new style and fixture lives in the layer that owns it;
-- semantic tokens are used and no duplicate local theme rule was added;
-- DevExtreme APIs were preferred over internal CSS selectors;
-- default, hover, focus, active, invalid, disabled, and read-only states work;
-- form labels and icon-only actions have accessible names;
-- text, boundaries, and focus indicators have sufficient contrast;
-- colour is not the only state cue;
-- loading, empty, no-results, validation, and error states are appropriate;
-- keyboard, zoom, narrow layouts, sticky content, and reduced motion were tested;
-- production pages still represent the shared implementation;
-- local logo, favicon, and fonts generate no external runtime requests.
+Import configuration components, `DataGridRef`, `CustomStore`, `LoadOptions`
+and `LoadResultObject` through `@smbc/ui/data-grid`. Grid rows continue loading
+through CustomStore and backend `DevExtreme.AspNet.Data`, including remote
+paging, filtering and sorting. Never use TanStack Query for grid load operations.
+TanStack Query owns reference data, detail requests, summaries and mutations.
 
-Run the repository checks:
+DataGrid forwards its typed ref and retains `instance()` for refresh, filtering
+and resetting paging. Keep lookup-ID sorting restrictions and stable keys.
+Message-stage calculations and permissions remain feature-owned. Shared review
+colour roles come from the theme; text and progress accompany colour cues.
 
-```bash
-npm run lint
-npm run typecheck
-npm run theme:build
-npm run build
-```
+`Dialog` uses `open` and `onClose`. Keep pending/uncertain writes locked and
+preserve the existing review-session state machine, review IDs and recovery
+behaviour. `ConfirmDialog` protects unsaved administration changes; ignore other
+transitions while a confirmation is pending.
+
+`Drawer` uses `open`, `onOpenChange` and a `panel` renderer. The application owns
+modal Escape, inert background, focus containment and returning focus to the
+trigger. Button refs expose `focus()`. `Stepper readOnly` displays progress
+without accepting user selection; controlled progress updates still work.
+
+## Notifications and accessibility
+
+`NotificationProvider` is mounted above routes. Use `useNotify()` to enqueue
+Toast messages, including after the originating dialog closes. Messages show in
+order. Pass the callback into non-React refresh helpers. A failed refresh after
+a successful write must report that changes were saved and request a refresh;
+it must not turn the committed write into an apparent failed mutation.
+
+Retain skip navigation, landmarks, keyboard navigation, accessible names,
+field labels, textual loading/error states and focus return. Keep navigation
+permission-aware, preserve the selected debug user in URLs, and do not expose
+business actions beyond their existing server/client permission checks.
+
+## Package updates and verification
+
+Both built archives live in `frontend/vendor` with relative `file:` dependencies.
+`npm ci` works independently of the source checkout. Update with
+`npm run refresh:smbc -- /path/to/smbc`, then review library sources, archives,
+manifest and lockfile together. See [the frontend README](../README.md).
+
+After frontend changes run `npm test`, `npm run typecheck`, `npm run lint` and
+`npm run build`. `npm run test:smbc` runs the production application against
+controlled API fixtures with real installed controls. It checks remote grids,
+actions, dialogs, audit focus, PDF, administrative confirmation, notifications,
+local assets and responsive layouts. Inspect its screenshots in
+`artifacts/smbc`. Library changes additionally require each package's check and
+the `smbc-style` lint, typecheck and production reference browser suite.

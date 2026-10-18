@@ -1,27 +1,32 @@
-import TagBox from 'devextreme-react/tag-box';
+import { TableShell, MultiSelect, DataGrid, Button, Drawer } from '@smbc/ui';
+
 import { useMemo } from 'react';
 import { createMessageDataSource } from '../../api/messageDataSource';
 import ConfirmMessagePopup from '../message-actions/ConfirmMessagePopup';
 import MessagePdfPopup from '../message-actions/MessagePdfPopup';
 import GridRefreshButton from '../../../../shared/components/GridRefreshButton';
-import DataGrid, {
-  Column,
-  FilterRow,
-  HeaderFilter,
-  Lookup,
-  Pager,
-  Paging,
-} from 'devextreme-react/data-grid';
-import type { DataGridRef } from 'devextreme-react/data-grid';
-import Button from 'devextreme-react/button';
-import Drawer from 'devextreme-react/drawer';
-import type CustomStore from 'devextreme/data/custom_store';
+
+import {
+  DataGridColumn as Column,
+  DataGridFilterRow as FilterRow,
+  DataGridHeaderFilter as HeaderFilter,
+  DataGridLookup as Lookup,
+  DataGridPager as Pager,
+  DataGridPaging as Paging,
+  type DataGridRef,
+  type CustomStore,
+} from '@smbc/ui/data-grid';
+
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { currentUserQueryOptions } from '../../../../shared/api/currentUserQueries';
-import { canAssignMessages, canManageWorkflows, canViewAudit, } from '../../../../shared/auth/permissions';
+import {
+  canAssignMessages,
+  canManageWorkflows,
+  canViewAudit,
+} from '../../../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
@@ -34,12 +39,16 @@ import MessageStage from '../MessageStage/MessageStage';
 import { type MessageRow } from '../../api/messagesApi';
 import { messageSummaryQueryOptions } from '../../api/messageQueries';
 import GridStateCards from '../../../../shared/components/GridStateCards';
-import { businessStageCards, businessStageFilter, businessStageLabel, type BusinessStage } from '../../model/messageBusinessStages';
+import {
+  businessStageCards,
+  businessStageFilter,
+  businessStageLabel,
+  type BusinessStage,
+} from '../../model/messageBusinessStages';
 import ReviewDecisionPopup from '../message-actions/ReviewDecisionPopup';
 import UndoReviewButton from '../message-actions/UndoReviewButton';
 import ChangeWorkflowPopup from '../message-actions/ChangeWorkflowPopup';
 import { canReviewMessage, getReviewStep } from '../../model/reviewDecision';
-import './messages-grid.css';
 
 type MessagesGridProps = {
   dataSource: CustomStore<MessageRow, MessageRow['id']>;
@@ -48,11 +57,29 @@ type MessagesGridProps = {
   enableWorkflowActions?: boolean;
 };
 
+type DialogTrigger = { id: string; fallback: HTMLElement | null };
+function rememberTrigger(id: string): DialogTrigger {
+  return {
+    id,
+    fallback:
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+  };
+}
+function restoreTrigger(trigger: DialogTrigger | null) {
+  requestAnimationFrame(() =>
+    (document.getElementById(trigger?.id ?? '') ?? trigger?.fallback)?.focus(),
+  );
+}
+
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 function usePrefersReducedMotion() {
   const [matches, setMatches] = useState(
-    () => typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    () =>
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(REDUCED_MOTION_QUERY).matches,
   );
 
   useEffect(() => {
@@ -78,35 +105,69 @@ export default function MessagesGrid({
   enableWorkflowActions = false,
 }: MessagesGridProps) {
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
-  const [selectedConfirmMessage, setSelectedConfirmMessage] = useState<MessageRow | null>(null);
-  const [selectedPdfMessage, setSelectedPdfMessage] = useState<MessageRow | null>(null);
-  const filteredSource = useMemo(() => departmentIds.length ? createMessageDataSource(undefined, departmentIds) : dataSource, [departmentIds, dataSource]);
+  const [selectedConfirmMessage, setSelectedConfirmMessage] =
+    useState<MessageRow | null>(null);
+  const [selectedPdfMessage, setSelectedPdfMessage] =
+    useState<MessageRow | null>(null);
+  const filteredSource = useMemo(
+    () =>
+      departmentIds.length
+        ? createMessageDataSource(undefined, departmentIds)
+        : dataSource,
+    [departmentIds, dataSource],
+  );
   const { data: currentUser } = useQuery(currentUserQueryOptions());
-  const [selectedStage, setSelectedStage] = useState<BusinessStage | null>(null);
+  const [selectedStage, setSelectedStage] = useState<BusinessStage | null>(
+    null,
+  );
   const summaryQuery = useQuery(messageSummaryQueryOptions(currentUser));
   const { data: users } = useQuery(usersQueryOptions());
   const { data: branches } = useQuery(branchesQueryOptions());
   const { data: departments } = useQuery(departmentsQueryOptions());
   const { data: messageStates } = useQuery(messageStatesQueryOptions());
-  const stateCards = businessStageCards(summaryQuery.isError ? undefined : summaryQuery.data);
-  const [selectedAuditMessage, setSelectedAuditMessage] = useState<MessageRow | null>(null);
+  const stateCards = businessStageCards(
+    summaryQuery.isError ? undefined : summaryQuery.data,
+  );
+  const [selectedAuditMessage, setSelectedAuditMessage] =
+    useState<MessageRow | null>(null);
   const [readOnly, setReadOnly] = useState(false);
-  const [selectedReviewMessage, setSelectedReviewMessage] = useState<MessageRow | null>(null);
-  const [selectedAssignmentMessage, setSelectedAssignmentMessage] = useState<MessageRow | null>(null);
-  const [selectedWorkflowMessage, setSelectedWorkflowMessage] = useState<MessageRow | null>(null);
-  const auditTriggerRef = useRef<HTMLElement | null>(null);
-  const reviewTriggerRef = useRef<HTMLElement | null>(null);
-  const assignmentTriggerRef = useRef<HTMLElement | null>(null);
+  const [selectedReviewMessage, setSelectedReviewMessage] =
+    useState<MessageRow | null>(null);
+  const [selectedAssignmentMessage, setSelectedAssignmentMessage] =
+    useState<MessageRow | null>(null);
+  const [selectedWorkflowMessage, setSelectedWorkflowMessage] =
+    useState<MessageRow | null>(null);
+  const auditTriggerRef = useRef<DialogTrigger | null>(null);
+  const reviewTriggerRef = useRef<DialogTrigger | null>(null);
+  const assignmentTriggerRef = useRef<DialogTrigger | null>(null);
   const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
-  const showAudit = currentUser ? canViewAudit(currentUser.permissions, currentUser.isGlobalAdministrator) : false;
-  const showAssignment = currentUser ? canAssignMessages(currentUser.permissions, currentUser.isGlobalAdministrator) : false;
-  const showUndo = enableUndoActions && currentUser != null &&
-    (currentUser.isGlobalAdministrator || currentUser.permissions.includes('review.undo'));
-  const showWorkflow = enableWorkflowActions && currentUser != null && canManageWorkflows(currentUser.permissions, currentUser.isGlobalAdministrator);
+  const showAudit = currentUser
+    ? canViewAudit(currentUser.permissions, currentUser.isGlobalAdministrator)
+    : false;
+  const showAssignment = currentUser
+    ? canAssignMessages(
+        currentUser.permissions,
+        currentUser.isGlobalAdministrator,
+      )
+    : false;
+  const showUndo =
+    enableUndoActions &&
+    currentUser != null &&
+    (currentUser.isGlobalAdministrator ||
+      currentUser.permissions.includes('review.undo'));
+  const showWorkflow =
+    enableWorkflowActions &&
+    currentUser != null &&
+    canManageWorkflows(
+      currentUser.permissions,
+      currentUser.isGlobalAdministrator,
+    );
   const assigneeUsers = users?.map((user) => {
     const names = user.departmentIds.map(
-      (id) => departments?.find((department) => department.id === id)?.name ?? String(id),
+      (id) =>
+        departments?.find((department) => department.id === id)?.name ??
+        String(id),
     );
 
     return {
@@ -120,7 +181,10 @@ export default function MessagesGrid({
   }
 
   async function refreshMessages() {
-    await Promise.all([refreshGrid(), summaryQuery.refetch({ throwOnError: true })]);
+    await Promise.all([
+      refreshGrid(),
+      summaryQuery.refetch({ throwOnError: true }),
+    ]);
   }
 
   function selectState(value: string | null) {
@@ -132,44 +196,53 @@ export default function MessagesGrid({
     try {
       grid.pageIndex(0);
       grid.filter(businessStageFilter(stage));
-    } finally { grid.endUpdate(); }
+    } finally {
+      grid.endUpdate();
+    }
   }
 
   function closeAudit() {
     setSelectedAuditMessage(null);
-    requestAnimationFrame(() => auditTriggerRef.current?.focus());
+    restoreTrigger(auditTriggerRef.current);
   }
 
   function closeReviewAction() {
     setSelectedReviewMessage(null);
-    requestAnimationFrame(() => reviewTriggerRef.current?.focus());
+    restoreTrigger(reviewTriggerRef.current);
   }
 
   function closeAssignment() {
     setSelectedAssignmentMessage(null);
-    requestAnimationFrame(() => assignmentTriggerRef.current?.focus());
+    restoreTrigger(assignmentTriggerRef.current);
   }
 
   function openAssignment(message: MessageRow) {
-    assignmentTriggerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    assignmentTriggerRef.current = rememberTrigger(
+      `message-assignment-${message.id}`,
+    );
     setSelectedAssignmentMessage(message);
   }
 
   function openAudit(message: MessageRow) {
-    auditTriggerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    auditTriggerRef.current = rememberTrigger(`message-audit-${message.id}`);
     setSelectedAuditMessage(message);
   }
 
-  function canShowAssignment(message: MessageRow | undefined, assigned: boolean) {
-    return message?.canAssign === true && (message.currentAssigneeId != null) === assigned;
+  function canShowAssignment(
+    message: MessageRow | undefined,
+    assigned: boolean,
+  ) {
+    return (
+      message?.canAssign === true &&
+      (message.currentAssigneeId != null) === assigned
+    );
   }
 
   function openReviewAction(message: MessageRow, preview = false) {
     setReadOnly(preview);
-    reviewTriggerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    reviewTriggerRef.current = rememberTrigger(
+      `message-${preview ? 'view' : 'review'}-${message.id}`,
+    );
     setSelectedReviewMessage(message);
   }
 
@@ -178,7 +251,10 @@ export default function MessagesGrid({
       return false;
     }
 
-    return (enableReviewActions || currentUser.isGlobalAdministrator) && canReviewMessage(message);
+    return (
+      (enableReviewActions || currentUser.isGlobalAdministrator) &&
+      canReviewMessage(message)
+    );
   }
 
   useEffect(() => {
@@ -208,198 +284,369 @@ export default function MessagesGrid({
 
   return (
     <>
-      <section className="message-state-filters" aria-label="Message state filters">
-        <GridStateCards items={stateCards} value={selectedStage} onChange={selectState} />
-        <p className="message-counts-note">Counts include all accessible messages, before grid filters. Rejected and 3rd confirmation messages appear in Total Messages.</p>
-        {summaryQuery.isError && <div className="message-counts-error" role="alert"><span>Unable to load counts. Check your connection and retry.</span>
-          <Button text="Retry counts" stylingMode="outlined" onClick={() => void summaryQuery.refetch({ throwOnError: true })} /></div>}
+      <section
+        className="flex min-w-0 flex-col gap-2"
+        aria-label="Message state filters"
+      >
+        <GridStateCards
+          items={stateCards}
+          value={selectedStage}
+          onChange={selectState}
+        />
+        <p className="text-fg-muted text-xs">
+          Counts include all accessible messages, before grid filters. Rejected
+          and 3rd confirmation messages appear in Total Messages.
+        </p>
+        {summaryQuery.isError && (
+          <div className="flex items-center gap-2" role="alert">
+            <span>Unable to load counts. Check your connection and retry.</span>
+            <Button
+              onClick={() => void summaryQuery.refetch({ throwOnError: true })}
+              variant="secondary"
+              children="Retry counts"
+            />
+          </div>
+        )}
       </section>
-      <section className="message-grid-results" aria-label="Message results">
-        <div className="message-grid-toolbar">
-          <p className="message-attention-legend">
-            <span className="message-attention-legend__marker" aria-hidden="true" />
+      <section
+        className="message-grid-results flex min-w-0 flex-col gap-2"
+        aria-label="Message results"
+      >
+        <div className="message-grid-toolbar flex flex-wrap items-center justify-between gap-3 min-h-9 max-sm:items-start">
+          <p className="flex items-center gap-2 m-0 text-fg-muted text-xs">
+            <span
+              className="w-1 h-5 shrink-0 rounded-[var(--space-half)] bg-primary"
+              aria-hidden="true"
+            />
             Messages that need your attention are marked with a green line.
           </p>
-          <div className="message-department-filter">
-          <TagBox width="100%" showDropDownButton items={departments} value={departmentIds} valueExpr="id" displayExpr="name" searchEnabled
-            placeholder="All departments" inputAttr={{ 'aria-label': 'Filter departments' }}
-            onValueChanged={(event) => { setDepartmentIds(event.value); dataGridRef.current?.instance().pageIndex(0); }} />
+          <div className="flex-[0_1_260px] min-w-[180px] max-w-full">
+            <MultiSelect
+              options={departments ?? []}
+              value={departmentIds}
+              optionValue="id"
+              optionLabel="name"
+              searchable
+              placeholder="All departments"
+              onChange={(event) => {
+                setDepartmentIds(event);
+                dataGridRef.current?.instance().pageIndex(0);
+              }}
+              devExtremeProps={{
+                width: '100%',
+                showDropDownButton: true,
+                inputAttr: { 'aria-label': 'Filter departments' },
+              }}
+            />
           </div>
           <GridRefreshButton refresh={refreshMessages} />
         </div>
-        <div className="app-table-shell">
-        <DataGrid
-          ref={dataGridRef}
-          dataSource={filteredSource}
-          width="100%"
-          remoteOperations
-          onRowPrepared={(event) => {
-            if (event.rowType !== 'data' || !event.data) return;
-            const level = getReviewStep(event.data.state)?.level;
-            event.rowElement.classList.toggle('message-assigned-to-you', currentUser != null && event.data.currentAssigneeId != null && String(event.data.currentAssigneeId) === String(currentUser.userId));
-            for (const candidate of [1, 2, 3]) event.rowElement.classList.toggle(`message-review-level-${candidate}`, level === candidate);
-          }}
-          showBorders={false}
-          rowAlternationEnabled
-          hoverStateEnabled
-          columnAutoWidth
-          elementAttr={{ 'aria-label': 'Messages' }}
-          noDataText="No messages found"
-        >
-          <FilterRow visible />
-          <HeaderFilter visible />
-          <Paging defaultPageSize={20} />
-          <Pager
-            visible
-            showInfo
-            showPageSizeSelector
-            allowedPageSizes={[10, 20, 50]}
-          />
+        <TableShell className="">
+          <DataGrid
+            ref={dataGridRef}
+            dataSource={filteredSource}
+            devExtremeProps={{
+              width: '100%',
+              remoteOperations: true,
+              onRowPrepared: (event) => {
+                if (event.rowType !== 'data' || !event.data) return;
+                const level = getReviewStep(event.data.state)?.level;
+                event.rowElement.classList.toggle(
+                  'message-assigned-to-you',
+                  currentUser != null &&
+                    event.data.currentAssigneeId != null &&
+                    String(event.data.currentAssigneeId) ===
+                      String(currentUser.userId),
+                );
+                for (const candidate of [1, 2, 3])
+                  event.rowElement.classList.toggle(
+                    `message-review-level-${candidate}`,
+                    level === candidate,
+                  );
+              },
+              showBorders: false,
+              rowAlternationEnabled: true,
+              hoverStateEnabled: true,
+              columnAutoWidth: true,
+              elementAttr: { 'aria-label': 'Messages' },
+              noDataText: 'No messages found',
+            }}
+          >
+            <FilterRow visible />
+            <HeaderFilter visible />
+            <Paging defaultPageSize={20} />
+            <Pager
+              visible
+              showInfo
+              showPageSizeSelector
+              allowedPageSizes={[10, 20, 50]}
+            />
 
-          <Column dataField="externalId" caption="External ID" minWidth={140} />
-          <Column dataField="sender" caption="Sender" minWidth={120} />
-          <Column dataField="receiver" caption="Receiver" minWidth={120} />
-          <Column dataField="messageType" caption="Message type" width={110} />
-          <Column dataField="direction" caption="Direction" width={115}>
-            <Lookup dataSource={['Incoming', 'Outgoing']} />
-          </Column>
-          {/* Server-side sorting supports lookup IDs, not their displayed labels. */}
-          <Column
-            dataField="branchId"
-            caption="Branch"
-            dataType="number"
-            width={90}
-            allowSorting={false}
-          >
-            {branches && (
-              <Lookup dataSource={branches} valueExpr="id" displayExpr="name" />
-            )}
-          </Column>
-          <Column dataField="departmentNames" caption="Departments" minWidth={150}
-            allowFiltering={false} allowSorting={false} allowGrouping={false} />
-          <Column
-            dataField="state"
-            caption="Stage"
-            minWidth={180}
-            cellRender={(cell) => {
-              const message = cell.data as MessageRow;
-              const metadata = messageStates?.find((item) => item.code === message.state);
-              return (
-                <MessageStage
-                  state={message.state}
-                  metadata={metadata}
-                  businessLabel={businessStageLabel(message.state, metadata?.label ?? message.state)}
-                  requiredLevels={message.requiredReviewLevels.map(Number)}
-                  hasAssignee={message.currentAssigneeId != null}
+            <Column
+              dataField="externalId"
+              caption="External ID"
+              minWidth={140}
+            />
+            <Column dataField="sender" caption="Sender" minWidth={120} />
+            <Column dataField="receiver" caption="Receiver" minWidth={120} />
+            <Column
+              dataField="messageType"
+              caption="Message type"
+              width={110}
+            />
+            <Column dataField="direction" caption="Direction" width={115}>
+              <Lookup dataSource={['Incoming', 'Outgoing']} />
+            </Column>
+            {/* Server-side sorting supports lookup IDs, not their displayed labels. */}
+            <Column
+              dataField="branchId"
+              caption="Branch"
+              dataType="number"
+              width={90}
+              allowSorting={false}
+            >
+              {branches && (
+                <Lookup
+                  dataSource={branches}
+                  valueExpr="id"
+                  displayExpr="name"
                 />
-              );
-            }}
-          >
-            {messageStates && (
-              <Lookup dataSource={messageStates} valueExpr="code" displayExpr="label" />
-            )}
-          </Column>
-          <Column
-            dataField="receivedAt"
-            caption="Received"
-            dataType="date"
-            format="dd MMM yyyy"
-            filterOperations={['=', '<>', '<', '>', '<=', '>=', 'between']}
-            minWidth={160}
-          />
-          <Column
-            dataField="currentAssigneeId"
-            caption="Assignee"
-            dataType="number"
-            width={100}
-            allowSorting={false}
-          >
-            {assigneeUsers && (
-              <Lookup dataSource={assigneeUsers} valueExpr="id" displayExpr="displayLabel" />
-            )}
-          </Column>
-          <Column
-            caption="Actions"
-            width={200 + (showAudit ? 40 : 0) + (showAssignment ? 100 : 0) + (showUndo ? 85 : 0) + (showWorkflow ? 155 : 0)}
-            allowFiltering={false}
-            allowSorting={false}
-            cellRender={(cell) => {
-              const message = cell.data as MessageRow;
-              return (
-                <div className="message-actions">
-                  {showWorkflow && message.canChangeWorkflow &&
-                    <span
-                      title={!message.canChangeWorkflow ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.' : undefined}
-                      aria-label={!message.canChangeWorkflow ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.' : undefined}
-                      tabIndex={!message.canChangeWorkflow ? 0 : undefined}
-                    >
-                      <Button text="Change workflow" stylingMode="outlined" disabled={!message.canChangeWorkflow}
-                        onClick={() => { if (message.canChangeWorkflow) setSelectedWorkflowMessage(message); }} />
-                    </span>}
-                  {showUndo && (currentUser?.isGlobalAdministrator ||
-                    message.undoReviewId != null) &&
-                    <UndoReviewButton key={String(message.undoReviewId ?? 'none')} message={message} onChanged={refreshGrid} />}
-                  {canShowAssignment(message, false) && (
-                    <Button
-                      text="Assign"
-                      hint="Assign message"
-                      stylingMode="outlined"
-                      onClick={() => openAssignment(message)}
-                    />
-                  )}
-                  {canShowAssignment(message, true) && (
-                    <Button
-                      text="Reassign"
-                      hint="Reassign message"
-                      stylingMode="outlined"
-                      onClick={() => openAssignment(message)}
-                    />
-                  )}
-                  <Button
-                    text="View"
-                    icon="doc"
-                    hint="View message"
-                    stylingMode="outlined"
-                    onClick={() => openReviewAction(message, true)}
+              )}
+            </Column>
+            <Column
+              dataField="departmentNames"
+              caption="Departments"
+              minWidth={150}
+              allowFiltering={false}
+              allowSorting={false}
+              allowGrouping={false}
+            />
+            <Column
+              dataField="state"
+              caption="Stage"
+              minWidth={180}
+              cellRender={(cell) => {
+                const message = cell.data as MessageRow;
+                const metadata = messageStates?.find(
+                  (item) => item.code === message.state,
+                );
+                return (
+                  <MessageStage
+                    state={message.state}
+                    metadata={metadata}
+                    businessLabel={businessStageLabel(
+                      message.state,
+                      metadata?.label ?? message.state,
+                    )}
+                    requiredLevels={message.requiredReviewLevels.map(Number)}
+                    hasAssignee={message.currentAssigneeId != null}
                   />
-                  <Button text="PDF" hint="View PDF" stylingMode="outlined" onClick={() => setSelectedPdfMessage(message)} />
-                  {(enableReviewActions || currentUser?.isGlobalAdministrator) && message.canConfirm &&
-                    <Button text="Confirm" stylingMode="outlined" onClick={() => setSelectedConfirmMessage(message)} />}
-                  {canShowReviewAction(message) && <Button text="Review" hint="Review message" stylingMode="outlined" onClick={() => openReviewAction(message)} />}
-                  {message.canViewAudit && (
+                );
+              }}
+            >
+              {messageStates && (
+                <Lookup
+                  dataSource={messageStates}
+                  valueExpr="code"
+                  displayExpr="label"
+                />
+              )}
+            </Column>
+            <Column
+              dataField="receivedAt"
+              caption="Received"
+              dataType="date"
+              format="dd MMM yyyy"
+              filterOperations={['=', '<>', '<', '>', '<=', '>=', 'between']}
+              minWidth={160}
+            />
+            <Column
+              dataField="currentAssigneeId"
+              caption="Assignee"
+              dataType="number"
+              width={100}
+              allowSorting={false}
+            >
+              {assigneeUsers && (
+                <Lookup
+                  dataSource={assigneeUsers}
+                  valueExpr="id"
+                  displayExpr="displayLabel"
+                />
+              )}
+            </Column>
+            <Column
+              caption="Actions"
+              width={
+                200 +
+                (showAudit ? 40 : 0) +
+                (showAssignment ? 100 : 0) +
+                (showUndo ? 85 : 0) +
+                (showWorkflow ? 155 : 0)
+              }
+              allowFiltering={false}
+              allowSorting={false}
+              cellRender={(cell) => {
+                const message = cell.data as MessageRow;
+                return (
+                  <div className="message-actions flex items-center gap-2 whitespace-nowrap">
+                    {showWorkflow && message.canChangeWorkflow && (
+                      <span
+                        title={
+                          !message.canChangeWorkflow
+                            ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.'
+                            : undefined
+                        }
+                        aria-label={
+                          !message.canChangeWorkflow
+                            ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.'
+                            : undefined
+                        }
+                        tabIndex={!message.canChangeWorkflow ? 0 : undefined}
+                      >
+                        <Button
+                          disabled={!message.canChangeWorkflow}
+                          onClick={() => {
+                            if (message.canChangeWorkflow)
+                              setSelectedWorkflowMessage(message);
+                          }}
+                          variant="secondary"
+                          children="Change workflow"
+                        />
+                      </span>
+                    )}
+                    {showUndo &&
+                      (currentUser?.isGlobalAdministrator ||
+                        message.undoReviewId != null) && (
+                        <UndoReviewButton
+                          key={String(message.undoReviewId ?? 'none')}
+                          message={message}
+                          onChanged={refreshGrid}
+                        />
+                      )}
+                    {canShowAssignment(message, false) && (
+                      <Button
+                        onClick={() => openAssignment(message)}
+                        variant="secondary"
+                        children="Assign"
+                        devExtremeProps={{
+                          hint: 'Assign message',
+                          elementAttr: {
+                            id: `message-assignment-${message.id}`,
+                          },
+                        }}
+                      />
+                    )}
+                    {canShowAssignment(message, true) && (
+                      <Button
+                        onClick={() => openAssignment(message)}
+                        variant="secondary"
+                        children="Reassign"
+                        devExtremeProps={{
+                          hint: 'Reassign message',
+                          elementAttr: {
+                            id: `message-assignment-${message.id}`,
+                          },
+                        }}
+                      />
+                    )}
                     <Button
-                      icon="search"
-                      hint="View audit trail"
-                      stylingMode="outlined"
-                      elementAttr={{
-                        class: 'message-actions__icon-button',
-                        'aria-label': 'View audit trail',
+                      icon="doc"
+                      onClick={() => openReviewAction(message, true)}
+                      variant="secondary"
+                      children="View"
+                      devExtremeProps={{
+                        hint: 'View message',
+                        elementAttr: { id: `message-view-${message.id}` },
                       }}
-                      onClick={() => openAudit(message)}
                     />
-                  )}
-                </div>
-              );
-            }}
-          />
-        </DataGrid>
-        </div>
+                    <Button
+                      onClick={() => setSelectedPdfMessage(message)}
+                      variant="secondary"
+                      children="PDF"
+                      devExtremeProps={{ hint: 'View PDF' }}
+                    />
+                    {(enableReviewActions ||
+                      currentUser?.isGlobalAdministrator) &&
+                      message.canConfirm && (
+                        <Button
+                          onClick={() => setSelectedConfirmMessage(message)}
+                          variant="secondary"
+                          children="Confirm"
+                        />
+                      )}
+                    {canShowReviewAction(message) && (
+                      <Button
+                        onClick={() => openReviewAction(message)}
+                        variant="secondary"
+                        children="Review"
+                        devExtremeProps={{
+                          hint: 'Review message',
+                          elementAttr: { id: `message-review-${message.id}` },
+                        }}
+                      />
+                    )}
+                    {message.canViewAudit && (
+                      <Button
+                        icon="search"
+                        ariaLabel="View audit trail"
+                        onClick={() => openAudit(message)}
+                        variant="secondary"
+                        devExtremeProps={{
+                          elementAttr: {
+                            ...{
+                              class: 'message-actions__icon-button',
+                              'aria-label': 'View audit trail',
+                            },
+                            id: `message-audit-${message.id}`,
+                          },
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              }}
+            />
+          </DataGrid>
+        </TableShell>
       </section>
-      {selectedConfirmMessage && <ConfirmMessagePopup key={selectedConfirmMessage.id} message={selectedConfirmMessage}
-        onClose={() => setSelectedConfirmMessage(null)} onChanged={refreshGrid} />}
-      {selectedPdfMessage && <MessagePdfPopup key={selectedPdfMessage.id} message={selectedPdfMessage} onClose={() => setSelectedPdfMessage(null)} />}
+      {selectedConfirmMessage && (
+        <ConfirmMessagePopup
+          key={selectedConfirmMessage.id}
+          message={selectedConfirmMessage}
+          onClose={() => setSelectedConfirmMessage(null)}
+          onChanged={refreshGrid}
+        />
+      )}
+      {selectedPdfMessage && (
+        <MessagePdfPopup
+          key={selectedPdfMessage.id}
+          message={selectedPdfMessage}
+          onClose={() => setSelectedPdfMessage(null)}
+        />
+      )}
       {selectedReviewMessage && (
         <ReviewDecisionPopup
           key={String(selectedReviewMessage.id)}
           message={selectedReviewMessage}
           canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
-          canReject={!readOnly && canShowReviewAction(selectedReviewMessage) && selectedReviewMessage.rejectAllowed === true}
+          canReject={
+            !readOnly &&
+            canShowReviewAction(selectedReviewMessage) &&
+            selectedReviewMessage.rejectAllowed === true
+          }
           onClose={closeReviewAction}
           onChanged={refreshGrid}
         />
       )}
-      {selectedWorkflowMessage && <ChangeWorkflowPopup key={String(selectedWorkflowMessage.id)} message={selectedWorkflowMessage}
-        onClose={() => setSelectedWorkflowMessage(null)} onChanged={refreshGrid} />}
+      {selectedWorkflowMessage && (
+        <ChangeWorkflowPopup
+          key={String(selectedWorkflowMessage.id)}
+          message={selectedWorkflowMessage}
+          onClose={() => setSelectedWorkflowMessage(null)}
+          onChanged={refreshGrid}
+        />
+      )}
       {selectedAssignmentMessage && (
         <AssignmentPopup
           message={selectedAssignmentMessage}
@@ -410,22 +657,13 @@ export default function MessagesGrid({
       {selectedAuditMessage &&
         createPortal(
           <Drawer
-            className="audit-drawer"
-            opened
-            openedStateMode="overlap"
-            revealMode="expand"
-            position="right"
-            minSize={0}
-            maxSize={440}
-            animationEnabled={!prefersReducedMotion}
-            shading
-            closeOnOutsideClick
-            onOpenedChange={(opened) => {
+            open
+            onOpenChange={(opened) => {
               if (!opened) {
                 closeAudit();
               }
             }}
-            render={() => (
+            panel={() => (
               <AuditTrailDrawer
                 message={selectedAuditMessage}
                 users={users}
@@ -433,8 +671,19 @@ export default function MessagesGrid({
                 onClose={closeAudit}
               />
             )}
+            devExtremeProps={{
+              className: 'audit-drawer',
+              openedStateMode: 'overlap',
+              revealMode: 'expand',
+              position: 'right',
+              minSize: 0,
+              maxSize: 440,
+              animationEnabled: !prefersReducedMotion,
+              shading: true,
+              closeOnOutsideClick: true,
+            }}
           >
-            <div className="audit-drawer__view" aria-hidden="true" />
+            <div className="w-full h-full" aria-hidden="true" />
           </Drawer>,
           document.body,
         )}

@@ -1,0 +1,190 @@
+/* Scoped application-specific DevExtreme integration. */
+
+.admin-search-actions .dx-button {
+  min-height: 36px;
+}
+
+@media (max-width: 767px) {
+  .admin-search-actions .dx-button {
+    flex: 1 1 0;
+  }
+}
+
+.message-grid-toolbar .dx-button {
+  flex: 0 0 auto;
+}
+
+.message-actions .dx-button {
+  flex: 0 0 auto;
+  min-height: 28px;
+}
+
+.message-actions .dx-button-content {
+  padding: var(--space-1) var(--space-2);
+}
+
+.message-actions .message-actions__icon-button .dx-button-content {
+  padding: var(--space-1);
+}
+
+@media (max-width: 767px) {
+  .audit-drawer.dx-drawer-overlap
+    > .dx-drawer-wrapper
+    > .dx-overlay
+    > .dx-overlay-wrapper
+    > .dx-overlay-content {
+    width: 100vw !important;
+  }
+}
+
+.message-grid-results .dx-data-row.message-review-level-1 {
+  --review-accent: var(--color-review-level-1);
+  --review-surface: var(--color-review-level-1-surface);
+}
+
+.message-grid-results .dx-data-row.message-review-level-2 {
+  --review-accent: var(--color-review-level-2);
+  --review-surface: var(--color-review-level-2-surface);
+}
+
+.message-grid-results .dx-data-row.message-review-level-3 {
+  --review-accent: var(--color-review-level-3);
+  --review-surface: var(--color-review-level-3-surface);
+}
+
+.message-grid-results
+  .dx-data-row[class*='message-review-level-']:not(.dx-selection):not(
+    .dx-row-focused
+  ):not(.dx-state-hover)
+  > td {
+  background-color: var(--review-surface);
+}
+
+.message-grid-results .dx-data-row.message-assigned-to-you > td:first-child {
+  box-shadow: inset 4px 0 0 var(--color-action-primary);
+}
+
+.message-stage__stepper.dx-stepper {
+  padding: 0;
+  pointer-events: none;
+}
+
+.message-stage__stepper .dx-stepper-connector {
+  display: none;
+}
+
+.message-stage__stepper .dx-step-list {
+  gap: var(--space-1);
+}
+
+.message-stage__stepper.dx-stepper-horizontal .dx-step {
+  flex: 0 0 16px;
+  min-width: 16px;
+}
+
+.message-stage__stepper .dx-step-content {
+  display: block;
+}
+
+.message-stage__stepper .dx-step-indicator {
+  width: 16px;
+  height: 4px;
+  color: transparent;
+  background: var(--color-border-control);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+}
+
+.message-stage__stepper .dx-step-text,
+.message-stage__stepper .dx-step-caption {
+  display: none;
+}
+
+.message-stage__stepper .dx-step.dx-step-completed .dx-step-indicator {
+  background: var(--color-feedback-success);
+  box-shadow: none;
+}
+
+.message-stage__stepper .dx-step.dx-step-selected .dx-step-indicator {
+  background: var(--color-feedback-warning);
+  box-shadow: none;
+}
+
+.message-stage.message-stage--completed
+  .message-stage__stepper
+  .dx-step
+  .dx-step-indicator {
+  background: var(--color-feedback-success);
+}
+
+.message-stage.message-stage--rejected
+  .message-stage__stepper
+  .dx-step
+  .dx-step-indicator {
+  background: var(--color-feedback-danger);
+}
+.raw-message-popup .dx-popup-content {
+  padding: 0;
+}
+
+.assignment-popup .dx-popup-content,
+.review-decision-popup .dx-popup-content {
+  overscroll-behavior: contain;
+}
+
+.grid-state-cards__control .dx-collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr));
+  gap: var(--space-2);
+}
+
+.grid-state-cards__control .dx-radiobutton {
+  min-width: 0;
+  margin: 0;
+}
+
+.grid-state-cards__control .dx-radiobutton-icon {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+.grid-state-cards__control .dx-radiobutton .dx-item-content {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  white-space: normal;
+}
+
+.grid-state-cards__control
+  .dx-radiobutton.dx-state-hover
+  .grid-state-card__body {
+  border-color: var(--card-accent, var(--color-action-primary));
+}
+
+.grid-state-cards__control
+  .dx-radiobutton.dx-state-focused
+  .grid-state-card__body {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.global-header__navigation-button.dx-button {
+  flex: 0 0 auto;
+  color: var(--color-text-inverse);
+}
+
+.global-header__navigation-button.dx-button:is(
+    .dx-state-hover,
+    .dx-state-focused,
+    .dx-state-active
+  ) {
+  background: var(--color-navigation-hover);
+  color: var(--color-text-inverse);
+}
+
+.global-header__navigation-button .dx-icon { color: inherit; }

@@ -1,7 +1,7 @@
+import { Field, Callout, Button, Dialog, TextArea } from '@smbc/ui';
+
 import { useQuery } from '@tanstack/react-query';
-import Button from 'devextreme-react/button';
-import Popup from 'devextreme-react/popup';
-import TextArea from 'devextreme-react/text-area';
+
 import { useState } from 'react';
 
 import type { RefreshData } from '../../../../shared/api/refreshAfterMutation';
@@ -10,8 +10,6 @@ import PageLoading from '../../../../shared/components/feedback/PageLoading';
 import { messageQueryOptions } from '../../api/messageQueries';
 import type { MessageRow } from '../../api/messagesApi';
 import { useReviewSession } from '../../model/useReviewSession';
-import './message-action-popup.css';
-import './raw-message-popup.css';
 
 type ReviewDecisionPopupProps = {
   canApprove: boolean;
@@ -32,42 +30,55 @@ export default function ReviewDecisionPopup({
   const messageQuery = useQuery(messageQueryOptions(message.id));
   const reviewEnabled = canApprove || canReject;
   const { state, submit, retry } = useReviewSession({
-    message, canApprove, canReject, hasMessage: messageQuery.isSuccess, onChanged, onClose,
+    message,
+    canApprove,
+    canReject,
+    hasMessage: messageQuery.isSuccess,
+    onChanged,
+    onClose,
   });
   const ready = state.status === 'active';
   const isStarting = state.status === 'starting';
-  const isSubmitting = state.status === 'submitting' || state.status === 'verifying';
+  const isSubmitting =
+    state.status === 'submitting' || state.status === 'verifying';
   const isBusy = isStarting || isSubmitting || state.status === 'completed';
   const pendingDecision = isSubmitting ? state.decision : null;
-  const startError = state.status === 'blocked' && state.recovery === 'resume' ? state.error : null;
+  const startError =
+    state.status === 'blocked' && state.recovery === 'resume'
+      ? state.error
+      : null;
   const error = 'error' in state && !startError ? state.error : null;
   const showMessage = !reviewEnabled || ready || isSubmitting;
 
   return (
-    <Popup
-      className="review-decision-popup raw-message-popup"
-      visible
+    <Dialog
+      open
       title={reviewEnabled ? 'Review message' : 'View message'}
-      showTitle
       showCloseButton={!isBusy}
-      hideOnOutsideClick={!isBusy}
-      dragEnabled={false}
+      closeOnOutsideClick={!isBusy}
       width="90vw"
-      maxWidth={900}
-      height="80vh"
-      maxHeight={900}
-      onHiding={() => {
+      onClose={() => {
         if (!isBusy) {
           onClose();
         }
       }}
-      elementAttr={{ 'aria-label': 'Review message' }}
+      devExtremeProps={{
+        className: 'review-decision-popup raw-message-popup',
+        showTitle: true,
+        dragEnabled: false,
+        maxWidth: 900,
+        height: '80vh',
+        maxHeight: 900,
+        elementAttr: { 'aria-label': 'Review message' },
+      }}
     >
-      <div className="review-decision-popup__content">
+      <div className="review-decision-popup__content flex flex-col gap-4 p-4">
         <p className="raw-message-popup__message-id">{message.externalId}</p>
         <p>Direction: {message.direction ?? 'Unknown'}</p>
 
-        {messageQuery.isPending && <PageLoading message="Loading raw message…" />}
+        {messageQuery.isPending && (
+          <PageLoading message="Loading raw message…" />
+        )}
 
         {messageQuery.isError && (
           <PageError
@@ -79,67 +90,93 @@ export default function ReviewDecisionPopup({
         )}
 
         {isStarting && <PageLoading message="Starting review…" />}
-        {startError && <PageError title="Review unavailable" message={startError} actionLabel="Retry review" onAction={retry} />}
-        {ready && reviewEnabled && <p role="status">Review in progress. Closing this window leaves the review and assignment active. Cancel review stops this review and allows reassignment.</p>}
+        {startError && (
+          <PageError
+            title="Review unavailable"
+            message={startError}
+            actionLabel="Retry review"
+            onAction={retry}
+          />
+        )}
+        {ready && reviewEnabled && (
+          <p role="status">
+            Review in progress. Closing this window leaves the review and
+            assignment active. Cancel review stops this review and allows
+            reassignment.
+          </p>
+        )}
 
         {messageQuery.isSuccess && showMessage && messageQuery.data.body && (
-          <pre className="raw-message-popup__body" aria-label="Raw message content">
+          <pre
+            className="raw-message-popup__body"
+            aria-label="Raw message content"
+          >
             {messageQuery.data.body}
           </pre>
         )}
 
         {messageQuery.isSuccess && showMessage && !messageQuery.data.body && (
-          <p className="raw-message-popup__empty">No raw message content available.</p>
+          <p className="raw-message-popup__empty">
+            No raw message content available.
+          </p>
         )}
 
-        <div>
-          <label className="app-label" htmlFor="review-comment">Comment (optional)</label>
+        <Field label="Comment (optional)" id="review-comment">
           <TextArea
             value={comment}
-            onValueChanged={(event) => setComment(event.value)}
+            onChange={(event) => setComment(event)}
             placeholder=""
-            maxLength={2000}
-            minHeight={112}
             disabled={isSubmitting}
-            inputAttr={{ id: 'review-comment', 'aria-label': 'Comment (optional)' }}
+            devExtremeProps={{
+              maxLength: 2000,
+              minHeight: 112,
+              inputAttr: {
+                id: 'review-comment',
+                'aria-label': 'Comment (optional)',
+              },
+            }}
           />
-        </div>
+        </Field>
 
         {error && (
-          <div className="app-callout app-callout--danger" role="alert">
+          <Callout tone="danger" className="" role="alert">
             {error}
-          </div>
+          </Callout>
         )}
 
-        <div className="review-decision-popup__actions">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
-            text={pendingDecision === 'approve' ? 'Approve…' : 'Approve'}
-            type="success"
-            stylingMode="contained"
-            disabled={!ready || !canApprove || !messageQuery.isSuccess || isSubmitting}
+            disabled={
+              !ready || !canApprove || !messageQuery.isSuccess || isSubmitting
+            }
             onClick={() => submit('approve', comment)}
+            variant="primary"
+            children={pendingDecision === 'approve' ? 'Approve…' : 'Approve'}
           />
           <Button
-            text={pendingDecision === 'reject' ? 'Reject…' : 'Reject'}
-            type="danger"
-            stylingMode="contained"
-            disabled={!ready || !canReject || !messageQuery.isSuccess || isSubmitting}
+            disabled={
+              !ready || !canReject || !messageQuery.isSuccess || isSubmitting
+            }
             onClick={() => submit('reject', comment)}
+            variant="danger"
+            children={pendingDecision === 'reject' ? 'Reject…' : 'Reject'}
           />
           <Button
-            text={pendingDecision === 'cancel' ? 'Cancelling…' : 'Cancel review'}
-            stylingMode="outlined"
             disabled={!ready || !reviewEnabled || isSubmitting}
             onClick={() => submit('cancel', comment)}
+            variant="secondary"
+            children={
+              pendingDecision === 'cancel' ? 'Cancelling…' : 'Cancel review'
+            }
           />
           <Button
-            text="Close"
-            stylingMode="outlined"
             disabled={isBusy}
             onClick={onClose}
+            variant="secondary"
+            children="Close"
           />
         </div>
       </div>
-    </Popup>
+    </Dialog>
   );
 }

@@ -1,3 +1,4 @@
+import { useNotify } from '../../../shared/notifications/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { messageKeys } from '../../../shared/api/queryKeys';
 import { refreshAfterMutation, type RefreshData } from '../../../shared/api/refreshAfterMutation';
@@ -7,11 +8,12 @@ import { confirmReview, assignMessage, changeMessageWorkflow, undoReview, startR
 
 export function useRefreshMessage(id: number, refresh?: RefreshData) {
   const client = useQueryClient();
+  const notify = useNotify();
   return (saved: boolean) => refreshAfterMutation(client, [
     // Include detail, audit and candidates, including equivalent numeric/string IDs.
     { predicate: ({ queryKey }) => queryKey[0] === messageKeys.all[0] && String(queryKey[1]) === String(id) },
     { queryKey: messageKeys.counts },
-  ], refresh, saved);
+  ], refresh, saved, notify);
 }
 
 type Options = { onChanged: RefreshData; onSuccess: () => void; onError: (error: Error) => void };

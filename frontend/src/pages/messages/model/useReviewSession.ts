@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useReducer, useRef } from 'react';
-import notify from 'devextreme/ui/notify';
+import { useNotify } from '../../../shared/notifications/notifications';
 import { ApiError, ApiRequestError } from '../../../shared/api/errors';
 import { getMessage, type startReview, type MessageRow } from '../api/messagesApi';
 import { useRefreshMessage, useReviewOperations } from '../api/messageMutations';
@@ -81,6 +81,7 @@ function errorText(caught: unknown, fallback: string) {
 
 // The popup is keyed by message ID: a mounted hook owns exactly one review session.
 export function useReviewSession({ message, canApprove, canReject, hasMessage, onChanged, onClose }: Options) {
+  const notify = useNotify();
   const step = getReviewStep(message.state);
   const level = step?.level;
   const needsStart = step?.needsStart;
@@ -149,7 +150,7 @@ export function useReviewSession({ message, canApprove, canReject, hasMessage, o
       }
     });
     return () => { active = false; };
-  }, [state, message.id, message.externalId, level, needsStart]);
+  }, [notify, state, message.id, message.externalId, level, needsStart]);
 
   function submit(decision: ReviewAction, comment: string) {
     const allowed = decision === 'cancel' ? enabled : decision === 'approve' ? canApprove : canReject;

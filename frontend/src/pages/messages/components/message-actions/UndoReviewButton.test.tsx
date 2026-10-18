@@ -9,21 +9,10 @@ import { ApiRequestError } from '../../../../shared/api/errors';
 
 const { undoReview, notify } = vi.hoisted(() => ({ undoReview: vi.fn(), notify: vi.fn() }));
 vi.mock('../../api/messagesApi', () => ({ undoReview }));
-vi.mock('devextreme/ui/notify', () => ({ default: notify }));
-vi.mock('devextreme-react/popup', () => ({
-  default: ({ children }: PropsWithChildren) => <section role="dialog" aria-label="Undo approval">{children}</section>,
-}));
-vi.mock('devextreme-react/text-area', () => ({
-  default: ({ value, disabled, maxLength, inputAttr, onValueChanged }: {
-    value: string; disabled: boolean; maxLength: number; inputAttr: { id: string; 'aria-label': string };
-    onValueChanged: (event: { value: string }) => void;
-  }) => <textarea value={value} disabled={disabled} maxLength={maxLength} id={inputAttr.id}
-    aria-label={inputAttr['aria-label']} onChange={(event) => onValueChanged({ value: event.target.value })} />,
-}));
-vi.mock('devextreme-react/button', () => ({
-  default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) =>
-    <button disabled={disabled} onClick={onClick}>{text}</button>,
-}));
+vi.mock('../../../../shared/notifications/notifications', () => ({ useNotify: () => notify }));
+
+
+
 import UndoReviewButton from './UndoReviewButton';
 
 const message: MessageRow = { id: 42, externalId: 'MSG-42', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow", messageType: 'MT199', direction: 'Incoming', branchId: 1,
@@ -125,3 +114,23 @@ describe('UndoReviewButton', () => {
 function render(ui: ReactElement) {
   return renderComponent(<QueryClientProvider client={createTestQueryClient()}>{ui}</QueryClientProvider>);
 }
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({
+  Dialog: ({ children }: PropsWithChildren) => <section role="dialog" aria-label="Undo approval">{children}</section>,
+}))(),
+...(() => ({
+  TextArea: ({ value, disabled, onChange, devExtremeProps: { maxLength, inputAttr } }: Omit<{
+    value: string; disabled: boolean; maxLength: number; inputAttr: { id: string; 'aria-label': string };
+    onChange: (value: string) => void;
+  }, "maxLength" | "inputAttr"> & { devExtremeProps: Pick<{
+    value: string; disabled: boolean; maxLength: number; inputAttr: { id: string; 'aria-label': string };
+    onChange: (value: string) => void;
+  }, "maxLength" | "inputAttr"> }) => <textarea value={value} disabled={disabled} maxLength={maxLength} id={inputAttr.id}
+    aria-label={inputAttr['aria-label']} onChange={(event) => onChange(event.target.value)} />,
+}))(),
+...(() => ({
+  Button: ({ children, disabled, onClick }: { children: string; disabled: boolean; onClick: () => void }) =>
+    <button disabled={disabled} onClick={onClick}>{children}</button>,
+}))()
+}));

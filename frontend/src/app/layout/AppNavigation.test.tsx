@@ -4,16 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-const { listProps } = vi.hoisted(() => ({ listProps: vi.fn() }));
 
-vi.mock('devextreme-react/list', () => ({
-  default: (props: Record<string, unknown>) => {
-    listProps(props);
-    const items = props.items as Array<{ path: string; text: string; icon: string }>;
-    const itemRender = props.itemRender as (item: typeof items[number]) => React.ReactNode;
-    return <div aria-label="Application pages">{items.map((item) => <div key={item.path}>{itemRender(item)}</div>)}</div>;
-  },
-}));
+
+
 vi.mock('../../shared/api/currentUserApi', () => ({
   getCurrentUser: vi.fn(() => new Promise(() => undefined)),
 }));
@@ -53,7 +46,7 @@ function renderNavigation(permissions: string[], initialEntry = '/messages', isG
 describe('AppNavigation', () => {
   it('shows every page to a global administrator without business roles', () => {
     renderNavigation([], '/messages', true);
-    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    const items = screen.getAllByRole('link').map((link) => ({ path: link.getAttribute('href') }));
     expect(items.map((item) => item.path)).toEqual(expect.arrayContaining(['/messages', '/messages/assigned', '/admin']));
   });
   it.each([
@@ -66,7 +59,7 @@ describe('AppNavigation', () => {
     { permissions: ['review.undo', 'audit.view'], assign: false, review: false },
   ])('shows pages according to $permissions', ({ permissions, assign, review }) => {
     renderNavigation(permissions);
-    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    const items = screen.getAllByRole('link').map((link) => ({ path: link.getAttribute('href') }));
     expect(items.some((item) => item.path === '/messages')).toBe(assign);
     expect(items.some((item) => item.path === '/messages/assigned')).toBe(review);
   });
@@ -77,22 +70,6 @@ describe('AppNavigation', () => {
 
     expect(screen.getByRole('navigation', { name: 'Application navigation' }))
       .toBeInTheDocument();
-    expect(listProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        items: expect.arrayContaining([
-          expect.objectContaining({ path: '/messages', text: 'Messages' }),
-          expect.objectContaining({
-            path: '/messages/assigned',
-            text: 'Message Review',
-            icon: 'todo',
-          }),
-          expect.objectContaining({ path: '/me', text: 'User profile', icon: 'user' }),
-        ]),
-        keyExpr: 'path',
-        selectionMode: 'none',
-      }),
-    );
-
     expect(screen.getByRole('link', { name: 'Messages' })).toHaveAttribute('aria-current', 'page');
     await user.click(screen.getByRole('link', { name: 'User profile' }));
 
@@ -104,7 +81,7 @@ describe('AppNavigation', () => {
   it('hides the assignment page from reviewers without assign permission', () => {
     renderNavigation(['message.view', 'review.level1']);
 
-    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    const items = screen.getAllByRole('link').map((link) => ({ path: link.getAttribute('href') }));
     expect(items).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ path: '/messages' })]),
     );
@@ -118,7 +95,7 @@ describe('AppNavigation', () => {
   it('does not show the removed assignment queue', () => {
     renderNavigation(['message.view', 'message.assign']);
 
-    const items = listProps.mock.calls.at(-1)?.[0].items as Array<{ path: string }>;
+    const items = screen.getAllByRole('link').map((link) => ({ path: link.getAttribute('href') }));
     expect(items).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ path: '/messages/assigned?scope=assignable' }),
     ]));

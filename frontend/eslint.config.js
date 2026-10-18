@@ -9,6 +9,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 // Relative imports and Vite's /src paths; update this prefix if aliases are added.
 const localImportPrefix = String.raw`^(?:(?:\.\.?/)+(?:src/)?|/?src/)`
+const smbcImports = {
+  group: ['devextreme', 'devextreme/*', 'devextreme-react', 'devextreme-react/*'],
+  message: 'Use @smbc/ui and @smbc/devextreme-theme public APIs.',
+}
 const appImports = {
   regex: `${localImportPrefix}app(?:/|$)`,
   message: 'Pages and shared modules must not import application composition.',
@@ -33,10 +37,14 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [smbcImports] }] },
+  },
+  {
     files: ['src/shared/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', {
-        patterns: [appImports, {
+        patterns: [smbcImports, appImports, {
           regex: `${localImportPrefix}pages(?:/|$)`,
           message: 'Shared modules must not depend on pages.',
         }],
@@ -46,14 +54,18 @@ export default defineConfig([
   {
     files: ['src/pages/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [appImports] }],
+      'no-restricted-imports': ['error', { patterns: [smbcImports, appImports] }],
     },
+  },
+  {
+    files: ['src/test/smbcMock.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
   ...pageSlices.map((slice) => ({
     files: [`src/pages/${slice}/**/*.{ts,tsx}`],
     rules: {
       'no-restricted-imports': ['error', {
-        patterns: [appImports, ...pageSlices.filter((other) => other !== slice).map((other) => ({
+        patterns: [smbcImports, appImports, ...pageSlices.filter((other) => other !== slice).map((other) => ({
           regex: `${localImportPrefix}(?:pages/)?${other.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|$)`,
           message: 'Page slices must be independent; move cross-page code into shared.',
         }))],

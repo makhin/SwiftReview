@@ -30,7 +30,7 @@ export default function RouteErrorBoundary() {
   }
 
   return (
-    <main className="app-content app-page">
+    <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
       <PageError
         title={title}
         message={message}

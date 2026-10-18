@@ -1,4 +1,3 @@
-import notify from 'devextreme/ui/notify';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,18 +5,14 @@ import type { PropsWithChildren } from 'react';
 import { createTestQueryClient } from '../../../../test/createTestQueryClient';
 import { ApiError, ApiRequestError } from '../../../../shared/api/errors';
 import type { MessageRow } from '../../api/messagesApi';
-const { changeMessageWorkflow, getWorkflowCandidates } = vi.hoisted(() => ({
-  changeMessageWorkflow: vi.fn(), getWorkflowCandidates: vi.fn(),
+const { changeMessageWorkflow, getWorkflowCandidates, notify } = vi.hoisted(() => ({
+  notify: vi.fn(), changeMessageWorkflow: vi.fn(), getWorkflowCandidates: vi.fn(),
 }));
 vi.mock('../../api/messagesApi', () => ({ changeMessageWorkflow, getWorkflowCandidates }));
-vi.mock('devextreme/ui/notify', () => ({ default: vi.fn() }));
-vi.mock('devextreme-react/popup', () => ({ default: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }));
-vi.mock('devextreme-react/button', () => ({ default: ({ text, disabled, onClick }: { text: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{text}</button> }));
-vi.mock('devextreme-react/select-box', () => ({ default: ({ items, value, disabled, onValueChanged }: {
-  items: { id: number; label: string }[]; value: number; disabled: boolean; onValueChanged: (event: { value: number }) => void;
-}) => <select aria-label="Workflow" value={value} disabled={disabled} onChange={(e) => onValueChanged({ value: Number(e.target.value) })}>
-  {items.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-</select> }));
+vi.mock('../../../../shared/notifications/notifications', () => ({ useNotify: () => notify }));
+
+
+
 import ChangeWorkflowPopup from './ChangeWorkflowPopup';
 const message: MessageRow = { id: 42, externalId: 'MSG-42', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow", messageType: 'MT199', direction: 'Incoming', branchId: 1,
   receivedAt: '2026-09-10T10:00:00Z', state: 'Assigned', currentAssigneeId: 1,
@@ -105,3 +100,13 @@ describe('ChangeWorkflowPopup', () => {
     expect(changeMessageWorkflow).toHaveBeenCalledOnce();
   });
 });
+
+vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
+...(() => ({ Dialog: ({ children }: PropsWithChildren) => <section role="dialog">{children}</section> }))(),
+...(() => ({ Button: ({ children, disabled, onClick }: { children: string; disabled: boolean; onClick: () => void }) => <button disabled={disabled} onClick={onClick}>{children}</button> }))(),
+...(() => ({ Select: ({ options, value, disabled, onChange }: {
+  options: { id: number; label: string }[]; value: number; disabled: boolean; onChange: (event: number) => void;
+}) => <select aria-label="Workflow" value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))}>
+  {options.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+</select> }))()
+}));

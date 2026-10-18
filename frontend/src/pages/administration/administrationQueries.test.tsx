@@ -9,7 +9,7 @@ import { useUpdateRolePermissions, useUpdateUserAccess } from './administrationQ
 
 const { updateRolePermissions, updateUserAccess } = vi.hoisted(() => ({ updateRolePermissions: vi.fn(), updateUserAccess: vi.fn() }));
 vi.mock('./administrationApi', () => ({ updateRolePermissions, updateUserAccess }));
-vi.mock('devextreme/ui/notify', () => ({ default: vi.fn() }));
+vi.mock('../../shared/notifications/notifications', () => ({ useNotify: () => vi.fn() }));
 beforeEach(() => { vi.resetAllMocks(); updateRolePermissions.mockResolvedValue(undefined); updateUserAccess.mockResolvedValue(undefined); });
 
 it.each(['user', 'role'] as const)('invalidates only access-dependent data after updating %s', async (kind) => {
