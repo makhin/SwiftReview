@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <EmbeddedResource Include="Documents/Fonts/DejaVuSansMono.ttf" />
+    <PackageReference Include="itext" />
+    <PackageReference Include="itext.bouncy-castle-adapter" />
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Domain/ORP.Domain.csproj" />
     <ProjectReference Include="../ORP.Importer/ORP.Importer.csproj" />

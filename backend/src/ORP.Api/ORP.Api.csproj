@@ -3,7 +3,6 @@
     <UserSecretsId>SwiftReview-ORP-Api</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources/hello-world.pdf" LogicalName="ORP.Api.HelloWorld.pdf" />
     <ProjectReference Include="../ORP.Application/ORP.Application.csproj" />
     <ProjectReference Include="../ORP.Infrastructure/ORP.Infrastructure.csproj" />
     <PackageReference Include="DevExtreme.AspNet.Data" />

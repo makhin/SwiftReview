@@ -20,6 +20,28 @@ Dependencies point inward: the Domain project has no persistence or API dependen
 - .NET SDK 10.0.400, as pinned in `global.json`.
 - SQL Server to run the API. Unit tests in `ORP.sln` do not require a database.
 
+## Local iText NuGet packages
+
+`packages/pdf/` contains the `.nupkg` archives for `itext`, `itext.commons` and
+`itext.bouncy-castle-adapter`, all version 9.7.0, including upstream licenses and
+notices. Keep these archives in Git.
+
+`NuGet.Config` maps these three package IDs exclusively to this local directory.
+Normal `dotnet restore` and Visual Studio restore use it automatically. All other
+packages, including BouncyCastle.Cryptography, PdfPig, Scheduler's iTextSharp and
+other transitive dependencies, use nuget.org. A fresh restore still requires
+network access for those dependencies and NuGet vulnerability auditing.
+
+`packages/pdf/SHA256SUMS` records the archive hashes. To check them on macOS/Linux:
+
+```bash
+(cd packages/pdf && shasum -a 256 -c SHA256SUMS)
+```
+
+When upgrading iText, update its three archives, the central package versions and
+`SHA256SUMS` together. Verify restore with a fresh package cache and confirm that
+the iText packages are restored from the repository's local source.
+
 ## Run with sample data
 
 Configure the SQL Server connection through the process environment or .NET user secrets. Development applies migrations when `BootstrapDatabase=true`; sample data is loaded explicitly using the script below:

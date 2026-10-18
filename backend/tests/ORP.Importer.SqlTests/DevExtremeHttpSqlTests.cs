@@ -76,7 +76,13 @@ public sealed class DevExtremeHttpSqlTests
         Assert.Single(candidates.RootElement.EnumerateArray());
         using var pdf = await client.GetAsync($"/api/messages/{id}/pdf", ct);
         Assert.Equal("application/pdf", pdf.Content.Headers.ContentType?.MediaType);
-        Assert.StartsWith("%PDF-", await pdf.Content.ReadAsStringAsync(ct));
+        Assert.Equal(HttpStatusCode.OK, pdf.StatusCode);
+        using var details = await GetJson(client, $"/api/messages/{id}", ct);
+        using var document = UglyToad.PdfPig.PdfDocument.Open(await pdf.Content.ReadAsByteArrayAsync(ct));
+        // PdfPig concatenates positioned lines; spacing is checked by the converter tests.
+        var expectedText = details.RootElement.GetProperty("body").GetString()!
+            .Replace("\r", "").Replace("\n", "");
+        Assert.Equal(expectedText, string.Concat(document.GetPages().Select(page => page.Text)));
         using var invalid = await client.GetAsync(query + "&filter=" + Uri.EscapeDataString("[\"departmentIds\",\"=\",1]"), ct);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         using var strict = await client.PostAsJsonAsync($"/api/messages/{id}/assign", new { assignedTo = "1" }, ct);
