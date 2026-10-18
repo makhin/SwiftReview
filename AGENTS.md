@@ -23,7 +23,17 @@ Use the matching environment without asking the user to choose again. Follow the
 SDK pinned in `backend/global.json`; execute solution build/test commands from
 `backend` so that SDK selection uses this file.
 
-All PDF code lives in `backend/src/ORP.Scheduler/` (net472, iTextSharp 5.5.13.6).
+The API body-to-PDF generator lives in `backend/src/ORP.Infrastructure/Documents/`
+and uses iText 9.7.0, independently of Scheduler. Its tests are in
+`backend/tests/ORP.Importer.Tests/`.
+Only the iText 9.7 NuGet archives (`itext`, `itext.commons` and
+`itext.bouncy-castle-adapter`) are versioned in
+`backend/packages/pdf/`; `backend/NuGet.Config` maps their package IDs exclusively
+to this local source. Keep the archives, source mapping and `SHA256SUMS` in sync
+when changing iText package versions. All other packages, including transitive
+dependencies and Scheduler's iTextSharp, use nuget.org.
+
+Scheduler PDF code lives in `backend/src/ORP.Scheduler/` (net472, iTextSharp 5.5.13.6).
 Its tests live in `backend/tests/ORP.Sheduler.Tests/` (net472). Both belong only to
 `backend/ORP.Scheduler.sln`, separate from the application solutions. Neither project may
 reference the .NET 10 Application/Infrastructure projects. Do not restore DevExpress

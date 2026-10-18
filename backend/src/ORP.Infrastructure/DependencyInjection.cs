@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IAssignmentCandidateQueries, AssignmentCandidateQueries>();
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();
+        services.AddSingleton<Documents.TextToPdfConverter>();
         services.AddSingleton<IClock, SystemClock>();
         return services;
     }
