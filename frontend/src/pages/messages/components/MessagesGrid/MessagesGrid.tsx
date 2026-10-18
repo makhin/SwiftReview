@@ -212,25 +212,28 @@ export default function MessagesGrid({
             />
             Messages that need your attention are marked with a green line.
           </p>
-          <div className="flex-[0_1_260px] min-w-[180px] max-w-full">
-            <MultiSelect
-              options={departments ?? []}
-              value={departmentIds}
-              optionValue="id"
-              optionLabel="name"
-              searchable
-              placeholder="All departments"
-              onChange={(event) => {
-                setDepartmentIds(event);
-                dataGridRef.current?.instance().pageIndex(0);
-              }}
-              devExtremeProps={{
-                width: '100%',
-                showDropDownButton: true,
-                inputAttr: { 'aria-label': 'Filter departments' },
-              }}
-            />
-          </div>
+          {currentUser != null &&
+          (currentUser.isGlobalAdministrator || currentUser.departments.length > 1) ? (
+            <div className="flex-[0_1_260px] min-w-[180px] max-w-full">
+              <MultiSelect
+                options={departments ?? []}
+                value={departmentIds}
+                optionValue="id"
+                optionLabel="name"
+                searchable
+                placeholder="All departments"
+                onChange={(event) => {
+                  setDepartmentIds(event);
+                  dataGridRef.current?.instance().pageIndex(0);
+                }}
+                devExtremeProps={{
+                  width: '100%',
+                  showDropDownButton: true,
+                  inputAttr: { 'aria-label': 'Filter departments' },
+                }}
+              />
+            </div>
+          ) : null}
           <GridRefreshButton refresh={refreshMessages} />
         </div>
         <TableShell>

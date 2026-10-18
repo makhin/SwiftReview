@@ -134,6 +134,7 @@ function renderPage(
   permissions = ['message.view', 'message.assign'],
   withCurrentUser = true,
   isGlobalAdministrator = false,
+  departments = [20],
 ) {
   const queryClient = createTestQueryClient();
   if (withCurrentUser) {
@@ -146,7 +147,7 @@ function renderPage(
         ? []
         : [{ branchId: 10, departmentId: 20, roleIds: [1], permissions }],
       branches: [10],
-      departments: [20],
+      departments,
     });
   }
 
@@ -206,6 +207,20 @@ function renderPage(
 }
 
 describe('MessagesPage', () => {
+  it.each([
+    { departments: [20], isGlobalAdministrator: false, visible: false },
+    { departments: [20, 30], isGlobalAdministrator: false, visible: true },
+    { departments: [], isGlobalAdministrator: true, visible: true },
+  ])('shows the department filter only when there is a choice: %j', ({ departments, isGlobalAdministrator, visible }) => {
+    renderPage(true, undefined, true, isGlobalAdministrator, departments);
+
+    if (visible) {
+      expect(screen.getByLabelText('Filter departments')).toBeInTheDocument();
+    } else {
+      expect(screen.queryByLabelText('Filter departments')).not.toBeInTheDocument();
+    }
+  });
+
   it.each([
     ['Assigned', 1],
     ['WaitingForSecondReview', 2],
@@ -330,6 +345,7 @@ describe('MessagesPage', () => {
     getCurrentUser.mockResolvedValue({
       userId: 1,
       permissions: ['message.view', 'message.assign'],
+      departments: [20],
     });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByLabelText('Messages')).toBeInTheDocument();
@@ -359,6 +375,7 @@ describe('MessagesPage', () => {
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       permissions: ['message.view', 'review.level1'],
+      departments: [20],
       scopes: [
         {
           branchId: 10,
@@ -728,6 +745,7 @@ describe('queue row actions and colours', () => {
       permissions,
       isGlobalAdministrator,
       scopes: [{ branchId: 10, departmentId: 20, permissions }],
+      departments: [20],
     });
     return render(
       <QueryClientProvider client={client}>
