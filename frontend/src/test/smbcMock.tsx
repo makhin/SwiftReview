@@ -61,3 +61,42 @@ export function Field({
     </div>
   );
 }
+
+export function Select({
+  options,
+  value,
+  optionValue,
+  optionLabel,
+  onChange,
+  devExtremeProps,
+}: {
+  options: Record<string, unknown>[];
+  value: unknown;
+  optionValue: string;
+  optionLabel: string;
+  onChange: (value: unknown) => void;
+  devExtremeProps?: { inputAttr?: HTMLAttributes<HTMLSelectElement> };
+}) {
+  return (
+    <select
+      {...devExtremeProps?.inputAttr}
+      value={String(value ?? '')}
+      onChange={(event) =>
+        onChange(
+          options.find(
+            (option) => String(option[optionValue]) === event.target.value,
+          )?.[optionValue],
+        )
+      }
+    >
+      {options.map((option) => (
+        <option
+          key={String(option[optionValue])}
+          value={String(option[optionValue])}
+        >
+          {String(option[optionLabel])}
+        </option>
+      ))}
+    </select>
+  );
+}

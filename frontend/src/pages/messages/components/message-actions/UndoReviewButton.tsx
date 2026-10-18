@@ -1,4 +1,7 @@
-import { Field, Button, Dialog, TextArea } from '@smbc/ui';
+import ActionDialog, {
+  DialogActions,
+} from '../../../../shared/components/ActionDialog';
+import { Field, Button, TextArea } from '@smbc/ui';
 import { useId, useState } from 'react';
 
 import { useNotify } from '../../../../shared/notifications/notifications';
@@ -61,67 +64,59 @@ export default function UndoReviewButton({
         devExtremeProps={{ hint: 'Undo the latest approval' }}
       />
       {open && (
-        <Dialog
-          open
+        <ActionDialog
           title="Undo approval"
-          showCloseButton={!pending}
-          closeOnOutsideClick={!pending}
-          width="90vw"
+          busy={pending}
+          isLocked={mutation.isLocked}
           onClose={() => {
-            if (!pending && !mutation.isLocked()) setOpen(false);
+            setOpen(false);
           }}
           devExtremeProps={{
-            showTitle: true,
-            dragEnabled: false,
-            maxWidth: 520,
-            height: 'auto',
             elementAttr: { 'aria-label': 'Undo approval' },
           }}
         >
-          <div className="review-decision-popup__content flex flex-col gap-4 p-4">
+          <p>
+            Undo the latest approval for <strong>{message.externalId}</strong>?
+            Assignment retention follows the workflow policy.
+          </p>
+          {message.activeReviewId != null && (
             <p>
-              Undo the latest approval for <strong>{message.externalId}</strong>
-              ? Assignment retention follows the workflow policy.
+              The active next review will also be cancelled. Its history will be
+              preserved.
             </p>
-            {message.activeReviewId != null && (
-              <p>
-                The active next review will also be cancelled. Its history will
-                be preserved.
-              </p>
-            )}
-            <Field label="Comment (optional)" id={commentId}>
-              <TextArea
-                value={comment}
-                onChange={(event) => setComment(event)}
-                disabled={pending}
-                devExtremeProps={{
-                  maxLength: 2000,
-                  minHeight: 112,
-                  inputAttr: {
-                    id: commentId,
-                    'aria-label': 'Comment (optional)',
-                  },
-                }}
-              />
-            </Field>
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                disabled={!available || pending}
-                onClick={() => submit()}
-                variant="primary"
-                children={pending ? 'Undoing…' : 'Confirm undo'}
-              />
-              <Button
-                disabled={pending}
-                onClick={() => {
-                  if (!mutation.isLocked()) setOpen(false);
-                }}
-                variant="secondary"
-                children="Cancel"
-              />
-            </div>
-          </div>
-        </Dialog>
+          )}
+          <Field label="Comment (optional)" id={commentId}>
+            <TextArea
+              value={comment}
+              onChange={(event) => setComment(event)}
+              disabled={pending}
+              devExtremeProps={{
+                maxLength: 2000,
+                minHeight: 112,
+                inputAttr: {
+                  id: commentId,
+                  'aria-label': 'Comment (optional)',
+                },
+              }}
+            />
+          </Field>
+          <DialogActions>
+            <Button
+              disabled={!available || pending}
+              onClick={() => submit()}
+              variant="primary"
+              children={pending ? 'Undoing…' : 'Confirm undo'}
+            />
+            <Button
+              disabled={pending}
+              onClick={() => {
+                if (!mutation.isLocked()) setOpen(false);
+              }}
+              variant="secondary"
+              children="Cancel"
+            />
+          </DialogActions>
+        </ActionDialog>
       )}
     </>
   );

@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
-import { checkUnsavedChanges } from './check-unsaved-changes.mjs';
+import {
+  checkUnsavedChanges,
+  checkEditorSafety,
+} from './check-unsaved-changes.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const artifacts = resolve(root, 'artifacts/smbc');
@@ -268,8 +271,11 @@ try {
     confirmationPage.setDefaultTimeout(10000);
     await installRoutes(confirmationPage);
     await checkUnsavedChanges(confirmationPage, base);
+    await checkEditorSafety(confirmationPage, base);
     await confirmationPage.close();
-    console.log(`PASS: repeated unsaved user/role/tab cancellation and discard (${reducedMotion}), no retries.`);
+    console.log(
+      `PASS: unsaved user/role/tab/route protection, browser unload, in-flight save lock and repeated cancellation (${reducedMotion}), no retries.`,
+    );
   }
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
@@ -295,10 +301,45 @@ try {
   const beforeRefresh = countGrid();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await waitFor(() => countGrid() > beforeRefresh);
+  await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
+  const moreActions = grid
+    .getByRole('button', { name: 'More', exact: true })
+    .first();
+  await moreActions.click();
+  const actions = page.getByRole('group', {
+    name: 'More message actions',
+    exact: true,
+  });
+  await page.waitForFunction(
+    (element) => element.contains(document.activeElement),
+    await actions.elementHandle(),
+  );
+  await page.keyboard.press('End');
+  assert(
+    await actions.evaluate((element) =>
+      element.contains(document.activeElement),
+    ),
+  );
+  await page.keyboard.press('Home');
+  assert(
+    await actions.evaluate((element) =>
+      element.contains(document.activeElement),
+    ),
+  );
+  await page.screenshot({
+    path: resolve(artifacts, 'message-actions-1440.png'),
+  });
+  await page.keyboard.press('Escape');
+  await actions.waitFor({ state: 'hidden' });
+  await page.waitForFunction(
+    (element) => element === document.activeElement,
+    await moreActions.elementHandle(),
+  );
   const auditTrigger = page.getByRole('button', {
     name: 'View audit trail',
     exact: true,
   });
+  await grid.getByRole('button', { name: 'More', exact: true }).first().click();
   await auditTrigger.click();
   const audit = page.getByRole('dialog', { name: 'Audit trail', exact: true });
   await audit.getByText('Message registered', { exact: true }).waitFor();
@@ -315,7 +356,10 @@ try {
   await audit.waitFor({ state: 'hidden' });
   await page.waitForFunction(
     (element) => element === document.activeElement,
-    await auditTrigger.elementHandle(),
+    await grid
+      .getByRole('button', { name: 'More', exact: true })
+      .first()
+      .elementHandle(),
   );
   await page.getByRole('button', { name: 'View', exact: true }).click();
   const view = page.getByRole('dialog', { name: 'View message', exact: true });
@@ -323,14 +367,21 @@ try {
     .getByLabel('Raw message content')
     .getByText('SWIFT MESSAGE BODY', { exact: true })
     .waitFor();
-  await page.waitForFunction((element) => element.contains(document.activeElement), await view.elementHandle());
+  await page.waitForFunction(
+    (element) => element.contains(document.activeElement),
+    await view.elementHandle(),
+  );
   await page.keyboard.press('Escape');
   await view.waitFor({ state: 'hidden' });
+  await grid.getByRole('button', { name: 'More', exact: true }).first().click();
   await page.getByRole('button', { name: 'PDF', exact: true }).click();
   await page.getByRole('img', { name: 'PDF page 1', exact: true }).waitFor();
   await page.getByRole('link', { name: 'Download PDF', exact: true }).waitFor();
-  await page.waitForFunction(() => document.querySelector('[role=dialog]')?.contains(document.activeElement));
+  await page.waitForFunction(() =>
+    document.querySelector('[role=dialog]')?.contains(document.activeElement),
+  );
   await page.keyboard.press('Escape');
+  await grid.getByRole('button', { name: 'More', exact: true }).first().click();
   await page.getByRole('button', { name: 'Assign', exact: true }).click();
   await page.getByLabel('Reviewer', { exact: true }).click();
   await page.getByRole('option', { name: 'Sam Lee', exact: true }).click();
@@ -354,7 +405,9 @@ try {
     )
     .waitFor();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
+  await page
+    .locator('.dx-loadpanel-content:visible')
+    .waitFor({ state: 'hidden' });
   await page.screenshot({
     path: resolve(artifacts, 'messages-1440.png'),
     fullPage: true,
@@ -386,6 +439,9 @@ try {
     .click();
   await page.getByLabel('Role', { exact: true }).click();
   await page.getByRole('option', { name: 'Reviewer', exact: true }).click();
+  await page.getByLabel('Role permissions', { exact: true }).click();
+  await page.getByRole('option', { name: 'audit.view', exact: true }).click();
+  await page.keyboard.press('Escape');
   await page
     .getByRole('button', { name: 'Save permissions', exact: true })
     .click();
@@ -397,7 +453,9 @@ try {
         request.method === 'PUT',
     ),
   );
-  await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
+  await page
+    .locator('.dx-loadpanel-content:visible')
+    .waitFor({ state: 'hidden' });
   await page.screenshot({
     path: resolve(artifacts, 'administration-1440.png'),
     fullPage: true,
@@ -421,8 +479,19 @@ try {
   );
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
-  await page.screenshot({
+    await page.getByText('Global administrator', { exact: true }).waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    assert(
+      await page.evaluate(() =>
+        parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) >=
+        document.querySelector('.global-header').getBoundingClientRect().height,
+      ),
+      `Scroll offset must clear the sticky header at ${width}px`,
+    );
+    await page
+      .locator('.dx-loadpanel-content:visible')
+      .waitFor({ state: 'hidden' });
+    await page.screenshot({
       path: resolve(artifacts, `profile-${width}.png`),
       fullPage: true,
     });
@@ -436,11 +505,60 @@ try {
       await page
         .getByRole('button', { name: 'Open navigation', exact: true })
         .click();
+      const navigation = page.getByRole('dialog', {
+        name: 'Navigation',
+        exact: true,
+      });
+      await page.waitForFunction(() =>
+        document
+          .querySelector('#application-navigation')
+          ?.contains(document.activeElement),
+      );
+      await page.keyboard.press('Shift+Tab');
+      assert(
+        await navigation.evaluate((element) =>
+          element.contains(document.activeElement),
+        ),
+      );
+      await page.keyboard.press('Tab');
+      assert(
+        await navigation.evaluate((element) =>
+          element.contains(document.activeElement),
+        ),
+      );
+      await page.keyboard.press('Escape');
+      const navTrigger = page.getByRole('button', {
+        name: 'Open navigation',
+        exact: true,
+      });
+      await navTrigger.waitFor();
+      await page.waitForFunction(
+        (element) => element === document.activeElement,
+        await navTrigger.elementHandle(),
+      );
+      await navTrigger.click();
       await page.getByRole('link', { name: 'Messages', exact: true }).click();
       await grid.locator('.dx-data-row').first().waitFor();
-      await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
-      await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
-  await page.screenshot({
+      const stageFilter = page.getByRole('combobox', { name: 'Filter by state', exact: true });
+      await stageFilter.click();
+      await page
+        .getByRole('option', { name: 'Unassigned (25)', exact: true })
+        .click();
+      await waitFor(() =>
+        requests.some((request) => request.query.filter?.includes('New')),
+      );
+      await stageFilter.click();
+      await page
+        .getByRole('option', { name: 'Total Messages (25)', exact: true })
+        .click();
+
+      await page
+        .locator('.dx-loadpanel-content:visible')
+        .waitFor({ state: 'hidden' });
+      await page
+        .locator('.dx-loadpanel-content:visible')
+        .waitFor({ state: 'hidden' });
+      await page.screenshot({
         path: resolve(artifacts, 'messages-320.png'),
         fullPage: true,
       });
@@ -453,6 +571,10 @@ try {
         ),
         'Mobile grid overflows page',
       );
+      await grid
+        .getByRole('button', { name: 'More', exact: true })
+        .first()
+        .click();
       await page
         .getByRole('button', { name: 'View audit trail', exact: true })
         .first()
@@ -465,8 +587,10 @@ try {
         .getByText('Message registered', { exact: true })
         .waitFor();
       assert((await mobileAudit.boundingBox()).width <= width);
-      await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
-  await page.screenshot({
+      await page
+        .locator('.dx-loadpanel-content:visible')
+        .waitFor({ state: 'hidden' });
+      await page.screenshot({
         path: resolve(artifacts, 'audit-320.png'),
         fullPage: true,
       });
@@ -476,18 +600,39 @@ try {
     }
   }
   // Exercise the audit focus lifecycle with normal vendor animations too.
-  const animated = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
+  const animated = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+    reducedMotion: 'no-preference',
+  });
   animated.setDefaultTimeout(10000);
   await installRoutes(animated);
   await animated.goto(`${base}messages`);
-  const animatedTrigger = animated.getByRole('button', { name: 'View audit trail', exact: true }).first();
+  const animatedTrigger = animated
+    .getByRole('button', { name: 'View audit trail', exact: true })
+    .first();
+  const moreTrigger = animated
+    .getByRole('button', { name: 'More', exact: true })
+    .first();
+  await moreTrigger.click();
   await animatedTrigger.click();
-  const animatedAudit = animated.getByRole('dialog', { name: 'Audit trail', exact: true });
-  await animatedAudit.getByText('Message registered', { exact: true }).waitFor();
-  await animated.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Close audit trail');
+  const animatedAudit = animated.getByRole('dialog', {
+    name: 'Audit trail',
+    exact: true,
+  });
+  await animatedAudit
+    .getByText('Message registered', { exact: true })
+    .waitFor();
+  await animated.waitForFunction(
+    () =>
+      document.activeElement?.getAttribute('aria-label') ===
+      'Close audit trail',
+  );
   await animated.keyboard.press('Escape');
   await animatedAudit.waitFor({ state: 'hidden' });
-  await animated.waitForFunction((element) => element === document.activeElement, await animatedTrigger.elementHandle());
+  await animated.waitForFunction(
+    (element) => element === document.activeElement,
+    await moreTrigger.elementHandle(),
+  );
   await animated.close();
   assert.deepEqual(errors, []);
   await writeFile(

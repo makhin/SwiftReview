@@ -1,3 +1,10 @@
+.audit-drawer {
+  position: fixed !important;
+  z-index: 150;
+  inset: 0;
+  min-width: 0;
+}
+
 .audit-event:not(:last-child)::before {
   position: absolute;
   top: var(--space-3);

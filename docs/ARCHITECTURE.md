@@ -298,6 +298,11 @@ The review popup uses a reducer-based client state machine. It keeps the returne
 
 The frontend consumes versioned `@smbc/ui` and `@smbc/devextreme-theme` archives from `frontend/vendor`. The theme package owns tokens, generated DevExtreme styles and brand assets; UI owns reusable controls. Application composition uses semantic Tailwind utilities through a single layered CSS entry. Direct DevExtreme imports are restricted by ESLint. Grid `CustomStore` and configuration types are exposed through `@smbc/ui/data-grid`; server loading and HTTP contracts are unchanged.
 
+PageLayout/PageHeader own page spacing and headings. MessagesGrid owns server grid configuration and filtering; MessageRowActions owns action presentation, and MessageDialogs renders one selected message action. Mobile stage filters use a compact select; secondary row actions use a keyboard-accessible native popover. ActionDialog supplies shared dialog layout and close protection while feature hooks retain mutation/recovery rules.
+
+Each keyed administration editor owns its draft and saved baseline. The navigation guard reads the active editor through an imperative handle: it blocks switching while a save is in flight and confirms dirty internal/route transitions. Browser unload uses the native confirmation. Successful mutations update only their editor's baseline. Overlay navigation and audit share focus containment, Escape dismissal and background inertness through useModalFocus.
+
+
 ## 7. End-to-end example: approving a message
 
 1. The grid loads accessible rows from its `CustomStore`.

@@ -23,10 +23,6 @@
   padding: var(--space-1) var(--space-2);
 }
 
-.message-actions .message-actions__icon-button .dx-button-content {
-  padding: var(--space-1);
-}
-
 @media (max-width: 767px) {
   .audit-drawer.dx-drawer-overlap
     > .dx-drawer-wrapper
@@ -38,17 +34,14 @@
 }
 
 .message-grid-results .dx-data-row.message-review-level-1 {
-  --review-accent: var(--color-review-level-1);
   --review-surface: var(--color-review-level-1-surface);
 }
 
 .message-grid-results .dx-data-row.message-review-level-2 {
-  --review-accent: var(--color-review-level-2);
   --review-surface: var(--color-review-level-2-surface);
 }
 
 .message-grid-results .dx-data-row.message-review-level-3 {
-  --review-accent: var(--color-review-level-3);
   --review-surface: var(--color-review-level-3-surface);
 }
 

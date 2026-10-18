@@ -1,12 +1,33 @@
+vi.mock('../../shared/components/ActionMenu', () => ({
+  default: ({ children }: PropsWithChildren) => <div>{children}</div>,
+}));
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useImperativeHandle, type PropsWithChildren, type Ref } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { componentProps, refreshGrid, getCurrentUser, getMessageStates, rowOverrides, summary, gridFilter, gridPageIndex } = vi.hoisted(() => ({
+const {
+  componentProps,
+  refreshGrid,
+  getCurrentUser,
+  getMessageStates,
+  rowOverrides,
+  summary,
+  gridFilter,
+  gridPageIndex,
+} = vi.hoisted(() => ({
   componentProps: vi.fn(),
-  summary: vi.fn().mockResolvedValue({ totalMessages: 20, viewOnly: 0, unassigned: 15, pendingFirstConfirmation: 5, pendingSecondConfirmation: 0, completed: 0 }),
+  summary: vi
+    .fn()
+    .mockResolvedValue({
+      totalMessages: 20,
+      viewOnly: 0,
+      unassigned: 15,
+      pendingFirstConfirmation: 5,
+      pendingSecondConfirmation: 0,
+      completed: 0,
+    }),
   gridFilter: vi.fn(),
   gridPageIndex: vi.fn(),
   refreshGrid: vi.fn(),
@@ -15,7 +36,10 @@ const { componentProps, refreshGrid, getCurrentUser, getMessageStates, rowOverri
   rowOverrides: {} as Record<string, unknown>,
 }));
 
-vi.mock('./api/messagesApi', async (original) => ({ ...await original<typeof import('./api/messagesApi')>(), getDashboardSummary: summary }));
+vi.mock('./api/messagesApi', async (original) => ({
+  ...(await original<typeof import('./api/messagesApi')>()),
+  getDashboardSummary: summary,
+}));
 
 vi.mock('../../shared/api/referenceDataApi', () => ({
   getBranches: vi.fn(() => new Promise(() => undefined)),
@@ -29,35 +53,52 @@ vi.mock('../../shared/api/currentUserApi', () => ({
   getCurrentUser,
 }));
 
-
-
-
-
-
 vi.mock('./components/AuditTrailDrawer/AuditTrailDrawer', () => ({
-  default: ({ message, onClose }: { message: { externalId: string }; onClose: () => void }) => (
+  default: ({
+    message,
+    onClose,
+  }: {
+    message: { externalId: string };
+    onClose: () => void;
+  }) => (
     <aside aria-label="Audit trail">
       {message.externalId}
-      <button type="button" onClick={onClose}>Close</button>
+      <button type="button" onClick={onClose}>
+        Close
+      </button>
     </aside>
   ),
 }));
 vi.mock('./components/message-actions/AssignmentPopup', () => ({
-  default: ({ message, onClose, onChanged }: {
+  default: ({
+    message,
+    onClose,
+    onChanged,
+  }: {
     message: { externalId: string };
     onClose: () => void;
     onChanged: () => void;
   }) => (
     <aside aria-label="Assignment dialog">
       {message.externalId}
-      <button type="button" onClick={onChanged}>Save assignment</button>
-      <button type="button" onClick={onClose}>Close assignment</button>
+      <button type="button" onClick={onChanged}>
+        Save assignment
+      </button>
+      <button type="button" onClick={onClose}>
+        Close assignment
+      </button>
     </aside>
   ),
 }));
 
 vi.mock('./components/message-actions/ReviewDecisionPopup', () => ({
-  default: ({ message, canApprove, canReject, onClose, onChanged }: {
+  default: ({
+    message,
+    canApprove,
+    canReject,
+    onClose,
+    onChanged,
+  }: {
     message: { externalId: string };
     canApprove: boolean;
     canReject: boolean;
@@ -66,10 +107,18 @@ vi.mock('./components/message-actions/ReviewDecisionPopup', () => ({
   }) => (
     <aside aria-label="Review dialog">
       {message.externalId}
-      <button type="button" disabled={!canApprove}>Approve</button>
-      <button type="button" disabled={!canReject}>Reject</button>
-      <button type="button" onClick={onChanged}>Save review</button>
-      <button type="button" onClick={onClose}>Close review</button>
+      <button type="button" disabled={!canApprove}>
+        Approve
+      </button>
+      <button type="button" disabled={!canReject}>
+        Reject
+      </button>
+      <button type="button" onClick={onChanged}>
+        Save review
+      </button>
+      <button type="button" onClick={onClose}>
+        Close review
+      </button>
     </aside>
   ),
 }));
@@ -93,14 +142,18 @@ function renderPage(
       userName: 'alex.morgan',
       permissions,
       isGlobalAdministrator,
-      scopes: isGlobalAdministrator ? [] : [{ branchId: 10, departmentId: 20, roleIds: [1], permissions }],
+      scopes: isGlobalAdministrator
+        ? []
+        : [{ branchId: 10, departmentId: 20, roleIds: [1], permissions }],
       branches: [10],
       departments: [20],
     });
   }
 
   if (withReferenceData) {
-    queryClient.setQueryData(referenceDataKeys.workflows, [{ id: 1, rejectAllowed: true }]);
+    queryClient.setQueryData(referenceDataKeys.workflows, [
+      { id: 1, rejectAllowed: true },
+    ]);
     queryClient.setQueryData(referenceDataKeys.users, [
       {
         id: 1,
@@ -124,7 +177,9 @@ function renderPage(
         departmentIds: [],
       },
     ]);
-    queryClient.setQueryData(referenceDataKeys.branches, [{ id: 10, name: 'Warsaw' }]);
+    queryClient.setQueryData(referenceDataKeys.branches, [
+      { id: 10, name: 'Warsaw' },
+    ]);
     queryClient.setQueryData(referenceDataKeys.departments, [
       { id: 20, name: 'Operations' },
       { id: 30, name: 'Compliance' },
@@ -139,7 +194,10 @@ function renderPage(
       <MemoryRouter initialEntries={['/messages']}>
         <Routes>
           <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/messages/assigned" element={<main>Assigned messages page</main>} />
+          <Route
+            path="/messages/assigned"
+            element={<main>Assigned messages page</main>}
+          />
           <Route path="/me" element={<main>User profile</main>} />
         </Routes>
       </MemoryRouter>
@@ -148,17 +206,39 @@ function renderPage(
 }
 
 describe('MessagesPage', () => {
-  it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)(
-    'uses the shared stage colours in the administrator assignment grid: %s', (state, level) => {
+  it.each([
+    ['Assigned', 1],
+    ['WaitingForSecondReview', 2],
+    ['ThirdReviewInProgress', 3],
+  ] as const)(
+    'uses the shared stage colours in the administrator assignment grid: %s',
+    (state, level) => {
       renderPage(true, [], true, true);
-      expect(screen.getByText('Messages that need your attention are marked with a green line.')).toBeInTheDocument();
-      const prepare = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
+      expect(
+        screen.getByText(
+          'Messages that need your attention are marked with a green line.',
+        ),
+      ).toBeInTheDocument();
+      const prepare = componentProps.mock.calls
+        .filter(([name]) => name === 'DataGrid')
+        .at(-1)![1].onRowPrepared;
       const rowElement = document.createElement('tr');
-      prepare({ rowType: 'data', rowElement, data: { state, currentAssigneeId: 7 } });
+      prepare({
+        rowType: 'data',
+        rowElement,
+        data: { state, currentAssigneeId: 7 },
+      });
       expect(rowElement).toHaveClass(`message-review-level-${level}`);
       expect(rowElement).not.toHaveClass('message-assigned-to-you');
-      prepare({ rowType: 'data', rowElement, data: { state, currentAssigneeId: 1 } });
-      expect(rowElement).toHaveClass(`message-review-level-${level}`, 'message-assigned-to-you');
+      prepare({
+        rowType: 'data',
+        rowElement,
+        data: { state, currentAssigneeId: 1 },
+      });
+      expect(rowElement).toHaveClass(
+        `message-review-level-${level}`,
+        'message-assigned-to-you',
+      );
     },
   );
   it('shows Undo to a global administrator in the assignment grid', () => {
@@ -173,15 +253,29 @@ describe('MessagesPage', () => {
   });
 
   it('does not expose Undo outside the permission scope', () => {
-    Object.assign(rowOverrides, { branchId: 99, departmentId: 99, undoReviewId: null });
+    Object.assign(rowOverrides, {
+      branchId: 99,
+      departmentId: 99,
+      undoReviewId: null,
+    });
     renderPage(true, ['message.view', 'message.assign', 'review.undo']);
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Undo' }),
+    ).not.toBeInTheDocument();
   });
 
   it('allows an administrator without permissions to review another users message from this page', () => {
-    Object.assign(rowOverrides, { state: 'SecondReviewInProgress', currentAssigneeId: 7, activeReviewerId: 7, branchId: 99, departmentId: 99 });
+    Object.assign(rowOverrides, {
+      state: 'SecondReviewInProgress',
+      currentAssigneeId: 7,
+      activeReviewerId: 7,
+      branchId: 99,
+      departmentId: 99,
+    });
     renderPage(true, [], true, true);
-    expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'View audit trail' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
@@ -195,7 +289,9 @@ describe('MessagesPage', () => {
   beforeEach(() => {
     componentProps.mockClear();
     refreshGrid.mockReset();
-    getCurrentUser.mockReset().mockImplementation(() => new Promise(() => undefined));
+    getCurrentUser
+      .mockReset()
+      .mockImplementation(() => new Promise(() => undefined));
     for (const key of Object.keys(rowOverrides)) delete rowOverrides[key];
   });
 
@@ -211,16 +307,24 @@ describe('MessagesPage', () => {
 
   it('refreshes the existing messages grid on request', async () => {
     renderPage();
-    expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Messages' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Refresh' }),
+      ).toBeInTheDocument(),
+    );
     expect(refreshGrid).toHaveBeenCalledOnce();
   });
 
   it('retries a failed current-user request before granting access', async () => {
     getCurrentUser.mockRejectedValueOnce(new Error('Network unavailable'));
     renderPage(true, undefined, false);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to verify access');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to verify access',
+    );
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
 
     getCurrentUser.mockResolvedValue({
@@ -249,19 +353,32 @@ describe('MessagesPage', () => {
   it('opens a combined review, refreshes after saving and restores focus when closed', async () => {
     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1 });
     const queryClient = createTestQueryClient();
-    queryClient.setQueryData(referenceDataKeys.workflows, [{ id: 1, rejectAllowed: true }]);
+    queryClient.setQueryData(referenceDataKeys.workflows, [
+      { id: 1, rejectAllowed: true },
+    ]);
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       permissions: ['message.view', 'review.level1'],
-      scopes: [{ branchId: 10, departmentId: 20, roleIds: [1], permissions: ['message.view', 'review.level1'] }],
+      scopes: [
+        {
+          branchId: 10,
+          departmentId: 20,
+          roleIds: [1],
+          permissions: ['message.view', 'review.level1'],
+        },
+      ],
     });
     render(
       <QueryClientProvider client={queryClient}>
         <MessagesGrid dataSource={messageDataSource} enableReviewActions />
       </QueryClientProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Approve' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Reject' }),
+    ).not.toBeInTheDocument();
     const trigger = screen.getByRole('button', { name: 'Review' });
     trigger.focus();
     fireEvent.click(trigger);
@@ -282,19 +399,25 @@ describe('MessagesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save assignment' }));
     expect(refreshGrid).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Close assignment' }));
-    expect(screen.queryByLabelText('Assignment dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Assignment dialog'),
+    ).not.toBeInTheDocument();
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('configures the remote messages grid', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Messages' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Messages' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('max-w-none');
     expect(screen.getByLabelText('Messages')).toBeInTheDocument();
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
 
-    const dataGridProps = componentProps.mock.calls.find(([name]) => name === 'DataGrid')?.[1];
+    const dataGridProps = componentProps.mock.calls.find(
+      ([name]) => name === 'DataGrid',
+    )?.[1];
     expect(dataGridProps).toMatchObject({
       remoteOperations: true,
       rowAlternationEnabled: true,
@@ -302,7 +425,9 @@ describe('MessagesPage', () => {
       width: '100%',
     });
 
-    const pagingProps = componentProps.mock.calls.find(([name]) => name === 'Paging')?.[1];
+    const pagingProps = componentProps.mock.calls.find(
+      ([name]) => name === 'Paging',
+    )?.[1];
     expect(pagingProps).toMatchObject({ defaultPageSize: 20 });
 
     const captions = componentProps.mock.calls
@@ -335,9 +460,7 @@ describe('MessagesPage', () => {
       .filter(
         ([name, props]) =>
           name === 'Column' &&
-          ['branchId', 'state', 'currentAssigneeId'].includes(
-            props.dataField,
-          ),
+          ['branchId', 'state', 'currentAssigneeId'].includes(props.dataField),
       )
       .map(([, props]) => props);
     expect(lookupColumns).toHaveLength(3);
@@ -345,7 +468,10 @@ describe('MessagesPage', () => {
       expect.arrayContaining([
         expect.objectContaining({ dataField: 'branchId', allowSorting: false }),
         expect.objectContaining({ dataField: 'state' }),
-        expect.objectContaining({ dataField: 'currentAssigneeId', allowSorting: false }),
+        expect.objectContaining({
+          dataField: 'currentAssigneeId',
+          allowSorting: false,
+        }),
       ]),
     );
 
@@ -361,7 +487,10 @@ describe('MessagesPage', () => {
       },
       {
         dataSource: [
-          { code: 'WaitingForSecondReview', label: 'Waiting for second review' },
+          {
+            code: 'WaitingForSecondReview',
+            label: 'Waiting for second review',
+          },
         ],
         valueExpr: 'code',
         displayExpr: 'label',
@@ -417,7 +546,9 @@ describe('MessagesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
-    expect(screen.getByLabelText('Review dialog')).toHaveTextContent('MSG-0042');
+    expect(screen.getByLabelText('Review dialog')).toHaveTextContent(
+      'MSG-0042',
+    );
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
@@ -427,28 +558,39 @@ describe('MessagesPage', () => {
   it('shows manual assignment only with permission', () => {
     rowOverrides.canAssign = false;
     const withoutPermission = renderPage();
-    expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Assign' }),
+    ).not.toBeInTheDocument();
     withoutPermission.unmount();
     rowOverrides.canAssign = true;
 
     renderPage(true, ['message.view', 'message.assign']);
     fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
-    expect(screen.getByLabelText('Assignment dialog')).toHaveTextContent('MSG-0042');
-    expect(screen.queryByRole('button', { name: 'Reassign' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Assignment dialog')).toHaveTextContent(
+      'MSG-0042',
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Reassign' }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows the audit action only with permission and opens the right-side drawer', () => {
-    const view = renderPage(true, ['message.view', 'message.assign', 'audit.view']);
+    const view = renderPage(true, [
+      'message.view',
+      'message.assign',
+      'audit.view',
+    ]);
     view.container.id = 'root';
 
     expect(screen.getAllByTestId('Column')).toHaveLength(11);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'View audit trail' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'View audit trail' }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
 
     expect(screen.getByLabelText('Audit trail')).toHaveTextContent('MSG-0042');
-    expect(view.container).toHaveAttribute('inert');
     const drawerProps = componentProps.mock.calls
       .filter(([name]) => name === 'Drawer')
       .at(-1)?.[1];
@@ -461,17 +603,20 @@ describe('MessagesPage', () => {
       closeOnOutsideClick: true,
     });
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByLabelText('Audit trail')).not.toBeInTheDocument();
     expect(view.container).not.toHaveAttribute('inert');
   });
 
   it('disables audit drawer animation when reduced motion is requested', () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })));
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
     renderPage(true, ['message.view', 'message.assign', 'audit.view']);
 
     fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
@@ -493,12 +638,16 @@ describe('MessagesPage', () => {
     renderPage(true, ['message.view']);
     expect(screen.getByText('Assigned messages page')).toBeInTheDocument();
     expect(screen.queryByLabelText('Messages')).not.toBeInTheDocument();
-    expect(componentProps.mock.calls.some(([name]) => name === 'DataGrid')).toBe(false);
+    expect(
+      componentProps.mock.calls.some(([name]) => name === 'DataGrid'),
+    ).toBe(false);
   });
 
   it('uses department IDs until department metadata is available', () => {
     const queryClient = createTestQueryClient();
-    queryClient.setQueryData(referenceDataKeys.workflows, [{ id: 1, rejectAllowed: true }]);
+    queryClient.setQueryData(referenceDataKeys.workflows, [
+      { id: 1, rejectAllowed: true },
+    ]);
     queryClient.setQueryData(['current-user'], {
       userId: 1,
       userName: 'alex.morgan',
@@ -534,103 +683,219 @@ describe('MessagesPage', () => {
   });
 });
 
-
 describe('workflow action', () => {
   it('hides workflow changes when the server disallows them', () => {
     rowOverrides.canAssign = false;
     rowOverrides.canChangeWorkflow = false;
     renderPage(true, ['message.view', 'workflow.manage']);
-    expect(screen.queryByRole('button', { name: 'Change workflow' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Change workflow' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Assign' }),
+    ).not.toBeInTheDocument();
   });
 
   it('enables changing workflow when the server allows it', () => {
     rowOverrides.canChangeWorkflow = true;
     renderPage(true, [], true, true);
-    expect(componentProps).toHaveBeenCalledWith('Button', expect.objectContaining({ children: 'Change workflow', disabled: false }));
-    expect(screen.queryByTitle(/Workflow cannot be changed/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Change workflow' }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByTitle(/Workflow cannot be changed/),
+    ).not.toBeInTheDocument();
   });
 });
 
- describe('queue row actions and colours', () => {
-   beforeEach(() => { componentProps.mockClear(); for (const key of Object.keys(rowOverrides)) delete rowOverrides[key]; });
-   function queue(permissions = ['message.view', 'review.level1', 'review.level2', 'review.level3'], isGlobalAdministrator = false) {
-     const client = createTestQueryClient();
-     client.setQueryData(['current-user'], { userId: 1, permissions, isGlobalAdministrator, scopes: [{ branchId: 10, departmentId: 20, permissions }] });
-     return render(<QueryClientProvider client={client}><MessagesGrid dataSource={messageDataSource} enableReviewActions /></QueryClientProvider>);
-   }
-   it.each([['Assigned', 1], ['SecondReviewInProgress', 2], ['WaitingForThirdReview', 3]] as const)('highlights an actionable %s and clears recycled rows', (state, level) => {
-     Object.assign(rowOverrides, { state, currentAssigneeId: 1, activeReviewerId: 1, canReview: true });
-     queue();
-     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
-     const onRowPrepared = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
-     const rowElement = document.createElement('tr');
-     const data = { ...rowOverrides, branchId: 10, departmentId: 20 };
-     onRowPrepared({ rowType: 'data', rowElement, data });
-     expect(rowElement).toHaveClass(`message-review-level-${level}`);
-     onRowPrepared({ rowType: 'data', rowElement, data: { ...data, state: 'Completed', currentAssigneeId: null, canReview: false } });
-     expect(rowElement.className).toBe('');
-     fireEvent.click(screen.getByRole('button', { name: 'View' }));
-     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
-   });
-   it.each([
-     { state: 'Completed', currentAssigneeId: null, canReview: false },
-     { state: 'Assigned', currentAssigneeId: 7, canReview: false },
-     { state: 'Assigned', currentAssigneeId: 1, canReview: false },
-     { state: 'Assigned', currentAssigneeId: 1, canReview: false, departmentIds: [99] },
-   ])('hides Review when the row is not actionable: %j', (row) => {
-     Object.assign(rowOverrides, row); queue();
-     expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
-     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
-   });
-   it.each([7, null])('does not personally highlight an administrator-accessible row owned by %s', (owner) => {
-     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: owner, activeReviewerId: null, canReview: true });
-     queue([], true);
-     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
-     const rowElement = document.createElement('tr');
-     const data = { ...rowOverrides, branchId: 10, departmentId: 20 };
-     componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared({ rowType: 'data', rowElement, data });
-     expect(rowElement).toHaveClass('message-review-level-1');
-     expect(rowElement).not.toHaveClass('message-assigned-to-you');
-   });
+describe('queue row actions and colours', () => {
+  beforeEach(() => {
+    componentProps.mockClear();
+    for (const key of Object.keys(rowOverrides)) delete rowOverrides[key];
+  });
+  function queue(
+    permissions = [
+      'message.view',
+      'review.level1',
+      'review.level2',
+      'review.level3',
+    ],
+    isGlobalAdministrator = false,
+  ) {
+    const client = createTestQueryClient();
+    client.setQueryData(['current-user'], {
+      userId: 1,
+      permissions,
+      isGlobalAdministrator,
+      scopes: [{ branchId: 10, departmentId: 20, permissions }],
+    });
+    return render(
+      <QueryClientProvider client={client}>
+        <MessagesGrid dataSource={messageDataSource} enableReviewActions />
+      </QueryClientProvider>,
+    );
+  }
+  it.each([
+    ['Assigned', 1],
+    ['SecondReviewInProgress', 2],
+    ['WaitingForThirdReview', 3],
+  ] as const)(
+    'highlights an actionable %s and clears recycled rows',
+    (state, level) => {
+      Object.assign(rowOverrides, {
+        state,
+        currentAssigneeId: 1,
+        activeReviewerId: 1,
+        canReview: true,
+      });
+      queue();
+      expect(
+        screen.getByRole('button', { name: 'Review' }),
+      ).toBeInTheDocument();
+      const onRowPrepared = componentProps.mock.calls
+        .filter(([name]) => name === 'DataGrid')
+        .at(-1)![1].onRowPrepared;
+      const rowElement = document.createElement('tr');
+      const data = { ...rowOverrides, branchId: 10, departmentId: 20 };
+      onRowPrepared({ rowType: 'data', rowElement, data });
+      expect(rowElement).toHaveClass(`message-review-level-${level}`);
+      onRowPrepared({
+        rowType: 'data',
+        rowElement,
+        data: {
+          ...data,
+          state: 'Completed',
+          currentAssigneeId: null,
+          canReview: false,
+        },
+      });
+      expect(rowElement.className).toBe('');
+      fireEvent.click(screen.getByRole('button', { name: 'View' }));
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    },
+  );
+  it.each([
+    { state: 'Completed', currentAssigneeId: null, canReview: false },
+    { state: 'Assigned', currentAssigneeId: 7, canReview: false },
+    { state: 'Assigned', currentAssigneeId: 1, canReview: false },
+    {
+      state: 'Assigned',
+      currentAssigneeId: 1,
+      canReview: false,
+      departmentIds: [99],
+    },
+  ])('hides Review when the row is not actionable: %j', (row) => {
+    Object.assign(rowOverrides, row);
+    queue();
+    expect(
+      screen.queryByRole('button', { name: 'Review' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+  it.each([7, null])(
+    'does not personally highlight an administrator-accessible row owned by %s',
+    (owner) => {
+      Object.assign(rowOverrides, {
+        state: 'Assigned',
+        currentAssigneeId: owner,
+        activeReviewerId: null,
+        canReview: true,
+      });
+      queue([], true);
+      expect(
+        screen.getByRole('button', { name: 'Review' }),
+      ).toBeInTheDocument();
+      const rowElement = document.createElement('tr');
+      const data = { ...rowOverrides, branchId: 10, departmentId: 20 };
+      componentProps.mock.calls
+        .filter(([name]) => name === 'DataGrid')
+        .at(-1)![1]
+        .onRowPrepared({ rowType: 'data', rowElement, data });
+      expect(rowElement).toHaveClass('message-review-level-1');
+      expect(rowElement).not.toHaveClass('message-assigned-to-you');
+    },
+  );
 
-   it.each([true, false])('uses message rejection policy without a workflow catalog: %s', (rejectAllowed) => {
-     Object.assign(rowOverrides, { state: 'Assigned', currentAssigneeId: 1, rejectAllowed });
-     queue();
-     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
-     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
-     if (rejectAllowed) expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
-     else expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
-   });
-   it.each([['Assigned', 1], ['WaitingForSecondReview', 2], ['ThirdReviewInProgress', 3]] as const)('colours %s even without review rights and separately marks personal assignments', (state, level) => {
-     queue(['message.view']);
-     const rowElement = document.createElement('tr');
-     const data = { state, currentAssigneeId: 7, canReview: false };
-     const prepare = componentProps.mock.calls.filter(([name]) => name === 'DataGrid').at(-1)![1].onRowPrepared;
-     prepare({ rowType: 'data', rowElement, data });
-     expect(rowElement).toHaveClass(`message-review-level-${level}`);
-     expect(rowElement).not.toHaveClass('message-assigned-to-you');
-     prepare({ rowType: 'data', rowElement, data: { ...data, currentAssigneeId: '1' } });
-     expect(rowElement).toHaveClass(`message-review-level-${level}`, 'message-assigned-to-you');
-     prepare({ rowType: 'data', rowElement, data });
-     expect(rowElement).not.toHaveClass('message-assigned-to-you');
-   });
-
- });
+  it.each([true, false])(
+    'uses message rejection policy without a workflow catalog: %s',
+    (rejectAllowed) => {
+      Object.assign(rowOverrides, {
+        state: 'Assigned',
+        currentAssigneeId: 1,
+        rejectAllowed,
+      });
+      queue();
+      fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+      if (rejectAllowed)
+        expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
+      else
+        expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+    },
+  );
+  it.each([
+    ['Assigned', 1],
+    ['WaitingForSecondReview', 2],
+    ['ThirdReviewInProgress', 3],
+  ] as const)(
+    'colours %s even without review rights and separately marks personal assignments',
+    (state, level) => {
+      queue(['message.view']);
+      const rowElement = document.createElement('tr');
+      const data = { state, currentAssigneeId: 7, canReview: false };
+      const prepare = componentProps.mock.calls
+        .filter(([name]) => name === 'DataGrid')
+        .at(-1)![1].onRowPrepared;
+      prepare({ rowType: 'data', rowElement, data });
+      expect(rowElement).toHaveClass(`message-review-level-${level}`);
+      expect(rowElement).not.toHaveClass('message-assigned-to-you');
+      prepare({
+        rowType: 'data',
+        rowElement,
+        data: { ...data, currentAssigneeId: '1' },
+      });
+      expect(rowElement).toHaveClass(
+        `message-review-level-${level}`,
+        'message-assigned-to-you',
+      );
+      prepare({ rowType: 'data', rowElement, data });
+      expect(rowElement).not.toHaveClass('message-assigned-to-you');
+    },
+  );
+});
 
 describe('message state cards integration', () => {
-  beforeEach(() => { gridFilter.mockClear(); gridPageIndex.mockClear(); refreshGrid.mockClear(); summary.mockClear(); });
+  beforeEach(() => {
+    gridFilter.mockClear();
+    gridPageIndex.mockClear();
+    refreshGrid.mockClear();
+    summary.mockClear();
+  });
   it('loads server summary, filters by the business stage and clears only the card filter with Total', async () => {
     renderPage();
     expect(screen.getByRole('radio', { name: 'Total Messages' })).toBeChecked();
-    await waitFor(() => expect(screen.getByLabelText('20 messages')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByLabelText('20 messages')).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByRole('radio', { name: 'Unassigned' }));
     expect(gridPageIndex).toHaveBeenLastCalledWith(0);
     expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'New']);
-    fireEvent.click(screen.getByRole('radio', { name: 'Pending 1st Confirmation' }));
-    expect(gridFilter).toHaveBeenLastCalledWith([['state', '=', 'Assigned'], 'or', ['state', '=', 'FirstReviewInProgress']]);
-    fireEvent.click(screen.getByRole('radio', { name: 'Pending 2nd Confirmation' }));
-    expect(gridFilter).toHaveBeenLastCalledWith([['state', '=', 'WaitingForSecondReview'], 'or', ['state', '=', 'SecondReviewInProgress']]);
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Pending 1st Confirmation' }),
+    );
+    expect(gridFilter).toHaveBeenLastCalledWith([
+      ['state', '=', 'Assigned'],
+      'or',
+      ['state', '=', 'FirstReviewInProgress'],
+    ]);
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Pending 2nd Confirmation' }),
+    );
+    expect(gridFilter).toHaveBeenLastCalledWith([
+      ['state', '=', 'WaitingForSecondReview'],
+      'or',
+      ['state', '=', 'SecondReviewInProgress'],
+    ]);
     fireEvent.click(screen.getByRole('radio', { name: 'Completed' }));
     expect(gridFilter).toHaveBeenLastCalledWith(['state', '=', 'Completed']);
     fireEvent.click(screen.getByRole('radio', { name: 'Total Messages' }));
@@ -639,21 +904,37 @@ describe('message state cards integration', () => {
   it('refreshes the counts with the grid without clearing the selected card', async () => {
     renderPage();
     await waitFor(() => expect(summary).toHaveBeenCalled());
-    fireEvent.click(await screen.findByRole('radio', { name: 'Pending 1st Confirmation' }));
+    fireEvent.click(
+      await screen.findByRole('radio', { name: 'Pending 1st Confirmation' }),
+    );
     const before = summary.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(summary.mock.calls.length).toBeGreaterThan(before));
-    expect(screen.getByRole('radio', { name: 'Pending 1st Confirmation' })).toBeChecked();
+    await waitFor(() =>
+      expect(summary.mock.calls.length).toBeGreaterThan(before),
+    );
+    expect(
+      screen.getByRole('radio', { name: 'Pending 1st Confirmation' }),
+    ).toBeChecked();
     expect(refreshGrid).toHaveBeenCalledOnce();
   });
 });
 
 it('includes rejected and third-review messages only in Total Messages', async () => {
-  summary.mockResolvedValueOnce({ totalMessages: 25, unassigned: 15, pendingFirstConfirmation: 5, pendingSecondConfirmation: 0, completed: 0 });
+  summary.mockResolvedValueOnce({
+    totalMessages: 25,
+    unassigned: 15,
+    pendingFirstConfirmation: 5,
+    pendingSecondConfirmation: 0,
+    completed: 0,
+  });
   renderPage();
   expect(await screen.findByLabelText('25 messages')).toBeInTheDocument();
-  expect(screen.queryByRole('radio', { name: 'Rejected' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('radio', { name: 'Waiting for third review' })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('radio', { name: 'Rejected' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('radio', { name: 'Waiting for third review' }),
+  ).not.toBeInTheDocument();
 });
 
 it('keeps rejected and third-review states in the Stage column lookup', async () => {
@@ -662,174 +943,296 @@ it('keeps rejected and third-review states in the Stage column lookup', async ()
     { code: 'WaitingForThirdReview', label: 'Waiting for third review' },
   ]);
   renderPage(false);
-  await waitFor(() => expect(componentProps).toHaveBeenCalledWith('Lookup', expect.objectContaining({
-    valueExpr: 'code',
-    dataSource: expect.arrayContaining([
-      expect.objectContaining({ code: 'Rejected' }),
-      expect.objectContaining({ code: 'WaitingForThirdReview' }),
-    ]),
-  })));
+  await waitFor(() =>
+    expect(componentProps).toHaveBeenCalledWith(
+      'Lookup',
+      expect.objectContaining({
+        valueExpr: 'code',
+        dataSource: expect.arrayContaining([
+          expect.objectContaining({ code: 'Rejected' }),
+          expect.objectContaining({ code: 'WaitingForThirdReview' }),
+        ]),
+      }),
+    ),
+  );
 });
 
-vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
-...(() => {
-  const rowData = {
-    id: 42,
-    canReview: true,
-    rejectAllowed: true,
-    canAssign: true,
-    canViewAudit: true,
-    canChangeWorkflow: false,
-    workflowDefinitionId: 1,
-    undoReviewId: null,
-    requiredReviewLevels: [1, 2, 3],
-    externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
-    messageType: 'MT103', direction: 'Incoming',
-    branchId: 10,
-    departmentId: 20,
-    state: 'New',
-    receivedAt: '2026-09-05T08:00:00Z',
-    currentAssigneeId: null,
-    activeReviewId: null,
-    activeReviewLevel: null,
-    activeReviewerId: null,
-  };
-  const childComponent = (name: string) =>
-    (props: PropsWithChildren<Record<string, unknown>>) => {
-      componentProps(name, props);
-      return (
-        <span data-testid={name}>
-          {String(props.caption ?? name)}
-          {props.children}
-          {name === 'Column' && props.caption === 'Actions' &&
-            (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
-              data: { ...rowData, ...rowOverrides },
-            })}
-        </span>
-      );
+vi.mock('@smbc/ui', async () => ({
+  ...(await import('../../test/smbcMock')),
+  ...(() => {
+    const rowData = {
+      id: 42,
+      canReview: true,
+      rejectAllowed: true,
+      canAssign: true,
+      canViewAudit: true,
+      canChangeWorkflow: false,
+      workflowDefinitionId: 1,
+      undoReviewId: null,
+      requiredReviewLevels: [1, 2, 3],
+      externalId: 'MSG-0042',
+      sender: 'SENDER',
+      receiver: 'RECEIVER',
+      branchName: 'Paris',
+      departmentIds: [20],
+      departmentNames: 'CS',
+      currentAssigneeName: null,
+      activeReviewerName: null,
+      workflowDefinitionName: 'Workflow',
+      messageType: 'MT103',
+      direction: 'Incoming',
+      branchId: 10,
+      departmentId: 20,
+      state: 'New',
+      receivedAt: '2026-09-05T08:00:00Z',
+      currentAssigneeId: null,
+      activeReviewId: null,
+      activeReviewLevel: null,
+      activeReviewerId: null,
     };
+    const childComponent =
+      (name: string) => (props: PropsWithChildren<Record<string, unknown>>) => {
+        componentProps(name, props);
+        return (
+          <span data-testid={name}>
+            {String(props.caption ?? name)}
+            {props.children}
+            {name === 'Column' &&
+              props.caption === 'Actions' &&
+              (
+                props.cellRender as (cell: {
+                  data: typeof rowData;
+                }) => React.ReactNode
+              )({
+                data: { ...rowData, ...rowOverrides },
+              })}
+          </span>
+        );
+      };
 
-  return {
-    DataGrid: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
-      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid; filter: typeof gridFilter; pageIndex: typeof gridPageIndex; beginUpdate: () => void; endUpdate: () => void } }>;
-    }>) {
-      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid, filter: gridFilter, pageIndex: gridPageIndex, beginUpdate: () => undefined, endUpdate: () => undefined }) }));
-      componentProps('DataGrid', { ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
-      return <div aria-label="Messages">{children}</div>;
+    return {
+      DataGrid: function MockDataGrid({
+        children,
+        ref,
+        ...props
+      }: PropsWithChildren<{
+        ref?: Ref<{
+          instance: () => {
+            refresh: typeof refreshGrid;
+            filter: typeof gridFilter;
+            pageIndex: typeof gridPageIndex;
+            beginUpdate: () => void;
+            endUpdate: () => void;
+          };
+        }>;
+      }>) {
+        useImperativeHandle(ref, () => ({
+          instance: () => ({
+            refresh: refreshGrid,
+            filter: gridFilter,
+            pageIndex: gridPageIndex,
+            beginUpdate: () => undefined,
+            endUpdate: () => undefined,
+          }),
+        }));
+        componentProps('DataGrid', {
+          ...props,
+          ...(props as { devExtremeProps?: object }).devExtremeProps,
+        });
+        return <div aria-label="Messages">{children}</div>;
+      },
+      Column: childComponent('Column'),
+      FilterRow: childComponent('FilterRow'),
+      HeaderFilter: childComponent('HeaderFilter'),
+      Pager: childComponent('Pager'),
+      Paging: childComponent('Paging'),
+      Lookup: childComponent('Lookup'),
+    };
+  })(),
+  ...(() => ({ MultiSelect: () => <div aria-label="Filter departments" /> }))(),
+  ...(() => ({
+    Button: ({
+      children,
+      onClick,
+      devExtremeProps: { elementAttr } = { elementAttr: undefined },
+      ...props
+    }: Omit<Record<string, unknown>, 'elementAttr'> & {
+      devExtremeProps: Pick<Record<string, unknown>, 'elementAttr'>;
+    }) => {
+      componentProps('Button', { children, onClick, ...props });
+      const attributes = elementAttr as { 'aria-label'?: string } | undefined;
+      return (
+        <button
+          type="button"
+          aria-label={attributes?.['aria-label']}
+          onClick={() => (onClick as () => void)()}
+        >
+          {children == null ? null : String(children)}
+        </button>
+      );
     },
-    Column: childComponent('Column'),
-    FilterRow: childComponent('FilterRow'),
-    HeaderFilter: childComponent('HeaderFilter'),
-    Pager: childComponent('Pager'),
-    Paging: childComponent('Paging'),
-    Lookup: childComponent('Lookup'),
-  };
-})(),
-...(() => ({ MultiSelect: () => <div aria-label="Filter departments" /> }))(),
-...(() => ({
-  Button: ({ children, onClick, devExtremeProps: { elementAttr } = { elementAttr: undefined }, ...props }: Omit<Record<string, unknown>, "elementAttr"> & { devExtremeProps: Pick<Record<string, unknown>, "elementAttr"> }) => {
-    componentProps('Button', { children, onClick, ...props });
-    const attributes = elementAttr as { 'aria-label'?: string } | undefined;
-    return (
-      <button
-        type="button"
-        aria-label={attributes?.['aria-label']}
-        onClick={() => (onClick as () => void)()}
-      >
-        {children == null ? null : String(children)}
-      </button>
-    );
-  },
-}))(),
-...(() => ({
-  RadioGroup: ({ options, value, onChange, devExtremeProps: { name, elementAttr, itemRender } }: Omit<{
-    options: { selectionKey: number; label: string }[];
-    value: number | null;
-    name: string;
-    elementAttr: { 'aria-labelledby': string };
-    onChange: (value: number) => void;
-    itemRender: (item: { selectionKey: number; label: string }) => React.ReactNode;
-  }, "name" | "elementAttr" | "itemRender"> & { devExtremeProps: Pick<{
-    options: { selectionKey: number; label: string }[];
-    value: number | null;
-    name: string;
-    elementAttr: { 'aria-labelledby': string };
-    onChange: (value: number) => void;
-    itemRender: (item: { selectionKey: number; label: string }) => React.ReactNode;
-  }, "name" | "elementAttr" | "itemRender"> }) => <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>{options.map((item) =>
-    <label key={item.selectionKey}><input type="radio" name={name} aria-label={item.label}
-      checked={value === item.selectionKey} onChange={() => onChange(item.selectionKey)} />
-      {itemRender(item)}</label>)}</div>,
-}))(),
-...(() => ({
-  Drawer: ({
-    children,
-    panel: renderPanel,
-    ...props
-  }: PropsWithChildren<Record<string, unknown> & { open: boolean }>) => {
-    componentProps('Drawer', { ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
-    return (
-      <div>
-        {children}
-        {props.open && (renderPanel as () => React.ReactNode)()}
+  }))(),
+  ...(() => ({
+    RadioGroup: ({
+      options,
+      value,
+      onChange,
+      devExtremeProps: { name, elementAttr, itemRender },
+    }: Omit<
+      {
+        options: { selectionKey: number; label: string }[];
+        value: number | null;
+        name: string;
+        elementAttr: { 'aria-labelledby': string };
+        onChange: (value: number) => void;
+        itemRender: (item: {
+          selectionKey: number;
+          label: string;
+        }) => React.ReactNode;
+      },
+      'name' | 'elementAttr' | 'itemRender'
+    > & {
+      devExtremeProps: Pick<
+        {
+          options: { selectionKey: number; label: string }[];
+          value: number | null;
+          name: string;
+          elementAttr: { 'aria-labelledby': string };
+          onChange: (value: number) => void;
+          itemRender: (item: {
+            selectionKey: number;
+            label: string;
+          }) => React.ReactNode;
+        },
+        'name' | 'elementAttr' | 'itemRender'
+      >;
+    }) => (
+      <div role="radiogroup" aria-labelledby={elementAttr['aria-labelledby']}>
+        {options.map((item) => (
+          <label key={item.selectionKey}>
+            <input
+              type="radio"
+              name={name}
+              aria-label={item.label}
+              checked={value === item.selectionKey}
+              onChange={() => onChange(item.selectionKey)}
+            />
+            {itemRender(item)}
+          </label>
+        ))}
       </div>
-    );
-  },
-}))()
+    ),
+  }))(),
+  ...(() => ({
+    Drawer: ({
+      children,
+      panel: renderPanel,
+      ...props
+    }: PropsWithChildren<Record<string, unknown> & { open: boolean }>) => {
+      componentProps('Drawer', {
+        ...props,
+        ...(props as { devExtremeProps?: object }).devExtremeProps,
+      });
+      return (
+        <div>
+          {children}
+          {props.open && (renderPanel as () => React.ReactNode)()}
+        </div>
+      );
+    },
+  }))(),
 }));
 
-vi.mock('@smbc/ui/data-grid', async (original) => ({ ...await original<typeof import('@smbc/ui/data-grid')>(),
-...(() => {
-  const rowData = {
-    id: 42,
-    canReview: true,
-    rejectAllowed: true,
-    canAssign: true,
-    canViewAudit: true,
-    canChangeWorkflow: false,
-    workflowDefinitionId: 1,
-    undoReviewId: null,
-    requiredReviewLevels: [1, 2, 3],
-    externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
-    messageType: 'MT103', direction: 'Incoming',
-    branchId: 10,
-    departmentId: 20,
-    state: 'New',
-    receivedAt: '2026-09-05T08:00:00Z',
-    currentAssigneeId: null,
-    activeReviewId: null,
-    activeReviewLevel: null,
-    activeReviewerId: null,
-  };
-  const childComponent = (name: string) =>
-    (props: PropsWithChildren<Record<string, unknown>>) => {
-      componentProps(name, props);
-      return (
-        <span data-testid={name}>
-          {String(props.caption ?? name)}
-          {props.children}
-          {name === 'Column' && props.caption === 'Actions' &&
-            (props.cellRender as (cell: { data: typeof rowData }) => React.ReactNode)({
-              data: { ...rowData, ...rowOverrides },
-            })}
-        </span>
-      );
+vi.mock('@smbc/ui/data-grid', async (original) => ({
+  ...(await original<typeof import('@smbc/ui/data-grid')>()),
+  ...(() => {
+    const rowData = {
+      id: 42,
+      canReview: true,
+      rejectAllowed: true,
+      canAssign: true,
+      canViewAudit: true,
+      canChangeWorkflow: false,
+      workflowDefinitionId: 1,
+      undoReviewId: null,
+      requiredReviewLevels: [1, 2, 3],
+      externalId: 'MSG-0042',
+      sender: 'SENDER',
+      receiver: 'RECEIVER',
+      branchName: 'Paris',
+      departmentIds: [20],
+      departmentNames: 'CS',
+      currentAssigneeName: null,
+      activeReviewerName: null,
+      workflowDefinitionName: 'Workflow',
+      messageType: 'MT103',
+      direction: 'Incoming',
+      branchId: 10,
+      departmentId: 20,
+      state: 'New',
+      receivedAt: '2026-09-05T08:00:00Z',
+      currentAssigneeId: null,
+      activeReviewId: null,
+      activeReviewLevel: null,
+      activeReviewerId: null,
     };
+    const childComponent =
+      (name: string) => (props: PropsWithChildren<Record<string, unknown>>) => {
+        componentProps(name, props);
+        return (
+          <span data-testid={name}>
+            {String(props.caption ?? name)}
+            {props.children}
+            {name === 'Column' &&
+              props.caption === 'Actions' &&
+              (
+                props.cellRender as (cell: {
+                  data: typeof rowData;
+                }) => React.ReactNode
+              )({
+                data: { ...rowData, ...rowOverrides },
+              })}
+          </span>
+        );
+      };
 
-  return {
-    DataGrid: function MockDataGrid({ children, ref, ...props }: PropsWithChildren<{
-      ref?: Ref<{ instance: () => { refresh: typeof refreshGrid; filter: typeof gridFilter; pageIndex: typeof gridPageIndex; beginUpdate: () => void; endUpdate: () => void } }>;
-    }>) {
-      useImperativeHandle(ref, () => ({ instance: () => ({ refresh: refreshGrid, filter: gridFilter, pageIndex: gridPageIndex, beginUpdate: () => undefined, endUpdate: () => undefined }) }));
-      componentProps('DataGrid', { ...props, ...(props as { devExtremeProps?: object }).devExtremeProps });
-      return <div aria-label="Messages">{children}</div>;
-    },
-    DataGridColumn: childComponent('Column'),
-    DataGridFilterRow: childComponent('FilterRow'),
-    DataGridHeaderFilter: childComponent('HeaderFilter'),
-    DataGridPager: childComponent('Pager'),
-    DataGridPaging: childComponent('Paging'),
-    DataGridLookup: childComponent('Lookup'),
-  };
-})()
+    return {
+      DataGrid: function MockDataGrid({
+        children,
+        ref,
+        ...props
+      }: PropsWithChildren<{
+        ref?: Ref<{
+          instance: () => {
+            refresh: typeof refreshGrid;
+            filter: typeof gridFilter;
+            pageIndex: typeof gridPageIndex;
+            beginUpdate: () => void;
+            endUpdate: () => void;
+          };
+        }>;
+      }>) {
+        useImperativeHandle(ref, () => ({
+          instance: () => ({
+            refresh: refreshGrid,
+            filter: gridFilter,
+            pageIndex: gridPageIndex,
+            beginUpdate: () => undefined,
+            endUpdate: () => undefined,
+          }),
+        }));
+        componentProps('DataGrid', {
+          ...props,
+          ...(props as { devExtremeProps?: object }).devExtremeProps,
+        });
+        return <div aria-label="Messages">{children}</div>;
+      },
+      DataGridColumn: childComponent('Column'),
+      DataGridFilterRow: childComponent('FilterRow'),
+      DataGridHeaderFilter: childComponent('HeaderFilter'),
+      DataGridPager: childComponent('Pager'),
+      DataGridPaging: childComponent('Paging'),
+      DataGridLookup: childComponent('Lookup'),
+    };
+  })(),
 }));

@@ -1,8 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Button, type ButtonRef } from '@smbc/ui';
 
-import { useEffect, useRef } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useRef } from 'react';
+import { useModalFocus } from '../../../../shared/hooks/useModalFocus';
 
 import type {
   AuditEventDto,
@@ -28,15 +28,6 @@ const eventLabels: Record<AuditEventType, string> = {
   MessageWorkflowChanged: 'Workflow changed',
   ConfirmationUndone: 'Confirmation undone',
 };
-
-const focusableSelector = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
 
 type AuditTrailDrawerProps = {
   message: MessageRow;
@@ -141,49 +132,7 @@ export default function AuditTrailDrawer({
   const closeButtonRef = useRef<ButtonRef>(null);
   const auditQuery = useInfiniteQuery(messageAuditQueryOptions(message.id));
   const events = auditQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  const focusCloseButton = () => closeButtonRef.current?.focus();
-
-  useEffect(() => {
-    focusCloseButton();
-    // Drawer positions its overlay after the panel mounts; focus once it is visible.
-    const focusFrame = requestAnimationFrame(focusCloseButton);
-
-    const keepFocusInPanel = (event: FocusEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) {
-        focusCloseButton();
-      }
-    };
-
-    document.addEventListener('focusin', keepFocusInPanel);
-    return () => {
-      cancelAnimationFrame(focusFrame);
-      document.removeEventListener('focusin', keepFocusInPanel);
-    };
-  }, []);
-
-  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key !== 'Tab' || !panelRef.current) {
-      return;
-    }
-
-    const focusableElements = Array.from(
-      panelRef.current.querySelectorAll<HTMLElement>(focusableSelector),
-    );
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements.at(-1);
-
-    if (!firstElement || !lastElement) {
-      return;
-    }
-
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault();
-      lastElement.focus();
-    } else if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault();
-      firstElement.focus();
-    }
-  }
+  useModalFocus(panelRef, true, onClose, ['#root']);
 
   return (
     <aside
@@ -192,7 +141,6 @@ export default function AuditTrailDrawer({
       role="dialog"
       aria-modal="true"
       aria-labelledby="audit-drawer-title"
-      onKeyDown={trapFocus}
     >
       <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border [&_p]:mt-1 [&_p]:text-fg-muted">
         <div>

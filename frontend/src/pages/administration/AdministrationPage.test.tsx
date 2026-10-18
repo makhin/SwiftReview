@@ -1,38 +1,70 @@
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestQueryClient } from '../../test/createTestQueryClient';
 
 const mocks = vi.hoisted(() => ({
-  getCurrentUser: vi.fn(), getAccessCatalog: vi.fn(), getUserAccess: vi.fn(),
-  updateUserAccess: vi.fn(), updateRolePermissions: vi.fn(), createAdminUsersStore: vi.fn(),
-  refreshGrid: vi.fn(), confirmDialog: vi.fn(), notify: vi.fn(),
+  getCurrentUser: vi.fn(),
+  getAccessCatalog: vi.fn(),
+  getUserAccess: vi.fn(),
+  updateUserAccess: vi.fn(),
+  updateRolePermissions: vi.fn(),
+  createAdminUsersStore: vi.fn(),
+  refreshGrid: vi.fn(),
+  confirmDialog: vi.fn(),
+  notify: vi.fn(),
 }));
-vi.mock('../../shared/api/currentUserApi', () => ({ getCurrentUser: mocks.getCurrentUser }));
+vi.mock('../../shared/api/currentUserApi', () => ({
+  getCurrentUser: mocks.getCurrentUser,
+}));
 vi.mock('./administrationApi', () => mocks);
 
+vi.mock('../../shared/notifications/notifications', () => ({
+  useNotify: () => mocks.notify,
+}));
 
-
-vi.mock('../../shared/notifications/notifications', () => ({ useNotify: () => mocks.notify }));
-
-
-type SelectProps = { options: (string | { id: number; name: string })[]; value: number | string | number[] | string[] | null;
-  inputAttr: { 'aria-label': string }; onChange: (value: unknown) => void };
-
-
+type SelectProps = {
+  options: (string | { id: number; name: string })[];
+  value: number | string | number[] | string[] | null;
+  inputAttr: { 'aria-label': string };
+  onChange: (value: unknown) => void;
+};
 
 import AdministrationPage from './AdministrationPage';
 
 const catalog = {
-  roles: [{ id: 1, name: 'Reviewer', permissions: ['message.view', 'review.level1'] },
-    { id: 2, name: 'Auditor', permissions: ['message.view', 'audit.view'] }],
+  roles: [
+    { id: 1, name: 'Reviewer', permissions: ['message.view', 'review.level1'] },
+    { id: 2, name: 'Auditor', permissions: ['message.view', 'audit.view'] },
+  ],
   permissions: ['message.view', 'review.level1', 'audit.view'],
-  branches: [{ id: 1, name: 'London' }, { id: 2, name: 'Dublin' }],
-  departments: [{ id: 1, name: 'Operations' }, { id: 2, name: 'Compliance' }],
+  branches: [
+    { id: 1, name: 'London' },
+    { id: 2, name: 'Dublin' },
+  ],
+  departments: [
+    { id: 1, name: 'Operations' },
+    { id: 2, name: 'Compliance' },
+  ],
 };
 function renderPage() {
-  return render(<QueryClientProvider client={createTestQueryClient()}><AdministrationPage /></QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <RouterProvider
+        router={createMemoryRouter([
+          { path: '*', element: <AdministrationPage /> },
+        ])}
+      />
+    </QueryClientProvider>,
+  );
 }
 
 describe('AdministrationPage', () => {
@@ -40,8 +72,13 @@ describe('AdministrationPage', () => {
     vi.clearAllMocks();
     mocks.getCurrentUser.mockResolvedValue({ isGlobalAdministrator: true });
     mocks.getAccessCatalog.mockResolvedValue(catalog);
-    mocks.getUserAccess.mockResolvedValue({ userId: 1, userName: 'reviewer', displayName: 'Reviewer',
-      assignments: [{ branchId: 1, departmentId: 1, roleIds: [1] }], scopes: [] });
+    mocks.getUserAccess.mockResolvedValue({
+      userId: 1,
+      userName: 'reviewer',
+      displayName: 'Reviewer',
+      assignments: [{ branchId: 1, departmentId: 1, roleIds: [1] }],
+      scopes: [],
+    });
     mocks.updateUserAccess.mockResolvedValue(undefined);
     mocks.updateRolePermissions.mockResolvedValue(undefined);
     mocks.confirmDialog.mockReset().mockResolvedValue(true);
@@ -60,23 +97,43 @@ describe('AdministrationPage', () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
     expect(await screen.findByLabelText('Branch 1')).toHaveValue('1');
-    expect(screen.getByText('Effective permissions: message.view, review.level1')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Branch 1'), { target: { value: '2' } });
+    expect(
+      screen.getByText('Effective permissions: message.view, review.level1'),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Branch 1'), {
+      target: { value: '2' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save access' }));
-    await waitFor(() => expect(mocks.updateUserAccess).toHaveBeenCalledWith(1, {
-      assignments: [{ branchId: 2, departmentId: 1, roleIds: [1] }],
-    }));
-    await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith('Changes saved.', 'success', 4000));
+    await waitFor(() =>
+      expect(mocks.updateUserAccess).toHaveBeenCalledWith(1, {
+        assignments: [{ branchId: 2, departmentId: 1, roleIds: [1] }],
+      }),
+    );
+    await waitFor(() =>
+      expect(mocks.notify).toHaveBeenCalledWith(
+        'Changes saved.',
+        'success',
+        4000,
+      ),
+    );
     expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Global administrator')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Global administrator'),
+    ).not.toBeInTheDocument();
   });
 
   it('refreshes users without losing unsaved access edits', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
-    fireEvent.change(await screen.findByLabelText('Branch 1'), { target: { value: '2' } });
+    fireEvent.change(await screen.findByLabelText('Branch 1'), {
+      target: { value: '2' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Refresh' }),
+      ).toBeInTheDocument(),
+    );
     expect(mocks.refreshGrid).toHaveBeenCalledOnce();
     expect(screen.getByLabelText('Branch 1')).toHaveValue('2');
     expect(mocks.updateUserAccess).not.toHaveBeenCalled();
@@ -84,231 +141,522 @@ describe('AdministrationPage', () => {
 
   it('applies the user search through the DevExtreme editor form', async () => {
     renderPage();
-    fireEvent.change(await screen.findByLabelText('Find user'), { target: { value: 'alex' } });
+    fireEvent.change(await screen.findByLabelText('Find user'), {
+      target: { value: 'alex' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    await waitFor(() => expect(mocks.createAdminUsersStore).toHaveBeenLastCalledWith('alex'));
+    await waitFor(() =>
+      expect(mocks.createAdminUsersStore).toHaveBeenLastCalledWith('alex'),
+    );
   });
 
   it('can remove business access entirely', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Remove scope' }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Save access' }));
-    await waitFor(() => expect(mocks.updateUserAccess).toHaveBeenCalledWith(1, { assignments: [] }));
+    await waitFor(() =>
+      expect(mocks.updateUserAccess).toHaveBeenCalledWith(1, {
+        assignments: [],
+      }),
+    );
   });
 
   it('keeps edits visible when the server refuses an active-review revocation', async () => {
-    mocks.updateUserAccess.mockRejectedValue(new Error('An active review must be completed first.'));
+    mocks.updateUserAccess.mockRejectedValue(
+      new Error('An active review must be completed first.'),
+    );
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Remove scope' }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Save access' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('An active review');
-    expect(screen.getByText('No business access. Add a scope to assign roles.')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'An active review',
+    );
+    expect(
+      screen.getByText('No business access. Add a scope to assign roles.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
-    expect(mocks.notify).toHaveBeenCalledExactlyOnceWith('An active review must be completed first.', 'error', 4000);
+    expect(mocks.notify).toHaveBeenCalledExactlyOnceWith(
+      'An active review must be completed first.',
+      'error',
+      4000,
+    );
   });
 
   it('edits role permissions and warns about all affected assignments', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Edit access' });
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
-    expect(await screen.findByText(/Changes affect every user/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Role permissions'), { target: { value: 'audit.view' } });
+    fireEvent.change(await screen.findByLabelText('Role'), {
+      target: { value: '1' },
+    });
+    expect(
+      await screen.findByText(/Changes affect every user/),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Role permissions'), {
+      target: { value: 'audit.view' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save permissions' }));
-    await waitFor(() => expect(mocks.updateRolePermissions).toHaveBeenCalledWith(1, { permissions: ['audit.view'] }));
-    expect(mocks.notify).toHaveBeenCalledWith('Changes saved.', 'success', 4000);
+    await waitFor(() =>
+      expect(mocks.updateRolePermissions).toHaveBeenCalledWith(1, {
+        permissions: ['audit.view'],
+      }),
+    );
+    expect(mocks.notify).toHaveBeenCalledWith(
+      'Changes saved.',
+      'success',
+      4000,
+    );
   });
 
   it('shows an error toast and preserves edits when saving role permissions fails', async () => {
-    mocks.updateRolePermissions.mockRejectedValue(new Error('Unable to save permissions.'));
+    mocks.updateRolePermissions.mockRejectedValue(
+      new Error('Unable to save permissions.'),
+    );
     renderPage();
     await screen.findByRole('button', { name: 'Edit access' });
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
-    fireEvent.change(await screen.findByLabelText('Role permissions'), { target: { value: 'audit.view' } });
+    fireEvent.change(await screen.findByLabelText('Role'), {
+      target: { value: '1' },
+    });
+    fireEvent.change(await screen.findByLabelText('Role permissions'), {
+      target: { value: 'audit.view' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save permissions' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to save permissions.');
-    expect(screen.getByLabelText('Role permissions')).toHaveValue(['audit.view']);
-    expect(mocks.notify).toHaveBeenCalledExactlyOnceWith('Unable to save permissions.', 'error', 4000);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to save permissions.',
+    );
+    expect(screen.getByLabelText('Role permissions')).toHaveValue([
+      'audit.view',
+    ]);
+    expect(mocks.notify).toHaveBeenCalledExactlyOnceWith(
+      'Unable to save permissions.',
+      'error',
+      4000,
+    );
   });
 
   it('asks before discarding unsaved edits when switching tabs', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Remove scope' }),
+    );
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    expect(await screen.findByRole('dialog', { name: 'Unsaved changes' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'Unsaved changes' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
-    expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Discard changes' }),
+    );
     expect(await screen.findByLabelText('Role')).toBeInTheDocument();
   });
 
   it('keeps edits without prompting when the active tab is selected again', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Remove scope' }),
+    );
     fireEvent.click(screen.getByRole('tab', { name: 'Users' }));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true'));
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('ignores another transition while an unsaved-changes confirmation is pending', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit access' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove scope' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Remove scope' }),
+    );
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
     await screen.findByRole('dialog', { name: 'Unsaved changes' });
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute('aria-selected', 'true'));
-    expect(screen.getByRole('region', { name: 'User access editor' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Users' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+    expect(
+      screen.getByRole('region', { name: 'User access editor' }),
+    ).toBeInTheDocument();
   });
 
   it('does not reopen confirmation when a cancelled role selection is restored', async () => {
     renderPage();
     await screen.findByRole('button', { name: 'Edit access' });
     fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-    fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
-    fireEvent.change(await screen.findByLabelText('Role permissions'), { target: { value: 'audit.view' } });
+    fireEvent.change(await screen.findByLabelText('Role'), {
+      target: { value: '1' },
+    });
+    fireEvent.change(await screen.findByLabelText('Role permissions'), {
+      target: { value: 'audit.view' },
+    });
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: '2' } });
-    fireEvent.click(await screen.findByRole('button', { name: 'Keep editing' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Keep editing' }),
+    );
     // Controlled widgets emit a value event when restoring the accepted value.
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: '1' } });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Role permissions')).toHaveValue(['audit.view']);
+    expect(screen.getByLabelText('Role permissions')).toHaveValue([
+      'audit.view',
+    ]);
     fireEvent.click(screen.getByRole('tab', { name: 'Users' }));
-    expect(await screen.findByRole('dialog', { name: 'Unsaved changes' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'Unsaved changes' }),
+    ).toBeInTheDocument();
   });
 
   it.each([
-    ['access', 'success'], ['access', 'error'],
-    ['permissions', 'success'], ['permissions', 'error'],
-  ] as const)('prevents duplicate %s saves and unlocks after %s', async (editor, outcome) => {
-    const update = editor === 'access' ? mocks.updateUserAccess : mocks.updateRolePermissions;
-    let resolveSave!: () => void;
-    let rejectSave!: (error: Error) => void;
-    update.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
-      resolveSave = resolve;
-      rejectSave = reject;
-    }));
-    renderPage();
-    const editAccess = await screen.findByRole('button', { name: 'Edit access' });
-    if (editor === 'access') {
-      fireEvent.click(editAccess);
-    } else {
-      fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
-      fireEvent.change(await screen.findByLabelText('Role'), { target: { value: '1' } });
-    }
-    const saveName = editor === 'access' ? 'Save access' : 'Save permissions';
-    const save = await screen.findByRole('button', { name: saveName });
-    act(() => {
-      fireEvent.click(save);
-      fireEvent.click(save);
-    });
-    const saving = await screen.findByRole('button', { name: 'Saving…' });
-    expect(saving).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(saving);
-    const editingActions = editor === 'access' ? ['Add scope', 'Remove scope', 'Close'] : ['Reset'];
-    for (const name of editingActions) {
-      const button = screen.getByRole('button', { name });
-      expect(button).toHaveAttribute('aria-disabled', 'true');
-      fireEvent.click(button);
-    }
-    expect(update).toHaveBeenCalledOnce();
+    ['access', 'success'],
+    ['access', 'error'],
+    ['permissions', 'success'],
+    ['permissions', 'error'],
+  ] as const)(
+    'prevents duplicate %s saves and unlocks after %s',
+    async (editor, outcome) => {
+      const update =
+        editor === 'access'
+          ? mocks.updateUserAccess
+          : mocks.updateRolePermissions;
+      let resolveSave!: () => void;
+      let rejectSave!: (error: Error) => void;
+      update.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            resolveSave = resolve;
+            rejectSave = reject;
+          }),
+      );
+      renderPage();
+      const editAccess = await screen.findByRole('button', {
+        name: 'Edit access',
+      });
+      if (editor === 'access') {
+        fireEvent.click(editAccess);
+      } else {
+        fireEvent.click(screen.getByRole('tab', { name: 'Roles' }));
+        fireEvent.change(await screen.findByLabelText('Role'), {
+          target: { value: '1' },
+        });
+      }
+      if (editor === 'access')
+        fireEvent.click(
+          await screen.findByRole('button', { name: 'Remove scope' }),
+        );
+      else
+        fireEvent.change(await screen.findByLabelText('Role permissions'), {
+          target: { value: 'audit.view' },
+        });
+      const saveName = editor === 'access' ? 'Save access' : 'Save permissions';
+      const save = await screen.findByRole('button', { name: saveName });
+      act(() => {
+        fireEvent.click(save);
+        fireEvent.click(save);
+      });
+      const saving = await screen.findByRole('button', { name: 'Saving…' });
+      expect(saving).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(saving);
+      const editingActions =
+        editor === 'access' ? ['Add scope', 'Close'] : ['Reset'];
+      for (const name of editingActions) {
+        const button = screen.getByRole('button', { name });
+        expect(button).toHaveAttribute('aria-disabled', 'true');
+        fireEvent.click(button);
+      }
+      expect(update).toHaveBeenCalledOnce();
 
-    await act(async () => {
-      if (outcome === 'error') rejectSave(new Error('Save failed.'));
-      else resolveSave();
-    });
-    await waitFor(() => expect(screen.getByRole('button', { name: saveName })).toHaveAttribute('aria-disabled', 'false'));
-    if (outcome === 'error') expect(screen.getByRole('alert')).toHaveTextContent('Save failed.');
-    fireEvent.click(screen.getByRole('button', { name: saveName }));
-    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByRole('button', { name: saveName })).toHaveAttribute('aria-disabled', 'false'));
-  });
+      await act(async () => {
+        if (outcome === 'error') rejectSave(new Error('Save failed.'));
+        else resolveSave();
+      });
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: saveName })).toHaveAttribute(
+          'aria-disabled',
+          outcome === 'success' ? 'true' : 'false',
+        ),
+      );
+      if (outcome === 'error')
+        expect(screen.getByRole('alert')).toHaveTextContent('Save failed.');
+      if (outcome === 'success') {
+        if (editor === 'access')
+          fireEvent.click(screen.getByRole('button', { name: 'Add scope' }));
+        else
+          fireEvent.change(screen.getByLabelText('Role permissions'), {
+            target: { value: 'message.view' },
+          });
+      }
+      fireEvent.click(screen.getByRole('button', { name: saveName }));
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: saveName })).toHaveAttribute(
+          'aria-disabled',
+          'true',
+        ),
+      );
+    },
+  );
 });
 
-vi.mock('@smbc/ui', async () => ({ ...await import('../../test/smbcMock'),
-...(() => ({
-  DataGrid: function MockDataGrid({ children, ref }: { children: ReactNode; ref?: Ref<unknown> }) {
-    useImperativeHandle(ref, () => ({ instance: () => ({ refresh: mocks.refreshGrid }) }));
-    return <div>{children}</div>;
-  },
-  Column: ({ cellRender }: { cellRender?: (cell: { data: { id: number; userName: string; displayName: string } }) => ReactNode }) =>
-    cellRender?.({ data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' } }),
-  Pager: () => null, Paging: () => null,
-}))(),
-...(() => ({
-  Button: ({ children, onClick, submit, disabled = false }: {
-    children: string; onClick?: () => void; submit?: boolean; disabled?: boolean;
-  }) => submit
-    ? <button type="submit" disabled={disabled} onClick={onClick}>{children}</button>
-    // DevExtreme buttons are divs: a disabled fieldset does not disable them.
-    : <div role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled}
-        onClick={() => { if (!disabled) onClick?.(); }}>{children}</div>,
-}))(),
-...(() => ({
-  Tabs: ({ items, selectedIndex, onChange, devExtremeProps: { elementAttr, onSelectionChanging } }: Omit<{
-    items: { id: string; text: string }[];
-    selectedIndex: number;
-    elementAttr: { 'aria-label': string };
-    onSelectionChanging: (event: { cancel: boolean | PromiseLike<boolean> }) => void;
-    onChange: (index: number) => void;
-  }, "elementAttr" | "onSelectionChanging"> & { devExtremeProps: Pick<{
-    items: { id: string; text: string }[];
-    selectedIndex: number;
-    elementAttr: { 'aria-label': string };
-    onSelectionChanging: (event: { cancel: boolean | PromiseLike<boolean> }) => void;
-    onChange: (index: number) => void;
-  }, "elementAttr" | "onSelectionChanging"> }) => <div role="tablist" aria-label={elementAttr['aria-label']}>{items.map((item, index) =>
-    <button key={item.id} type="button" role="tab" aria-selected={selectedIndex === index}
-      onClick={() => { const event = { cancel: false as boolean | PromiseLike<boolean>, addedItems: [item] }; onSelectionChanging(event);
-        void Promise.resolve(event.cancel).then((cancelled) => { if (!cancelled) onChange(index); }); }}>{item.text}</button>)}</div>,
-}))(),
-...(() => ({
-  TextInput: ({ value, placeholder, onChange, devExtremeProps: { maxLength, inputAttr } }: Omit<{
-    value: string;
-    maxLength: number;
-    inputAttr: { id: string };
-    placeholder: string;
-    onChange: (value: string) => void;
-  }, "maxLength" | "inputAttr"> & { devExtremeProps: Pick<{
-    value: string;
-    maxLength: number;
-    inputAttr: { id: string };
-    placeholder: string;
-    onChange: (value: string) => void;
-  }, "maxLength" | "inputAttr"> }) => <input id={inputAttr.id} value={value} maxLength={maxLength} placeholder={placeholder}
-    onChange={(event) => onChange(event.target.value)} />,
-}))(),
-...(() => ({
-  Select: ({ options, value, onChange, devExtremeProps: { inputAttr } }: Omit<SelectProps, "inputAttr"> & { devExtremeProps: Pick<SelectProps, "inputAttr"> }) => <select aria-label={inputAttr['aria-label']}
-    value={value as number ?? ''} onChange={(e) => onChange(Number(e.target.value))}>
-    <option value="">Choose</option>{options.map((item) => typeof item === 'string' ? <option key={item}>{item}</option> :
-      <option key={item.id} value={item.id}>{item.name}</option>)}</select>,
-}))(),
-...(() => ({
-  MultiSelect: ({ options, value, onChange, devExtremeProps: { inputAttr } }: Omit<SelectProps, "inputAttr"> & { devExtremeProps: Pick<SelectProps, "inputAttr"> }) => <select multiple aria-label={inputAttr['aria-label']}
-    value={(value as (string | number)[]).map(String)} onChange={(e) => onChange(Array.from(e.target.selectedOptions).map((option) =>
-      typeof options[0] === 'string' ? option.value : Number(option.value)))}>
-    {options.map((item) => typeof item === 'string' ? <option key={item}>{item}</option> :
-      <option key={item.id} value={item.id}>{item.name}</option>)}</select>,
-}))()
+vi.mock('@smbc/ui', async () => ({
+  ...(await import('../../test/smbcMock')),
+  ...(() => ({
+    DataGrid: function MockDataGrid({
+      children,
+      ref,
+    }: {
+      children: ReactNode;
+      ref?: Ref<unknown>;
+    }) {
+      useImperativeHandle(ref, () => ({
+        instance: () => ({ refresh: mocks.refreshGrid }),
+      }));
+      return <div>{children}</div>;
+    },
+    Column: ({
+      cellRender,
+    }: {
+      cellRender?: (cell: {
+        data: { id: number; userName: string; displayName: string };
+      }) => ReactNode;
+    }) =>
+      cellRender?.({
+        data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' },
+      }),
+    Pager: () => null,
+    Paging: () => null,
+  }))(),
+  ...(() => ({
+    Button: ({
+      children,
+      onClick,
+      submit,
+      disabled = false,
+    }: {
+      children: string;
+      onClick?: () => void;
+      submit?: boolean;
+      disabled?: boolean;
+    }) =>
+      submit ? (
+        <button type="submit" disabled={disabled} onClick={onClick}>
+          {children}
+        </button>
+      ) : (
+        // DevExtreme buttons are divs: a disabled fieldset does not disable them.
+        <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          aria-disabled={disabled}
+          onClick={() => {
+            if (!disabled) onClick?.();
+          }}
+        >
+          {children}
+        </div>
+      ),
+  }))(),
+  ...(() => ({
+    Tabs: ({
+      items,
+      selectedIndex,
+      onChange,
+      devExtremeProps: { elementAttr, onSelectionChanging },
+    }: Omit<
+      {
+        items: { id: string; text: string }[];
+        selectedIndex: number;
+        elementAttr: { 'aria-label': string };
+        onSelectionChanging: (event: {
+          cancel: boolean | PromiseLike<boolean>;
+        }) => void;
+        onChange: (index: number) => void;
+      },
+      'elementAttr' | 'onSelectionChanging'
+    > & {
+      devExtremeProps: Pick<
+        {
+          items: { id: string; text: string }[];
+          selectedIndex: number;
+          elementAttr: { 'aria-label': string };
+          onSelectionChanging: (event: {
+            cancel: boolean | PromiseLike<boolean>;
+          }) => void;
+          onChange: (index: number) => void;
+        },
+        'elementAttr' | 'onSelectionChanging'
+      >;
+    }) => (
+      <div role="tablist" aria-label={elementAttr['aria-label']}>
+        {items.map((item, index) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={selectedIndex === index}
+            onClick={() => {
+              const event = {
+                cancel: false as boolean | PromiseLike<boolean>,
+                addedItems: [item],
+              };
+              onSelectionChanging(event);
+              void Promise.resolve(event.cancel).then((cancelled) => {
+                if (!cancelled) onChange(index);
+              });
+            }}
+          >
+            {item.text}
+          </button>
+        ))}
+      </div>
+    ),
+  }))(),
+  ...(() => ({
+    TextInput: ({
+      value,
+      placeholder,
+      onChange,
+      devExtremeProps: { maxLength, inputAttr },
+    }: Omit<
+      {
+        value: string;
+        maxLength: number;
+        inputAttr: { id: string };
+        placeholder: string;
+        onChange: (value: string) => void;
+      },
+      'maxLength' | 'inputAttr'
+    > & {
+      devExtremeProps: Pick<
+        {
+          value: string;
+          maxLength: number;
+          inputAttr: { id: string };
+          placeholder: string;
+          onChange: (value: string) => void;
+        },
+        'maxLength' | 'inputAttr'
+      >;
+    }) => (
+      <input
+        id={inputAttr.id}
+        value={value}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    ),
+  }))(),
+  ...(() => ({
+    Select: ({
+      options,
+      value,
+      onChange,
+      devExtremeProps: { inputAttr },
+    }: Omit<SelectProps, 'inputAttr'> & {
+      devExtremeProps: Pick<SelectProps, 'inputAttr'>;
+    }) => (
+      <select
+        aria-label={inputAttr['aria-label']}
+        value={(value as number) ?? ''}
+        onChange={(e) => onChange(Number(e.target.value))}
+      >
+        <option value="">Choose</option>
+        {options.map((item) =>
+          typeof item === 'string' ? (
+            <option key={item}>{item}</option>
+          ) : (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ),
+        )}
+      </select>
+    ),
+  }))(),
+  ...(() => ({
+    MultiSelect: ({
+      options,
+      value,
+      onChange,
+      devExtremeProps: { inputAttr },
+    }: Omit<SelectProps, 'inputAttr'> & {
+      devExtremeProps: Pick<SelectProps, 'inputAttr'>;
+    }) => (
+      <select
+        multiple
+        aria-label={inputAttr['aria-label']}
+        value={(value as (string | number)[]).map(String)}
+        onChange={(e) =>
+          onChange(
+            Array.from(e.target.selectedOptions).map((option) =>
+              typeof options[0] === 'string'
+                ? option.value
+                : Number(option.value),
+            ),
+          )
+        }
+      >
+        {options.map((item) =>
+          typeof item === 'string' ? (
+            <option key={item}>{item}</option>
+          ) : (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ),
+        )}
+      </select>
+    ),
+  }))(),
 }));
 
-vi.mock('@smbc/ui/data-grid', async (original) => ({ ...await original<typeof import('@smbc/ui/data-grid')>(),
-...(() => ({
-  DataGrid: function MockDataGrid({ children, ref }: { children: ReactNode; ref?: Ref<unknown> }) {
-    useImperativeHandle(ref, () => ({ instance: () => ({ refresh: mocks.refreshGrid }) }));
-    return <div>{children}</div>;
-  },
-  DataGridColumn: ({ cellRender }: { cellRender?: (cell: { data: { id: number; userName: string; displayName: string } }) => ReactNode }) =>
-    cellRender?.({ data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' } }),
-  DataGridPager: () => null, DataGridPaging: () => null,
-}))()
+vi.mock('@smbc/ui/data-grid', async (original) => ({
+  ...(await original<typeof import('@smbc/ui/data-grid')>()),
+  ...(() => ({
+    DataGrid: function MockDataGrid({
+      children,
+      ref,
+    }: {
+      children: ReactNode;
+      ref?: Ref<unknown>;
+    }) {
+      useImperativeHandle(ref, () => ({
+        instance: () => ({ refresh: mocks.refreshGrid }),
+      }));
+      return <div>{children}</div>;
+    },
+    DataGridColumn: ({
+      cellRender,
+    }: {
+      cellRender?: (cell: {
+        data: { id: number; userName: string; displayName: string };
+      }) => ReactNode;
+    }) =>
+      cellRender?.({
+        data: { id: 1, userName: 'reviewer', displayName: 'Reviewer' },
+      }),
+    DataGridPager: () => null,
+    DataGridPaging: () => null,
+  }))(),
 }));

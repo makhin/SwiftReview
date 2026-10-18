@@ -49,12 +49,7 @@ function PdfPage({
       ref={canvas}
       aria-label={`PDF page ${number}`}
       role="img"
-      style={{
-        maxWidth: '100%',
-        height: 'auto',
-        display: 'block',
-        margin: '0 auto 16px',
-      }}
+      className="block max-w-full h-auto mx-auto mb-4"
     />
   );
 }
@@ -111,7 +106,7 @@ export default function MessagePdfPopup({
       onClose={onClose}
       devExtremeProps={{ height: '85vh' }}
     >
-      <div style={{ height: '100%', overflowY: 'auto' }}>
+      <div className="h-full overflow-y-auto">
         {error ? (
           <div role="alert">
             {error}{' '}

@@ -7,15 +7,23 @@ const { getMessageAudit } = vi.hoisted(() => ({ getMessageAudit: vi.fn() }));
 
 vi.mock('../../api/auditApi', () => ({ getMessageAudit }));
 
-
 import type { AuditEventDto } from '../../../../shared/api/generated/contracts.generated';
 import { createTestQueryClient } from '../../../../test/createTestQueryClient';
 import AuditTrailDrawer from './AuditTrailDrawer';
 
 const message = {
   id: 42,
-  externalId: 'MSG-0042', sender: "SENDER", receiver: "RECEIVER", branchName: "Paris", departmentIds: [20], departmentNames: "CS", currentAssigneeName: null, activeReviewerName: null, workflowDefinitionName: "Workflow",
-  messageType: 'MT103', direction: 'Incoming' as const,
+  externalId: 'MSG-0042',
+  sender: 'SENDER',
+  receiver: 'RECEIVER',
+  branchName: 'Paris',
+  departmentIds: [20],
+  departmentNames: 'CS',
+  currentAssigneeName: null,
+  activeReviewerName: null,
+  workflowDefinitionName: 'Workflow',
+  messageType: 'MT103',
+  direction: 'Incoming' as const,
   branchId: 10,
   departmentId: 20,
   state: 'New' as const,
@@ -62,8 +70,22 @@ function renderDrawer(onClose = vi.fn()) {
             },
           ]}
           messageStates={[
-            { code: 'New', label: 'New', description: 'Waiting for first review assignment', reviewLevel: 1, phase: 'Waiting', assignedDescription: null },
-            { code: 'Assigned', label: 'Assigned', description: 'Waiting for first review assignment', reviewLevel: 1, phase: 'Assigned', assignedDescription: 'Assigned for first review' },
+            {
+              code: 'New',
+              label: 'New',
+              description: 'Waiting for first review assignment',
+              reviewLevel: 1,
+              phase: 'Waiting',
+              assignedDescription: null,
+            },
+            {
+              code: 'Assigned',
+              label: 'Assigned',
+              description: 'Waiting for first review assignment',
+              reviewLevel: 1,
+              phase: 'Assigned',
+              assignedDescription: 'Assigned for first review',
+            },
           ]}
           onClose={onClose}
         />
@@ -74,26 +96,28 @@ function renderDrawer(onClose = vi.fn()) {
 
 describe('AuditTrailDrawer', () => {
   beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([
+      new DOMRect(0, 0, 100, 30),
+    ] as unknown as DOMRectList);
     getMessageAudit.mockReset();
   });
 
   it('shows business details and loads the remaining audit events', async () => {
-    getMessageAudit.mockImplementation(
-      (_messageId: number, skip: number) =>
-        Promise.resolve(
-          skip === 0
-            ? { items: [auditEvent()], totalCount: 2 }
-            : {
-                items: [
-                  auditEvent({
-                    id: 2,
-                    eventType: 'ReviewApproved',
-                    details: { reviewLevel: 1, comment: 'Confirmed' },
-                  }),
-                ],
-                totalCount: 2,
-              },
-        ),
+    getMessageAudit.mockImplementation((_messageId: number, skip: number) =>
+      Promise.resolve(
+        skip === 0
+          ? { items: [auditEvent()], totalCount: 2 }
+          : {
+              items: [
+                auditEvent({
+                  id: 2,
+                  eventType: 'ReviewApproved',
+                  details: { reviewLevel: 1, comment: 'Confirmed' },
+                }),
+              ],
+              totalCount: 2,
+            },
+      ),
     );
 
     renderDrawer();
@@ -102,15 +126,24 @@ describe('AuditTrailDrawer', () => {
     expect(screen.getByText('Alex Morgan')).toBeInTheDocument();
     expect(screen.getByText('New → Assigned')).toBeInTheDocument();
     expect(screen.getByText('Sam Lee')).toBeInTheDocument();
-    expect(screen.queryByText('internal-correlation-id')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('internal-correlation-id'),
+    ).not.toBeInTheDocument();
     expect(getMessageAudit).toHaveBeenCalledWith(42, 0, 50, expect.anything());
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
 
     expect(await screen.findByText('Review approved')).toBeInTheDocument();
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
-    expect(getMessageAudit).toHaveBeenLastCalledWith(42, 1, 50, expect.anything());
-    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(getMessageAudit).toHaveBeenLastCalledWith(
+      42,
+      1,
+      50,
+      expect.anything(),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Load more' }),
+    ).not.toBeInTheDocument();
   });
 
   it('supports retry after the initial request fails', async () => {
@@ -120,10 +153,14 @@ describe('AuditTrailDrawer', () => {
 
     renderDrawer();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load audit trail');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to load audit trail',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
-    await waitFor(() => expect(screen.getByText('No audit events found.')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('No audit events found.')).toBeInTheDocument(),
+    );
     expect(getMessageAudit).toHaveBeenCalledTimes(2);
   });
 
@@ -133,7 +170,9 @@ describe('AuditTrailDrawer', () => {
 
     renderDrawer(onClose);
 
-    const closeButton = screen.getByRole('button', { name: 'Close audit trail' });
+    const closeButton = screen.getByRole('button', {
+      name: 'Close audit trail',
+    });
     await waitFor(() => expect(closeButton).toHaveFocus());
     fireEvent.click(closeButton);
 
@@ -147,8 +186,12 @@ describe('AuditTrailDrawer', () => {
 
     renderDrawer();
 
-    const closeButton = screen.getByRole('button', { name: 'Close audit trail' });
-    const loadMoreButton = await screen.findByRole('button', { name: 'Load more' });
+    const closeButton = screen.getByRole('button', {
+      name: 'Close audit trail',
+    });
+    const loadMoreButton = await screen.findByRole('button', {
+      name: 'Load more',
+    });
     await waitFor(() => expect(closeButton).toHaveFocus());
 
     fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
@@ -163,25 +206,51 @@ describe('AuditTrailDrawer', () => {
   });
 });
 
-vi.mock('@smbc/ui', async () => ({ ...await import('../../../../test/smbcMock'),
-...(() => ({
-  Button: function MockButton({ children, disabled, onClick, ref, devExtremeProps: { elementAttr } = {} }: Omit<{
-    children?: string;
-    disabled?: boolean;
-    elementAttr?: { 'aria-label'?: string };
-    onClick: () => void;
-    ref?: Ref<{ focus: () => void }>;
-  }, "elementAttr"> & { devExtremeProps: Pick<{
-    children?: string;
-    disabled?: boolean;
-    elementAttr?: { 'aria-label'?: string };
-    onClick: () => void;
-    ref?: Ref<{ focus: () => void }>;
-  }, "elementAttr"> }) {
-    const elementRef = useRef<HTMLButtonElement>(null);
-    useImperativeHandle(ref, () => ({ focus: () => elementRef.current?.focus() }));
-    return <button ref={elementRef} type="button" disabled={disabled} aria-label={elementAttr?.['aria-label']}
-      onClick={onClick}>{children}</button>;
-  },
-}))()
+vi.mock('@smbc/ui', async () => ({
+  ...(await import('../../../../test/smbcMock')),
+  ...(() => ({
+    Button: function MockButton({
+      children,
+      disabled,
+      onClick,
+      ref,
+      devExtremeProps: { elementAttr } = {},
+    }: Omit<
+      {
+        children?: string;
+        disabled?: boolean;
+        elementAttr?: { 'aria-label'?: string };
+        onClick: () => void;
+        ref?: Ref<{ focus: () => void }>;
+      },
+      'elementAttr'
+    > & {
+      devExtremeProps: Pick<
+        {
+          children?: string;
+          disabled?: boolean;
+          elementAttr?: { 'aria-label'?: string };
+          onClick: () => void;
+          ref?: Ref<{ focus: () => void }>;
+        },
+        'elementAttr'
+      >;
+    }) {
+      const elementRef = useRef<HTMLButtonElement>(null);
+      useImperativeHandle(ref, () => ({
+        focus: () => elementRef.current?.focus(),
+      }));
+      return (
+        <button
+          ref={elementRef}
+          type="button"
+          disabled={disabled}
+          aria-label={elementAttr?.['aria-label']}
+          onClick={onClick}
+        >
+          {children}
+        </button>
+      );
+    },
+  }))(),
 }));

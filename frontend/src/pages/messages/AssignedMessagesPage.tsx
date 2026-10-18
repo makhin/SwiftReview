@@ -1,3 +1,5 @@
+import PageHeader from '../../shared/components/PageHeader';
+import PageLayout from '../../shared/components/PageLayout';
 import { useQuery } from '@tanstack/react-query';
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
 import {
@@ -23,20 +25,20 @@ export default function AssignedMessagesPage() {
   const userQuery = useQuery(currentUserQueryOptions());
   if (userQuery.isPending)
     return (
-      <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
+      <PageLayout>
         <PageLoading message="Loading message review…" />
-      </main>
+      </PageLayout>
     );
   if (userQuery.error)
     return (
-      <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
+      <PageLayout>
         <PageError
           title="Unable to verify access"
           message="Check your connection and try again."
           actionLabel="Retry"
           onAction={() => void userQuery.refetch()}
         />
-      </main>
+      </PageLayout>
     );
   const user = userQuery.data;
   if (
@@ -52,22 +54,16 @@ export default function AssignedMessagesPage() {
     return <UserPreservingNavigate to={destination} replace />;
   }
   return (
-    <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6 max-w-none">
-      <header className="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-start">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold leading-tight">
-            Message Review
-          </h1>
-          <p className="mt-2 text-fg-muted">
-            Review messages available across your accessible scopes.
-          </p>
-        </div>
-      </header>
+    <PageLayout wide>
+      <PageHeader
+        title="Message Review"
+        description="Review messages available across your accessible scopes."
+      />
       <MessagesGrid
         dataSource={messageDataSource}
         enableReviewActions
         enableUndoActions
       />
-    </main>
+    </PageLayout>
   );
 }

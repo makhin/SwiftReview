@@ -1,3 +1,5 @@
+import PageHeader from '../../shared/components/PageHeader';
+import PageLayout from '../../shared/components/PageLayout';
 import { Card } from '@smbc/ui';
 import { useQuery } from '@tanstack/react-query';
 
@@ -56,21 +58,17 @@ export default function CurrentUserPage() {
   const errorContent = error ? getErrorContent(error) : undefined;
 
   return (
-    <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
-      <header className="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-start">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold leading-tight">
-            {user?.displayName ?? 'Current user'}
-          </h1>
-          <p className="mt-2 text-fg-muted">Identity and access details.</p>
-        </div>
-      </header>
+    <PageLayout>
+      <PageHeader
+        title={user?.displayName ?? 'Current user'}
+        description="Identity and access details."
+      />
 
-      <Card className="">
-        <Card.Header className="">
-          <Card.Title className="">Profile</Card.Title>
+      <Card>
+        <Card.Header>
+          <Card.Title>Profile</Card.Title>
         </Card.Header>
-        <Card.Body className="" aria-busy={isPending}>
+        <Card.Body aria-busy={isPending}>
           {errorContent ? (
             <PageError
               title={errorContent.title}
@@ -147,6 +145,6 @@ export default function CurrentUserPage() {
           )}
         </Card.Body>
       </Card>
-    </main>
+    </PageLayout>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useReducer, useRef } from 'react';
 import { useNotify } from '../../../shared/notifications/notifications';
-import { ApiError, ApiRequestError } from '../../../shared/api/errors';
+import { apiErrorText, ApiError } from '../../../shared/api/errors';
 import { getMessage, type startReview, type MessageRow } from '../api/messagesApi';
 import { useRefreshMessage, useReviewOperations } from '../api/messageMutations';
 import type { RefreshData } from '../../../shared/api/refreshAfterMutation';
@@ -75,10 +75,6 @@ type Options = {
   onClose: () => void;
 };
 
-function errorText(caught: unknown, fallback: string) {
-  return caught instanceof ApiError || caught instanceof ApiRequestError ? caught.message : fallback;
-}
-
 // The popup is keyed by message ID: a mounted hook owns exactly one review session.
 export function useReviewSession({ message, canApprove, canReject, hasMessage, onChanged, onClose }: Options) {
   const notify = useNotify();
@@ -104,7 +100,7 @@ export function useReviewSession({ message, canApprove, canReject, hasMessage, o
     async function run(): Promise<Event> {
       if (state.status === 'starting') {
         try { return { type: 'started', reviewId: await start(level!) }; }
-        catch (caught) { return { type: 'startFailed', error: errorText(caught,
+        catch (caught) { return { type: 'startFailed', error: apiErrorText(caught,
           'Unable to start or resume this review. Check your connection and access, then retry.') }; }
       }
       if (state.status === 'submitting') {
@@ -113,7 +109,7 @@ export function useReviewSession({ message, canApprove, canReject, hasMessage, o
           return { type: 'completed' };
         } catch (caught) {
           return { type: 'failed', conflict: caught instanceof ApiError && caught.status === 409,
-            error: errorText(caught, `Unable to ${state.decision} ${state.decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`) };
+            error: apiErrorText(caught, `Unable to ${state.decision} ${state.decision === 'cancel' ? 'the review' : 'the message'}. Check your access and try again.`) };
         }
       }
       if (state.status === 'verifying') {

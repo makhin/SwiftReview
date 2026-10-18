@@ -8,8 +8,6 @@
   layer(components);
 @import '../pages/messages/components/MessageStage/message-stage.css'
   layer(components);
-@import '../pages/messages/components/MessagesGrid/messages-grid.css'
-  layer(components);
 @import '../pages/messages/components/message-actions/raw-message-popup.css'
   layer(components);
 @import '../shared/components/grid-state-cards.css' layer(components);

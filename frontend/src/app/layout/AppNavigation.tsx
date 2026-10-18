@@ -1,3 +1,5 @@
+import { Button } from '@smbc/ui';
+import type { Ref } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink, useLocation } from 'react-router-dom';
 
@@ -16,9 +18,15 @@ type NavigationItem = {
 
 type AppNavigationProps = {
   onNavigate: () => void;
+  panelRef?: Ref<HTMLElement>;
+  mobile?: boolean;
 };
 
-export default function AppNavigation({ onNavigate }: AppNavigationProps) {
+export default function AppNavigation({
+  onNavigate,
+  panelRef,
+  mobile,
+}: AppNavigationProps) {
   const location = useLocation();
   const { data: currentUser } = useQuery(currentUserQueryOptions());
   const navigationItems: NavigationItem[] = [
@@ -44,9 +52,20 @@ export default function AppNavigation({ onNavigate }: AppNavigationProps) {
 
   return (
     <aside
+      ref={panelRef}
+      role={mobile ? 'dialog' : undefined}
+      aria-modal={mobile || undefined}
+      aria-label={mobile ? 'Navigation' : undefined}
       className="w-[248px] h-full min-h-[calc(100vh-var(--global-header-height))] overflow-y-auto bg-nav text-fg-inverse border-r border-border-inverse-subtle [--focus-ring-color:var(--focus-ring-color-on-dark)] smbc-sidebar"
       id="application-navigation"
     >
+      {mobile && (
+        <div className="p-3">
+          <Button variant="secondary" onClick={onNavigate}>
+            Close navigation
+          </Button>
+        </div>
+      )}
       <nav className="py-4" aria-label="Application navigation">
         <ul className="m-0 list-none p-0" aria-label="Application pages">
           {navigationItems.map((item) => (

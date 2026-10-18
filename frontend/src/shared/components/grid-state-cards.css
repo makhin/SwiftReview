@@ -42,10 +42,3 @@
 .grid-state-card__body--selected .grid-state-card__label {
   font-weight: 700;
 }
-
-@media (max-width: 639px) {
-  .grid-state-card__body {
-    padding: var(--space-2);
-    gap: var(--space-1);
-  }
-}

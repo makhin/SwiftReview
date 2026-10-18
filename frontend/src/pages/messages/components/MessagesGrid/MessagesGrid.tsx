@@ -1,9 +1,10 @@
-import { TableShell, MultiSelect, DataGrid, Button, Drawer } from '@smbc/ui';
+import MessageRowActions from './MessageRowActions';
+import MessageDialogs, { type MessageDialog } from './MessageDialogs';
+import { useMediaQuery } from '../../../../shared/hooks/useMediaQuery';
+import { TableShell, MultiSelect, DataGrid, Button } from '@smbc/ui';
 
 import { useMemo } from 'react';
 import { createMessageDataSource } from '../../api/messageDataSource';
-import ConfirmMessagePopup from '../message-actions/ConfirmMessagePopup';
-import MessagePdfPopup from '../message-actions/MessagePdfPopup';
 import GridRefreshButton from '../../../../shared/components/GridRefreshButton';
 
 import {
@@ -18,23 +19,16 @@ import {
 } from '@smbc/ui/data-grid';
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useRef, useState } from 'react';
 
 import { currentUserQueryOptions } from '../../../../shared/api/currentUserQueries';
-import {
-  canAssignMessages,
-  canManageWorkflows,
-  canViewAudit,
-} from '../../../../shared/auth/permissions';
+import { canManageWorkflows } from '../../../../shared/auth/permissions';
 import {
   branchesQueryOptions,
   departmentsQueryOptions,
   messageStatesQueryOptions,
   usersQueryOptions,
 } from '../../../../shared/api/referenceDataQueries';
-import AuditTrailDrawer from '../AuditTrailDrawer/AuditTrailDrawer';
-import AssignmentPopup from '../message-actions/AssignmentPopup';
 import MessageStage from '../MessageStage/MessageStage';
 import { type MessageRow } from '../../api/messagesApi';
 import { messageSummaryQueryOptions } from '../../api/messageQueries';
@@ -45,9 +39,6 @@ import {
   businessStageLabel,
   type BusinessStage,
 } from '../../model/messageBusinessStages';
-import ReviewDecisionPopup from '../message-actions/ReviewDecisionPopup';
-import UndoReviewButton from '../message-actions/UndoReviewButton';
-import ChangeWorkflowPopup from '../message-actions/ChangeWorkflowPopup';
 import { canReviewMessage, getReviewStep } from '../../model/reviewDecision';
 
 type MessagesGridProps = {
@@ -73,31 +64,6 @@ function restoreTrigger(trigger: DialogTrigger | null) {
   );
 }
 
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-function usePrefersReducedMotion() {
-  const [matches, setMatches] = useState(
-    () =>
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia(REDUCED_MOTION_QUERY).matches,
-  );
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
-      return undefined;
-    }
-
-    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
-    const updateMatch = () => setMatches(mediaQuery.matches);
-
-    updateMatch();
-    mediaQuery.addEventListener('change', updateMatch);
-    return () => mediaQuery.removeEventListener('change', updateMatch);
-  }, []);
-
-  return matches;
-}
-
 export default function MessagesGrid({
   dataSource,
   enableReviewActions = false,
@@ -105,10 +71,7 @@ export default function MessagesGrid({
   enableWorkflowActions = false,
 }: MessagesGridProps) {
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
-  const [selectedConfirmMessage, setSelectedConfirmMessage] =
-    useState<MessageRow | null>(null);
-  const [selectedPdfMessage, setSelectedPdfMessage] =
-    useState<MessageRow | null>(null);
+  const [dialog, setDialog] = useState<MessageDialog | null>(null);
   const filteredSource = useMemo(
     () =>
       departmentIds.length
@@ -128,29 +91,11 @@ export default function MessagesGrid({
   const stateCards = businessStageCards(
     summaryQuery.isError ? undefined : summaryQuery.data,
   );
-  const [selectedAuditMessage, setSelectedAuditMessage] =
-    useState<MessageRow | null>(null);
-  const [readOnly, setReadOnly] = useState(false);
-  const [selectedReviewMessage, setSelectedReviewMessage] =
-    useState<MessageRow | null>(null);
-  const [selectedAssignmentMessage, setSelectedAssignmentMessage] =
-    useState<MessageRow | null>(null);
-  const [selectedWorkflowMessage, setSelectedWorkflowMessage] =
-    useState<MessageRow | null>(null);
-  const auditTriggerRef = useRef<DialogTrigger | null>(null);
-  const reviewTriggerRef = useRef<DialogTrigger | null>(null);
-  const assignmentTriggerRef = useRef<DialogTrigger | null>(null);
+  const dialogTriggerRef = useRef<DialogTrigger | null>(null);
   const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const showAudit = currentUser
-    ? canViewAudit(currentUser.permissions, currentUser.isGlobalAdministrator)
-    : false;
-  const showAssignment = currentUser
-    ? canAssignMessages(
-        currentUser.permissions,
-        currentUser.isGlobalAdministrator,
-      )
-    : false;
+  const prefersReducedMotion = useMediaQuery(
+    '(prefers-reduced-motion: reduce)',
+  );
   const showUndo =
     enableUndoActions &&
     currentUser != null &&
@@ -201,49 +146,21 @@ export default function MessagesGrid({
     }
   }
 
-  function closeAudit() {
-    setSelectedAuditMessage(null);
-    restoreTrigger(auditTriggerRef.current);
+  function closeDialog() {
+    setDialog(null);
+    restoreTrigger(dialogTriggerRef.current);
   }
-
-  function closeReviewAction() {
-    setSelectedReviewMessage(null);
-    restoreTrigger(reviewTriggerRef.current);
-  }
-
-  function closeAssignment() {
-    setSelectedAssignmentMessage(null);
-    restoreTrigger(assignmentTriggerRef.current);
-  }
-
-  function openAssignment(message: MessageRow) {
-    assignmentTriggerRef.current = rememberTrigger(
-      `message-assignment-${message.id}`,
+  function openDialog(kind: MessageDialog['kind'], message: MessageRow) {
+    const active =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    dialogTriggerRef.current = rememberTrigger(
+      active?.closest('[popover]')
+        ? `message-more-${message.id}`
+        : (active?.id ?? ''),
     );
-    setSelectedAssignmentMessage(message);
-  }
-
-  function openAudit(message: MessageRow) {
-    auditTriggerRef.current = rememberTrigger(`message-audit-${message.id}`);
-    setSelectedAuditMessage(message);
-  }
-
-  function canShowAssignment(
-    message: MessageRow | undefined,
-    assigned: boolean,
-  ) {
-    return (
-      message?.canAssign === true &&
-      (message.currentAssigneeId != null) === assigned
-    );
-  }
-
-  function openReviewAction(message: MessageRow, preview = false) {
-    setReadOnly(preview);
-    reviewTriggerRef.current = rememberTrigger(
-      `message-${preview ? 'view' : 'review'}-${message.id}`,
-    );
-    setSelectedReviewMessage(message);
+    setDialog({ kind, message });
   }
 
   function canShowReviewAction(message: MessageRow | undefined) {
@@ -256,31 +173,6 @@ export default function MessagesGrid({
       canReviewMessage(message)
     );
   }
-
-  useEffect(() => {
-    if (!selectedAuditMessage) {
-      return undefined;
-    }
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeAudit();
-      }
-    };
-
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [selectedAuditMessage]);
-
-  useEffect(() => {
-    if (!selectedAuditMessage) {
-      return undefined;
-    }
-
-    const appRoot = document.getElementById('root');
-    appRoot?.setAttribute('inert', '');
-    return () => appRoot?.removeAttribute('inert');
-  }, [selectedAuditMessage]);
 
   return (
     <>
@@ -341,7 +233,7 @@ export default function MessagesGrid({
           </div>
           <GridRefreshButton refresh={refreshMessages} />
         </div>
-        <TableShell className="">
+        <TableShell>
           <DataGrid
             ref={dataGridRef}
             dataSource={filteredSource}
@@ -477,216 +369,41 @@ export default function MessagesGrid({
             </Column>
             <Column
               caption="Actions"
-              width={
-                200 +
-                (showAudit ? 40 : 0) +
-                (showAssignment ? 100 : 0) +
-                (showUndo ? 85 : 0) +
-                (showWorkflow ? 155 : 0)
-              }
+              width={210}
               allowFiltering={false}
               allowSorting={false}
-              cellRender={(cell) => {
-                const message = cell.data as MessageRow;
-                return (
-                  <div className="message-actions flex items-center gap-2 whitespace-nowrap">
-                    {showWorkflow && message.canChangeWorkflow && (
-                      <span
-                        title={
-                          !message.canChangeWorkflow
-                            ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.'
-                            : undefined
-                        }
-                        aria-label={
-                          !message.canChangeWorkflow
-                            ? 'Workflow cannot be changed while a review is active, approved or rejected. All review attempts must be cancelled or undone.'
-                            : undefined
-                        }
-                        tabIndex={!message.canChangeWorkflow ? 0 : undefined}
-                      >
-                        <Button
-                          disabled={!message.canChangeWorkflow}
-                          onClick={() => {
-                            if (message.canChangeWorkflow)
-                              setSelectedWorkflowMessage(message);
-                          }}
-                          variant="secondary"
-                          children="Change workflow"
-                        />
-                      </span>
-                    )}
-                    {showUndo &&
-                      (currentUser?.isGlobalAdministrator ||
-                        message.undoReviewId != null) && (
-                        <UndoReviewButton
-                          key={String(message.undoReviewId ?? 'none')}
-                          message={message}
-                          onChanged={refreshGrid}
-                        />
-                      )}
-                    {canShowAssignment(message, false) && (
-                      <Button
-                        onClick={() => openAssignment(message)}
-                        variant="secondary"
-                        children="Assign"
-                        devExtremeProps={{
-                          hint: 'Assign message',
-                          elementAttr: {
-                            id: `message-assignment-${message.id}`,
-                          },
-                        }}
-                      />
-                    )}
-                    {canShowAssignment(message, true) && (
-                      <Button
-                        onClick={() => openAssignment(message)}
-                        variant="secondary"
-                        children="Reassign"
-                        devExtremeProps={{
-                          hint: 'Reassign message',
-                          elementAttr: {
-                            id: `message-assignment-${message.id}`,
-                          },
-                        }}
-                      />
-                    )}
-                    <Button
-                      icon="doc"
-                      onClick={() => openReviewAction(message, true)}
-                      variant="secondary"
-                      children="View"
-                      devExtremeProps={{
-                        hint: 'View message',
-                        elementAttr: { id: `message-view-${message.id}` },
-                      }}
-                    />
-                    <Button
-                      onClick={() => setSelectedPdfMessage(message)}
-                      variant="secondary"
-                      children="PDF"
-                      devExtremeProps={{ hint: 'View PDF' }}
-                    />
-                    {(enableReviewActions ||
-                      currentUser?.isGlobalAdministrator) &&
-                      message.canConfirm && (
-                        <Button
-                          onClick={() => setSelectedConfirmMessage(message)}
-                          variant="secondary"
-                          children="Confirm"
-                        />
-                      )}
-                    {canShowReviewAction(message) && (
-                      <Button
-                        onClick={() => openReviewAction(message)}
-                        variant="secondary"
-                        children="Review"
-                        devExtremeProps={{
-                          hint: 'Review message',
-                          elementAttr: { id: `message-review-${message.id}` },
-                        }}
-                      />
-                    )}
-                    {message.canViewAudit && (
-                      <Button
-                        icon="search"
-                        ariaLabel="View audit trail"
-                        onClick={() => openAudit(message)}
-                        variant="secondary"
-                        devExtremeProps={{
-                          elementAttr: {
-                            ...{
-                              class: 'message-actions__icon-button',
-                              'aria-label': 'View audit trail',
-                            },
-                            id: `message-audit-${message.id}`,
-                          },
-                        }}
-                      />
-                    )}
-                  </div>
-                );
-              }}
+              cellRender={({ data: message }: { data: MessageRow }) => (
+                <MessageRowActions
+                  message={message}
+                  open={openDialog}
+                  review={canShowReviewAction(message)}
+                  confirm={
+                    (enableReviewActions ||
+                      currentUser?.isGlobalAdministrator === true) &&
+                    message.canConfirm === true
+                  }
+                  undo={
+                    showUndo &&
+                    (currentUser?.isGlobalAdministrator === true ||
+                      message.undoReviewId != null)
+                  }
+                  workflow={showWorkflow && message.canChangeWorkflow === true}
+                  onChanged={refreshGrid}
+                />
+              )}
             />
           </DataGrid>
         </TableShell>
       </section>
-      {selectedConfirmMessage && (
-        <ConfirmMessagePopup
-          key={selectedConfirmMessage.id}
-          message={selectedConfirmMessage}
-          onClose={() => setSelectedConfirmMessage(null)}
-          onChanged={refreshGrid}
-        />
-      )}
-      {selectedPdfMessage && (
-        <MessagePdfPopup
-          key={selectedPdfMessage.id}
-          message={selectedPdfMessage}
-          onClose={() => setSelectedPdfMessage(null)}
-        />
-      )}
-      {selectedReviewMessage && (
-        <ReviewDecisionPopup
-          key={String(selectedReviewMessage.id)}
-          message={selectedReviewMessage}
-          canApprove={!readOnly && canShowReviewAction(selectedReviewMessage)}
-          canReject={
-            !readOnly &&
-            canShowReviewAction(selectedReviewMessage) &&
-            selectedReviewMessage.rejectAllowed === true
-          }
-          onClose={closeReviewAction}
-          onChanged={refreshGrid}
-        />
-      )}
-      {selectedWorkflowMessage && (
-        <ChangeWorkflowPopup
-          key={String(selectedWorkflowMessage.id)}
-          message={selectedWorkflowMessage}
-          onClose={() => setSelectedWorkflowMessage(null)}
-          onChanged={refreshGrid}
-        />
-      )}
-      {selectedAssignmentMessage && (
-        <AssignmentPopup
-          message={selectedAssignmentMessage}
-          onClose={closeAssignment}
-          onChanged={refreshGrid}
-        />
-      )}
-      {selectedAuditMessage &&
-        createPortal(
-          <Drawer
-            open
-            onOpenChange={(opened) => {
-              if (!opened) {
-                closeAudit();
-              }
-            }}
-            panel={() => (
-              <AuditTrailDrawer
-                message={selectedAuditMessage}
-                users={users}
-                messageStates={messageStates}
-                onClose={closeAudit}
-              />
-            )}
-            devExtremeProps={{
-              className: 'audit-drawer',
-              openedStateMode: 'overlap',
-              revealMode: 'expand',
-              position: 'right',
-              minSize: 0,
-              maxSize: 440,
-              animationEnabled: !prefersReducedMotion,
-              shading: true,
-              closeOnOutsideClick: true,
-            }}
-          >
-            <div className="w-full h-full" aria-hidden="true" />
-          </Drawer>,
-          document.body,
-        )}
+      <MessageDialogs
+        dialog={dialog}
+        close={closeDialog}
+        refresh={refreshGrid}
+        canReview={canShowReviewAction}
+        users={users}
+        messageStates={messageStates}
+        prefersReducedMotion={prefersReducedMotion}
+      />
     </>
   );
 }

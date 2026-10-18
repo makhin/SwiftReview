@@ -1,3 +1,5 @@
+import PageHeader from '../../shared/components/PageHeader';
+import PageLayout from '../../shared/components/PageLayout';
 import { useQuery } from '@tanstack/react-query';
 
 import { currentUserQueryOptions } from '../../shared/api/currentUserQueries';
@@ -16,22 +18,22 @@ export default function MessagesPage() {
 
   if (currentUserQuery.isPending) {
     return (
-      <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
+      <PageLayout>
         <PageLoading message="Loading messages…" />
-      </main>
+      </PageLayout>
     );
   }
 
   if (currentUserQuery.error) {
     return (
-      <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
+      <PageLayout>
         <PageError
           title="Unable to verify access"
           message="Check your connection and try again."
           actionLabel="Retry"
           onAction={() => void currentUserQuery.refetch()}
         />
-      </main>
+      </PageLayout>
     );
   }
 
@@ -53,20 +55,16 @@ export default function MessagesPage() {
   }
 
   return (
-    <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6 max-w-none">
-      <header className="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-start">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold leading-tight">Messages</h1>
-          <p className="mt-2 text-fg-muted">
-            Find, assign, and manage messages across your accessible scopes.
-          </p>
-        </div>
-      </header>
+    <PageLayout wide>
+      <PageHeader
+        title="Messages"
+        description="Find, assign, and manage messages across your accessible scopes."
+      />
       <MessagesGrid
         dataSource={messageDataSource}
         enableUndoActions
         enableWorkflowActions
       />
-    </main>
+    </PageLayout>
   );
 }

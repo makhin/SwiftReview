@@ -1,3 +1,4 @@
+import PageLayout from '../../shared/components/PageLayout';
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
 
 import { ApiError } from '../../shared/api/errors';
@@ -30,13 +31,13 @@ export default function RouteErrorBoundary() {
   }
 
   return (
-    <main className="w-full max-w-[1600px] mx-auto p-4 md:px-6 md:pt-6 md:pb-8 xl:px-8 flex flex-col gap-6">
+    <PageLayout>
       <PageError
         title={title}
         message={message}
         actionLabel="Reload page"
         onAction={() => window.location.reload()}
       />
-    </main>
+    </PageLayout>
   );
 }

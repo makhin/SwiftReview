@@ -11,11 +11,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly problem?: ProblemDetails;
 
-  constructor(
-    message: string,
-    status: number,
-    problem?: ProblemDetails,
-  ) {
+  constructor(message: string, status: number, problem?: ProblemDetails) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -39,4 +35,10 @@ export class ApiRequestError extends Error {
     this.outcomeUnknown = options.outcomeUnknown ?? false;
     this.status = options.status;
   }
+}
+
+export function apiErrorText(error: unknown, fallback: string) {
+  return error instanceof ApiError || error instanceof ApiRequestError
+    ? error.message
+    : fallback;
 }

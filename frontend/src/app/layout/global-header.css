@@ -1,6 +1,8 @@
-.site-layout {
+:root {
   --global-header-height: 87px;
   --global-header-border-width: 5px;
+}
+.site-layout {
   min-height: 100vh;
 }
 #main-content {
