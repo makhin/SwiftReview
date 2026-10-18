@@ -1,6 +1,3 @@
-vi.mock('../../shared/components/ActionMenu', () => ({
-  default: ({ children }: PropsWithChildren) => <div>{children}</div>,
-}));
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useImperativeHandle, type PropsWithChildren, type Ref } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -39,6 +36,7 @@ const {
 vi.mock('./api/messagesApi', async (original) => ({
   ...(await original<typeof import('./api/messagesApi')>()),
   getDashboardSummary: summary,
+  getMessage: vi.fn(() => new Promise(() => undefined)),
 }));
 
 vi.mock('../../shared/api/referenceDataApi', () => ({
@@ -53,21 +51,8 @@ vi.mock('../../shared/api/currentUserApi', () => ({
   getCurrentUser,
 }));
 
-vi.mock('./components/AuditTrailDrawer/AuditTrailDrawer', () => ({
-  default: ({
-    message,
-    onClose,
-  }: {
-    message: { externalId: string };
-    onClose: () => void;
-  }) => (
-    <aside aria-label="Audit trail">
-      {message.externalId}
-      <button type="button" onClick={onClose}>
-        Close
-      </button>
-    </aside>
-  ),
+vi.mock('./components/AuditTrailDrawer/AuditTrailContent', () => ({
+  default: ({ message, onUndo }: { message: { externalId: string }; onUndo?: () => void }) => <div aria-label="Audit trail">{message.externalId}{onUndo && <button onClick={onUndo}>Undo approval</button>}</div>,
 }));
 vi.mock('./components/message-actions/AssignmentPopup', () => ({
   default: ({
@@ -256,15 +241,21 @@ describe('MessagesPage', () => {
       );
     },
   );
-  it('shows Undo to a global administrator in the assignment grid', () => {
+  it('shows Undo to a global administrator in History', () => {
+    rowOverrides.undoReviewId = 73;
     renderPage(true, [], true, true);
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Undo approval' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'History' }));
+    expect(screen.getByRole('button', { name: 'Undo approval' })).toBeInTheDocument();
   });
 
   it('exposes Undo to an ordinary user with scoped review.undo permission', () => {
     rowOverrides.undoReviewId = 73;
     renderPage(true, ['message.view', 'message.assign', 'review.undo']);
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'History' }));
+    expect(screen.getByRole('button', { name: 'Undo approval' })).toBeInTheDocument();
   });
 
   it('does not expose Undo outside the permission scope', () => {
@@ -274,8 +265,10 @@ describe('MessagesPage', () => {
       undoReviewId: null,
     });
     renderPage(true, ['message.view', 'message.assign', 'review.undo']);
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'History' }));
     expect(
-      screen.queryByRole('button', { name: 'Undo' }),
+      screen.queryByRole('button', { name: 'Undo approval' }),
     ).not.toBeInTheDocument();
   });
 
@@ -289,8 +282,8 @@ describe('MessagesPage', () => {
     });
     renderPage(true, [], true, true);
     expect(
-      screen.getByRole('button', { name: 'View audit trail' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: 'View audit trail' }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeEnabled();
@@ -552,7 +545,7 @@ describe('MessagesPage', () => {
     expect(screen.queryAllByTestId('Lookup')).toHaveLength(1);
   });
 
-  it('opens View from the shared actions column with decisions disabled', () => {
+  it('opens a read-only message card without review controls', () => {
     renderPage();
 
     const rawButton = componentProps.mock.calls
@@ -563,13 +556,29 @@ describe('MessagesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
-    expect(screen.getByLabelText('Review dialog')).toHaveTextContent(
-      'MSG-0042',
-    );
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
-    expect(screen.queryByLabelText('Review dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'View message' })).toHaveTextContent('MSG-0042');
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Comment (optional)')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows at most three direct actions and reserves alternate Review for the card', () => {
+    Object.assign(rowOverrides, { canConfirm: true, canReview: true, canAssign: true, currentAssigneeId: 1 });
+    renderPage(true, [], true, true);
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reassign' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
+  });
+
+  it('omits More when the row has no secondary actions', () => {
+    Object.assign(rowOverrides, { canAssign: false, canReview: false, canConfirm: false });
+    renderPage();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'More message actions' })).not.toBeInTheDocument();
   });
 
   it('shows manual assignment only with permission', () => {
@@ -591,57 +600,18 @@ describe('MessagesPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows the audit action only with permission and opens the right-side drawer', () => {
-    const view = renderPage(true, [
-      'message.view',
-      'message.assign',
-      'audit.view',
-    ]);
-    view.container.id = 'root';
-
-    expect(screen.getAllByTestId('Column')).toHaveLength(11);
-    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'View audit trail' }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
-
-    expect(screen.getByLabelText('Audit trail')).toHaveTextContent('MSG-0042');
-    const drawerProps = componentProps.mock.calls
-      .filter(([name]) => name === 'Drawer')
-      .at(-1)?.[1];
-    expect(drawerProps).toMatchObject({
-      open: true,
-      openedStateMode: 'overlap',
-      position: 'right',
-      animationEnabled: true,
-      shading: true,
-      closeOnOutsideClick: true,
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByLabelText('Audit trail')).not.toBeInTheDocument();
-    expect(view.container).not.toHaveAttribute('inert');
-  });
-
-  it('disables audit drawer animation when reduced motion is requested', () => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({
-        matches: true,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      })),
-    );
-    renderPage(true, ['message.view', 'message.assign', 'audit.view']);
-
-    fireEvent.click(screen.getByRole('button', { name: 'View audit trail' }));
-
-    const drawerProps = componentProps.mock.calls
-      .filter(([name]) => name === 'Drawer')
-      .at(-1)?.[1];
-    expect(drawerProps).toMatchObject({ animationEnabled: false });
+  it.each([true, false])('shows History inside View only when allowed: %s', (allowed) => {
+    rowOverrides.canViewAudit = allowed;
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'View audit trail' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'PDF' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    if (allowed) {
+      fireEvent.click(screen.getByRole('tab', { name: 'History' }));
+      expect(screen.getByLabelText('Audit trail')).toHaveTextContent('MSG-0042');
+    } else {
+      expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument();
+    }
   });
 
   it('redirects reviewers without assign permission to the review queue', () => {
@@ -705,6 +675,7 @@ describe('workflow action', () => {
     rowOverrides.canAssign = false;
     rowOverrides.canChangeWorkflow = false;
     renderPage(true, ['message.view', 'workflow.manage']);
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
     expect(
       screen.queryByRole('button', { name: 'Change workflow' }),
     ).not.toBeInTheDocument();
@@ -716,6 +687,8 @@ describe('workflow action', () => {
   it('enables changing workflow when the server allows it', () => {
     rowOverrides.canChangeWorkflow = true;
     renderPage(true, [], true, true);
+    expect(screen.queryByRole('button', { name: 'Change workflow' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
     expect(
       screen.getByRole('button', { name: 'Change workflow' }),
     ).toBeEnabled();
@@ -789,7 +762,7 @@ describe('queue row actions and colours', () => {
       });
       expect(rowElement.className).toBe('');
       fireEvent.click(screen.getByRole('button', { name: 'View' }));
-      expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
     },
   );
   it.each([

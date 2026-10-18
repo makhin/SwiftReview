@@ -26,3 +26,24 @@
 .review-decision-popup .raw-message-popup__body {
   flex: 1 0 160px;
 }
+
+.message-view-popup .dx-popup-content {
+  overflow: auto;
+}
+
+.message-view-popup .dx-popup-content > div > div {
+  height: 100%;
+  min-height: 0;
+}
+
+.message-view-popup__content {
+  flex: 1;
+  min-height: 100px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.message-view-popup dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

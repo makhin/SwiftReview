@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Dialog } from '@smbc/ui';
+import { Button } from '@smbc/ui';
 
 import type {
   PDFDocumentProxy,
@@ -54,12 +54,10 @@ function PdfPage({
   );
 }
 
-export default function MessagePdfPopup({
+export default function MessagePdfContent({
   message,
-  onClose,
 }: {
   message: MessageRow;
-  onClose: () => void;
 }) {
   const [preview, setPreview] = useState<{
     url: string;
@@ -97,47 +95,37 @@ export default function MessagePdfPopup({
     };
   }, [message.id, attempt]);
   return (
-    <Dialog
-      open
-      title={`PDF — ${message.externalId}`}
-      showCloseButton
-      closeOnOutsideClick
-      width="90vw"
-      onClose={onClose}
-      devExtremeProps={{ height: '85vh' }}
-    >
-      <div className="h-full overflow-y-auto">
-        {error ? (
-          <div role="alert">
-            {error}{' '}
-            <Button
-              onClick={() => {
-                setError(undefined);
-                setAttempt(attempt + 1);
-              }}
-              variant="secondary"
-              children="Retry"
+    <div className="h-full overflow-y-auto">
+      {error ? (
+        <div role="alert">
+          {error}{' '}
+          <Button
+            onClick={() => {
+              setError(undefined);
+              setAttempt(attempt + 1);
+            }}
+            variant="secondary"
+            children="Retry"
+          />
+        </div>
+      ) : preview ? (
+        <>
+          <p>
+            <a href={preview.url} download={`${message.externalId}.pdf`}>
+              Download PDF
+            </a>
+          </p>
+          {Array.from({ length: preview.document.numPages }, (_, index) => (
+            <PdfPage
+              key={index}
+              document={preview.document}
+              number={index + 1}
             />
-          </div>
-        ) : preview ? (
-          <>
-            <p>
-              <a href={preview.url} download={`${message.externalId}.pdf`}>
-                Download PDF
-              </a>
-            </p>
-            {Array.from({ length: preview.document.numPages }, (_, index) => (
-              <PdfPage
-                key={index}
-                document={preview.document}
-                number={index + 1}
-              />
-            ))}
-          </>
-        ) : (
-          <p role="status">Loading PDF…</p>
-        )}
-      </div>
-    </Dialog>
+          ))}
+        </>
+      ) : (
+        <p role="status">Loading PDF…</p>
+      )}
+    </div>
   );
 }

@@ -1,8 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Button, type ButtonRef } from '@smbc/ui';
-
-import { useRef } from 'react';
-import { useModalFocus } from '../../../../shared/hooks/useModalFocus';
+import { Button } from '@smbc/ui';
 
 import type {
   AuditEventDto,
@@ -29,11 +26,12 @@ const eventLabels: Record<AuditEventType, string> = {
   ConfirmationUndone: 'Confirmation undone',
 };
 
-type AuditTrailDrawerProps = {
+type AuditTrailContentProps = {
   message: MessageRow;
   users?: UserSummaryDto[];
   messageStates?: MessageStateReferenceDto[];
-  onClose: () => void;
+  onUndo?: () => void;
+  undoDisabled?: boolean;
 };
 
 function Detail({ label, value }: { label: string; value: string }) {
@@ -49,7 +47,11 @@ function AuditEvent({
   event,
   users,
   messageStates,
+  onUndo,
+  undoDisabled,
 }: {
+  onUndo?: () => void;
+  undoDisabled?: boolean;
   event: AuditEventDto;
   users?: UserSummaryDto[];
   messageStates?: MessageStateReferenceDto[];
@@ -117,109 +119,97 @@ function AuditEvent({
             <Detail label="Comment" value={details.comment} />
           )}
         </dl>
+        {onUndo && (
+          <Button variant="secondary" disabled={undoDisabled} onClick={onUndo}>
+            Undo approval
+          </Button>
+        )}
       </article>
     </li>
   );
 }
 
-export default function AuditTrailDrawer({
+export default function AuditTrailContent({
   message,
   users,
   messageStates,
-  onClose,
-}: AuditTrailDrawerProps) {
-  const panelRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<ButtonRef>(null);
+  onUndo,
+  undoDisabled,
+}: AuditTrailContentProps) {
   const auditQuery = useInfiniteQuery(messageAuditQueryOptions(message.id));
   const events = auditQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  useModalFocus(panelRef, true, onClose, ['#root']);
+
+  const undoEvent = events.find(
+    (event) =>
+      event.eventType === 'ReviewApproved' &&
+      message.undoReviewId != null &&
+      String(event.details.reviewId) === String(message.undoReviewId),
+  );
 
   return (
-    <aside
-      ref={panelRef}
-      className="flex flex-col w-screen md:w-[440px] max-w-screen h-full bg-surface shadow-popup-elevation"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="audit-drawer-title"
-    >
-      <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border [&_p]:mt-1 [&_p]:text-fg-muted">
-        <div>
-          <h2 className="text-xl font-semibold" id="audit-drawer-title">
-            Audit trail
-          </h2>
-          <p>{message.externalId}</p>
+    <div aria-label="Audit trail">
+      {onUndo && !undoEvent && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <strong>Latest approval</strong>
+          <Button variant="secondary" disabled={undoDisabled} onClick={onUndo}>
+            Undo approval
+          </Button>
         </div>
-        <Button
-          ariaLabel="Close audit trail"
-          ref={closeButtonRef}
-          icon="close"
-          width={36}
-          onClick={onClose}
-          variant="tertiary"
-          devExtremeProps={{
-            className: 'shrink-0 text-fg-muted',
-            height: 36,
-            elementAttr: { 'aria-label': 'Close audit trail' },
-          }}
+      )}
+      {auditQuery.isPending && <PageLoading message="Loading audit trail…" />}
+
+      {auditQuery.isError && events.length === 0 && (
+        <PageError
+          title="Unable to load audit trail"
+          message="Check your connection and try again."
+          actionLabel="Retry"
+          onAction={() => void auditQuery.refetch()}
         />
-      </header>
+      )}
 
-      <div className="flex-1 min-h-0 p-5 overflow-y-auto overscroll-contain">
-        {auditQuery.isPending && <PageLoading message="Loading audit trail…" />}
+      {!auditQuery.isPending && !auditQuery.isError && events.length === 0 && (
+        <p className="text-fg-muted">No audit events found.</p>
+      )}
 
-        {auditQuery.isError && events.length === 0 && (
-          <PageError
-            title="Unable to load audit trail"
-            message="Check your connection and try again."
-            actionLabel="Retry"
-            onAction={() => void auditQuery.refetch()}
-          />
-        )}
-
-        {!auditQuery.isPending &&
-          !auditQuery.isError &&
-          events.length === 0 && (
-            <p className="text-fg-muted">No audit events found.</p>
-          )}
-
-        {events.length > 0 && (
-          <ol className="list-none p-0 m-0">
-            {events.map((event) => (
-              <AuditEvent
-                key={String(event.id)}
-                event={event}
-                users={users}
-                messageStates={messageStates}
-              />
-            ))}
-          </ol>
-        )}
-
-        {auditQuery.isFetchNextPageError && (
-          <div
-            className="flex items-center justify-between gap-3 p-3 text-danger bg-danger-faint border-l-[length:var(--border-width-emphasis)] border-danger"
-            role="alert"
-          >
-            <span>Unable to load more events.</span>
-            <Button
-              onClick={() => void auditQuery.fetchNextPage()}
-              variant="secondary"
-              children="Retry"
+      {events.length > 0 && (
+        <ol className="list-none p-0 m-0">
+          {events.map((event) => (
+            <AuditEvent
+              key={String(event.id)}
+              event={event}
+              users={users}
+              messageStates={messageStates}
+              onUndo={event === undoEvent ? onUndo : undefined}
+              undoDisabled={undoDisabled}
             />
-          </div>
-        )}
+          ))}
+        </ol>
+      )}
 
-        {auditQuery.hasNextPage && !auditQuery.isFetchNextPageError && (
+      {auditQuery.isFetchNextPageError && (
+        <div
+          className="flex items-center justify-between gap-3 p-3 text-danger bg-danger-faint border-l-[length:var(--border-width-emphasis)] border-danger"
+          role="alert"
+        >
+          <span>Unable to load more events.</span>
           <Button
-            width="100%"
-            disabled={auditQuery.isFetchingNextPage}
             onClick={() => void auditQuery.fetchNextPage()}
             variant="secondary"
-            children={auditQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
-            devExtremeProps={{ className: 'audit-drawer-panel__load-more' }}
+            children="Retry"
           />
-        )}
-      </div>
-    </aside>
+        </div>
+      )}
+
+      {auditQuery.hasNextPage && !auditQuery.isFetchNextPageError && (
+        <Button
+          width="100%"
+          disabled={auditQuery.isFetchingNextPage}
+          onClick={() => void auditQuery.fetchNextPage()}
+          variant="secondary"
+          children={auditQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
+          devExtremeProps={{ className: 'audit-drawer-panel__load-more' }}
+        />
+      )}
+    </div>
   );
 }

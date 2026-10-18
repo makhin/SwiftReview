@@ -59,7 +59,7 @@ const row = {
   activeReviewerName: null,
   workflowDefinitionId: 1,
   workflowDefinitionName: 'Standard',
-  undoReviewId: null,
+  undoReviewId: 73,
   requiredReviewLevels: [1, 2],
   canReview: true,
   canAssign: true,
@@ -118,6 +118,7 @@ pdf += `xref\n0 5\n0000000000 65535 f \n${offsets
   .join('')}trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
 let failRefresh = false;
 async function installRoutes(page) {
+  const updatedRows = new Map();
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('response', (response) => {
     if (/\.(woff2?|ttf|svg|ico)(\?|$)/.test(response.url()))
@@ -185,7 +186,7 @@ async function installRoutes(page) {
           json: { title: 'Refresh failed' },
         });
       }
-      let data = rows.filter((item) =>
+      let data = rows.map((item) => ({ ...item, ...updatedRows.get(item.id) })).filter((item) =>
         matches(item, JSON.parse(url.searchParams.get('filter') ?? 'null')),
       );
       const sort = JSON.parse(url.searchParams.get('sort') ?? '[]') ?? [];
@@ -218,11 +219,30 @@ async function installRoutes(page) {
             newState: 'New',
             details: {},
           },
+          {
+            id: 2,
+            eventType: updatedRows.get(Number(path.split('/').at(-2)))?.undoReviewId === null ? 'ConfirmationUndone' : 'ReviewApproved',
+            timestamp: '2026-10-18T09:00:00Z',
+            actor: { userId: 1, userName: 'alex.morgan', displayName: 'Alex Morgan' },
+            oldState: 'Assigned', newState: 'Completed',
+            details: { reviewId: 73, reviewLevel: 1 },
+          },
         ],
-        totalCount: 1,
+        totalCount: 2,
       });
     if (path.endsWith('/assignment-candidates'))
       return json([{ id: 2, userName: 'sam.lee', displayName: 'Sam Lee' }]);
+    if (path.endsWith('/reviews/undo') && request.method() === 'POST') {
+      const id = Number(path.split('/').at(-3));
+      updatedRows.set(id, { ...updatedRows.get(id), undoReviewId: null });
+      return route.fulfill({ status: 204 });
+    }
+    if (path.endsWith('/workflow') && request.method() === 'PUT') {
+      updatedRows.set(Number(path.split('/').at(-2)), {
+        workflowDefinitionId: 2, workflowDefinitionName: 'Updated workflow', canChangeWorkflow: false,
+      });
+      return route.fulfill({ status: 204 });
+    }
     if (request.method() !== 'GET') return route.fulfill({ status: 204 });
     if (/\/api\/messages\/\d+$/.test(path))
       return json({
@@ -302,86 +322,62 @@ try {
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await waitFor(() => countGrid() > beforeRefresh);
   await page.locator('.dx-loadpanel-content:visible').waitFor({ state: 'hidden' });
-  const moreActions = grid
-    .getByRole('button', { name: 'More', exact: true })
-    .first();
-  await moreActions.click();
-  const actions = page.getByRole('group', {
-    name: 'More message actions',
-    exact: true,
-  });
-  await page.waitForFunction(
-    (element) => element.contains(document.activeElement),
-    await actions.elementHandle(),
-  );
-  await page.keyboard.press('End');
-  assert(
-    await actions.evaluate((element) =>
-      element.contains(document.activeElement),
-    ),
-  );
-  await page.keyboard.press('Home');
-  assert(
-    await actions.evaluate((element) =>
-      element.contains(document.activeElement),
-    ),
-  );
-  await page.screenshot({
-    path: resolve(artifacts, 'message-actions-1440.png'),
-  });
-  await page.keyboard.press('Escape');
-  await actions.waitFor({ state: 'hidden' });
-  await page.waitForFunction(
-    (element) => element === document.activeElement,
-    await moreActions.elementHandle(),
-  );
-  const auditTrigger = page.getByRole('button', {
-    name: 'View audit trail',
-    exact: true,
-  });
-  await grid.getByRole('button', { name: 'More', exact: true }).first().click();
-  await auditTrigger.click();
-  const audit = page.getByRole('dialog', { name: 'Audit trail', exact: true });
-  await audit.getByText('Message registered', { exact: true }).waitFor();
-  await page.waitForFunction(
-    () =>
-      document.activeElement?.getAttribute('aria-label') ===
-      'Close audit trail',
-  );
-  await page.keyboard.press('Shift+Tab');
-  assert(
-    await audit.evaluate((element) => element.contains(document.activeElement)),
-  );
-  await page.keyboard.press('Escape');
-  await audit.waitFor({ state: 'hidden' });
-  await page.waitForFunction(
-    (element) => element === document.activeElement,
-    await grid
-      .getByRole('button', { name: 'More', exact: true })
-      .first()
-      .elementHandle(),
-  );
-  await page.getByRole('button', { name: 'View', exact: true }).click();
+  assert.equal(await grid.getByRole('button', { name: 'More', exact: true }).count(), 0);
+  assert.equal(await grid.getByRole('button', { name: 'Review', exact: true }).count(), 0);
+  await grid.getByRole('button', { name: 'Assign', exact: true }).waitFor();
+  await page.screenshot({ path: resolve(artifacts, 'message-actions-1440.png') });
+  const viewTrigger = grid.getByRole('button', { name: 'View', exact: true }).first();
+  await viewTrigger.click();
   const view = page.getByRole('dialog', { name: 'View message', exact: true });
-  await view
-    .getByLabel('Raw message content')
-    .getByText('SWIFT MESSAGE BODY', { exact: true })
-    .waitFor();
-  await page.waitForFunction(
-    (element) => element.contains(document.activeElement),
-    await view.elementHandle(),
-  );
+  await view.getByLabel('Raw message content').getByText('SWIFT MESSAGE BODY', { exact: true }).waitFor();
+  assert.equal(await view.getByLabel('Comment (optional)').count(), 0);
+  assert.equal(await view.getByRole('button', { name: 'Approve', exact: true }).count(), 0);
+  assert(!requests.some((request) => request.path.endsWith('/reviews/start')));
+  // Short windows must allow scrolling to footer actions instead of clipping them.
+  for (const viewport of [{ width: 667, height: 375 }, { width: 320, height: 480 }]) {
+    await page.setViewportSize(viewport);
+    await view.getByRole('button', { name: 'Confirm', exact: true }).click({ trial: true });
+    await page.screenshot({ path: resolve(artifacts, `message-view-${viewport.width}x${viewport.height}.png`) });
+    await view.locator('.dx-popup-content').getByRole('button', { name: 'Close', exact: true }).click();
+    await view.waitFor({ state: 'hidden' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await viewTrigger.click();
+    await view.getByLabel('Raw message content').waitFor();
+  }
+  await view.getByRole('tab', { name: 'History', exact: true }).click();
+  await view.getByText('Message registered', { exact: true }).waitFor();
+  await page.keyboard.press('Shift+Tab');
+  assert(await view.evaluate((element) => element.contains(document.activeElement)));
+  await page.screenshot({ path: resolve(artifacts, 'message-history-1440.png') });
+  await view.getByRole('tab', { name: 'PDF', exact: true }).click();
+  await view.getByRole('img', { name: 'PDF page 1', exact: true }).waitFor();
+  await view.getByRole('link', { name: 'Download PDF', exact: true }).waitFor();
+  await view.getByRole('tab', { name: 'Message', exact: true }).click();
+  await page.screenshot({ path: resolve(artifacts, 'message-view-1440.png') });
+  // Replace the card with the action, then return with fresh workflow/permissions.
+  await view.getByRole('button', { name: 'Change workflow', exact: true }).click();
+  const workflow = page.getByRole('dialog', { name: 'Change workflow', exact: true });
+  await workflow.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await view.getByText('Updated workflow', { exact: true }).waitFor();
+  assert.equal(await view.getByRole('button', { name: 'Change workflow', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('dialog').count(), 1);
+  await view.getByRole('button', { name: 'Assign', exact: true }).click();
+  const assignmentFromView = page.getByRole('dialog', { name: 'Assign message', exact: true });
+  await assignmentFromView.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await view.getByText('Updated workflow', { exact: true }).waitFor();
+  await view.getByRole('tab', { name: 'History', exact: true }).click();
+  const approval = view.locator('article').filter({ hasText: 'Review approved' });
+  await approval.getByRole('button', { name: 'Undo approval', exact: true }).click();
+  const undo = page.getByRole('dialog', { name: 'Undo approval', exact: true });
+  assert.equal(await page.getByRole('dialog').count(), 1);
+  await undo.getByRole('button', { name: 'Confirm undo', exact: true }).click();
+  await view.getByText('Confirmation undone', { exact: true }).waitFor();
+  assert.equal(await view.getByRole('button', { name: 'Undo approval', exact: true }).count(), 0);
+  assert(requests.some((request) => request.path === '/api/messages/1/reviews/undo' && request.body.reviewId === 73));
+  await page.waitForFunction((element) => element.contains(document.activeElement), await view.elementHandle());
   await page.keyboard.press('Escape');
   await view.waitFor({ state: 'hidden' });
-  await grid.getByRole('button', { name: 'More', exact: true }).first().click();
-  await page.getByRole('button', { name: 'PDF', exact: true }).click();
-  await page.getByRole('img', { name: 'PDF page 1', exact: true }).waitFor();
-  await page.getByRole('link', { name: 'Download PDF', exact: true }).waitFor();
-  await page.waitForFunction(() =>
-    document.querySelector('[role=dialog]')?.contains(document.activeElement),
-  );
-  await page.keyboard.press('Escape');
-  await grid.getByRole('button', { name: 'More', exact: true }).first().click();
+  await page.waitForFunction((element) => element === document.activeElement, await viewTrigger.elementHandle());
   await page.getByRole('button', { name: 'Assign', exact: true }).click();
   await page.getByLabel('Reviewer', { exact: true }).click();
   await page.getByRole('option', { name: 'Sam Lee', exact: true }).click();
@@ -404,6 +400,20 @@ try {
       { exact: true },
     )
     .waitFor();
+  const warningContrast = await page.locator('.dx-toast-warning').evaluate((element) => {
+    const luminance = (color) => {
+      const [r, g, b] = color.match(/[\d.]+/g).slice(0, 3).map((channel) => {
+        const value = Number(channel) / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const style = getComputedStyle(element);
+    const text = luminance(getComputedStyle(element.querySelector('.dx-toast-message')).color);
+    const background = luminance(style.backgroundColor);
+    return (Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05);
+  });
+  assert(warningContrast >= 4.5, `Warning toast text contrast is too low: ${warningContrast}`);
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page
     .locator('.dx-loadpanel-content:visible')
@@ -571,16 +581,10 @@ try {
         ),
         'Mobile grid overflows page',
       );
-      await grid
-        .getByRole('button', { name: 'More', exact: true })
-        .first()
-        .click();
-      await page
-        .getByRole('button', { name: 'View audit trail', exact: true })
-        .first()
-        .click();
+      await grid.getByRole('button', { name: 'View', exact: true }).first().click();
+      await page.getByRole('tab', { name: 'History', exact: true }).click();
       const mobileAudit = page.getByRole('dialog', {
-        name: 'Audit trail',
+        name: 'View message',
         exact: true,
       });
       await mobileAudit
@@ -599,7 +603,7 @@ try {
       await page.goto(`${base}me`);
     }
   }
-  // Exercise the audit focus lifecycle with normal vendor animations too.
+  // Exercise the message card focus lifecycle with normal vendor animations too.
   const animated = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'no-preference',
@@ -607,32 +611,15 @@ try {
   animated.setDefaultTimeout(10000);
   await installRoutes(animated);
   await animated.goto(`${base}messages`);
-  const animatedTrigger = animated
-    .getByRole('button', { name: 'View audit trail', exact: true })
-    .first();
-  const moreTrigger = animated
-    .getByRole('button', { name: 'More', exact: true })
-    .first();
-  await moreTrigger.click();
+  const animatedTrigger = animated.getByRole('button', { name: 'View', exact: true }).first();
   await animatedTrigger.click();
-  const animatedAudit = animated.getByRole('dialog', {
-    name: 'Audit trail',
-    exact: true,
-  });
-  await animatedAudit
-    .getByText('Message registered', { exact: true })
-    .waitFor();
-  await animated.waitForFunction(
-    () =>
-      document.activeElement?.getAttribute('aria-label') ===
-      'Close audit trail',
-  );
+  const animatedView = animated.getByRole('dialog', { name: 'View message', exact: true });
+  await animatedView.getByRole('tab', { name: 'History', exact: true }).click();
+  await animatedView.getByText('Message registered', { exact: true }).waitFor();
+  await animated.waitForFunction((element) => element.contains(document.activeElement), await animatedView.elementHandle());
   await animated.keyboard.press('Escape');
-  await animatedAudit.waitFor({ state: 'hidden' });
-  await animated.waitForFunction(
-    (element) => element === document.activeElement,
-    await moreTrigger.elementHandle(),
-  );
+  await animatedView.waitFor({ state: 'hidden' });
+  await animated.waitForFunction((element) => element === document.activeElement, await animatedTrigger.elementHandle());
   await animated.close();
   assert.deepEqual(errors, []);
   await writeFile(

@@ -1,6 +1,5 @@
 import MessageRowActions from './MessageRowActions';
 import MessageDialogs, { type MessageDialog } from './MessageDialogs';
-import { useMediaQuery } from '../../../../shared/hooks/useMediaQuery';
 import { TableShell, MultiSelect, DataGrid, Button } from '@smbc/ui';
 
 import { useMemo } from 'react';
@@ -93,9 +92,6 @@ export default function MessagesGrid({
   );
   const dialogTriggerRef = useRef<DialogTrigger | null>(null);
   const dataGridRef = useRef<DataGridRef<MessageRow, MessageRow['id']>>(null);
-  const prefersReducedMotion = useMediaQuery(
-    '(prefers-reduced-motion: reduce)',
-  );
   const showUndo =
     enableUndoActions &&
     currentUser != null &&
@@ -156,11 +152,16 @@ export default function MessagesGrid({
         ? document.activeElement
         : null;
     dialogTriggerRef.current = rememberTrigger(
-      active?.closest('[popover]')
-        ? `message-more-${message.id}`
-        : (active?.id ?? ''),
+      active?.id ?? '',
     );
     setDialog({ kind, message });
+  }
+
+  function canShowConfirmAction(message: MessageRow) {
+    return (
+      (enableReviewActions || currentUser?.isGlobalAdministrator === true) &&
+      message.canConfirm === true
+    );
   }
 
   function canShowReviewAction(message: MessageRow | undefined) {
@@ -372,7 +373,7 @@ export default function MessagesGrid({
             </Column>
             <Column
               caption="Actions"
-              width={210}
+              width={260}
               allowFiltering={false}
               allowSorting={false}
               cellRender={({ data: message }: { data: MessageRow }) => (
@@ -380,18 +381,7 @@ export default function MessagesGrid({
                   message={message}
                   open={openDialog}
                   review={canShowReviewAction(message)}
-                  confirm={
-                    (enableReviewActions ||
-                      currentUser?.isGlobalAdministrator === true) &&
-                    message.canConfirm === true
-                  }
-                  undo={
-                    showUndo &&
-                    (currentUser?.isGlobalAdministrator === true ||
-                      message.undoReviewId != null)
-                  }
-                  workflow={showWorkflow && message.canChangeWorkflow === true}
-                  onChanged={refreshGrid}
+                  confirm={canShowConfirmAction(message)}
                 />
               )}
             />
@@ -405,7 +395,9 @@ export default function MessagesGrid({
         canReview={canShowReviewAction}
         users={users}
         messageStates={messageStates}
-        prefersReducedMotion={prefersReducedMotion}
+        canConfirm={canShowConfirmAction}
+        allowWorkflow={showWorkflow}
+        allowUndo={showUndo}
       />
     </>
   );

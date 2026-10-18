@@ -1,6 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useImperativeHandle, useRef, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getMessageAudit } = vi.hoisted(() => ({ getMessageAudit: vi.fn() }));
@@ -9,7 +8,7 @@ vi.mock('../../api/auditApi', () => ({ getMessageAudit }));
 
 import type { AuditEventDto } from '../../../../shared/api/generated/contracts.generated';
 import { createTestQueryClient } from '../../../../test/createTestQueryClient';
-import AuditTrailDrawer from './AuditTrailDrawer';
+import AuditTrailContent from './AuditTrailContent';
 
 const message = {
   id: 42,
@@ -53,13 +52,13 @@ function auditEvent(overrides: Partial<AuditEventDto> = {}): AuditEventDto {
   };
 }
 
-function renderDrawer(onClose = vi.fn()) {
+function renderDrawer(undoReviewId: number | null = null, onUndo?: () => void) {
   return {
-    onClose,
     ...render(
       <QueryClientProvider client={createTestQueryClient()}>
-        <AuditTrailDrawer
-          message={message}
+        <AuditTrailContent
+          message={{ ...message, undoReviewId }}
+          onUndo={onUndo}
           users={[
             {
               id: 2,
@@ -87,14 +86,13 @@ function renderDrawer(onClose = vi.fn()) {
               assignedDescription: 'Assigned for first review',
             },
           ]}
-          onClose={onClose}
         />
       </QueryClientProvider>,
     ),
   };
 }
 
-describe('AuditTrailDrawer', () => {
+describe('AuditTrailContent', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([
       new DOMRect(0, 0, 100, 30),
@@ -146,6 +144,45 @@ describe('AuditTrailDrawer', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('places Undo only beside the exact server-authorized approval', async () => {
+    getMessageAudit.mockResolvedValue({
+      items: [
+        auditEvent({
+          id: 1,
+          eventType: 'ReviewApproved',
+          details: { reviewId: 72, comment: 'Earlier approval' },
+        }),
+        auditEvent({
+          id: 2,
+          eventType: 'ReviewApproved',
+          details: { reviewId: 73, comment: 'Latest approval' },
+        }),
+        auditEvent({
+          id: 3,
+          eventType: 'MessageCompleted',
+          details: { reviewId: 73 },
+        }),
+      ],
+      totalCount: 3,
+    });
+    const onUndo = vi.fn();
+    renderDrawer(73, onUndo);
+    await screen.findByText('Earlier approval');
+    const button = screen.getByRole('button', { name: 'Undo approval' });
+    expect(button.closest('article')).toHaveTextContent('Latest approval');
+    fireEvent.click(button);
+    expect(onUndo).toHaveBeenCalledOnce();
+  });
+
+  it('keeps authorized Undo available if history fails to load', async () => {
+    getMessageAudit.mockRejectedValue(new Error('Offline'));
+    const onUndo = vi.fn();
+    renderDrawer(73, onUndo);
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: 'Undo approval' }));
+    expect(onUndo).toHaveBeenCalledOnce();
+  });
+
   it('supports retry after the initial request fails', async () => {
     getMessageAudit
       .mockRejectedValueOnce(new Error('network failure'))
@@ -164,93 +201,38 @@ describe('AuditTrailDrawer', () => {
     expect(getMessageAudit).toHaveBeenCalledTimes(2);
   });
 
-  it('focuses the close button and calls the close handler', async () => {
-    getMessageAudit.mockResolvedValue({ items: [], totalCount: 0 });
-    const onClose = vi.fn();
-
-    renderDrawer(onClose);
-
-    const closeButton = screen.getByRole('button', {
-      name: 'Close audit trail',
-    });
-    await waitFor(() => expect(closeButton).toHaveFocus());
-    fireEvent.click(closeButton);
-
-    expect(onClose).toHaveBeenCalledOnce();
-  });
-
-  it('keeps keyboard focus inside the modal drawer', async () => {
-    getMessageAudit.mockResolvedValue({ items: [auditEvent()], totalCount: 2 });
-    const outsideButton = document.createElement('button');
-    document.body.append(outsideButton);
-
+  it('reports a next-page error and retries without losing loaded events', async () => {
+    getMessageAudit
+      .mockResolvedValueOnce({ items: [auditEvent()], totalCount: 2 })
+      .mockRejectedValueOnce(new Error('network failure'))
+      .mockResolvedValueOnce({
+        items: [auditEvent({ id: 2, eventType: 'ReviewApproved' })],
+        totalCount: 2,
+      });
     renderDrawer();
-
-    const closeButton = screen.getByRole('button', {
-      name: 'Close audit trail',
-    });
-    const loadMoreButton = await screen.findByRole('button', {
-      name: 'Load more',
-    });
-    await waitFor(() => expect(closeButton).toHaveFocus());
-
-    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
-    expect(loadMoreButton).toHaveFocus();
-
-    fireEvent.keyDown(loadMoreButton, { key: 'Tab' });
-    expect(closeButton).toHaveFocus();
-
-    outsideButton.focus();
-    expect(closeButton).toHaveFocus();
-    outsideButton.remove();
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to load more events.',
+    );
+    expect(screen.getByText('Message assigned')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Review approved')).toBeInTheDocument();
   });
 });
 
 vi.mock('@smbc/ui', async () => ({
   ...(await import('../../../../test/smbcMock')),
-  ...(() => ({
-    Button: function MockButton({
-      children,
-      disabled,
-      onClick,
-      ref,
-      devExtremeProps: { elementAttr } = {},
-    }: Omit<
-      {
-        children?: string;
-        disabled?: boolean;
-        elementAttr?: { 'aria-label'?: string };
-        onClick: () => void;
-        ref?: Ref<{ focus: () => void }>;
-      },
-      'elementAttr'
-    > & {
-      devExtremeProps: Pick<
-        {
-          children?: string;
-          disabled?: boolean;
-          elementAttr?: { 'aria-label'?: string };
-          onClick: () => void;
-          ref?: Ref<{ focus: () => void }>;
-        },
-        'elementAttr'
-      >;
-    }) {
-      const elementRef = useRef<HTMLButtonElement>(null);
-      useImperativeHandle(ref, () => ({
-        focus: () => elementRef.current?.focus(),
-      }));
-      return (
-        <button
-          ref={elementRef}
-          type="button"
-          disabled={disabled}
-          aria-label={elementAttr?.['aria-label']}
-          onClick={onClick}
-        >
-          {children}
-        </button>
-      );
-    },
-  }))(),
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: {
+    children: string;
+    onClick: () => void;
+    disabled?: boolean;
+  }) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  ),
 }));

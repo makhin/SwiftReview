@@ -30,4 +30,15 @@ describe('messageDataSource', () => {
     expect(getMessageGrid).toHaveBeenCalledWith({ skip: 0, take: 20 }, undefined, [1, 2]);
   });
 
+  it('reloads a single message independently of the grid page and department filters', async () => {
+    const row = { id: 42, canChangeWorkflow: false };
+    getMessageGrid.mockResolvedValue({ data: [row] });
+    await expect(createMessageDataSource('mine', [20]).byKey(42)).resolves.toEqual(row);
+    expect(getMessageGrid).toHaveBeenLastCalledWith({ filter: ['id', '=', 42], take: 1 });
+  });
+
+  it('fails clearly when the message is no longer accessible', async () => {
+    getMessageGrid.mockResolvedValue({ data: [] });
+    await expect(messageDataSource.byKey(42)).rejects.toThrow('Message is no longer available.');
+  });
 });

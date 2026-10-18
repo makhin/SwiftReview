@@ -1,26 +1,17 @@
 import { Button } from '@smbc/ui';
-import ActionMenu from '../../../../shared/components/ActionMenu';
-import type { RefreshData } from '../../../../shared/api/refreshAfterMutation';
 import type { MessageRow } from '../../api/messagesApi';
 import type { MessageDialog } from './MessageDialogs';
-import UndoReviewButton from '../message-actions/UndoReviewButton';
 
 export default function MessageRowActions({
   message,
   open,
   review,
   confirm,
-  undo,
-  workflow,
-  onChanged,
 }: {
   message: MessageRow;
   open: (kind: MessageDialog['kind'], message: MessageRow) => void;
   review: boolean;
   confirm: boolean;
-  undo: boolean;
-  workflow: boolean;
-  onChanged: RefreshData;
 }) {
   const primary = confirm
     ? 'confirm'
@@ -58,41 +49,17 @@ export default function MessageRowActions({
           {primaryLabel}
         </Button>
       )}
-      <ActionMenu id={`message-more-${message.id}`}>
-        {message.canAssign && primary !== 'assignment' && (
-          <Button
-            variant="secondary"
-            onClick={() => open('assignment', message)}
-          >
-            {assignmentLabel}
-          </Button>
-        )}
-        {review && primary !== 'review' && (
-          <Button variant="secondary" onClick={() => open('review', message)}>
-            Review
-          </Button>
-        )}
-        <Button variant="secondary" onClick={() => open('pdf', message)}>
-          PDF
+      {message.canAssign && primary !== 'assignment' && (
+        <Button
+          variant="secondary"
+          onClick={() => open('assignment', message)}
+          devExtremeProps={{
+            elementAttr: { id: `message-assignment-${message.id}` },
+          }}
+        >
+          {assignmentLabel}
         </Button>
-        {message.canViewAudit && (
-          <Button variant="secondary" onClick={() => open('audit', message)}>
-            View audit trail
-          </Button>
-        )}
-        {workflow && (
-          <Button variant="secondary" onClick={() => open('workflow', message)}>
-            Change workflow
-          </Button>
-        )}
-        {undo && (
-          <UndoReviewButton
-            key={String(message.undoReviewId ?? 'none')}
-            message={message}
-            onChanged={onChanged}
-          />
-        )}
-      </ActionMenu>
+      )}
     </div>
   );
 }

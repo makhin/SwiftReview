@@ -1,5 +1,5 @@
 import { Dialog } from '@smbc/ui';
-import type { ComponentProps, PropsWithChildren } from 'react';
+import type { ComponentProps, PropsWithChildren, Ref } from 'react';
 
 type Props = Omit<
   ComponentProps<typeof Dialog>,
@@ -7,11 +7,13 @@ type Props = Omit<
 > & {
   busy?: boolean;
   isLocked?: () => boolean;
+  contentRef?: Ref<HTMLDivElement>;
 };
 export default function ActionDialog({
   busy = false,
   isLocked,
   children,
+  contentRef,
   onClose,
   devExtremeProps,
   ...props
@@ -34,10 +36,10 @@ export default function ActionDialog({
         ...devExtremeProps,
       }}
     >
-      <div className="flex flex-col gap-4 p-4">{children}</div>
+      <div ref={contentRef} className="flex flex-col gap-4 p-4">{children}</div>
     </Dialog>
   );
 }
 export function DialogActions({ children }: PropsWithChildren) {
-  return <div className="flex flex-row-reverse flex-wrap justify-start gap-2">{children}</div>;
+  return <div className="dialog-actions flex flex-row-reverse flex-wrap justify-start gap-2">{children}</div>;
 }

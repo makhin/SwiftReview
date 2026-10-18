@@ -1,0 +1,298 @@
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test/createTestQueryClient';
+import { useState, type ReactElement } from 'react';
+import {
+  fireEvent,
+  render as renderComponent,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { PropsWithChildren } from 'react';
+import type { MessageRow } from '../../api/messagesApi';
+import { ApiRequestError } from '../../../../shared/api/errors';
+
+const { undoReview, notify } = vi.hoisted(() => ({
+  undoReview: vi.fn(),
+  notify: vi.fn(),
+}));
+vi.mock('../../api/messagesApi', () => ({ undoReview }));
+vi.mock('../../../../shared/notifications/notifications', () => ({
+  useNotify: () => notify,
+}));
+
+import UndoReviewPopup from './UndoReviewPopup';
+
+const message: MessageRow = {
+  id: 42,
+  externalId: 'MSG-42',
+  sender: 'SENDER',
+  receiver: 'RECEIVER',
+  branchName: 'Paris',
+  departmentIds: [20],
+  departmentNames: 'CS',
+  currentAssigneeName: null,
+  activeReviewerName: null,
+  workflowDefinitionName: 'Workflow',
+  messageType: 'MT199',
+  direction: 'Incoming',
+  branchId: 1,
+  receivedAt: '2026-09-10T10:00:00Z',
+  state: 'Completed',
+  currentAssigneeId: null,
+  activeReviewId: null,
+  activeReviewLevel: null,
+  activeReviewerId: null,
+  undoReviewId: 73,
+  workflowDefinitionId: 1,
+  canReview: false,
+  canChangeWorkflow: false,
+  requiredReviewLevels: [1],
+};
+
+function UndoReviewTest({
+  message,
+  onChanged,
+}: {
+  message: MessageRow;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return open ? (
+    <UndoReviewPopup
+      message={message}
+      onChanged={onChanged}
+      onClose={() => setOpen(false)}
+    />
+  ) : null;
+}
+
+describe('UndoReviewPopup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.resetAllMocks();
+  });
+
+  it('confirms, sends the exact review ID and refreshes after completion', async () => {
+    let resolve!: () => void;
+    undoReview.mockReturnValue(
+      new Promise<void>((done) => {
+        resolve = done;
+      }),
+    );
+    const onChanged = vi.fn();
+    render(<UndoReviewTest message={message} onChanged={onChanged} />);
+    expect(
+      screen.getByText(/Assignment retention follows the workflow policy/),
+    ).toBeInTheDocument();
+    expect(undoReview).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Comment (optional)'), {
+      target: { value: '  Please check again  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+    const button = await screen.findByRole('button', { name: 'Undoing…' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(undoReview).toHaveBeenCalledExactlyOnceWith(
+      42,
+      73,
+      'Please check again',
+    );
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByLabelText('Comment (optional)')).toBeDisabled();
+    expect(onChanged).not.toHaveBeenCalled();
+    resolve();
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+    expect(notify).toHaveBeenCalledWith('Approval undone.', 'success', 4000);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('does nothing when confirmation is cancelled', () => {
+    render(<UndoReviewTest message={message} onChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(undoReview).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each(['', '   '])(
+    'allows undo without a comment (%j)',
+    async (comment) => {
+      undoReview.mockResolvedValue(undefined);
+      render(<UndoReviewTest message={message} onChanged={vi.fn()} />);
+      expect(screen.getByLabelText('Comment (optional)')).toHaveAttribute(
+        'maxlength',
+        '2000',
+      );
+      fireEvent.change(screen.getByLabelText('Comment (optional)'), {
+        target: { value: comment },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+      await waitFor(() =>
+        expect(undoReview).toHaveBeenCalledExactlyOnceWith(42, 73, null),
+      );
+    },
+  );
+
+  it.each([
+    'New',
+    'Assigned',
+    'FirstReviewInProgress',
+    'SecondReviewInProgress',
+    'ThirdReviewInProgress',
+    'Rejected',
+  ] as const)(
+    'disables undo in %s when the server does not authorize it',
+    (state) => {
+      render(
+        <UndoReviewTest
+          message={{ ...message, state, undoReviewId: null }}
+          onChanged={vi.fn()}
+        />,
+      );
+      expect(
+        screen.getByRole('button', { name: 'Confirm undo' }),
+      ).toBeDisabled();
+    },
+  );
+
+  it('allows a server-authorized undo during the next review and warns about cancellation', async () => {
+    undoReview.mockResolvedValue(undefined);
+    render(
+      <UndoReviewTest
+        message={{
+          ...message,
+          state: 'SecondReviewInProgress',
+          activeReviewId: 74,
+        }}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/active next review will also be cancelled/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+    await waitFor(() =>
+      expect(undoReview).toHaveBeenCalledExactlyOnceWith(42, 73, null),
+    );
+  });
+
+  it('disables undo when no approval is available', () => {
+    render(
+      <UndoReviewTest
+        message={{ ...message, undoReviewId: null }}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Confirm undo' })).toBeDisabled();
+  });
+
+  it('refreshes after an uncertain response without retrying or reporting success', async () => {
+    undoReview.mockRejectedValue(new Error('Response lost'));
+    const onChanged = vi.fn();
+    render(<UndoReviewTest message={message} onChanged={onChanged} />);
+    fireEvent.change(screen.getByLabelText('Comment (optional)'), {
+      target: { value: 'Check this approval' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+    expect(notify).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('check the audit trail'),
+      'error',
+      4000,
+    );
+    expect(undoReview).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText('Comment (optional)')).toHaveValue(
+      'Check this approval',
+    );
+  });
+
+  it('preserves the typed unknown-outcome message', async () => {
+    const error = new ApiRequestError(
+      'Unable to undo review. The result is unknown.',
+      'network',
+      { outcomeUnknown: true },
+    );
+    undoReview.mockRejectedValue(error);
+    const onChanged = vi.fn();
+    render(<UndoReviewTest message={message} onChanged={onChanged} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm undo' }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+    expect(notify).toHaveBeenCalledExactlyOnceWith(
+      error.message,
+      'error',
+      4000,
+    );
+    expect(undoReview).toHaveBeenCalledOnce();
+  });
+});
+
+function render(ui: ReactElement) {
+  return renderComponent(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {ui}
+    </QueryClientProvider>,
+  );
+}
+
+vi.mock('@smbc/ui', async () => ({
+  ...(await import('../../../../test/smbcMock')),
+  ...(() => ({
+    Dialog: ({ children }: PropsWithChildren) => (
+      <section role="dialog" aria-label="Undo approval">
+        {children}
+      </section>
+    ),
+  }))(),
+  ...(() => ({
+    TextArea: ({
+      value,
+      disabled,
+      onChange,
+      devExtremeProps: { maxLength, inputAttr },
+    }: Omit<
+      {
+        value: string;
+        disabled: boolean;
+        maxLength: number;
+        inputAttr: { id: string; 'aria-label': string };
+        onChange: (value: string) => void;
+      },
+      'maxLength' | 'inputAttr'
+    > & {
+      devExtremeProps: Pick<
+        {
+          value: string;
+          disabled: boolean;
+          maxLength: number;
+          inputAttr: { id: string; 'aria-label': string };
+          onChange: (value: string) => void;
+        },
+        'maxLength' | 'inputAttr'
+      >;
+    }) => (
+      <textarea
+        value={value}
+        disabled={disabled}
+        maxLength={maxLength}
+        id={inputAttr.id}
+        aria-label={inputAttr['aria-label']}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    ),
+  }))(),
+  ...(() => ({
+    Button: ({
+      children,
+      disabled,
+      onClick,
+    }: {
+      children: string;
+      disabled: boolean;
+      onClick: () => void;
+    }) => (
+      <button disabled={disabled} onClick={onClick}>
+        {children}
+      </button>
+    ),
+  }))(),
+}));

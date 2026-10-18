@@ -100,3 +100,18 @@ export function Select({
     </select>
   );
 }
+
+export function Tabs({ items, selectedIndex, onChange, devExtremeProps }: {
+  items: { id: string; text: string }[];
+  selectedIndex: number;
+  onChange: (index: number) => void;
+  devExtremeProps?: { elementAttr?: { 'aria-label'?: string } };
+}) {
+  return <div role="tablist" aria-label={devExtremeProps?.elementAttr?.['aria-label']}>
+    {items.map((item, index) => <button key={item.id} role="tab" aria-selected={index === selectedIndex} onClick={() => onChange(index)}>{item.text}</button>)}
+  </div>;
+}
+
+export function Dialog({ children, title }: PropsWithChildren<{ title: string }>) {
+  return <section role="dialog" aria-label={title}>{children}</section>;
+}
