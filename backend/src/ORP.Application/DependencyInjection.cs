@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<MessageSearchValidator>();
         services.AddScoped<MessageAuthorizationService>();
         services.AddScoped<GetMessageHandler>();
+        services.AddScoped<GetMessageViewHandler>();
         services.AddScoped<ChangeMessageWorkflowHandler>();
         services.AddScoped<GetAuditTrailHandler>();
         services.AddScoped<GetDashboardSummaryHandler>();

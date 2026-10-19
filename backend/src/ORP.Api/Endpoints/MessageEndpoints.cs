@@ -30,6 +30,10 @@ public static class MessageEndpoints
         group.MapGet("/{id:long}", GetMessage)
             .WithName(nameof(GetMessage)).WithSummary("Get an accessible message.")
             .Produces<MessageDetailsDto>().ProducesProblem(404);
+        group.MapGet("/{id:long}/view", GetMessageView)
+            .WithName(nameof(GetMessageView)).WithSummary("Get a message card with approvals and complete audit history.")
+            .WithDescription("Requires message and audit access. Roles are current roles in the message branch and visible departments, not historical roles. Approval levels follow the current workflow. Audit events are ordered oldest first. rawText is the stored body without conversion.")
+            .Produces<MessageViewDto>().ProducesProblem(403).ProducesProblem(404);
         group.MapGet("/{messageId:long}/pdf", GetMessagePdf)
             .WithName(nameof(GetMessagePdf)).WithSummary("Get the PDF for an accessible message.")
             .WithDescription("Returns the message body as a PDF, preserving plain-text spacing and line breaks.")
@@ -60,6 +64,9 @@ public static class MessageEndpoints
             ?? throw new UnauthorizedAccessException(), ct);
 
     private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
+
+    private static Task<MessageViewDto> GetMessageView(long id, GetMessageViewHandler handler, CancellationToken ct) =>
+        handler.HandleAsync(id, ct);
 
     private static async Task<IResult> GetMessagePdf(long messageId, GetMessageHandler handler, TextToPdfConverter converter, CancellationToken ct)
     {

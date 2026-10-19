@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<ITransactionExecutor, TransactionExecutor>();
         services.AddScoped<IORPStore, ORPStore>();
         services.AddScoped<IMessageQueries, MessageQueries>();
+        services.AddScoped<ORP.Application.Messages.Get.IMessageViewQueries, MessageViewQueries>();
         services.AddScoped<MessageGridQueries>();
         services.AddScoped<AdminUserGridQueries>();
         services.AddScoped<IUserAccessService, UserAccessService>();
