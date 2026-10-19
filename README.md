@@ -57,6 +57,9 @@ Start the API and frontend together:
 Or start the API from Visual Studio and run `npm run dev` in `frontend`.
 Press `Ctrl+C` to stop them. The API listens on <http://localhost:5080>.
 
+For HTTPS access on port 443 from the local network without additional server
+software, see [Windows HTTPS setup (Russian)](docs/WINDOWS_HTTPS_RU.md).
+
 Useful backend endpoints:
 
 - Scalar API reference: <http://localhost:5080/scalar>
