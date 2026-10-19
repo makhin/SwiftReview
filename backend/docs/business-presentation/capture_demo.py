@@ -24,7 +24,7 @@ async def main():
     messages = api('messages/grid?skip=0&take=100')['data']
     by_warehouse = {row['externalId']: row['id'] for row in messages}
     users = api('users')
-    reviewer = next(user['id'] for user in users if user['userName'] == 'theo.mercer')
+    reviewer = next(user['id'] for user in users if user['userName'] == 'tfo.reviewer1')
     def message_id(number):
         return by_warehouse[f'TEST-{number:05d}']
     # These are seeded demonstration messages, all initially New.
@@ -38,10 +38,10 @@ async def main():
     for number in [5,8,74]:
         mid = message_id(number)
         if api(f'messages/{mid}')['state'] == 'Assigned':
-            started = api(f'messages/{mid}/reviews/start',reviewer,{'level':1})
             if number != 8:
-                api(f'messages/{mid}/reviews/approve',reviewer,
-                    {'level':1,'reviewId':started['reviewId'],'comment':'Demo: first review completed.'})
+                message = api(f'messages/{mid}', reviewer)
+                api(f'messages/{mid}/reviews/confirm', reviewer,
+                    {'level':1,'expectedVersion':message['version'],'comment':'Demo: first review completed.'})
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=os.environ.get('PRESENTATION_CHROMIUM',
             '/home/alexandr/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome'),
@@ -65,15 +65,15 @@ async def main():
         await page.locator('.dx-dropdownlist-popup-wrapper .dx-list-item').first.click()
         await page.wait_for_timeout(400)
         await page.get_by_role('dialog',name='Assign message',exact=True).screenshot(path=str(OUT/'assignment-dialog.png'))
-        await page.goto('http://127.0.0.1:5173/messages/assigned?scope=mine&user=theo.mercer')
+        await page.goto('http://127.0.0.1:5173/messages/assigned?scope=mine&user=tfo.reviewer1')
         await page.locator('.dx-data-row').first.wait_for()
         await page.screenshot(path=str(OUT/'my-work.png'))
-        await page.get_by_role('button',name='Review',exact=True).first.click()
+        await page.get_by_role('button',name='Confirm',exact=True).first.click()
         await page.locator('[aria-label="Raw message content"]').wait_for()
         await page.screenshot(path=str(OUT/'review.png'))
-        await page.get_by_role('dialog',name='Review message',exact=True).screenshot(path=str(OUT/'review-dialog.png'))
-        dialog = await page.get_by_role('dialog',name='Review message',exact=True).bounding_box()
-        actions = await page.locator('.review-decision-popup__actions').bounding_box()
+        await page.get_by_role('dialog',name='Confirm message',exact=True).screenshot(path=str(OUT/'review-dialog.png'))
+        dialog = await page.get_by_role('dialog',name='Confirm message',exact=True).bounding_box()
+        actions = await page.get_by_role('dialog',name='Confirm message',exact=True).get_by_role('button',name='Confirm',exact=True).bounding_box()
         await page.screenshot(path=str(OUT/'review-detail.png'),clip={**dialog,'height':actions['y']+actions['height']+20-dialog['y']})
         await page.goto('http://127.0.0.1:5173/messages?user=admin')
         await page.locator('.dx-data-row').first.wait_for()

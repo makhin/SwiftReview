@@ -232,32 +232,30 @@ in SSMS, select the target database, and execute the whole script.
 **Every run deletes all ORP application data, including users, roles, messages and audit
 history, and replaces it with samples. Stop the application and other writers first.**
 
-The script creates three branches, three departments, four reviewers and one global
-administrator (`admin`), three common workflows and 100
-synthetic Swift messages with registration audit events. Messages start in `New` state
-without an assignee. The single `Reviewer` role grants message viewing, Assign, review
-levels 1–3, Undo and audit viewing. Three reviewers have access to all nine branch/department
-pairs; Amelia is scoped to London/CS for access-control examples. `Operations manager`
-retains all permissions; reviewers do not receive workflow management or global
-administrator access.
+The script creates only London, three departments (CS, TFO, DC), six scoped reviewers
+and one global administrator (`admin`), three common workflows and 100 synthetic
+Swift messages with registration audit events. All messages start `New`, without
+assignments or reviews. Each department has `<department>.reviewer1` and
+`<department>.reviewer2` (lowercase prefix), with access only to London/their department.
+The Reviewer role grants viewing, Assign, review levels 1–3, Undo and audit viewing;
+only the administrator has workflow management and global access.
 
-The demo has four synthetic routes using the common profiles:
+| Route | Messages | Confirmations | Ordinary Undo |
+| --- | --- | --- | --- |
+| Incoming MT199 / CS | 00001, 00004, …, 00073 | 1, 2 | First only, before completion |
+| Incoming MT299 / TFO | 00002, 00005, …, 00074 | 1, 2 | First only, before completion |
+| Incoming MT671 / DC | 00003, 00006, …, 00075 | 1 | Disabled |
+| Outgoing MT299 / TFO | 00076–00100 | 1 | Disabled |
 
-| Route | Confirmations | Ordinary Undo |
-| --- | --- | --- |
-| Incoming MT199 / CS | 1, 2 | First only, before second completes |
-| Incoming MT299 / TFO | 1, 2 | First only, before second completes |
-| Incoming MT671 / DC | 1 | Disabled |
-| Outgoing MT299 / TFO | 1 | Disabled |
+All references have the `TEST-` prefix. Each route has 25 messages, all in London.
+These are demo routes, not the business matrix. Confirmation is immediate through
+Confirm in the UI or the backend Confirm API. Any authorised user in the processing
+department can confirm, including the same user at both levels; assignment is retained
+until completion. Reject is disabled. Dublin and Singapore are not seeded.
 
-These are demo routes, not the business matrix. All 100 demo messages start New.
-TEST-00001 and TEST-00002 demonstrate two confirmations; TEST-00003 demonstrates
-one. TEST-00001–TEST-00075 are Incoming; TEST-00076–TEST-00100 are Outgoing.
-The actual routing matrix is seeded separately. Confirmation is immediate via the
-backend Confirm API; the existing frontend flow needs a separate update.
-
-The reviewers are `amelia.hart`, `theo.mercer`, `priya.nair` and `lucas.bennett`.
-Branches are London, Dublin and Singapore; departments are CS, TFO and DC.
+See [manual E2E review test cases](docs/E2E_REVIEW_TEST_CASES.md) for login links,
+message allocation, steps and expected results. Re-run this seed explicitly to reset
+manual testing; never reset the dev database as automated-test setup.
 
 Cleanup and loading share one transaction and roll back together on failure. Repeating
 the script resets the samples, including review and assignment history. Identity IDs are
@@ -301,21 +299,20 @@ project's debug properties. No machine-specific paths or credentials are stored 
 The API uses the `X-Debug-User` request header in Development. It accepts either the numeric
 user ID or username. Seeded identities include:
 
-- `amelia.hart`
-- `theo.mercer`
-- `priya.nair`
-- `lucas.bennett`
+- `cs.reviewer1`, `cs.reviewer2`
+- `tfo.reviewer1`, `tfo.reviewer2`
+- `dc.reviewer1`, `dc.reviewer2`
 - `admin`
 
 For example:
 
 ```bash
 curl -H 'X-Debug-User: admin' http://localhost:5080/api/me
-curl -H 'X-Debug-User: amelia.hart' http://localhost:5080/api/me
+curl -H 'X-Debug-User: cs.reviewer1' http://localhost:5080/api/me
 curl -H 'X-Debug-User: admin' http://localhost:5080/api/dashboard/summary
 ```
 
-The frontend adds this header to API requests; use `?user=5` or `?user=admin` in its URL to
+The frontend adds this header to API requests; use `?user=cs.reviewer1` or `?user=admin` in its URL to
 switch users. The debug authentication scheme is a development facility and must be replaced
 by the deployment environment's authentication integration.
 

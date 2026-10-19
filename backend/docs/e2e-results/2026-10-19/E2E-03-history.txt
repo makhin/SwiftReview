@@ -1,0 +1,70 @@
+View message
+TEST-00003
+Status
+Completed
+Assignee
+Unassigned
+Workflow
+Single confirmation
+Message
+PDF
+History
+Message unassigned
+Oct 19, 2026, 11:58 AM
+
+DC Reviewer 2
+
+State
+Completed → Completed
+Previous assignee
+DC Reviewer 2
+Message completed
+Oct 19, 2026, 11:58 AM
+
+DC Reviewer 2
+
+State
+First review in progress → Completed
+Review level
+1
+Comment
+E2E-03 level 1
+Review approved
+Oct 19, 2026, 11:58 AM
+
+DC Reviewer 2
+
+State
+First review in progress → Completed
+Review level
+1
+Comment
+E2E-03 level 1
+Review started
+Oct 19, 2026, 11:58 AM
+
+DC Reviewer 2
+
+State
+Assigned → First review in progress
+Review level
+1
+Message assigned
+Oct 19, 2026, 11:58 AM
+
+DC Reviewer 1
+
+State
+New → Assigned
+Assignee
+DC Reviewer 2
+Message registered
+Oct 19, 2026, 11:55 AM
+
+System
+
+State
+— → New
+Workflow
+1024
+Close

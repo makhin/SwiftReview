@@ -1,0 +1,2567 @@
+{
+  "date": "2026-10-19",
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "test": "E2E-01",
+      "ref": "TEST-00001",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-01 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "cs.reviewer1",
+          "comment": "E2E-01 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10802,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T09:58:49.645411+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1004,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "abbdfb3e52fe9860b15cc4b33d7c3a69"
+        },
+        {
+          "id": 10805,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T09:58:49.64404+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 22,
+            "reviewLevel": 2,
+            "comment": "E2E-01 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "abbdfb3e52fe9860b15cc4b33d7c3a69"
+        },
+        {
+          "id": 10804,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:58:49.64404+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 22,
+            "reviewLevel": 2,
+            "comment": "E2E-01 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "abbdfb3e52fe9860b15cc4b33d7c3a69"
+        },
+        {
+          "id": 10803,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:58:49.64404+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 22,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "abbdfb3e52fe9860b15cc4b33d7c3a69"
+        },
+        {
+          "id": 10801,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:58:46.884077+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 21,
+            "reviewLevel": 1,
+            "comment": "E2E-01 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "86f64876d4c9e2e2a01e794f548fde5c"
+        },
+        {
+          "id": 10800,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:58:46.884077+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 21,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "86f64876d4c9e2e2a01e794f548fde5c"
+        },
+        {
+          "id": 10798,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T09:57:58.049682+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1004,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "29e5f5016a8bd9631f990cc93201f9d7"
+        },
+        {
+          "id": 10748,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-02",
+      "ref": "TEST-00002",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-02 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "tfo.reviewer1",
+          "comment": "E2E-02 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10832,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T10:00:00.842715+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1006,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "1e38e3a1acb2db9c9cc4dce4787f7069"
+        },
+        {
+          "id": 10835,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T10:00:00.841125+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 30,
+            "reviewLevel": 2,
+            "comment": "E2E-02 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "1e38e3a1acb2db9c9cc4dce4787f7069"
+        },
+        {
+          "id": 10834,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:00.841125+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 30,
+            "reviewLevel": 2,
+            "comment": "E2E-02 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "1e38e3a1acb2db9c9cc4dce4787f7069"
+        },
+        {
+          "id": 10833,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:00.841125+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 30,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "1e38e3a1acb2db9c9cc4dce4787f7069"
+        },
+        {
+          "id": 10831,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:59:58.65527+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 29,
+            "reviewLevel": 1,
+            "comment": "E2E-02 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "7cf2c572da8db4523cc8eb80cbde622d"
+        },
+        {
+          "id": 10830,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:59:58.65527+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 29,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "7cf2c572da8db4523cc8eb80cbde622d"
+        },
+        {
+          "id": 10799,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T09:58:32.52239+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1006,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "e89ce4466c40065ee18ac13014d7a329"
+        },
+        {
+          "id": 10773,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-03",
+      "ref": "TEST-00003",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "dc.reviewer2",
+          "comment": "E2E-03 level 1"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10807,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T09:58:56.749503+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1008,
+            "userName": "dc.reviewer2",
+            "displayName": "DC Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1008,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "f4aeb3d5cad092345d6349c9219ff234"
+        },
+        {
+          "id": 10810,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T09:58:56.748726+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1008,
+            "userName": "dc.reviewer2",
+            "displayName": "DC Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 23,
+            "reviewLevel": 1,
+            "comment": "E2E-03 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "f4aeb3d5cad092345d6349c9219ff234"
+        },
+        {
+          "id": 10809,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:58:56.748726+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1008,
+            "userName": "dc.reviewer2",
+            "displayName": "DC Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 23,
+            "reviewLevel": 1,
+            "comment": "E2E-03 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "f4aeb3d5cad092345d6349c9219ff234"
+        },
+        {
+          "id": 10808,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:58:56.748726+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1008,
+            "userName": "dc.reviewer2",
+            "displayName": "DC Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 23,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "f4aeb3d5cad092345d6349c9219ff234"
+        },
+        {
+          "id": 10806,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T09:58:54.62849+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1007,
+            "userName": "dc.reviewer1",
+            "displayName": "DC Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1008,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "fd48cf3da68952142e7ca8af1420b79a"
+        },
+        {
+          "id": 10698,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1024,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-04",
+      "ref": "TEST-00076",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-04 level 1"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10812,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T09:59:04.722695+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1006,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "9d3d3119c79d4f8226a9df27cfa5d2f7"
+        },
+        {
+          "id": 10815,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T09:59:04.720917+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 24,
+            "reviewLevel": 1,
+            "comment": "E2E-04 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "9d3d3119c79d4f8226a9df27cfa5d2f7"
+        },
+        {
+          "id": 10814,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:59:04.720917+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 24,
+            "reviewLevel": 1,
+            "comment": "E2E-04 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "9d3d3119c79d4f8226a9df27cfa5d2f7"
+        },
+        {
+          "id": 10813,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:59:04.720917+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 24,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "9d3d3119c79d4f8226a9df27cfa5d2f7"
+        },
+        {
+          "id": 10811,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T09:59:02.093853+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1006,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "500ca8eeaa8ba0ff19d9aded5d3e6cca"
+        },
+        {
+          "id": 10723,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1024,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-05",
+      "ref": "TEST-00004",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-05 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-05 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10819,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T09:59:28.415764+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1004,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "36437f6f9b5e0c6029452989983e70cb"
+        },
+        {
+          "id": 10822,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T09:59:28.414417+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 26,
+            "reviewLevel": 2,
+            "comment": "E2E-05 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "36437f6f9b5e0c6029452989983e70cb"
+        },
+        {
+          "id": 10821,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:59:28.414417+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 26,
+            "reviewLevel": 2,
+            "comment": "E2E-05 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "36437f6f9b5e0c6029452989983e70cb"
+        },
+        {
+          "id": 10820,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:59:28.414417+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 26,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "36437f6f9b5e0c6029452989983e70cb"
+        },
+        {
+          "id": 10818,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:59:26.313848+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 25,
+            "reviewLevel": 1,
+            "comment": "E2E-05 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "cba10bf4e5a3bd722c21b73a946321b7"
+        },
+        {
+          "id": 10817,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:59:26.313848+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 25,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "cba10bf4e5a3bd722c21b73a946321b7"
+        },
+        {
+          "id": 10816,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T09:59:24.198451+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1004,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "6e6990610d10f099f5e77bd1817099b0"
+        },
+        {
+          "id": 10749,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-06",
+      "ref": "TEST-00005",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-06 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-06 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10826,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T09:59:53.703239+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1006,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "8d2ebd0ac788e75072722f3894e2c2e2"
+        },
+        {
+          "id": 10829,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T09:59:53.701738+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 28,
+            "reviewLevel": 2,
+            "comment": "E2E-06 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "8d2ebd0ac788e75072722f3894e2c2e2"
+        },
+        {
+          "id": 10828,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:59:53.701738+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 28,
+            "reviewLevel": 2,
+            "comment": "E2E-06 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "8d2ebd0ac788e75072722f3894e2c2e2"
+        },
+        {
+          "id": 10827,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:59:53.701738+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 28,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "8d2ebd0ac788e75072722f3894e2c2e2"
+        },
+        {
+          "id": 10825,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T09:59:51.024133+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 27,
+            "reviewLevel": 1,
+            "comment": "E2E-06 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "88f6b1a48a1fd113b343819473fd0be9"
+        },
+        {
+          "id": 10824,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T09:59:51.024133+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 27,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "88f6b1a48a1fd113b343819473fd0be9"
+        },
+        {
+          "id": 10823,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T09:59:48.438048+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1006,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "79c27c6c1d7b3b6b65cf39b92f0f7081"
+        },
+        {
+          "id": 10774,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-07",
+      "ref": "TEST-00007",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-07 level 1"
+        },
+        {
+          "level": 1,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-07 repeat level 1"
+        },
+        {
+          "level": 2,
+          "actor": "cs.reviewer1",
+          "comment": "E2E-07 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10842,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T10:00:22.631495+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1004,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "17bc5bf83c652bf344cbe7326f6fa0da"
+        },
+        {
+          "id": 10845,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T10:00:22.630308+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 33,
+            "reviewLevel": 2,
+            "comment": "E2E-07 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "17bc5bf83c652bf344cbe7326f6fa0da"
+        },
+        {
+          "id": 10844,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:22.630308+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 33,
+            "reviewLevel": 2,
+            "comment": "E2E-07 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "17bc5bf83c652bf344cbe7326f6fa0da"
+        },
+        {
+          "id": 10843,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:22.630308+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 33,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "17bc5bf83c652bf344cbe7326f6fa0da"
+        },
+        {
+          "id": 10841,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:20.507344+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 32,
+            "reviewLevel": 1,
+            "comment": "E2E-07 repeat level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "e559f30f5835b68f1960cdbbb82a0c4a"
+        },
+        {
+          "id": 10840,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:20.507344+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 32,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "e559f30f5835b68f1960cdbbb82a0c4a"
+        },
+        {
+          "id": 10839,
+          "eventType": "ConfirmationUndone",
+          "timestamp": "2026-10-19T10:00:17.912879+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 31,
+            "reviewLevel": 1,
+            "comment": "E2E-07 undo",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "b8134d23f6906054f9f7767c6b629f71"
+        },
+        {
+          "id": 10838,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:15.367859+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 31,
+            "reviewLevel": 1,
+            "comment": "E2E-07 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "0ae9e6da4d1dff7ca030bac95bf5d53b"
+        },
+        {
+          "id": 10837,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:15.367859+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 31,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "0ae9e6da4d1dff7ca030bac95bf5d53b"
+        },
+        {
+          "id": 10836,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T10:00:13.282144+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1004,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "e480554f242671c7458e5c3adb79b27b"
+        },
+        {
+          "id": 10750,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-08",
+      "ref": "TEST-00008",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-08 level 1"
+        },
+        {
+          "level": 1,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-08 repeat level 1"
+        },
+        {
+          "level": 2,
+          "actor": "tfo.reviewer1",
+          "comment": "E2E-08 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10852,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T10:00:51.066696+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1006,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "3e5ab266d79250e5726380eae39c7b58"
+        },
+        {
+          "id": 10855,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T10:00:51.066132+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 36,
+            "reviewLevel": 2,
+            "comment": "E2E-08 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "3e5ab266d79250e5726380eae39c7b58"
+        },
+        {
+          "id": 10854,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:51.066132+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 36,
+            "reviewLevel": 2,
+            "comment": "E2E-08 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "3e5ab266d79250e5726380eae39c7b58"
+        },
+        {
+          "id": 10853,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:51.066132+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 36,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "3e5ab266d79250e5726380eae39c7b58"
+        },
+        {
+          "id": 10851,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:48.954243+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 35,
+            "reviewLevel": 1,
+            "comment": "E2E-08 repeat level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "cbcc53cf95b3ab1f913124a51648bf86"
+        },
+        {
+          "id": 10850,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:48.954243+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 35,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "cbcc53cf95b3ab1f913124a51648bf86"
+        },
+        {
+          "id": 10849,
+          "eventType": "ConfirmationUndone",
+          "timestamp": "2026-10-19T10:00:46.829243+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 34,
+            "reviewLevel": 1,
+            "comment": "E2E-08 undo",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "3e0bdceba3721dde2bd578fb0d998b43"
+        },
+        {
+          "id": 10848,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:00:44.278143+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 34,
+            "reviewLevel": 1,
+            "comment": "E2E-08 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "35ae374cfa2355a12d859a90c7ddbcf8"
+        },
+        {
+          "id": 10847,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:00:44.278143+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 34,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "35ae374cfa2355a12d859a90c7ddbcf8"
+        },
+        {
+          "id": 10846,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T10:00:42.182096+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1006,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "c17f835195fa6421e9b8b3c736e9bce5"
+        },
+        {
+          "id": 10775,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-09",
+      "ref": "TEST-00010",
+      "status": "Passed",
+      "historyClicks": 2,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-09 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-09 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10866,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T10:01:14.5477+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1004,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "467c853d53ce7ac79dbc22d0fd17b5f9"
+        },
+        {
+          "id": 10869,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T10:01:14.5462+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 40,
+            "reviewLevel": 2,
+            "comment": "E2E-09 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "467c853d53ce7ac79dbc22d0fd17b5f9"
+        },
+        {
+          "id": 10868,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:01:14.5462+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 40,
+            "reviewLevel": 2,
+            "comment": "E2E-09 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "467c853d53ce7ac79dbc22d0fd17b5f9"
+        },
+        {
+          "id": 10867,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:01:14.5462+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 40,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "467c853d53ce7ac79dbc22d0fd17b5f9"
+        },
+        {
+          "id": 10865,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:01:12.413257+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 39,
+            "reviewLevel": 1,
+            "comment": "E2E-09 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "13569ac04389d3419edb83310d67b9f5"
+        },
+        {
+          "id": 10864,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:01:12.413257+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 39,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "13569ac04389d3419edb83310d67b9f5"
+        },
+        {
+          "id": 10863,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T10:01:10.292768+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1004,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "37e12ae15bf2d7db9c91d3aa46ff3fe9"
+        },
+        {
+          "id": 10751,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-10",
+      "ref": "TEST-00011",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-10 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "tfo.reviewer2",
+          "comment": "E2E-10 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10873,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T10:01:38.377934+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1006,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "80144e23b1a0b32263715db1697c3eb6"
+        },
+        {
+          "id": 10876,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T10:01:38.376971+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 42,
+            "reviewLevel": 2,
+            "comment": "E2E-10 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "80144e23b1a0b32263715db1697c3eb6"
+        },
+        {
+          "id": 10875,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:01:38.376971+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 42,
+            "reviewLevel": 2,
+            "comment": "E2E-10 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "80144e23b1a0b32263715db1697c3eb6"
+        },
+        {
+          "id": 10874,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:01:38.376971+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 42,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "80144e23b1a0b32263715db1697c3eb6"
+        },
+        {
+          "id": 10872,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:01:36.266291+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 41,
+            "reviewLevel": 1,
+            "comment": "E2E-10 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "6b85014c6259d7f753c34c3cbfb67ba6"
+        },
+        {
+          "id": 10871,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:01:36.266291+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1006,
+            "userName": "tfo.reviewer2",
+            "displayName": "TFO Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 41,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "6b85014c6259d7f753c34c3cbfb67ba6"
+        },
+        {
+          "id": 10870,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T10:01:34.165284+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1005,
+            "userName": "tfo.reviewer1",
+            "displayName": "TFO Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1006,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "b004a184b93b6dd34195581ea4eb885b"
+        },
+        {
+          "id": 10776,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    },
+    {
+      "test": "E2E-12",
+      "ref": "TEST-00016",
+      "status": "Passed",
+      "historyClicks": 1,
+      "state": "Completed",
+      "assignee": null,
+      "canConfirm": false,
+      "undoReviewId": null,
+      "approvals": [
+        {
+          "level": 1,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-12 level 1"
+        },
+        {
+          "level": 2,
+          "actor": "cs.reviewer2",
+          "comment": "E2E-12 level 2"
+        }
+      ],
+      "audit": [
+        {
+          "id": 10859,
+          "eventType": "MessageUnassigned",
+          "timestamp": "2026-10-19T10:01:04.646829+00:00",
+          "oldState": "Completed",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": 1004,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "d75ee4592b589533b16de94efb112ac6"
+        },
+        {
+          "id": 10862,
+          "eventType": "MessageCompleted",
+          "timestamp": "2026-10-19T10:01:04.645656+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 38,
+            "reviewLevel": 2,
+            "comment": "E2E-12 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "d75ee4592b589533b16de94efb112ac6"
+        },
+        {
+          "id": 10861,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:01:04.645656+00:00",
+          "oldState": "SecondReviewInProgress",
+          "newState": "Completed",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 38,
+            "reviewLevel": 2,
+            "comment": "E2E-12 level 2",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "d75ee4592b589533b16de94efb112ac6"
+        },
+        {
+          "id": 10860,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:01:04.645656+00:00",
+          "oldState": "WaitingForSecondReview",
+          "newState": "SecondReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 38,
+            "reviewLevel": 2,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "d75ee4592b589533b16de94efb112ac6"
+        },
+        {
+          "id": 10858,
+          "eventType": "ReviewApproved",
+          "timestamp": "2026-10-19T10:01:03.104974+00:00",
+          "oldState": "FirstReviewInProgress",
+          "newState": "WaitingForSecondReview",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 37,
+            "reviewLevel": 1,
+            "comment": "E2E-12 level 1",
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "db6ede4fc831ee840dcaca12e6f16ff1"
+        },
+        {
+          "id": 10857,
+          "eventType": "ReviewStarted",
+          "timestamp": "2026-10-19T10:01:03.104974+00:00",
+          "oldState": "Assigned",
+          "newState": "FirstReviewInProgress",
+          "actor": {
+            "userId": 1004,
+            "userName": "cs.reviewer2",
+            "displayName": "CS Reviewer 2"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": 37,
+            "reviewLevel": 1,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "db6ede4fc831ee840dcaca12e6f16ff1"
+        },
+        {
+          "id": 10856,
+          "eventType": "MessageAssigned",
+          "timestamp": "2026-10-19T10:01:01.667434+00:00",
+          "oldState": "New",
+          "newState": "Assigned",
+          "actor": {
+            "userId": 1003,
+            "userName": "cs.reviewer1",
+            "displayName": "CS Reviewer 1"
+          },
+          "details": {
+            "workflowDefinitionId": null,
+            "previousAssigneeId": null,
+            "assigneeId": 1004,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "6ff0fe9b0b84af84298f7351772f61e3"
+        },
+        {
+          "id": 10753,
+          "eventType": "MessageRegistered",
+          "timestamp": "2026-10-19T09:55:49.3768423+00:00",
+          "oldState": null,
+          "newState": "New",
+          "actor": null,
+          "details": {
+            "workflowDefinitionId": 1025,
+            "previousAssigneeId": null,
+            "assigneeId": null,
+            "reviewId": null,
+            "reviewLevel": null,
+            "comment": null,
+            "previousBranchId": null,
+            "branchId": null,
+            "previousDepartmentIds": null,
+            "departmentIds": null,
+            "previousWorkflowDefinitionId": null
+          },
+          "correlationId": "sql-test-seed-v2"
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

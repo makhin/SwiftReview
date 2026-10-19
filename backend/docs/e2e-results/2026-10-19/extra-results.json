@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "test": "E2E-11",
+      "status": "Passed",
+      "isolation": [
+        {
+          "user": "cs.reviewer1",
+          "count": 25,
+          "denied": [
+            {
+              "ref": "TEST-00014",
+              "get": 404,
+              "confirm": 403
+            },
+            {
+              "ref": "TEST-00015",
+              "get": 404,
+              "confirm": 403
+            }
+          ]
+        },
+        {
+          "user": "tfo.reviewer1",
+          "count": 50,
+          "denied": [
+            {
+              "ref": "TEST-00013",
+              "get": 404,
+              "confirm": 403
+            },
+            {
+              "ref": "TEST-00015",
+              "get": 404,
+              "confirm": 403
+            }
+          ]
+        },
+        {
+          "user": "dc.reviewer1",
+          "count": 25,
+          "denied": [
+            {
+              "ref": "TEST-00013",
+              "get": 404,
+              "confirm": 403
+            },
+            {
+              "ref": "TEST-00014",
+              "get": 404,
+              "confirm": 403
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "test": "E2E-12",
+      "status": "Passed",
+      "stale": {
+        "status": 409,
+        "body": {
+          "type": "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+          "title": "Domain rule violation",
+          "status": 409,
+          "detail": "The message version has changed. Reload before confirming.",
+          "traceId": "00-df0abc2ca693e405e344402df88525e3-f16abdd9dbca15d2-01"
+        }
+      }
+    }
+  ],
+  "errors": []
+}

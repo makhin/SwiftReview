@@ -1,0 +1,90 @@
+View message
+TEST-00016
+Status
+Completed
+Assignee
+Unassigned
+Workflow
+Double confirmation
+Message
+PDF
+History
+Message unassigned
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 2
+
+State
+Completed → Completed
+Previous assignee
+CS Reviewer 2
+Message completed
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 2
+
+State
+Second review in progress → Completed
+Review level
+2
+Comment
+E2E-12 level 2
+Review approved
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 2
+
+State
+Second review in progress → Completed
+Review level
+2
+Comment
+E2E-12 level 2
+Review started
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 2
+
+State
+Waiting for second review → Second review in progress
+Review level
+2
+Review approved
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 2
+
+State
+First review in progress → Waiting for second review
+Review level
+1
+Comment
+E2E-12 level 1
+Review started
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 2
+
+State
+Assigned → First review in progress
+Review level
+1
+Message assigned
+Oct 19, 2026, 12:01 PM
+
+CS Reviewer 1
+
+State
+New → Assigned
+Assignee
+CS Reviewer 2
+Message registered
+Oct 19, 2026, 11:55 AM
+
+System
+
+State
+— → New
+Workflow
+1025
+Close

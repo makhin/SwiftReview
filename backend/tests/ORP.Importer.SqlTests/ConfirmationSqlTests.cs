@@ -220,6 +220,87 @@ public sealed class ConfirmationSqlTests
             (await DetailsAsync(verify, setup.Message, access, ct)).State);
     }
 
+    [Theory]
+    [InlineData("cs", "TEST-00001", 2, "tfo")]
+    [InlineData("tfo", "TEST-00002", 2, "dc")]
+    [InlineData("dc", "TEST-00003", 1, "cs")]
+    [InlineData("tfo", "TEST-00076", 1, "cs")]
+    public async Task SeededDepartmentReviewersCompleteOwnRouteAndRejectForeignScope(
+        string department, string reference, int levels, string foreignDepartment)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct, department, reference);
+        await using var db = new ORPDbContext(fixture.Options);
+        var foreign = await db.Users.SingleAsync(x => x.UserName == foreignDepartment + ".reviewer1", ct);
+        var foreignAccess = (await new UserAccessService(db).GetByIdAsync(foreign.Id, ct))!;
+        Assert.Null(await new MessageQueries(db).GetAsync(setup.Message, foreignAccess, ct));
+        var version = Convert.ToBase64String((await db.Messages.SingleAsync(x => x.Id == setup.Message, ct)).RowVersion);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Handlers(db, foreign.Id).Confirm.HandleAsync(
+            setup.Message, new(1, version), ct));
+        Assert.Empty(await db.Reviews.ToListAsync(ct));
+        for (var level = 1; level <= levels; level++)
+        {
+            var actor = level == 1 ? setup.Assignee : setup.Actor;
+            var access = (await new UserAccessService(db).GetByIdAsync(actor, ct))!;
+            var before = await DetailsAsync(db, setup.Message, access, ct);
+            Assert.True(before.CanConfirm);
+            await Handlers(db, actor).Confirm.HandleAsync(setup.Message, new(level, before.Version), ct);
+        }
+        await using var verify = new ORPDbContext(fixture.Options);
+        var completed = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Equal(MessageState.Completed, completed.State);
+        Assert.Null(completed.CurrentAssigneeId);
+        var reviews = await verify.Reviews.OrderBy(x => x.Level).ToListAsync(ct);
+        Assert.Equal(levels, reviews.Count);
+        Assert.All(reviews, r => Assert.Equal(ReviewStatus.Approved, r.Status));
+        Assert.Equal(setup.Assignee, reviews[0].ReviewerId);
+        if (levels == 2) Assert.Equal(setup.Actor, reviews[1].ReviewerId);
+        Assert.Equal(1, await verify.AuditEvents.CountAsync(x => x.MessageId == setup.Message &&
+            x.EventType == AuditEventType.MessageCompleted, ct));
+        await Assert.ThrowsAsync<DomainRuleViolationException>(() => Handlers(verify, setup.Actor).Undo.HandleAsync(
+            setup.Message, new(reviews[^1].Id), ct));
+    }
+
+    [Fact]
+    public async Task ReseedRemovesCompletedReviewsAssignmentsAndOldAudit()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        await using (var db = new ORPDbContext(fixture.Options))
+        {
+            var access = (await new UserAccessService(db).GetByIdAsync(setup.Actor, ct))!;
+            for (var level = 1; level <= 2; level++)
+            {
+                var details = await DetailsAsync(db, setup.Message, access, ct);
+                await Handlers(db, setup.Actor).Confirm.HandleAsync(setup.Message, new(level, details.Version), ct);
+            }
+            await db.Database.OpenConnectionAsync(ct);
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "seed-test-data.sql"), ct);
+            command.CommandTimeout = 120;
+            await command.ExecuteNonQueryAsync(ct);
+        }
+        await using var verify = new ORPDbContext(fixture.Options);
+        Assert.Equal(100, await verify.Messages.CountAsync(ct));
+        Assert.Equal(100, await verify.SwiftMessages.Select(x => x.ReferenceId).Distinct().CountAsync(ct));
+        Assert.Equal(7, await verify.Users.CountAsync(ct));
+        Assert.Equal("London", (await verify.Branches.SingleAsync(ct)).Name);
+        Assert.Equal(3, await verify.WorkflowDefinitions.CountAsync(ct));
+        Assert.Equal(4, await verify.DepartmentRoutingRules.CountAsync(ct));
+        Assert.Equal(100, await verify.MessageDepartments.CountAsync(ct));
+        Assert.Empty(await verify.Assignments.ToListAsync(ct));
+        Assert.Empty(await verify.Reviews.ToListAsync(ct));
+        Assert.All(await verify.Messages.ToListAsync(ct), m =>
+        {
+            Assert.Equal(MessageState.New, m.State);
+            Assert.Null(m.CurrentAssigneeId);
+        });
+        Assert.Equal(100, await verify.AuditEvents.CountAsync(ct));
+        Assert.All(await verify.AuditEvents.ToListAsync(ct), e => Assert.Equal(AuditEventType.MessageRegistered, e.EventType));
+    }
+
     private static ChangeMessageWorkflowHandler ChangeHandler(ORPDbContext db, int actor)
     {
         var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
@@ -235,7 +316,7 @@ public sealed class ConfirmationSqlTests
     private static async Task<MessageDetailsDto> DetailsAsync(ORPDbContext db, long id, UserAccess access, CancellationToken ct) =>
         (await new MessageQueries(db).GetAsync(id, access, ct))!;
 
-    private static async Task<(long Message, int Actor, int Assignee)> SeedAsync(SqlImportDatabase fixture, CancellationToken ct)
+    private static async Task<(long Message, int Actor, int Assignee)> SeedAsync(SqlImportDatabase fixture, CancellationToken ct, string department = "cs", string reference = "TEST-00001")
     {
         await using var db = new ORPDbContext(fixture.Options);
         var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "seed-test-data.sql"), ct);
@@ -246,9 +327,9 @@ public sealed class ConfirmationSqlTests
             command.CommandTimeout = 120;
             await command.ExecuteNonQueryAsync(ct);
         }
-        var actor = await db.Users.SingleAsync(x => x.UserName == "theo.mercer", ct);
-        var assignee = await db.Users.SingleAsync(x => x.UserName == "priya.nair", ct);
-        var message = await db.Messages.SingleAsync(x => x.Id == db.SwiftMessages.Where(s => s.ReferenceId == "TEST-00001").Select(s => s.MessageId).Single(), ct);
+        var actor = await db.Users.SingleAsync(x => x.UserName == department + ".reviewer1", ct);
+        var assignee = await db.Users.SingleAsync(x => x.UserName == department + ".reviewer2", ct);
+        var message = await db.Messages.SingleAsync(x => x.Id == db.SwiftMessages.Where(s => s.ReferenceId == reference).Select(s => s.MessageId).Single(), ct);
         var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
         var store = new ORPStore(db, log);
         await new AssignmentCoordinator(store, new Clock()).AssignAsync(message, assignee.Id, actor.Id, "setup", ct);

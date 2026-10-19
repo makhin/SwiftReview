@@ -66,7 +66,7 @@ BEGIN TRY
     DELETE FROM [orp].[Departments];
 
     -- 2. Reference data and role permissions.
-    INSERT INTO [orp].[Branches] ([Name]) VALUES (N'London'),(N'Dublin'),(N'Singapore');
+    INSERT INTO [orp].[Branches] ([Name]) VALUES (N'London');
     INSERT INTO [orp].[Departments] ([Name]) VALUES (N'CS'),(N'TFO'),(N'DC');
 
     INSERT INTO [orp].[Permissions] ([Name]) VALUES
@@ -84,14 +84,15 @@ BEGIN TRY
 
     -- 3. Users and exact branch/department scopes.
     DECLARE @users TABLE ([UserName] nvarchar(80),[DisplayName] nvarchar(160),
-        [RoleName] nvarchar(80),[IsAdmin] bit,[AllScopes] bit);
-    -- Three broadly scoped reviewers support every workflow; Amelia demonstrates scoped access.
+        [RoleName] nvarchar(80),[IsAdmin] bit,[DepartmentName] nvarchar(80));
     INSERT INTO @users VALUES
-        (N'amelia.hart',N'Amelia Hart',N'Reviewer',0,0),
-        (N'theo.mercer',N'Theo Mercer',N'Reviewer',0,1),
-        (N'priya.nair',N'Priya Nair',N'Reviewer',0,1),
-        (N'lucas.bennett',N'Lucas Bennett',N'Reviewer',0,1),
-        (N'admin',N'Administrator',N'Operations manager',1,1);
+        (N'cs.reviewer1',N'CS Reviewer 1',N'Reviewer',0,N'CS'),
+        (N'cs.reviewer2',N'CS Reviewer 2',N'Reviewer',0,N'CS'),
+        (N'tfo.reviewer1',N'TFO Reviewer 1',N'Reviewer',0,N'TFO'),
+        (N'tfo.reviewer2',N'TFO Reviewer 2',N'Reviewer',0,N'TFO'),
+        (N'dc.reviewer1',N'DC Reviewer 1',N'Reviewer',0,N'DC'),
+        (N'dc.reviewer2',N'DC Reviewer 2',N'Reviewer',0,N'DC'),
+        (N'admin',N'Administrator',N'Operations manager',1,NULL);
 
     INSERT INTO [orp].[Users] ([UserName],[DisplayName],[IsGlobalAdministrator])
     SELECT [UserName],[DisplayName],[IsAdmin] FROM @users;
@@ -102,7 +103,7 @@ BEGIN TRY
     JOIN [orp].[Roles] r ON r.[Name]=v.[RoleName]
     CROSS JOIN [orp].[Branches] b
     CROSS JOIN [orp].[Departments] d
-    WHERE v.[AllScopes]=1 OR (b.[Name]=N'London' AND d.[Name]=N'CS');
+    WHERE v.[IsAdmin]=1 OR d.[Name]=v.[DepartmentName];
 
     DECLARE @Profiles TABLE (Code nvarchar(100), Name nvarchar(100), Levels int);
     INSERT INTO @Profiles VALUES
@@ -142,8 +143,8 @@ BEGIN TRY
     JOIN orp.WorkflowDefinitions w ON w.Code=v.Code;
 
     -- 5. Messages: preserve the first 75 Incoming examples, then add 25 Outgoing examples.
-    -- TEST-00001 = two-step / London; TEST-00002 = two-step / Dublin;
-    -- TEST-00003 = single / Singapore. TEST-00076 = Outgoing / TFO / London. Times cover the last 100 hours.
+    -- TEST-00001 = two-step / London; TEST-00002 = two-step / London;
+    -- TEST-00003 = single / London. TEST-00076 = Outgoing / TFO / London. Times cover the last 100 hours.
     DECLARE @now datetimeoffset = SYSUTCDATETIME();
     DECLARE @messageCount int = 100;
     ;WITH numbers AS (SELECT 1 AS n UNION ALL SELECT n+1 FROM numbers WHERE n<@messageCount)
@@ -158,8 +159,7 @@ BEGIN TRY
     FROM numbers
     JOIN @workflows v ON v.[Ordinal]=CASE WHEN n<=75 THEN (n-1)%3 ELSE 3 END
     JOIN [orp].[Departments] d ON d.[Name]=v.[DepartmentName]
-    JOIN [orp].[Branches] b ON b.[Name]=CASE (CASE WHEN n<=75 THEN (n-1)/3+v.[Ordinal] ELSE n-76 END)%3
-        WHEN 0 THEN N'London' WHEN 1 THEN N'Dublin' ELSE N'Singapore' END
+    JOIN [orp].[Branches] b ON b.[Name]=N'London'
     CROSS APPLY (SELECT CONCAT(N'{1:F01TESTGB2LXXXX0000000000}{2:I',
         SUBSTRING(v.[MessageType],3,3),N'DEMOGB2LXXXXN}{4:',CHAR(10),N':20:TEST-',n,
         CHAR(10),N':79:SYNTHETIC TEST MESSAGE - ',v.[Name],CHAR(10),N'-}')) body([Value]);
@@ -184,7 +184,7 @@ BEGIN TRY
     FROM [orp].[Messages];
 
     COMMIT;
-    PRINT 'Loaded 5 users, 3 common workflows and 100 unassigned demo messages.';
+    PRINT 'Loaded London, 7 users, 3 common workflows and 100 unassigned demo messages.';
 END TRY
 BEGIN CATCH
     IF XACT_STATE() <> 0 ROLLBACK;
