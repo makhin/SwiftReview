@@ -26,14 +26,33 @@ public sealed class MessageGridOptionsTests
     public void ScreenshotPayloadAndDefaults()
     {
         var request = JsonSerializer.Deserialize<MessageGridRequest>("""
-            {"search":"","status":"","messageType":"","branch":"","dateFrom":"","dateTo":"","page":1,"pageSize":20}
+            {"search":"","status":"","messageType":"","branch":null,"dateFrom":"","dateTo":"","page":1,"pageSize":20}
             """, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
         Assert.Null(MessageGridOptions.Create(request).Filter);
         Assert.Equal(0, MessageGridOptions.Create(new()).Skip);
         Assert.Equal(20, MessageGridOptions.Create(new()).Take);
-        Assert.Null(MessageGridOptions.Create(new(" ", " ", " ", " ", " ", " ")).Filter);
-        foreach (var json in new[] { "{\"skip\":0}", "{\"filter\":null}", "{\"page\":\"1\"}", "{\"branch\":1}" })
+        Assert.Null(MessageGridOptions.Create(new(" ", " ", " ", null, " ", " ")).Filter);
+        foreach (var json in new[] { "{\"skip\":0}", "{\"filter\":null}", "{\"page\":\"1\"}", "{\"branch\":\"1\"}", "{\"branch\":\"\"}", "{\"branch\":1.5}", "{\"branch\":2147483648}", "{\"departments\":[1]}", "{\"departments\":null}" })
             Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<MessageGridRequest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    }
+
+    [Fact]
+    public void BranchAcceptsNumbersAndNull()
+    {
+        foreach (var json in new[] { "{}", "{\"branch\":null}" })
+        {
+            var request = JsonSerializer.Deserialize<MessageGridRequest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            Assert.Null(request.Branch);
+            Assert.Null(MessageGridOptions.Create(request).Filter);
+        }
+        foreach (var branch in new[] { 1, int.MaxValue })
+        {
+            var request = JsonSerializer.Deserialize<MessageGridRequest>($"{{\"branch\":{branch}}}",
+                new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            var source = new[] { Row(1, "2026-10-09T12:00:00Z", branch), Row(2, "2026-10-09T12:00:00Z", 2) }.AsQueryable();
+            Assert.Equal(branch, request.Branch);
+            Assert.Equal(1, Assert.Single(Prepare(request).Filter(source)).Id);
+        }
     }
 
     [Fact]
@@ -42,7 +61,7 @@ public sealed class MessageGridOptionsTests
         var source = new[] { Row(3, "2026-10-09T23:59:59Z"), Row(2, "2026-10-01T00:00:00Z"),
             Row(1, "2026-10-01T00:00:00Z"), Row(4, "2026-10-10T00:00:00Z"), Row(5, "2026-10-09T12:00:00Z", branch: 2),
             Row(6, "2026-10-09T12:00:00Z", type: "MT299"), Row(7, "2026-09-30T23:59:59Z") }.AsQueryable();
-        var request = new MessageGridRequest(Status: "new", MessageType: "MT199", Branch: "1", DateFrom: "2026-10-01", DateTo: "2026-10-09", PageSize: 2);
+        var request = new MessageGridRequest(Status: "new", MessageType: "MT199", Branch: 1, DateFrom: "2026-10-01", DateTo: "2026-10-09", PageSize: 2);
         var options = Prepare(request);
         Assert.Equal(3, options.Filter(source).Count());
         Assert.Equal(new long[] { 3, 1 }, options.Page(options.Filter(source)).Select(x => x.Id));
@@ -50,7 +69,7 @@ public sealed class MessageGridOptionsTests
         Assert.Equal(new long[] { 2 }, second.Page(second.Filter(source)).Select(x => x.Id));
         Assert.Empty(Prepare(request with { Page = 3 }).Page(options.Filter(source)));
         Assert.Equal(3, Prepare(request with { PageSize = 1 }).Filter(source).Count());
-        Assert.Empty(Prepare(request with { Branch = "3" }).Filter(source));
+        Assert.Empty(Prepare(request with { Branch = 3 }).Filter(source));
     }
 
     [Fact]
@@ -58,7 +77,7 @@ public sealed class MessageGridOptionsTests
     {
         var source = new[] { Row(1, "2026-10-09T12:00:00Z", externalId: "ABC"), Row(2, "2026-10-09T12:00:00Z", type: "ABC"),
             Row(3, "2026-10-09T12:00:00Z", branch: 2, type: "ABC"), Row(4, "2026-10-09T12:00:00Z") }.AsQueryable();
-        Assert.Equal(new long[] { 1, 2 }, Prepare(new(Search: " ABC ", Branch: "1")).Filter(source).Select(x => x.Id));
+        Assert.Equal(new long[] { 1, 2 }, Prepare(new(Search: " ABC ", Branch: 1)).Filter(source).Select(x => x.Id));
     }
 
     [Theory]
@@ -96,12 +115,12 @@ public sealed class MessageGridOptionsTests
     [Fact]
     public void InvalidFiltersAndScopes()
     {
-        MessageGridRequest[] invalid = [new(Status: "missing"), new(Status: "1"), new(Branch: "London"), new(Branch: "0"),
-            new(Branch: "2147483648"), new(DateFrom: "2026-02-30"), new(DateTo: "9999-12-31"),
+        MessageGridRequest[] invalid = [new(Status: "missing"), new(Status: "1"), new(Branch: 0), new(Branch: -1), new(DateFrom: "2026-02-30"), new(DateTo: "9999-12-31"),
             new(DateFrom: "2026-10-09T12:00:00"), new(DateFrom: "2026-10-10", DateTo: "2026-10-09"),
-            new(Search: new string('x', 101)), new(AssignmentScope: "unknown")];
+            new(Search: new string('x', 101)), new(AssignmentScope: "unknown"),
+            new(AssignmentScope: "departments"), new(AssignmentScope: "assignable"), new(AssignmentScope: "")];
         foreach (var request in invalid) Assert.Throws<FormatException>(() => Prepare(request));
-        foreach (var scope in new[] { "mine", "departments", "assignable" }) Prepare(new(AssignmentScope: scope));
+        foreach (var scope in new string?[] { null, "mine" }) Prepare(new(AssignmentScope: scope));
         Prepare(new(PageSize: 500));
         Assert.Throws<FormatException>(() => Prepare(new(Sort: [new("unknown", "asc")])));
     }

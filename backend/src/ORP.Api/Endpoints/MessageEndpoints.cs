@@ -21,8 +21,8 @@ public static class MessageEndpoints
         var group = api.MapGroup("/messages").WithTags("Message");
         group.MapGet("/state-counts", GetStateCounts)
             .WithName(nameof(GetStateCounts)).WithSummary("Get accessible message counts by state.")
-            .WithDescription("Returns items for every state, including zeros, with count and a messageType/count breakdown, and total with the same count/breakdown structure summed across all states. Counts include only accessible messages; grid filters and assignmentScope do not apply.")
-            .Produces<MessageStateCountsDto>();
+            .WithDescription("Returns items for every state, including zeros, with count and a messageType/count breakdown, and total with the same count/breakdown structure summed across all states. Counts include only accessible messages. Optional assignmentScope: null (or omission) for all accessible messages, mine for the current assignee or active reviewer. Grid filters do not apply; unsupported assignmentScope values return 400.")
+            .Produces<MessageStateCountsDto>().ProducesProblem(400);
         group.MapPost("/grid", GetMessagesGrid)
             .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages with paging, filtering and sorting.")
             .WithDescription(GridEndpointDescriptions.Messages)
@@ -58,10 +58,10 @@ public static class MessageEndpoints
             .Produces<PagedResult<AuditEventDto>>().ProducesProblem(400).ProducesProblem(404);
     }
 
-    private static async Task<MessageStateCountsDto> GetStateCounts(MessageGridQueries queries,
+    private static async Task<MessageStateCountsDto> GetStateCounts(string? assignmentScope, MessageGridQueries queries,
         IUserAccessService users, ICurrentUser current, CancellationToken ct) =>
         await queries.StateCountsAsync(await users.GetByIdAsync(current.UserId, ct)
-            ?? throw new UnauthorizedAccessException(), ct);
+            ?? throw new UnauthorizedAccessException(), assignmentScope, ct);
 
     private static async Task<MessageDetailsDto> GetMessage(long id, GetMessageHandler handler, CancellationToken ct) => await handler.HandleAsync(id, ct);
 
@@ -85,9 +85,6 @@ public static class MessageEndpoints
         IUserAccessService accessService, CancellationToken ct)
     {
         var access = await accessService.GetByIdAsync(currentUser.UserId, ct) ?? throw new UnauthorizedAccessException();
-        if (request.AssignmentScope == MessageAssignmentScopes.Assignable &&
-            !access.Permissions.Contains(Permissions.MessageAssign))
-            throw new UnauthorizedAccessException("The current user is not allowed to assign messages.");
         return await queries.LoadAsync(request, access, ct);
     }
 

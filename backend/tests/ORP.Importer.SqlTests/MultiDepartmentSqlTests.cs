@@ -90,11 +90,7 @@ public sealed class MultiDepartmentSqlTests
             Assert.Equal(1, grid.TotalCount);
             Assert.Equal([visibleDepartmentId], Assert.Single(grid.Items).DepartmentIds);
             Assert.Equal(visibleDepartmentName, Assert.Single(grid.Items).DepartmentNames);
-            Assert.Equal(1, (await new MessageGridQueries(db).LoadAsync(
-                new MessageGridRequest(Departments: [visibleDepartmentId]), access, ct)).TotalCount);
-            Assert.Equal(0, (await new MessageGridQueries(db).LoadAsync(
-                new MessageGridRequest(Departments: [hiddenDepartmentId]), access, ct)).TotalCount);
-            Assert.Equal(1, (await new MessageGridQueries(db).StateCountsAsync(access, ct)).Total.Count);
+            Assert.Equal(1, (await new MessageGridQueries(db).StateCountsAsync(access, null, ct)).Total.Count);
             var search = await new MessageQueries(db).SearchAsync(new MessageSearchRequest(0, 20, null,
                 new MessageFilter(null, null, null, [visibleDepartmentId], null, null)), access, ct);
             Assert.Equal(1, search.TotalCount);
@@ -139,7 +135,7 @@ public sealed class MultiDepartmentSqlTests
             false, [new UserScopeAccess(branch.Id, cs.Id, [viewRole.Id, assignRole.Id],
                 [Permissions.MessageView, Permissions.MessageAssign])]);
         Assert.Equal(1, (await new MessageGridQueries(db).LoadAsync(
-            new MessageGridRequest(AssignmentScope: MessageAssignmentScopes.Assignable), sameScopeAccess, ct)).TotalCount);
+            new MessageGridRequest(), sameScopeAccess, ct)).TotalCount);
     }
 
     [Fact]

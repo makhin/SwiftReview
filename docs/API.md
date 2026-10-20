@@ -53,7 +53,7 @@ Send a JSON body to `POST /api/messages/grid`, for example:
   "search": "REF123",
   "status": "New",
   "messageType": "MT199",
-  "branch": "1",
+  "branch": 1,
   "dateFrom": "2026-10-01",
   "dateTo": "2026-10-13",
   "page": 1,
@@ -65,7 +65,7 @@ Send a JSON body to `POST /api/messages/grid`, for example:
 Empty, null or omitted text filters impose no restriction. Filters combine with
 AND. `search` matches external ID or message type; `status` is a technical
 `MessageState` name, `messageType` is an exact type, and `branch` is a positive
-branch ID encoded as a string. Dates accept UTC `yyyy-MM-dd` values or ISO 8601
+integer branch ID; omit it or use `null` for all branches. Dates accept UTC `yyyy-MM-dd` values or ISO 8601
 timestamps with seconds and a timezone. Date-only `dateTo` includes the entire
 UTC day; timestamp bounds are inclusive.
 
@@ -75,10 +75,12 @@ Allowed sort fields are `id`, `externalId`, `direction`, `messageType`, `branchI
 `state`, `receivedAt`, `currentAssigneeId`, `activeReviewId`,
 `activeReviewLevel`, `activeReviewerId` and `workflowDefinitionId`.
 
-Optional `assignmentScope` accepts `mine`, `departments` or `assignable`; the last
-requires assignment permission. The response contains complete row `items` with
-action flags and `totalCount` after access checks and filters, before paging.
-Unknown properties, invalid values and old DevExtreme `skip`/`take`/`filter`
+Optional `assignmentScope` accepts only `null` (or omission) for all accessible
+messages, or `mine` for the current assignee or active reviewer. The response contains
+complete row `items` with action flags and `totalCount` after access checks and filters,
+before paging.
+The grid request does not support `departments`. Unknown properties, invalid values
+and old DevExtreme `skip`/`take`/`filter`
 requests return 400. Grouping, summaries and selected-column responses are not
 supported. The frontend adapts its `CustomStore` requests to this contract.
 
@@ -99,7 +101,9 @@ count, with `stateName` and a message-type breakdown:
 An absent state means zero accessible messages in that state. No accessible messages
 returns `{ "items": [], "total": { "count": 0, "breakdown": [] } }`. Populated
 InProgress, Rejected and third-review states are included without special exclusions.
-Counts cover accessible messages independently of grid filters and `assignmentScope`.
+Counts accept optional query parameter `assignmentScope`: omit it for all accessible
+messages, or use `?assignmentScope=mine` for messages where the current user is
+the assignee or active reviewer. Other values return 400. Grid filters do not apply.
 The full state catalog remains available from `/api/message-states`.
 
 ## Reviews

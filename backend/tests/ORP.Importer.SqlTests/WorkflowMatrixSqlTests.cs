@@ -109,7 +109,8 @@ public sealed class WorkflowMatrixSqlTests
         var tfoAccess = (await new UserAccessService(db).GetByIdAsync(tfo.Id, ct))!;
         Assert.NotNull(await new MessageQueries(db).GetAsync(shared.Id, tfoAccess, ct));
         Assert.NotNull(await new MessageQueries(db).AuditAsync(shared.Id, new AuditTrailRequest(), tfoAccess, ct));
-        Assert.Equal(0, (await new MessageGridQueries(db).LoadAsync(new MessageGridRequest(AssignmentScope: MessageAssignmentScopes.Assignable), tfoAccess, ct)).TotalCount);
+        Assert.Contains((await new MessageGridQueries(db).LoadAsync(new MessageGridRequest(), tfoAccess, ct)).Items,
+            row => row.Id == shared.Id);
         foreach (var permission in new[] { Permissions.MessageAssign, Permissions.WorkflowManage, Permissions.ReviewLevel1,
             Permissions.ReviewLevel2, Permissions.ReviewLevel3, Permissions.ReviewUndo })
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Authorization(db, tfo.Id).RequireAsync(shared.Id, permission, ct));
@@ -131,7 +132,7 @@ public sealed class WorkflowMatrixSqlTests
         Assert.Equal(0, (await new MessageQueries(db).DashboardAsync(tfoAccess, ct)).ViewOnly);
         Assert.Equal(7, summary.Unassigned);
         Assert.Equal(0, summary.Completed);
-        var states = await new MessageGridQueries(db).StateCountsAsync(adminAccess, ct);
+        var states = await new MessageGridQueries(db).StateCountsAsync(adminAccess, null, ct);
         Assert.Equal(2, states.Items.Single(x => x.State == MessageState.ViewOnly).Count);
         Assert.Empty(await db.Assignments.ToListAsync(ct));
         Assert.Empty(await db.Reviews.ToListAsync(ct));

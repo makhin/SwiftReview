@@ -7,7 +7,7 @@ Send the frontend controls directly as JSON to `POST /api/messages/grid` with au
   "search": "",
   "status": "New",
   "messageType": "MT199",
-  "branch": "1",
+  "branch": 1,
   "dateFrom": "2026-10-01",
   "dateTo": "2026-10-09",
   "page": 1,
@@ -15,7 +15,7 @@ Send the frontend controls directly as JSON to `POST /api/messages/grid` with au
 }
 ```
 
-For local Development, use `X-Debug-User: admin`. First call `GET /api/branches`, find London, and replace the illustrative `branch: "1"` with its ID encoded as a string. IDs are generated and may differ.
+For local Development, use `X-Debug-User: admin`. First call `GET /api/branches`, find London, and replace the illustrative `branch: 1` with its numeric ID. IDs are generated and may differ.
 
 The SQL seed creates 25 New MT199 messages, including 9 in London. Their receipt times span the 100 hours before the seed ran. The sample dates cover seed runs on October 6–9, 2026; adjust the range for another seed date. With the correct London ID and unchanged seeded messages, expect 9 rows and `totalCount: 9`. Clear `status` if messages have changed state; clear `branch` to include all branches. Omit `assignmentScope` for fresh unassigned seed data.
 
@@ -35,7 +35,7 @@ const controls = {
   search: "",
   status: "New",
   messageType: "MT199",
-  branch: String(londonBranchId), // ID from GET /api/branches
+  branch: londonBranchId, // ID from GET /api/branches
   dateFrom: "2026-10-01",
   dateTo: "2026-10-09",
   page: 1,
@@ -57,7 +57,7 @@ Use the application's existing authentication setup. The development curl exampl
 
 ## Control values and paging
 
-All text controls may be omitted, null or empty to clear them. Filters combine with AND. `search` accepts up to 100 trimmed characters and performs contains matching on external ID or message type using SQL Server collation. `status` is a state name, `messageType` is an exact type, and `branch` is a positive numeric ID encoded as a string from the branch lookup, not a branch name. Send `page` and `pageSize` as JSON numbers.
+All text controls may be omitted, null or empty to clear them. Filters combine with AND. `search` accepts up to 100 trimmed characters and performs contains matching on external ID or message type using SQL Server collation. `status` is a state name, `messageType` is an exact type, and `branch` is a positive integer ID from the branch lookup; omit it or use null for all branches. Send `page` and `pageSize` as JSON numbers.
 
 Pages are one-based: defaults `page: 1`, `pageSize: 20`; pageSize accepts 1–500. Reset page to 1 when controls change. With 9 matches and pageSize 5, page 1 has 5 rows and page 2 has 4. `totalCount` remains 9; an out-of-range page has empty items.
 

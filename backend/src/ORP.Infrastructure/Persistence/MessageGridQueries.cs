@@ -10,9 +10,9 @@ namespace ORP.Infrastructure.Persistence;
 
 public sealed class MessageGridQueries(ORPDbContext db)
 {
-    public async Task<MessageStateCountsDto> StateCountsAsync(UserAccess access, CancellationToken ct)
+    public async Task<MessageStateCountsDto> StateCountsAsync(UserAccess access, string? assignmentScope, CancellationToken ct)
     {
-        var counts = await db.ReadAccessibleMessages(access.UserId)
+        var counts = await AccessibleMessages(access, assignmentScope)
             .GroupBy(x => new { x.State, x.MessageType })
             .Select(group => new { group.Key.State, group.Key.MessageType, Count = group.Count() })
             .ToListAsync(ct);
@@ -22,27 +22,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
     public async Task<PagedResult<MessageGridRowDto>> LoadAsync(MessageGridRequest request, UserAccess access, CancellationToken ct)
     {
         var options = GridQuery<MessageReadRow>.Create(MessageGridOptions.Create(request), GridFields.Messages, 500, 5, new SortClause("receivedAt", "desc"));
-        var assignmentScope = request.AssignmentScope;
-        var query = db.ReadAccessibleMessages(access.UserId, assignmentScope == MessageAssignmentScopes.Assignable
-            ? Permissions.MessageAssign : Permissions.MessageView);
-        query = assignmentScope switch
-        {
-            null => query,
-            MessageAssignmentScopes.Mine => query.Where(x =>
-                x.CurrentAssigneeId == access.UserId || x.ActiveReviewerId == access.UserId),
-            MessageAssignmentScopes.Departments => query.Where(x => access.IsGlobalAdministrator || x.CurrentAssigneeId != null),
-            MessageAssignmentScopes.Assignable => query.Where(x =>
-                x.State == MessageState.New || x.State == MessageState.Assigned ||
-                x.State == MessageState.WaitingForSecondReview ||
-                x.State == MessageState.WaitingForThirdReview),
-            _ => throw new FormatException("Unsupported message assignment scope.")
-        };
-        if (request.Departments is { Count: > 0 })
-            query = query.Where(x => db.MessageDepartments.Any(d => d.MessageId == x.Id &&
-                request.Departments.Contains(d.DepartmentId) &&
-                (access.IsGlobalAdministrator || db.UserRoles.Any(role => role.UserId == access.UserId &&
-                    role.BranchId == x.BranchId && role.DepartmentId == d.DepartmentId &&
-                    role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.MessageView)))));
+        var query = AccessibleMessages(access, request.AssignmentScope);
         query = options.Filter(query);
         var count = await query.CountAsync(ct);
         var undoCandidates = db.ReadUndoCandidates(access);
@@ -98,5 +78,17 @@ public sealed class MessageGridQueries(ORPDbContext db)
             item.CanReview = actions.CanReview;
         }
         return new(items, count);
+    }
+
+    private IQueryable<MessageReadRow> AccessibleMessages(UserAccess access, string? assignmentScope)
+    {
+        var query = db.ReadAccessibleMessages(access.UserId);
+        return assignmentScope switch
+        {
+            null => query,
+            MessageAssignmentScopes.Mine => query.Where(x =>
+                x.CurrentAssigneeId == access.UserId || x.ActiveReviewerId == access.UserId),
+            _ => throw new FormatException("Unsupported message assignment scope.")
+        };
     }
 }

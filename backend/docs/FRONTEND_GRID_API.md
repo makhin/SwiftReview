@@ -16,7 +16,7 @@ For a complete status, type, branch, date range and paging example, see [Message
 Messages use the flat controls described in [Message grid sample request](FRONTEND_GRID_SAMPLE.md):
 `search`, `status`, `messageType`, `branch`, `dateFrom`, `dateTo`, `page`, `pageSize`.
 Empty text controls mean no filter. Page numbers start at 1; pageSize defaults to 20 and accepts 1–500.
-Optional `sort` and `assignmentScope` remain supported. The old skip/take/filter message body is rejected.
+Optional `sort` and `assignmentScope` remain supported. `departments` is not supported in the grid request and returns 400. The old skip/take/filter message body is rejected.
 
 Bind `items` to rows and `totalCount` to the pager. Reset page to 1 when controls change.
 Cancel superseded requests and refresh after message actions. Use id as the row key; action flags and review levels remain in the response.
@@ -44,7 +44,7 @@ Limits: messages `pageSize: 1–500`, up to 5 sorts; users `take: 1–100`, up t
 
 ## Optional scope and errors
 
-Messages support `assignmentScope`: omit it for all accessible messages; use `mine` for the current assignee or active reviewer, `departments` for assigned messages within access (administrators also see unassigned rows), or `assignable` for eligible waiting states with assignment permission. Users support `search`, a trimmed string of up to 100 characters matching username or display name; search and filter are combined with AND.
+Messages support `assignmentScope`: omit it or pass `null` for all accessible messages; use `mine` for the current assignee or active reviewer. Other values are rejected. Users support `search`, a trimmed string of up to 100 characters matching username or display name; search and filter are combined with AND.
 
 Handle `400` as invalid options (`ProblemDetails.detail`), `401` as missing/invalid authentication, and `403` as insufficient access. Show an error state for request failures. Grouping, summaries, selected-column responses and unknown request/filter properties are unsupported.
 

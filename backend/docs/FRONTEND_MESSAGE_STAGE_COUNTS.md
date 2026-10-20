@@ -64,6 +64,6 @@ For a grouped card, let the user select a concrete state before opening the grid
 
 ## Scope and display states
 
-Counts cover all accessible messages and accept no grid filters or `assignmentScope`. They do not change when the grid is filtered to `mine`, a date range or a search term. Use the grid response's `totalCount` for the filtered result total; do not calculate overall counts from the current page. Counts and rows are separate requests and can briefly differ while messages change.
+Counts accept optional query parameter `assignmentScope`: omit it for all accessible messages, or use `GET /api/messages/state-counts?assignmentScope=mine` for the current assignee or active reviewer. Only null (omission) and `mine` are supported; other values return `400`. Send the same scope as the grid when displaying scoped counts. Date ranges, search terms and other grid filters do not apply. Use the grid response's `totalCount` for the filtered result total; do not calculate overall counts from the current page. Counts and rows are separate requests and can briefly differ while messages change.
 
 Show a loading state initially. On refresh failure, retain previous counts with an error/stale indicator rather than replacing them with zeros. Handle `401` as an authentication issue and `403` as an access issue; clear cached counts and metadata when the user changes, and ignore responses belonging to the previous user.

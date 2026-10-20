@@ -10,18 +10,16 @@ public static class MessageGridOptions
     {
         if (request.Page < 1 || request.PageSize is < 1 or > 500 || (long)(request.Page - 1) * request.PageSize > int.MaxValue)
             throw new FormatException("page must be positive, pageSize must be between 1 and 500, and the page offset must fit Int32.");
-        if (request.AssignmentScope is not (null or MessageAssignmentScopes.Mine or MessageAssignmentScopes.Departments or MessageAssignmentScopes.Assignable))
+        if (request.AssignmentScope is not (null or MessageAssignmentScopes.Mine))
             throw new FormatException("Unsupported message assignment scope.");
-        if (request.Departments is { Count: > 100 } || request.Departments?.Any(id => id <= 0) == true)
-            throw new FormatException("departments must contain at most 100 positive IDs.");
         var filters = new List<GridFilter>();
         void Add(string field, string op, object value) => filters.Add(Condition(field, op, value));
         if (!string.IsNullOrWhiteSpace(request.Status)) Add("state", "eq", request.Status.Trim());
         if (!string.IsNullOrWhiteSpace(request.MessageType)) Add("messageType", "eq", request.MessageType.Trim());
-        if (!string.IsNullOrWhiteSpace(request.Branch))
+        if (request.Branch is { } branch)
         {
-            if (!int.TryParse(request.Branch.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var branch) || branch < 1)
-                throw new FormatException("branch must be a positive numeric branch ID encoded as a string.");
+            if (branch < 1)
+                throw new FormatException("branch must be a positive integer branch ID.");
             Add("branchId", "eq", branch);
         }
         var from = ParseDate(request.DateFrom, false);
