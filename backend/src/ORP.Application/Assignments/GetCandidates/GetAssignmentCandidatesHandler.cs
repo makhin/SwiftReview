@@ -22,7 +22,7 @@ public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries q
         var source = access.Source;
         var reviews = access.Reviews;
         return await queries.GetEligibleAsync(source.BranchId, message.ProcessingDepartmentIds, reviewLevel,
-            workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId,
+            workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId, workflow.AllowSelfAssignment,
             cancellationToken);
     }
 }

@@ -110,9 +110,9 @@ BEGIN TRY
         (N'SINGLE_CONFIRMATION',N'Single confirmation',1),
         (N'DOUBLE_CONFIRMATION',N'Double confirmation',2);
     INSERT INTO orp.WorkflowDefinitions
-        (Code,Name,IsActive,ConfirmationMode,ConfirmationActorMode,AllowReviewerReuse,AssignmentRetentionMode,RejectAllowed,
+        (Code,Name,IsActive,ConfirmationMode,ConfirmationActorMode,AllowReviewerReuse,AssignmentRetentionMode,RejectAllowed,AllowSelfAssignment,
          UndoApprovalMode,UndoActorMode,UndoActiveReviewMode)
-    SELECT p.Code,p.Name,1,CASE WHEN p.Levels=0 THEN 2 ELSE 1 END,1,1,1,0,
+    SELECT p.Code,p.Name,1,CASE WHEN p.Levels=0 THEN 2 ELSE 1 END,1,1,1,0,CASE WHEN p.Levels=0 THEN 0 ELSE 1 END,
         CASE WHEN p.Levels=2 THEN 1 ELSE 0 END,1,CASE WHEN p.Levels=2 THEN 1 ELSE 0 END
     FROM @Profiles p WHERE NOT EXISTS (SELECT 1 FROM orp.WorkflowDefinitions w WHERE w.Code=p.Code);
     INSERT INTO orp.WorkflowSteps (WorkflowDefinitionId,[Order],ReviewLevel,Required)
@@ -122,6 +122,7 @@ BEGIN TRY
     IF EXISTS (SELECT 1 FROM @Profiles p JOIN orp.WorkflowDefinitions w ON w.Code=p.Code
         WHERE w.IsActive<>1 OR w.ConfirmationMode<>CASE WHEN p.Levels=0 THEN 2 ELSE 1 END
         OR w.ConfirmationActorMode<>1 OR w.AllowReviewerReuse<>1 OR w.AssignmentRetentionMode<>1 OR w.RejectAllowed<>0
+        OR w.AllowSelfAssignment<>CASE WHEN p.Levels=0 THEN 0 ELSE 1 END
         OR w.UndoApprovalMode<>CASE WHEN p.Levels=2 THEN 1 ELSE 0 END OR w.UndoActorMode<>1
         OR w.UndoActiveReviewMode<>CASE WHEN p.Levels=2 THEN 1 ELSE 0 END
         OR (SELECT COUNT(*) FROM orp.WorkflowSteps s WHERE s.WorkflowDefinitionId=w.Id)<>p.Levels

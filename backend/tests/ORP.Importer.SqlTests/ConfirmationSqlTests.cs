@@ -1,8 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using FluentValidation;
 using Microsoft.Extensions.Logging.Abstractions;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
+using ORP.Application.Assignments.Assign;
+using ORP.Application.Assignments.GetCandidates;
 using ORP.Application.Authorization;
 using ORP.Application.Reviews;
 using ORP.Application.Messages.ChangeWorkflow;
@@ -20,6 +25,89 @@ namespace ORP.Importer.SqlTests;
 
 public sealed class ConfirmationSqlTests
 {
+    [Fact]
+    public async Task SelfAssignmentMigrationInitializesExistingProfilesAndDefaultsOtherWorkflowsToFalse()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        await SeedAsync(fixture, ct);
+        await using var db = new ORPDbContext(fixture.Options);
+        var custom = new WorkflowDefinition("CUSTOM_POLICY", "Custom policy").AddStep(1, 1);
+        db.WorkflowDefinitions.Add(custom);
+        await db.SaveChangesAsync(ct);
+        var migrator = db.GetService<IMigrator>();
+        var migrations = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+        Assert.EndsWith("_AddWorkflowSelfAssignment", migrations[^1]);
+        await migrator.MigrateAsync(migrations[^2], ct);
+        await migrator.MigrateAsync(cancellationToken: ct);
+        db.ChangeTracker.Clear();
+        var workflows = await db.WorkflowDefinitions.AsNoTracking().ToListAsync(ct);
+        Assert.True(workflows.Single(x => x.Code == "SINGLE_CONFIRMATION").AllowSelfAssignment);
+        Assert.True(workflows.Single(x => x.Code == "DOUBLE_CONFIRMATION").AllowSelfAssignment);
+        Assert.False(workflows.Single(x => x.Code == "VIEW_ONLY").AllowSelfAssignment);
+        Assert.False(workflows.Single(x => x.Code == "CUSTOM_POLICY").AllowSelfAssignment);
+    }
+
+    [Theory]
+    [InlineData("SINGLE_CONFIRMATION", 1)]
+    [InlineData("DOUBLE_CONFIRMATION", 2)]
+    public async Task SelfAssignmentCandidateCanAssignAndCompleteOwnMessage(string code, int levels)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        await using var db = new ORPDbContext(fixture.Options);
+        var message = await db.Messages.Include(x => x.Departments).SingleAsync(x => x.Id == setup.Message, ct);
+        var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
+        var store = new ORPStore(db, log);
+        var assignments = new AssignmentCoordinator(store, new Clock());
+        await assignments.UnassignAsync(message, setup.Actor, "setup", ct);
+        var workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
+        message.ChangeWorkflow(workflow, []);
+        await db.SaveChangesAsync(ct);
+        var user = new Actor(setup.Actor);
+        var users = new UserAuthorizationQueries(db);
+        var correlation = new Correlation();
+        var authorization = new MessageAuthorizationService(store, users, user, correlation,
+            NullLogger<MessageAuthorizationService>.Instance);
+        var candidates = new GetAssignmentCandidatesHandler(new AssignmentCandidateQueries(db), store, user, authorization);
+        Assert.Contains(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
+        var assign = new AssignMessageHandler(store, users, new AssignMessageValidator(), user, correlation,
+            assignments, new TransactionExecutor(db, log), authorization);
+        workflow.ConfigureSelfAssignment(false);
+        await db.SaveChangesAsync(ct);
+        Assert.DoesNotContain(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
+        await Assert.ThrowsAsync<ValidationException>(() => assign.HandleAsync(message.Id, new(setup.Actor), ct));
+        workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
+        workflow.ConfigureSelfAssignment(true);
+        await db.SaveChangesAsync(ct);
+        Assert.Contains(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
+        await assign.HandleAsync(message.Id, new(setup.Actor), ct);
+        var activeAssignment = await db.Assignments.AsNoTracking().SingleAsync(x => x.MessageId == message.Id && x.EndedAt == null, ct);
+        Assert.Equal(setup.Actor, activeAssignment.AssignedBy);
+        Assert.Equal(setup.Actor, activeAssignment.AssignedTo);
+        Assert.DoesNotContain(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
+        var access = (await new UserAccessService(db).GetByIdAsync(setup.Actor, ct))!;
+        for (var level = 1; level <= levels; level++)
+        {
+            var details = await DetailsAsync(db, message.Id, access, ct);
+            Assert.True(details.CanConfirm);
+            Assert.Equal(level, details.ConfirmationLevel);
+            await Handlers(db, setup.Actor).Confirm.HandleAsync(message.Id, new(level, details.Version), ct);
+        }
+        db.ChangeTracker.Clear();
+        var completed = await db.Messages.SingleAsync(x => x.Id == message.Id, ct);
+        Assert.Equal(MessageState.Completed, completed.State);
+        Assert.Null(completed.CurrentAssigneeId);
+        var reviews = await db.Reviews.Where(x => x.MessageId == message.Id).ToListAsync(ct);
+        Assert.Equal(levels, reviews.Count);
+        Assert.All(reviews, review =>
+        {
+            Assert.Equal(setup.Actor, review.ReviewerId);
+            Assert.Equal(ReviewStatus.Approved, review.Status);
+        });
+    }
+
     [Fact]
     public async Task ConfirmUndoAndRepeatPersistVersionsAssignmentAuditAndCapabilities()
     {

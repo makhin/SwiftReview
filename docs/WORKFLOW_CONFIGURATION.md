@@ -14,6 +14,7 @@ its workflow. Rules retain source file, sheet and row. Excel is not read at runt
 | --- | --- | --- |
 | `ConfirmationMode` | 0 `ReviewSession`, 1 `Immediate`, 2 `None` | 0 |
 | `ConfirmationActorMode` | 0 `Assignee`, 1 `AnyAuthorizedUser` | 0 |
+| `AllowSelfAssignment` | 0 forbids ordinary self-assignment, 1 permits it within processing scope | 0 |
 | `AllowReviewerReuse` | 0 requires distinct approved reviewers, 1 permits reuse | 0 |
 | `AssignmentRetentionMode` | 0 `PerConfirmation`, 1 `UntilWorkflowCompleted` | 0 |
 | `RejectAllowed` | 0 disabled, 1 allowed for review sessions | 1 |
@@ -47,6 +48,27 @@ one permitted message branch/department scope, never be combined across scopes.
 | SINGLE_CONFIRMATION | 96 | Immediate level 1; ordinary Undo disabled |
 | DOUBLE_CONFIRMATION | 170 | Immediate levels 1, 2; any authorized actor can undo first before second completes |
 
+Self-assignment is controlled by `orp.WorkflowDefinitions.AllowSelfAssignment`, independently
+of workflow code, confirmation mode and reviewer reuse. It still requires `message.assign`,
+message access and the current review-level permission in the processing scope. The
+administrator exception remains. Assignment candidates use the same policy.
+
+The `AddWorkflowSelfAssignment` migration adds the flag with default 0 and sets it to 1
+for the existing SINGLE_CONFIRMATION and DOUBLE_CONFIRMATION profiles to preserve their
+behavior. The seed scripts use 1 for these two profiles and 0 for VIEW_ONLY. Codes are
+used only for this data initialization, not runtime authorization. Apply the migration
+before deploying the updated API or running updated seeds; no message reset is needed.
+For other workflows, configure the flag explicitly by workflow ID, for example:
+
+```sql
+UPDATE orp.WorkflowDefinitions
+SET AllowSelfAssignment = 1
+WHERE Id = @WorkflowId;
+```
+
+`@WorkflowId` must identify the intended workflow; use 0 to disable the policy. This
+setting does not grant any permissions. The HTTP contracts are unchanged; the frontend
+continues to obtain eligible users from `assignment-candidates`.
 Both confirmation profiles allow the same actor, preserve assignment until completion,
 and disable Reject. Administrator Undo exceptions remain. No PDF or notification
 behavior is implied by any profile.

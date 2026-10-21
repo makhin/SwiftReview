@@ -417,6 +417,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("AllowSelfAssignment")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("AssignmentRetentionMode")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")

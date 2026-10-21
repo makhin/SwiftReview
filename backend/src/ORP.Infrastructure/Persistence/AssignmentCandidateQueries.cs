@@ -9,10 +9,10 @@ public sealed class AssignmentCandidateQueries(ORPDbContext db) : IAssignmentCan
 {
     public async Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId,
         IReadOnlyList<int> departmentIds, int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId,
-        int? currentAssigneeId, CancellationToken cancellationToken)
+        int? currentAssigneeId, bool allowSelfAssignment, CancellationToken cancellationToken)
     {
         var reviewPermission = ReviewAssignmentRules.PermissionForLevel(reviewLevel);
-        var excluded = excludedUserIds.Append(actorId)
+        var excluded = excludedUserIds.Concat(allowSelfAssignment ? Array.Empty<int>() : [actorId])
             .Concat(currentAssigneeId is null ? [] : [currentAssigneeId.Value])
             .Distinct().ToArray();
         return await db.Users.AsNoTracking()

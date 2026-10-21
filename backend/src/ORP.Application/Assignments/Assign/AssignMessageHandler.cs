@@ -44,11 +44,12 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQuer
                 ReviewAssignmentRules.PermissionForLevel(reviewLevel), ct)
                 ?? throw new ResourceNotFoundException("Assignee was not found.");
             var reviews = access.Reviews;
+            var allowSelfAssignment = workflow.AllowSelfAssignment;
             if (!ReviewAssignmentRules.IsEligible(request.AssignedTo, target,
-                    workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId))
+                    workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId, allowSelfAssignment))
                 throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
             await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
-                ct, access.IsGlobalAdministrator);
+                ct, access.IsGlobalAdministrator || allowSelfAssignment);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
 }

@@ -357,8 +357,8 @@ All application endpoints are under `/api` and require authentication. The API e
 `take` (default `100`, maximum `500`) and requires the `audit.view` permission plus access to the message's
 branch and department.
 
-Frontend integration guides: [Grid API](docs/FRONTEND_GRID_API.md) and
-[Message stage counts](docs/FRONTEND_MESSAGE_STAGE_COUNTS.md).
+Frontend integration guides: [Message workflow and API examples (RU)](docs/FRONTEND_MESSAGE_WORKFLOW_RU.md),
+[Grid API](docs/FRONTEND_GRID_API.md) and [Message stage counts](docs/FRONTEND_MESSAGE_STAGE_COUNTS.md).
 
 `GET /api/messages/state-counts` returns `{ items, total }`.
 `items` contains all states as `{ state, count, breakdown }`.

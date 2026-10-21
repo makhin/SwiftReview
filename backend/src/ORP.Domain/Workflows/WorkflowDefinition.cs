@@ -30,6 +30,7 @@ public sealed class WorkflowDefinition
     public ConfirmationMode ConfirmationMode { get; private set; }
     public ConfirmationActorMode ConfirmationActorMode { get; private set; }
     public bool AllowReviewerReuse { get; private set; }
+    public bool AllowSelfAssignment { get; private set; }
     public AssignmentRetentionMode AssignmentRetentionMode { get; private set; }
     public bool RejectAllowed { get; private set; } = true;
     public UndoApprovalMode UndoApprovalMode { get; private set; }
@@ -48,6 +49,8 @@ public sealed class WorkflowDefinition
         AssignmentRetentionMode = assignmentRetentionMode;
         RejectAllowed = rejectAllowed;
     }
+
+    public void ConfigureSelfAssignment(bool allowed) => AllowSelfAssignment = allowed;
 
     public void RequireReviewSession()
     {

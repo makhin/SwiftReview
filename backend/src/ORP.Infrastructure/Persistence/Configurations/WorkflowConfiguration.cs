@@ -16,6 +16,7 @@ public sealed class WorkflowDefinitionConfiguration : IEntityTypeConfiguration<W
         builder.Property(x => x.ConfirmationMode).HasDefaultValue(ConfirmationMode.ReviewSession);
         builder.Property(x => x.ConfirmationActorMode).HasDefaultValue(ConfirmationActorMode.Assignee);
         builder.Property(x => x.AllowReviewerReuse).HasDefaultValue(false);
+        builder.Property(x => x.AllowSelfAssignment).HasDefaultValue(false);
         builder.Property(x => x.AssignmentRetentionMode).HasDefaultValue(AssignmentRetentionMode.PerConfirmation);
         builder.Property(x => x.RejectAllowed).HasDefaultValue(true);
         builder.ToTable(t => t.HasCheckConstraint("CK_WorkflowDefinitions_ConfirmationPolicy",

@@ -156,6 +156,53 @@ public sealed class AssignmentHandlerTests
         await store.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData("CUSTOM_WORKFLOW", true, true, true, true, true)]
+    [InlineData("DOUBLE_CONFIRMATION", true, true, true, true, true)]
+    [InlineData("SINGLE_CONFIRMATION", false, true, true, true, false)]
+    [InlineData("CUSTOM_WORKFLOW", true, false, true, true, false)]
+    [InlineData("CUSTOM_WORKFLOW", true, true, false, true, false)]
+    [InlineData("CUSTOM_WORKFLOW", true, true, true, false, false)]
+    public async Task SelfAssignmentRequiresEnabledPolicyScopeAndPermissions(string code, bool allowSelfAssignment,
+        bool canView, bool canReview, bool canAssign, bool allowed)
+    {
+        var (store, access, user, clock, correlation) = Dependencies();
+        var workflow = new WorkflowDefinition(code, code).AddStep(1, 1);
+        workflow.ConfigureConfirmation(ConfirmationMode.Immediate, ConfirmationActorMode.AnyAuthorizedUser,
+            true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
+        workflow.ConfigureSelfAssignment(allowSelfAssignment);
+        var message = new Message(1, 1, 1, 1, clock.UtcNow);
+        ConfigureAssignment(store, access, message, [], user.UserId, Permissions.ReviewLevel1);
+        store.FindWorkflowAsync(1, Arg.Any<CancellationToken>()).Returns(workflow);
+        access.CheckAsync(user.UserId, 1, Arg.Any<IReadOnlyList<int>>(), Permissions.ReviewLevel1,
+            Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, canView, canReview));
+        access.CheckAsync(user.UserId, 1, Arg.Any<IReadOnlyList<int>>(), Permissions.MessageAssign,
+            Arg.Any<CancellationToken>()).Returns(new UserPermissionCheck(false, canView, canAssign));
+        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
+            new AssignmentCoordinator(store, clock), new InlineTransactions(),
+            new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
+
+        var error = await Record.ExceptionAsync(() => handler.HandleAsync(1, new(user.UserId),
+            TestContext.Current.CancellationToken));
+
+        if (allowed)
+        {
+            Assert.Null(error);
+            Assert.Equal(user.UserId, message.CurrentAssigneeId);
+            Assert.Equal(MessageState.Assigned, message.State);
+            store.Received(1).AddAssignment(Arg.Is<Domain.Assignments.Assignment>(x =>
+                x.AssignedBy == user.UserId && x.AssignedTo == user.UserId));
+            await store.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        }
+        else
+        {
+            Assert.NotNull(error);
+            Assert.Null(message.CurrentAssigneeId);
+            store.DidNotReceive().AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
+            await store.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        }
+    }
+
     private static (IORPStore Store, IUserAuthorizationQueries Access, ICurrentUser User, IClock Clock,
         ICorrelationContext Correlation) Dependencies()
     {

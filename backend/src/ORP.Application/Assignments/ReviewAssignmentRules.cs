@@ -30,9 +30,9 @@ public static class ReviewAssignmentRules
             .ToArray();
 
     public static bool IsEligible(int targetId, UserPermissionCheck target,
-        IReadOnlyCollection<int> approvedReviewerIds, int actorId, int? currentAssigneeId) =>
+        IReadOnlyCollection<int> approvedReviewerIds, int actorId, int? currentAssigneeId, bool allowSelfAssignment = false) =>
         targetId != currentAssigneeId && (target.IsGlobalAdministrator || (
-        targetId != actorId &&
+        (allowSelfAssignment || targetId != actorId) &&
         target.HasPermission &&
         target.CanView &&
         !approvedReviewerIds.Contains(targetId)));
