@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenTelemetry.Metrics;
@@ -40,6 +41,22 @@ builder.Services.AddOpenApi(options => options.AddSchemaTransformer((schema, con
         schema.Type = Microsoft.OpenApi.JsonSchemaType.String;
         schema.Enum = schema.Enum?.Where(value => value is not null).ToList();
     }
+    return Task.CompletedTask;
+}).AddDocumentTransformer((document, _, _) =>
+{
+    document.Components ??= new OpenApiComponents();
+    document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+    document.Components.SecuritySchemes["Debug"] = new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        Name = "X-Debug-User",
+        In = ParameterLocation.Header,
+        Description = "Development user ID or username. Debug authentication is available only in Development."
+    };
+    document.Security = [new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Debug", document)] = []
+    }];
     return Task.CompletedTask;
 }));
 builder.Services.ConfigureHttpJsonOptions(options =>
