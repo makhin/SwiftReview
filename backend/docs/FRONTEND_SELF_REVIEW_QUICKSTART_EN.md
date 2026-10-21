@@ -90,3 +90,5 @@ Run commands sequentially and prevent duplicate clicks while a request is pendin
 If the message is already assigned to you, skip assign. If it is assigned to someone else, `/assign` will fail: changing the assignee requires `/reassign` with the same request body and permission/candidate checks.
 
 [Full API guide and alternative actions (Russian)](FRONTEND_MESSAGE_WORKFLOW_RU.md).
+
+[Run the interactive TypeScript walkthrough](../../tools/workflow-demo/README.md).

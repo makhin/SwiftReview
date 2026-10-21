@@ -1,0 +1,10 @@
+{
+  "name": "swiftreview-workflow-demo",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node workflow-demo.ts",
+    "test": "node --test workflow-demo.test.ts"
+  }
+}
