@@ -3,7 +3,6 @@ using ORP.Application.Grids;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments.Assign;
 using ORP.Application.Assignments.GetCandidates;
-using ORP.Application.Assignments.Reassign;
 using ORP.Application.Audit.GetAuditTrail;
 using ORP.Application.Messages.Get;
 using ORP.Application.Messages.ChangeWorkflow;
@@ -45,10 +44,8 @@ public static class MessageEndpoints
             .WithName(nameof(SearchMessages)).WithSummary("Search accessible messages with a JSON filter.")
             .Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
         group.MapPost("/{id:long}/assign", AssignMessage)
-            .WithName(nameof(AssignMessage)).WithSummary("Assign an unassigned message.")
-            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
-        group.MapPost("/{id:long}/reassign", ReassignMessage)
-            .WithName(nameof(ReassignMessage)).WithSummary("Change the assignee of an assigned message.")
+            .WithName(nameof(AssignMessage)).WithSummary("Assign or change the assignee of a message.")
+            .WithDescription("Requires expectedVersion from the latest message version (base64 SQL rowversion, 8 bytes). Missing or invalid versions return 400; stale versions return 409. Audit records distinguish initial assignment from reassignment.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{id:long}/assignment-candidates", GetAssignmentCandidates)
             .WithName(nameof(GetAssignmentCandidates)).WithSummary("Get eligible assignees for a message.")
@@ -92,13 +89,6 @@ public static class MessageEndpoints
 
     private static async Task<IResult> AssignMessage(long id, AssignMessageRequest request,
         AssignMessageHandler handler, CancellationToken ct)
-    {
-        await handler.HandleAsync(id, request, ct);
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> ReassignMessage(long id, AssignMessageRequest request,
-        ReassignMessageHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(id, request, ct);
         return Results.NoContent();

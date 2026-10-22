@@ -41,8 +41,10 @@ Display the `body` and message details. Your own `userId` should appear among th
 ```http
 POST /api/messages/1001/assign
 
-{ "assignedTo": 21 }
+{ "assignedTo": 21, "expectedVersion": "AAAAAAAAAAE=" }
 ```
+
+Set mandatory `expectedVersion` to the latest message `version`; the example value is illustrative. Missing or invalid versions return 400; stale versions return 409. Reload on conflict; do not retry automatically.
 
 Set `assignedTo` to your own `userId` from `/me`. Success: `204 No Content`, state `New → Assigned`.
 
@@ -87,7 +89,7 @@ After each change, refresh the grid through its DevExtreme CustomStore/DataSourc
 
 Run commands sequentially and prevent duplicate clicks while a request is pending. On 403/409, display the error and reload the data; do not retry confirm automatically. After a network error, check the state and audit trail first: the confirmation may already have been saved.
 
-If the message is already assigned to you, skip assign. If it is assigned to someone else, `/assign` will fail: changing the assignee requires `/reassign` with the same request body and permission/candidate checks.
+If the message is already assigned to you, skip assign. If it is assigned to someone else, use the same `/assign` endpoint with the latest message `version` as `expectedVersion`; permission and candidate checks still apply.
 
 [Full API guide and alternative actions (Russian)](FRONTEND_MESSAGE_WORKFLOW_RU.md).
 

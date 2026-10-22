@@ -5,8 +5,7 @@ These operations already exist. Please use the following endpoints:
 | Your proposal | Existing endpoint |
 |---|---|
 | Approve | `POST /api/messages/{id}/reviews/confirm` |
-| Assign | `POST /api/messages/{id}/assign` |
-| Reassign | `POST /api/messages/{id}/reassign` |
+| Assign / reassign | `POST /api/messages/{id}/assign` |
 | Undo approval | `POST /api/messages/{id}/reviews/undo` |
 | List reviewers | `GET /api/messages/{id}/assignment-candidates` |
 | My message counts | `GET /api/messages/state-counts?assignmentScope=mine` |
@@ -30,10 +29,10 @@ Fetch the message again after every confirmation. The next confirmation requires
 Choose an ID from `assignment-candidates`:
 
 ```json
-{ "assignedTo": 1003 }
+{ "assignedTo": 1003, "expectedVersion": "AAAAAAAAAAE=" }
 ```
 
-Use `/assign` when `currentAssigneeId` is null; otherwise use `/reassign`. Self-assignment is allowed only when the workflow policy and user permissions allow it.
+Use `/assign` for both initial assignment and reassignment. Pass the latest message `version` as mandatory `expectedVersion` (the value above is illustrative). Missing or invalid versions return 400; stale versions return 409. Reload on conflict; do not retry automatically. Self-assignment is allowed only when the workflow policy and user permissions allow it.
 
 **3. Undo requires the approval ID.**
 

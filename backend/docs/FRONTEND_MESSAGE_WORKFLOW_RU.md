@@ -137,12 +137,12 @@ GET /api/messages/1001/assignment-candidates
 ```http
 POST /api/messages/1001/assign
 
-{ "assignedTo": 21 }
+{ "assignedTo": 21, "expectedVersion": "AAAAAAAAAAE=" }
 ```
 
 Успех: `204`. Состояние `New → Assigned`, `currentAssigneeId = 21`.
 
-Выбор команды определяется наличием исполнителя, а не только статусом: если `currentAssigneeId == null`, использовать `assign`, иначе `reassign`. После undo статус может быть `Assigned`, но исполнитель отсутствовать.
+Для назначения и переназначения используется один `assign`. Обязательный `expectedVersion` берётся из актуальной `version` сообщения; значения в примерах условные. Отсутствующая или некорректная версия возвращает 400, устаревшая — 409. При конфликте обновить сообщение, не повторять команду автоматически. События аудита остаются раздельными: `MessageAssigned` и `MessageReassigned`.
 
 ### 4.3. Reviewer 21 начинает проверку
 
@@ -184,10 +184,10 @@ Backend проверяет активную попытку, её уровень 
 
 | Кто вызывает | Метод и URL | JSON body | Результат |
 |---|---|---|---|
-| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":22}` | Исполнитель 22; статус остаётся `WaitingForSecondReview` |
+| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":22,"expectedVersion":"AAAAAAAAAAE="}` | Исполнитель 22; статус остаётся `WaitingForSecondReview` |
 | Reviewer 22 | `POST /api/messages/1001/reviews/start` | `{"level":2}` | `200 {"reviewId":502}`; `SecondReviewInProgress` |
 | Reviewer 22 | `POST /api/messages/1001/reviews/approve` | `{"level":2,"reviewId":502,"comment":null}` | `WaitingForThirdReview`; исполнитель очищен |
-| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":23}` | Исполнитель 23; статус остаётся `WaitingForThirdReview` |
+| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":23,"expectedVersion":"AAAAAAAAAAE="}` | Исполнитель 23; статус остаётся `WaitingForThirdReview` |
 | Reviewer 23 | `POST /api/messages/1001/reviews/start` | `{"level":3}` | `200 {"reviewId":503}`; `ThirdReviewInProgress` |
 | Reviewer 23 | `POST /api/messages/1001/reviews/approve` | `{"level":3,"reviewId":503,"comment":null}` | `Completed`; исполнитель очищен |
 
@@ -204,10 +204,10 @@ ID 502 и 503 заменяются фактическими ответами sta
 | `allowReviewerReuse = false` | Уже подтвердивший другой уровень обычный reviewer не может подтверждать следующий |
 | `allowReviewerReuse = true` | Повторное участие reviewer допускается при наличии остальных прав |
 | `assignmentRetentionMode = PerConfirmation` | После approve/confirm назначение снимается; перед следующим шагом при необходимости назначить заново |
-| `assignmentRetentionMode = UntilWorkflowCompleted` | Между подтверждениями исполнитель сохраняется; при необходимости сменить через reassign |
+| `assignmentRetentionMode = UntilWorkflowCompleted` | Между подтверждениями исполнитель сохраняется; при необходимости сменить через assign |
 | `rejectAllowed = false` | Reject недоступен даже при активной сессии |
 
-После финального approve/confirm и после reject назначение снимается при любой retention-политике. Сохранение назначения само по себе не даёт права на следующий уровень: оно может требовать reassign из-за запрета reuse или отсутствия нужного permission.
+После финального approve/confirm и после reject назначение снимается при любой retention-политике. Сохранение назначения само по себе не даёт права на следующий уровень: оно может требовать переназначения через assign из-за запрета reuse или отсутствия нужного permission.
 
 ## 6. Immediate: подтверждение одним вызовом
 
@@ -241,9 +241,9 @@ POST /api/messages/1001/reviews/confirm
 Сначала заново получить `assignment-candidates`, затем от имени пользователя с `message.assign`:
 
 ```http
-POST /api/messages/1001/reassign
+POST /api/messages/1001/assign
 
-{ "assignedTo": 22 }
+{ "assignedTo": 22, "expectedVersion": "AAAAAAAAAAE=" }
 ```
 
 Разрешено при существующем исполнителе в `Assigned`, `WaitingForSecondReview`, `WaitingForThirdReview`. Сохраняет статус и историю подтверждений. При активной проверке сначала её владелец отменяет попытку через cancel. Публичного endpoint для ручного unassign нет.
@@ -334,7 +334,7 @@ PDF возвращает `application/pdf`, читать через `response.bl
 
 ## 9. Обновление UI и ошибки
 
-После успешного assign/reassign/start/approve/reject/cancel/undo/confirm/workflow:
+После успешного assign/start/approve/reject/cancel/undo/confirm/workflow:
 
 1. Перезагрузить DevExtreme DataSource/CustomStore, чтобы получить новые state, assignee, capabilities и version.
 2. Обновить открытую карточку и историю, если они отображаются.
@@ -376,8 +376,7 @@ PDF возвращает `application/pdf`, читать через `response.bl
 | Детали | GET | `/api/messages/{id}` | — | 200 MessageDetailsDto |
 | Карточка и история | GET | `/api/messages/{id}/view` | — | 200 MessageViewDto |
 | Кандидаты | GET | `/api/messages/{id}/assignment-candidates` | — | 200 массив кандидатов |
-| Назначение | POST | `/api/messages/{id}/assign` | assignedTo | 204 |
-| Переназначение | POST | `/api/messages/{id}/reassign` | assignedTo | 204 |
+| Назначение / переназначение | POST | `/api/messages/{id}/assign` | assignedTo, expectedVersion | 204 |
 | Начало/возобновление | POST | `/api/messages/{id}/reviews/start` | level | 200 reviewId |
 | Подтверждение сессии | POST | `/api/messages/{id}/reviews/approve` | level, reviewId, comment | 204 |
 | Отклонение | POST | `/api/messages/{id}/reviews/reject` | level, reviewId, comment | 204 |

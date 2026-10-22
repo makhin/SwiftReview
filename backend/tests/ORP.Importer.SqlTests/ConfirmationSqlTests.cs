@@ -1,3 +1,9 @@
+using System.Net;
+using System.Text.Json;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -25,6 +31,58 @@ namespace ORP.Importer.SqlTests;
 
 public sealed class ConfirmationSqlTests
 {
+    [Fact]
+    public async Task AssignHttpRequiresVersionSupportsReassignmentAndRejectsStaleRequests()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        await using (var db = new ORPDbContext(fixture.Options))
+        {
+            var message = await db.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+            var store = new ORPStore(db, new BusinessActionLog(NullLogger<ORPStore>.Instance));
+            await new AssignmentCoordinator(store, new Clock()).UnassignAsync(message, setup.Actor, "setup", ct);
+            await db.SaveChangesAsync(ct);
+        }
+        await using var factory = new AssignmentFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        var path = $"/api/messages/{setup.Message}";
+        using var missing = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee }, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        using var invalid = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee, expectedVersion = "invalid" }, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var initial = (await client.GetFromJsonAsync<JsonElement>(path, ct)).GetProperty("version").GetString()!;
+        using var assigned = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee, expectedVersion = initial }, ct);
+        Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+        var current = (await client.GetFromJsonAsync<JsonElement>(path, ct)).GetProperty("version").GetString()!;
+        Assert.NotEqual(initial, current);
+        using var stale = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Actor, expectedVersion = initial }, ct);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        using var reassigned = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Actor, expectedVersion = current }, ct);
+        Assert.Equal(HttpStatusCode.NoContent, reassigned.StatusCode);
+        var updated = (await client.GetFromJsonAsync<JsonElement>(path, ct)).GetProperty("version").GetString()!;
+        Assert.NotEqual(current, updated);
+        using var removed = await client.PostAsJsonAsync(path + "/reassign", new { assignedTo = setup.Assignee, expectedVersion = updated }, ct);
+        Assert.Equal(HttpStatusCode.NotFound, removed.StatusCode);
+        await using var verify = new ORPDbContext(fixture.Options);
+        var persisted = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Equal(setup.Actor, persisted.CurrentAssigneeId);
+        var assignments = await verify.Assignments.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
+        Assert.Equal(3, assignments.Count);
+        Assert.Equal(setup.Actor, Assert.Single(assignments, x => x.EndedAt == null).AssignedTo);
+        var audit = await verify.AuditEvents.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
+        Assert.Equal(2, audit.Count(x => x.EventType == AuditEventType.MessageAssigned));
+        Assert.Single(audit, x => x.EventType == AuditEventType.MessageReassigned);
+    }
+
+    private sealed class AssignmentFactory(string connection) : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseEnvironment("Development")
+            .UseSetting("ConnectionStrings:ORP", connection).UseSetting("BootstrapDatabase", "false")
+            .ConfigureLogging(logging => logging.ClearProviders());
+    }
+
     [Fact]
     public async Task SelfAssignmentMigrationInitializesExistingProfilesAndDefaultsOtherWorkflowsToFalse()
     {
@@ -77,12 +135,12 @@ public sealed class ConfirmationSqlTests
         workflow.ConfigureSelfAssignment(false);
         await db.SaveChangesAsync(ct);
         Assert.DoesNotContain(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
-        await Assert.ThrowsAsync<ValidationException>(() => assign.HandleAsync(message.Id, new(setup.Actor), ct));
+        await Assert.ThrowsAsync<ValidationException>(() => assign.HandleAsync(message.Id, new(setup.Actor, Convert.ToBase64String(message.RowVersion)), ct));
         workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
         workflow.ConfigureSelfAssignment(true);
         await db.SaveChangesAsync(ct);
         Assert.Contains(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
-        await assign.HandleAsync(message.Id, new(setup.Actor), ct);
+        await assign.HandleAsync(message.Id, new(setup.Actor, Convert.ToBase64String(message.RowVersion)), ct);
         var activeAssignment = await db.Assignments.AsNoTracking().SingleAsync(x => x.MessageId == message.Id && x.EndedAt == null, ct);
         Assert.Equal(setup.Actor, activeAssignment.AssignedBy);
         Assert.Equal(setup.Actor, activeAssignment.AssignedTo);

@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using ORP.Application.Assignments;
 using ORP.Application.Assignments.Assign;
 using ORP.Application.Assignments.GetCandidates;
-using ORP.Application.Assignments.Reassign;
 using ORP.Application.Audit.GetAuditTrail;
 using ORP.Application.Dashboard.GetSummary;
 using ORP.Application.Messages.Get;
@@ -27,7 +26,6 @@ public static class DependencyInjection
         services.AddScoped<GetAuditTrailHandler>();
         services.AddScoped<GetDashboardSummaryHandler>();
         services.AddScoped<AssignMessageHandler>();
-        services.AddScoped<ReassignMessageHandler>();
         services.AddScoped<AssignmentCoordinator>();
         services.AddScoped<GetAssignmentCandidatesHandler>();
         services.AddScoped<ConfirmReviewHandler>();

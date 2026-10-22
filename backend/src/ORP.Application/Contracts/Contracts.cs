@@ -6,7 +6,8 @@ using ORP.Domain.Workflows;
 
 namespace ORP.Application.Abstractions;
 
-public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo);
+public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo,
+    [property: Required] string ExpectedVersion);
 public sealed record ChangeMessageWorkflowRequest([property: Range(1, int.MaxValue)] int WorkflowDefinitionId);
 public sealed record ConfirmReviewRequest([property: Range(1, 3)] int Level,
     [property: Required] string ExpectedVersion, [property: StringLength(2000)] string? Comment = null);

@@ -9,30 +9,31 @@ namespace ORP.Application.Assignments.Assign;
 
 public sealed class AssignMessageValidator : AbstractValidator<AssignMessageRequest>
 {
-    public AssignMessageValidator() { RuleFor(x => x.AssignedTo).GreaterThan(0); }
+    public AssignMessageValidator()
+    {
+        RuleFor(x => x.AssignedTo).GreaterThan(0);
+        RuleFor(x => x.ExpectedVersion).Must(IsVersion).WithMessage("expectedVersion must be a base64 SQL rowversion (8 bytes).");
+    }
+
+    private static bool IsVersion(string? value)
+    {
+        Span<byte> bytes = stackalloc byte[8];
+        return value is not null && Convert.TryFromBase64String(value, bytes, out var length) && length == 8;
+    }
 }
 
 public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQueries accessService,
     IValidator<AssignMessageRequest> validator, ICurrentUser user, ICorrelationContext correlation,
     AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public async Task HandleAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
-        => await HandleCoreAsync(messageId, request, false, cancellationToken);
-
-    public async Task ReassignAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
-        => await HandleCoreAsync(messageId, request, true, cancellationToken);
-
-    private Task HandleCoreAsync(long messageId, AssignMessageRequest request, bool reassign,
-        CancellationToken cancellationToken)
+    public Task HandleAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
         => transactions.ExecuteAsync(async ct =>
         {
             var access = await authorization.RequireAsync(messageId, Permissions.MessageAssign, ct);
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
-            if (reassign && message.CurrentAssigneeId is null)
-                throw new DomainRuleViolationException("An unassigned message must be assigned before it can be reassigned.");
-            if (!reassign && message.CurrentAssigneeId is not null)
-                throw new DomainRuleViolationException("An assigned message must be reassigned instead of assigned.");
+            if (!message.RowVersion.AsSpan().SequenceEqual(Convert.FromBase64String(request.ExpectedVersion)))
+                throw new DomainRuleViolationException("The message version has changed. Reload before assigning.");
             var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
                 ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
             var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
