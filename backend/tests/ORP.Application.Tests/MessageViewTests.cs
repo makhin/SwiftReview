@@ -90,7 +90,7 @@ public sealed class MessageViewTests
     public void AuditIsCompleteOrderedAndMapsEveryEventType()
     {
         var events = Enumerable.Range(1, 505).Reverse().Select(id => new AuditEventDto(id,
-            Enum.GetValues<AuditEventType>()[(id - 1) % 11], Now.AddMinutes(id / 3), null, null,
+            Enum.GetValues<AuditEventType>()[(id - 1) % Enum.GetValues<AuditEventType>().Length], Now.AddMinutes(id / 3), null, null,
             id == 1 ? null : new AuditActorDto(7, "jordan", "Jordan"),
             id == 1 ? new() : new(WorkflowDefinitionId: 2, AssigneeId: 8, ReviewLevel: 1, Comment: "note", PreviousWorkflowDefinitionId: 1), "test")).ToArray();
         var result = MessageViewAdapter.Map(Message(), Data([1]) with { Audit = events });
@@ -101,7 +101,8 @@ public sealed class MessageViewTests
         Assert.Null(result.AuditLog[0].Detail);
         Assert.Equal("Reviewer", result.AuditLog[1].Role);
         Assert.Equal("Level 1; Assigned to Alex; Workflow changed from 1 to 2; note", result.AuditLog[1].Detail);
-        Assert.Equal(11, result.AuditLog.Select(a => a.Type).Distinct().Count());
+        Assert.Equal(Enum.GetValues<AuditEventType>().Length, result.AuditLog.Select(a => a.Type).Distinct().Count());
+        Assert.Contains(result.AuditLog, a => a.Type == "pdfGenerate" && a.Action == "Message PDF generated");
     }
 
     [Theory]

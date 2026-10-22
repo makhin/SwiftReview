@@ -8,6 +8,7 @@ using ORP.Application.Messages.Get;
 using ORP.Application.Messages.ChangeWorkflow;
 using ORP.Application.Messages.Search;
 using ORP.Domain.Identity;
+using ORP.Domain.Auditing;
 using ORP.Infrastructure.Persistence;
 using ORP.Infrastructure.Documents;
 
@@ -35,7 +36,7 @@ public static class MessageEndpoints
             .Produces<MessageViewDto>().ProducesProblem(403).ProducesProblem(404);
         group.MapGet("/{messageId:long}/pdf", GetMessagePdf)
             .WithName(nameof(GetMessagePdf)).WithSummary("Get the PDF for an accessible message.")
-            .WithDescription("Returns the message body as a PDF, preserving plain-text spacing and line breaks.")
+            .WithDescription("Returns the message body as a PDF, preserving plain-text spacing and line breaks. Each successful generation records MessagePdfGenerated in the message audit trail.")
             .Produces(StatusCodes.Status200OK, contentType: "application/pdf").ProducesProblem(404);
         group.MapPut("/{id:long}/workflow", ChangeMessageWorkflow)
             .WithName(nameof(ChangeMessageWorkflow)).WithSummary("Set the workflow for a message.")
@@ -65,10 +66,15 @@ public static class MessageEndpoints
     private static Task<MessageViewDto> GetMessageView(long id, GetMessageViewHandler handler, CancellationToken ct) =>
         handler.HandleAsync(id, ct);
 
-    private static async Task<IResult> GetMessagePdf(long messageId, GetMessageHandler handler, TextToPdfConverter converter, CancellationToken ct)
+    private static async Task<IResult> GetMessagePdf(long messageId, GetMessageHandler handler, TextToPdfConverter converter,
+        IORPStore store, ICurrentUser current, IClock clock, ICorrelationContext correlation, CancellationToken ct)
     {
         var message = await handler.HandleAsync(messageId, ct);
-        return Results.File(converter.Convert(message.Body), "application/pdf");
+        var pdf = converter.Convert(message.Body);
+        store.AddAudit(new AuditEvent(messageId, AuditEventType.MessagePdfGenerated, current.UserId,
+            clock.UtcNow, null, null, "{}", correlation.CorrelationId));
+        await store.SaveChangesAsync(ct);
+        return Results.File(pdf, "application/pdf");
     }
 
     private static async Task<IResult> ChangeMessageWorkflow(long id, ChangeMessageWorkflowRequest request,
