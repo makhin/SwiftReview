@@ -44,7 +44,7 @@ public interface IUserAccessService
 public interface IAssignmentCandidateQueries
 {
     Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId, IReadOnlyList<int> departmentIds,
-        int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId, int? currentAssigneeId, bool allowSelfAssignment,
+        int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int? currentAssigneeId,
         CancellationToken cancellationToken);
 }
 

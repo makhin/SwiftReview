@@ -68,7 +68,7 @@ X-Debug-User: admin
 | `confirmationMode` | `ReviewSession`, `Immediate` или `None` |
 | `canReview` | Текущий пользователь может начать/возобновить review-сессию |
 | `canConfirm`, `confirmationLevel` | Доступность и уровень атомарного confirm |
-| `version` | Версия сообщения для `expectedVersion` в confirm |
+| `version` | Техническая версия строки; передавать её в assign/confirm не нужно |
 | `activeReviewId`, `activeReviewLevel`, `activeReviewerId` | Текущая попытка review, если есть |
 | `undoReviewId` | Доступное текущему пользователю подтверждение для undo; иначе null |
 | `canChangeWorkflow` | Доступность смены workflow |
@@ -104,7 +104,6 @@ GET /api/messages/1001/view
 ```json
 {
   "confirmationMode": "ReviewSession",
-  "confirmationActorMode": "Assignee",
   "allowReviewerReuse": false,
   "assignmentRetentionMode": "PerConfirmation",
   "rejectAllowed": true
@@ -128,7 +127,7 @@ GET /api/messages/1001/assignment-candidates
 ]
 ```
 
-Нужны `message.assign` и доступ к обработке сообщения. Список учитывает текущий уровень, права кандидата, scope, текущего исполнителя и запрет повторного reviewer. Обычный пользователь может назначить себя, если у workflow включён `AllowSelfAssignment` в базе и у пользователя есть необходимые права в processing scope сообщения. Для `SINGLE_CONFIRMATION` и `DOUBLE_CONFIRMATION` флаг включён миграцией/seed, но runtime не проверяет код workflow. При выключенном флаге самоназначение запрещено; для пользователей с глобальными административными правами предусмотрены исключения. Не строить список кандидатов самостоятельно из `/users`.
+Нужны `message.assign` и доступ к обработке сообщения. Список учитывает текущий уровень, права кандидата, scope, текущего исполнителя и запрет повторного reviewer. Пользователь с `message.assign` может назначить себя или другого reviewer с доступом и правом соответствующего уровня в processing scope. Роль Reviewer включает `message.assign`. Не строить список кандидатов самостоятельно из `/users`.
 
 ### 4.2. Назначить первого reviewer
 
@@ -137,12 +136,12 @@ GET /api/messages/1001/assignment-candidates
 ```http
 POST /api/messages/1001/assign
 
-{ "assignedTo": 21, "expectedVersion": "AAAAAAAAAAE=" }
+{ "assignedTo": 21 }
 ```
 
 Успех: `204`. Состояние `New → Assigned`, `currentAssigneeId = 21`.
 
-Для назначения и переназначения используется один `assign`. Обязательный `expectedVersion` берётся из актуальной `version` сообщения; значения в примерах условные. Отсутствующая или некорректная версия возвращает 400, устаревшая — 409. При конфликте обновить сообщение, не повторять команду автоматически. События аудита остаются раздельными: `MessageAssigned` и `MessageReassigned`.
+Для назначения и переназначения используется один `assign`. В теле нужен только `assignedTo`. Сервер проверяет актуальные права, кандидата и состояние внутри транзакции. При конфликте обновить сообщение, не повторять команду автоматически. События аудита остаются раздельными: `MessageAssigned` и `MessageReassigned`.
 
 ### 4.3. Reviewer 21 начинает проверку
 
@@ -184,10 +183,10 @@ Backend проверяет активную попытку, её уровень 
 
 | Кто вызывает | Метод и URL | JSON body | Результат |
 |---|---|---|---|
-| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":22,"expectedVersion":"AAAAAAAAAAE="}` | Исполнитель 22; статус остаётся `WaitingForSecondReview` |
+| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":22}` | Исполнитель 22; статус остаётся `WaitingForSecondReview` |
 | Reviewer 22 | `POST /api/messages/1001/reviews/start` | `{"level":2}` | `200 {"reviewId":502}`; `SecondReviewInProgress` |
 | Reviewer 22 | `POST /api/messages/1001/reviews/approve` | `{"level":2,"reviewId":502,"comment":null}` | `WaitingForThirdReview`; исполнитель очищен |
-| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":23,"expectedVersion":"AAAAAAAAAAE="}` | Исполнитель 23; статус остаётся `WaitingForThirdReview` |
+| Диспетчер | `POST /api/messages/1001/assign` | `{"assignedTo":23}` | Исполнитель 23; статус остаётся `WaitingForThirdReview` |
 | Reviewer 23 | `POST /api/messages/1001/reviews/start` | `{"level":3}` | `200 {"reviewId":503}`; `ThirdReviewInProgress` |
 | Reviewer 23 | `POST /api/messages/1001/reviews/approve` | `{"level":3,"reviewId":503,"comment":null}` | `Completed`; исполнитель очищен |
 
@@ -199,8 +198,7 @@ ID 502 и 503 заменяются фактическими ответами sta
 
 | Политика workflow | Поведение frontend |
 |---|---|
-| `confirmationActorMode = Assignee` | Проверку начинает назначенный reviewer (с административными исключениями) |
-| `confirmationActorMode = AnyAuthorizedUser` | Проверку может начать другой пользователь с подходящим scope/правом; ориентироваться на canReview/canConfirm |
+| Назначение | Начать и подтвердить проверку может только текущий назначенный reviewer с правом уровня, включая администраторов |
 | `allowReviewerReuse = false` | Уже подтвердивший другой уровень обычный reviewer не может подтверждать следующий |
 | `allowReviewerReuse = true` | Повторное участие reviewer допускается при наличии остальных прав |
 | `assignmentRetentionMode = PerConfirmation` | После approve/confirm назначение снимается; перед следующим шагом при необходимости назначить заново |
@@ -213,9 +211,9 @@ ID 502 и 503 заменяются фактическими ответами sta
 
 Для `confirmationMode = Immediate` не вызывать start/approve/reject/cancel. Использовать `confirm`.
 
-1. Выбрать сообщение и при необходимости выполнить assign. Даже при `AnyAuthorizedUser` для Immediate нужен непустой `currentAssigneeId`.
+1. Выбрать сообщение и назначить его на пользователя, который будет подтверждать. `currentAssigneeId` должен совпадать с его ID.
 2. Загрузить свежие детали сообщения.
-3. Проверить `canConfirm == true`, взять `confirmationLevel` и `version` из актуального ответа.
+3. Проверить `canConfirm == true`, взять `confirmationLevel` из актуального ответа.
 4. Отправить:
 
 ```http
@@ -223,16 +221,15 @@ POST /api/messages/1001/reviews/confirm
 
 {
   "level": 1,
-  "expectedVersion": "AAAAAAAAB9E=",
   "comment": "Подтверждено"
 }
 ```
 
-`expectedVersion` в примере условный: обязательно заменить его на `version` этого сообщения. Это base64 SQL rowversion длиной 8 байт, не timestamp и не ETag.
+Версия в запросе не нужна. SQL RowVersion остаётся внутренней защитой от одновременных изменений в базе.
 
 Успех: `204`. Backend атомарно создаёт и подтверждает попытку, пишет аудит и переводит сообщение на следующий обязательный уровень либо в `Completed`. Промежуточный `*ReviewInProgress` не является отдельным пользовательским шагом.
 
-После каждого confirm перечитать сообщение и грид: следующему вызову нужна новая версия. При 409 нельзя автоматически подставить свежую версию и повторить подтверждение без нового решения пользователя.
+После каждого confirm перечитать сообщение и грид: проверить доступность действия и следующий уровень. При 409 не повторять подтверждение автоматически.
 
 ## 7. Альтернативные действия
 
@@ -243,7 +240,7 @@ POST /api/messages/1001/reviews/confirm
 ```http
 POST /api/messages/1001/assign
 
-{ "assignedTo": 22, "expectedVersion": "AAAAAAAAAAE=" }
+{ "assignedTo": 22 }
 ```
 
 Разрешено при существующем исполнителе в `Assigned`, `WaitingForSecondReview`, `WaitingForThirdReview`. Сохраняет статус и историю подтверждений. При активной проверке сначала её владелец отменяет попытку через cancel. Публичного endpoint для ручного unassign нет.
@@ -343,13 +340,13 @@ PDF возвращает `application/pdf`, читать через `response.bl
 
 Сообщение может исчезнуть из текущего фильтра или «Моей работы» — это ожидаемо. Не менять локально только state: вместе с ним меняются версия, доступность действий, назначения и review ID. Если команда вернула успех, а обновление UI упало, сообщить «изменения сохранены, обновите данные» и не повторять команду.
 
-Ошибки возвращаются как ProblemDetails. Пример тела для устаревшей версии:
+Ошибки возвращаются как ProblemDetails. Пример тела при попытке подтвердить неактивный уровень:
 
 ```json
 {
   "title": "Domain rule violation",
   "status": 409,
-  "detail": "The message version has changed. Reload before confirming."
+  "detail": "Review level 1 is not currently active."
 }
 ```
 
@@ -357,7 +354,7 @@ PDF возвращает `application/pdf`, читать через `response.bl
 
 | HTTP | Действие frontend |
 |---|---|
-| 400 | Исправить тело/уровень/ID/формат версии; показать detail |
+| 400 | Исправить тело/уровень/ID; показать detail |
 | 401 | Проверить аутентификацию |
 | 403 | Нет прав, неверный владелец или недопустимое для пользователя действие; обновить доступность кнопок |
 | 404 | Сообщение/сущность отсутствует или сообщение недоступно; обновить список |
@@ -376,12 +373,12 @@ PDF возвращает `application/pdf`, читать через `response.bl
 | Детали | GET | `/api/messages/{id}` | — | 200 MessageDetailsDto |
 | Карточка и история | GET | `/api/messages/{id}/view` | — | 200 MessageViewDto |
 | Кандидаты | GET | `/api/messages/{id}/assignment-candidates` | — | 200 массив кандидатов |
-| Назначение / переназначение | POST | `/api/messages/{id}/assign` | assignedTo, expectedVersion | 204 |
+| Назначение / переназначение | POST | `/api/messages/{id}/assign` | assignedTo | 204 |
 | Начало/возобновление | POST | `/api/messages/{id}/reviews/start` | level | 200 reviewId |
 | Подтверждение сессии | POST | `/api/messages/{id}/reviews/approve` | level, reviewId, comment | 204 |
 | Отклонение | POST | `/api/messages/{id}/reviews/reject` | level, reviewId, comment | 204 |
 | Отмена сессии | POST | `/api/messages/{id}/reviews/cancel` | level, reviewId | 204 |
-| Атомарное подтверждение | POST | `/api/messages/{id}/reviews/confirm` | level, expectedVersion, comment | 204 |
+| Атомарное подтверждение | POST | `/api/messages/{id}/reviews/confirm` | level, comment | 204 |
 | Отзыв подтверждения | POST | `/api/messages/{id}/reviews/undo` | reviewId, comment | 204 |
 | Смена workflow | PUT | `/api/messages/{id}/workflow` | workflowDefinitionId | 204 |
 | Аудит | GET | `/api/messages/{id}/audit?skip=0&take=100` | — | 200 items/totalCount |
@@ -402,3 +399,17 @@ PDF возвращает `application/pdf`, читать через `response.bl
 - [Grid API](FRONTEND_GRID_API.md), [примеры фильтрации](FRONTEND_GRID_SAMPLE.md), [счётчики](FRONTEND_MESSAGE_STAGE_COUNTS.md), [аудит](FRONTEND_AUDIT_API.md).
 
 Старый `MESSAGE_STATE_MACHINE.md` описывает преимущественно стандартный review-сценарий и содержит обобщения, которые не учитывают все текущие политики. Для вариативного поведения использовать реализацию и правила этого руководства.
+
+## Назначить на себя и подтвердить одним запросом
+
+`POST /api/messages/{id}/reviews/assign-and-confirm`, тело:
+`{ "level": 1, "comment": "Looks good" }`, ответ `204`.
+
+Для Immediate workflow: свободное сообщение назначается текущему пользователю,
+своё назначение используется повторно, чужое возвращает `409`. Нужны `message.assign`,
+доступ к processing scope и право текущего уровня. Проверки обычных assign/confirm
+сохраняются, включая reviewer reuse. Операции и аудит выполняются в одной транзакции;
+при отказе подтверждения назначение также откатывается. `assignedTo` и версия не нужны.
+Для New уровень 1; далее ориентироваться на текущий этап workflow, а не количество кликов.
+`canConfirm` относится к обычному confirm и может быть false до назначения.
+Не повторять объединённую команду автоматически; после успеха перечитать сообщение.

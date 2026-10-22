@@ -5,9 +5,8 @@ namespace ORP.Domain.Assignments;
 public sealed class Assignment
 {
     private Assignment() { }
-    public Assignment(long messageId, int? assignedBy, int assignedTo, DateTimeOffset createdAt, bool allowSelfAssignment = false)
+    public Assignment(long messageId, int? assignedBy, int assignedTo, DateTimeOffset createdAt)
     {
-        if (!allowSelfAssignment && assignedBy is not null && assignedBy == assignedTo) throw new DomainRuleViolationException("A user cannot assign a message to themselves.");
         MessageId = messageId;
         AssignedBy = assignedBy;
         AssignedTo = assignedTo;

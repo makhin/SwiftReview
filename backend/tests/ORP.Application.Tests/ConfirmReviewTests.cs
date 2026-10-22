@@ -18,6 +18,76 @@ namespace ORP.Application.Tests;
 
 public sealed class ConfirmReviewTests
 {
+    [Fact]
+    public async Task AssigneeNeedsReviewPermissionButNotAssignmentPermissionToConfirm()
+    {
+        var f = new Fixture();
+        f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Permissions.MessageAssign, Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionCheck(false, true, false));
+        await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
+        Assert.Equal(MessageState.Completed, f.Message.State);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReassignmentRevokesConfirmationWithoutClientVersion(bool administrator)
+    {
+        var f = new Fixture();
+        f.Message.Assign(33);
+        f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionCheck(administrator, true, true));
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
+        var access = new UserAccess(22, "actor", "Actor", administrator,
+            [new(5, 7, [], [Permissions.MessageView, Permissions.ReviewLevel1])]);
+        Assert.False(ReviewCapabilities.For(f.Message, workflow, f.Reviews, 5, [7], access).CanConfirm);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            f.Confirm.HandleAsync(1, new(1), CancellationToken.None));
+        f.Store.DidNotReceive().AddReview(Arg.Any<Review>());
+        f.Store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
+        Assert.Equal(33, f.Message.CurrentAssigneeId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SessionStartRequiresAssignmentAndNeverAutoAssigns(bool administrator)
+    {
+        var f = new Fixture();
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
+        workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, true,
+            AssignmentRetentionMode.UntilWorkflowCompleted, false);
+        f.Message.Assign(33);
+        f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionCheck(administrator, true, true));
+        var handler = new StartReviewHandler(f.Store, new StartReviewValidator(), f.Actor, f.Clock,
+            f.Correlation, new InlineTransactions(), f.Authorization);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.HandleAsync(1, new(1), CancellationToken.None));
+        Assert.Equal(33, f.Message.CurrentAssigneeId);
+        Assert.Empty(f.Reviews);
+        f.Store.DidNotReceive().AddAssignment(Arg.Any<Assignment>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SessionApprovalRequiresAssignedReviewAuthor(bool administrator)
+    {
+        var f = new Fixture();
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
+        workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, true,
+            AssignmentRetentionMode.UntilWorkflowCompleted, false);
+        var review = f.Message.StartReview(1, 22, workflow, f.Reviews, f.Clock.UtcNow);
+        f.Reviews.Add(review);
+        f.Actor.UserId.Returns(33);
+        f.Users.CheckAsync(33, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionCheck(administrator, true, true));
+        var handler = new ApproveReviewHandler(f.Store, new ApproveReviewValidator(), f.Actor, f.Clock,
+            f.Correlation, f.Assignments, new InlineTransactions(), f.Authorization);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.HandleAsync(1, new(1, review.Id, null), CancellationToken.None));
+        Assert.Equal(ReviewStatus.InProgress, review.Status);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
@@ -27,8 +97,8 @@ public sealed class ConfirmReviewTests
         var f = new Fixture(levels);
         for (var level = 1; level <= levels; level++)
         {
-            await f.Confirm.HandleAsync(1, new(level, f.Version, " confirmed "), CancellationToken.None);
-            Assert.Equal(level == levels ? null : (int?)11, f.Message.CurrentAssigneeId);
+            await f.Confirm.HandleAsync(1, new(level, " confirmed "), CancellationToken.None);
+            Assert.Equal(level == levels ? null : (int?)22, f.Message.CurrentAssigneeId);
         }
         Assert.Equal(MessageState.Completed, f.Message.State);
         Assert.All(f.Reviews, x => { Assert.Equal(22, x.ReviewerId); Assert.Equal("confirmed", x.Comment); });
@@ -44,36 +114,26 @@ public sealed class ConfirmReviewTests
         var f = new Fixture();
         f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Permissions.ReviewLevel1, Arg.Any<CancellationToken>())
             .Returns(new UserPermissionCheck(false, view, permission));
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => f.Confirm.HandleAsync(1, new(1), CancellationToken.None));
         f.Store.DidNotReceive().AddReview(Arg.Any<Review>());
-    }
-
-    [Fact]
-    public async Task StaleVersionDoesNotCreateReviewOrAudit()
-    {
-        var f = new Fixture();
-        await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Confirm.HandleAsync(1,
-            new(1, Convert.ToBase64String(new byte[8])), CancellationToken.None));
-        f.Store.DidNotReceive().AddReview(Arg.Any<Review>());
-        f.Store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData("not base64")]
-    [InlineData("AQ==")]
-    public async Task InvalidVersionIsValidationError(string version)
+    [InlineData(0)]
+    [InlineData(4)]
+    public async Task InvalidLevelIsValidationError(int level)
     {
         var f = new Fixture();
-        await Assert.ThrowsAsync<ValidationException>(() => f.Confirm.HandleAsync(1, new(1, version), CancellationToken.None));
+        await Assert.ThrowsAsync<ValidationException>(() => f.Confirm.HandleAsync(1, new(level), CancellationToken.None));
+        f.Store.DidNotReceive().AddReview(Arg.Any<Review>());
     }
 
     [Fact]
     public async Task DuplicateConfirmCannotAdvanceAnotherLevel()
     {
         var f = new Fixture(2);
-        await f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None);
-        await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None));
+        await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
+        await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Confirm.HandleAsync(1, new(1), CancellationToken.None));
         Assert.Single(f.Reviews);
         Assert.Equal(MessageState.WaitingForSecondReview, f.Message.State);
     }
@@ -82,17 +142,18 @@ public sealed class ConfirmReviewTests
     public async Task UndoByAnotherActorRetainsAssignmentAndCannotUndoFinalApproval()
     {
         var f = new Fixture(2);
-        await f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None);
+        await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
         f.Actor.UserId.Returns(33);
         f.Users.CheckAsync(33, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new UserPermissionCheck(false, true, true));
         f.Users.CanAccessWorkflowAsync(33, 0, Arg.Any<CancellationToken>()).Returns(true);
         await f.Undo.HandleAsync(1, new(f.Reviews[0].Id), CancellationToken.None);
         Assert.Equal(MessageState.Assigned, f.Message.State);
-        Assert.Equal(11, f.Message.CurrentAssigneeId);
+        Assert.Equal(22, f.Message.CurrentAssigneeId);
         Assert.Null(f.Assignment.EndedAt);
-        await f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None);
-        await f.Confirm.HandleAsync(1, new(2, f.Version), CancellationToken.None);
+        f.Actor.UserId.Returns(22);
+        await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
+        await f.Confirm.HandleAsync(1, new(2), CancellationToken.None);
         await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Undo.HandleAsync(1, new(f.Reviews[^1].Id), CancellationToken.None));
     }
 
@@ -102,7 +163,7 @@ public sealed class ConfirmReviewTests
     public async Task DisabledUndoKeepsAdministratorException(bool administrator)
     {
         var f = new Fixture();
-        await f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None);
+        await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
         f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Permissions.ReviewUndo, Arg.Any<CancellationToken>())
             .Returns(new UserPermissionCheck(administrator, true, true));
         if (administrator)
@@ -120,7 +181,7 @@ public sealed class ConfirmReviewTests
         f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new UserPermissionCheck(true, true, true));
         var handler = new StartReviewHandler(f.Store, new StartReviewValidator(), f.Actor, f.Clock, f.Correlation,
-            f.Assignments, new InlineTransactions(), f.Authorization);
+            new InlineTransactions(), f.Authorization);
         await Assert.ThrowsAsync<DomainRuleViolationException>(() => handler.HandleAsync(1, new(1), CancellationToken.None));
         Assert.Equal(MessageState.Assigned, f.Message.State);
     }
@@ -130,7 +191,7 @@ public sealed class ConfirmReviewTests
     {
         var f = new Fixture();
         var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
-        workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, ConfirmationActorMode.AnyAuthorizedUser,
+        workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession,
             true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
         var review = f.Message.StartReview(1, 22, workflow, f.Reviews, DateTimeOffset.UtcNow);
         typeof(Review).GetProperty(nameof(Review.Id))!.SetValue(review, 1L);
@@ -148,9 +209,9 @@ public sealed class ConfirmReviewTests
     {
         var f = new Fixture();
         var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
-        workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, ConfirmationActorMode.AnyAuthorizedUser,
+        workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession,
             true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
-        await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Confirm.HandleAsync(1, new(1, f.Version), CancellationToken.None));
+        await Assert.ThrowsAsync<DomainRuleViolationException>(() => f.Confirm.HandleAsync(1, new(1), CancellationToken.None));
         f.Store.DidNotReceive().AddReview(Arg.Any<Review>());
     }
 
@@ -183,8 +244,7 @@ public sealed class ConfirmReviewTests
         public ICorrelationContext Correlation { get; } = Substitute.For<ICorrelationContext>();
         public Message Message { get; } = new(1, 1, 5, 7, DateTimeOffset.UtcNow);
         public List<Review> Reviews { get; } = [];
-        public Assignment Assignment { get; } = new(1, 99, 11, DateTimeOffset.UtcNow);
-        public string Version => Convert.ToBase64String(Message.RowVersion);
+        public Assignment Assignment { get; } = new(1, 99, 22, DateTimeOffset.UtcNow);
         public AssignmentCoordinator Assignments { get; }
         public MessageAuthorizationService Authorization { get; }
         public ConfirmReviewHandler Confirm { get; }
@@ -195,12 +255,11 @@ public sealed class ConfirmReviewTests
             var workflow = new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Generic");
             typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 1);
             for (var level = 1; level <= levels; level++) workflow.AddStep(level, level);
-            workflow.ConfigureConfirmation(ConfirmationMode.Immediate, ConfirmationActorMode.AnyAuthorizedUser,
+            workflow.ConfigureConfirmation(ConfirmationMode.Immediate,
                 true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
             workflow.ConfigureUndo(levels == 1 ? UndoApprovalMode.Disabled : UndoApprovalMode.LatestNonFinal,
                 UndoActorMode.AnyAuthorizedUser, UndoActiveReviewMode.Cancel);
-            Message.Assign(11);
-            typeof(Message).GetProperty(nameof(Message.RowVersion))!.SetValue(Message, new byte[] { 0, 0, 0, 0, 0, 0, 0, 1 });
+            Message.Assign(22);
             Actor.UserId.Returns(22);
             Clock.UtcNow.Returns(DateTimeOffset.UtcNow);
             Correlation.CorrelationId.Returns("confirmation-test");

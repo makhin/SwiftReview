@@ -9,7 +9,11 @@ public static class ReviewEndpoints
     {
         var group = api.MapGroup("/messages/{id:long}/reviews").WithTags("Review");
         group.MapPost("/confirm", ConfirmReview)
-            .WithName(nameof(ConfirmReview)).WithSummary("Complete the next confirmation atomically using the current message version.")
+            .WithName(nameof(ConfirmReview)).WithSummary("Complete the requested confirmation atomically for the current assignee.")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
+        group.MapPost("/assign-and-confirm", AssignAndConfirmReview)
+            .WithName(nameof(AssignAndConfirmReview)).WithSummary("Assign an unassigned message to yourself and confirm atomically.")
+            .WithDescription("Requires message.assign and the review-level permission. Confirms an existing own assignment without replacing it; returns 409 for another assignee. Immediate workflows only.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapPost("/start", StartReview)
             .WithName(nameof(StartReview)).WithSummary("Start or resume a review.")
@@ -29,6 +33,13 @@ public static class ReviewEndpoints
     }
 
     private static async Task<IResult> ConfirmReview(long id, ConfirmReviewRequest request, ConfirmReviewHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(id, request, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> AssignAndConfirmReview(long id, ConfirmReviewRequest request,
+        AssignAndConfirmReviewHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(id, request, ct);
         return Results.NoContent();

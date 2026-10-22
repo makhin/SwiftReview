@@ -17,7 +17,7 @@ public sealed class ReferenceDataQueries(ORPDbContext db) : IReferenceDataQuerie
         return workflows.Select(x => new WorkflowSummaryDto(x.Id, x.Code, x.Name, x.IsActive,
             x.Steps.OrderBy(s => s.Order).Select(s => new WorkflowStepDto(s.Order, s.ReviewLevel, s.Required)).ToList())
         {
-            ConfirmationMode = x.ConfirmationMode, ConfirmationActorMode = x.ConfirmationActorMode,
+            ConfirmationMode = x.ConfirmationMode,
             AllowReviewerReuse = x.AllowReviewerReuse, AssignmentRetentionMode = x.AssignmentRetentionMode,
             RejectAllowed = x.RejectAllowed, UndoApprovalMode = x.UndoApprovalMode,
             UndoActorMode = x.UndoActorMode, UndoActiveReviewMode = x.UndoActiveReviewMode

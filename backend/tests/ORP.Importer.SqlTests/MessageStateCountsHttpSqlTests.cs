@@ -52,9 +52,11 @@ public sealed class MessageStateCountsHttpSqlTests
             // One unassigned, one assignee match, one reviewer match, one match on both,
             // one assigned to somebody else, and one inaccessible assignee match.
             messages[1].Assign(viewer.Id);
-            messages[2].Assign(other.Id);
+            messages[2].Assign(viewer.Id);
             db.Reviews.Add(messages[2].StartReview(1, viewer.Id, workflow, [], DateTimeOffset.UtcNow,
                 isGlobalAdministrator: true));
+            // Historical data may have an active reviewer distinct from the assignee.
+            typeof(Message).GetProperty(nameof(Message.CurrentAssigneeId))!.SetValue(messages[2], other.Id);
             messages[3].Assign(viewer.Id);
             db.Reviews.Add(messages[3].StartReview(1, viewer.Id, workflow, [], DateTimeOffset.UtcNow,
                 isGlobalAdministrator: true));

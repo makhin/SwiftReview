@@ -101,7 +101,7 @@ public sealed class Message
             throw new DomainRuleViolationException("This workflow has no confirmations.");
         if (workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null)
             throw new DomainRuleViolationException("Assign the message before confirming it.");
-        if (!isGlobalAdministrator && workflow.ConfirmationActorMode == ConfirmationActorMode.Assignee && CurrentAssigneeId != reviewerId)
+        if (CurrentAssigneeId != reviewerId)
             throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
         var expected = MessageReviewRules.ExpectedLevel(workflow, reviews);
         if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
@@ -114,14 +114,14 @@ public sealed class Message
     }
 
     public void Approve(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
-        int actorId, string? comment, DateTimeOffset now, bool isGlobalAdministrator = false)
+        int actorId, string? comment, DateTimeOffset now)
     {
         EnsureWorkflow(workflow);
         if (State == MessageState.Completed) throw new DomainRuleViolationException("A completed message cannot be approved.");
         if (review.MessageId != Id || !reviews.Contains(review))
             throw new DomainRuleViolationException("Review does not belong to this message workflow.");
-        if (!isGlobalAdministrator && review.ReviewerId != actorId)
-            throw new DomainRuleViolationException("Only the reviewer who started the review can approve it.");
+        if (CurrentAssigneeId != actorId || review.ReviewerId != actorId)
+            throw new DomainRuleViolationException("Only the assigned reviewer who started the review can approve it.");
         var next = MessageReviewRules.NextLevelAfterApproval(workflow, reviews, review);
         var target = MessageStateTransitions.Approve(State, review.Level, next);
         review.Approve(comment, now);

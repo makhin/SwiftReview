@@ -6,7 +6,7 @@ using ORP.Domain.Common;
 namespace ORP.Application.Assignments.GetCandidates;
 
 public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries queries, IORPStore store,
-    ICurrentUser user, MessageAuthorizationService authorization)
+    MessageAuthorizationService authorization)
 {
     public async Task<IReadOnlyList<AssignmentCandidateDto>> HandleAsync(long messageId,
         CancellationToken cancellationToken)
@@ -22,7 +22,7 @@ public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries q
         var source = access.Source;
         var reviews = access.Reviews;
         return await queries.GetEligibleAsync(source.BranchId, message.ProcessingDepartmentIds, reviewLevel,
-            workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), user.UserId, message.CurrentAssigneeId, workflow.AllowSelfAssignment,
+            workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), message.CurrentAssigneeId,
             cancellationToken);
     }
 }

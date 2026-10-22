@@ -1,14 +1,14 @@
 # SWIFT review workflow decisions
 
-This document records the assignment and review rules confirmed on 8 September 2026.
+This document records the assignment and review rules updated on 22 October 2026.
 
-Global administrators bypass permission, scope, review-owner and four-eyes restrictions. They can self-assign and act on another user's active review or undo their latest approval. Starting a pending review assigns it to the administrator; acting on an existing review preserves its original owner and records the administrator as the audit actor. The rules below apply to ordinary users; workflow-state rules apply to everyone.
+Global administrators bypass permission, scope and four-eyes restrictions. Starting or approving requires current assignment, including for administrators; session approval also requires the review author. Starting a review never assigns it automatically. Administrator cancel, reject and undo exceptions remain unchanged.
 
 - An authorised user is a user with `message.assign` and access to the message's branch and department; no role name is hard-coded.
 - Assignment is manual. The system does not automatically assign the first or subsequent review levels.
-- Self-assignment is prohibited. Only eligible reviewers are offered: they must be able to view the message, access its scope, hold the required review-level permission, and must not have approved an earlier level.
+- Self-assignment is allowed. Only eligible reviewers are offered: they must be able to view the message, access its processing scope, hold the required review-level permission, and satisfy the workflow reviewer-reuse policy. The Reviewer role includes message.assign; permission checks do not depend on role names.
 - Review levels start at level 1 and proceed in ascending order. A configured optional second review may be skipped for applicable Data Control message types.
-- Only the current assignee may start a review. Only the user who started it may approve or reject it.
+- Only the current assignee may start a review. Approval requires both the current assignee and the user who started it. Rejection keeps its existing author/admin rules.
 - Reassignment is allowed before a review starts and prohibited while a review is active.
 - Opening the review action starts the review before displaying its content or enabling decisions. Closing the window leaves the review active and reassignment locked; the assignee can reopen it to continue. Read-only viewing does not start a review.
 - The active reviewer may explicitly use **Cancel review**, with the review-level permission in the message's scope. This returns level 1 to Assigned, level 2 to WaitingForSecondReview and level 3 to WaitingForThirdReview. The assignment stays open, but reassignment becomes available again. The cancelled attempt remains in history with status Cancelled and a ReviewCancelled audit event; previous approvals are unchanged. A new attempt at this level is allowed. Approved or rejected reviews cannot be cancelled.

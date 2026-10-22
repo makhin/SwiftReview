@@ -43,7 +43,7 @@ The demo seed uses a different catalog: `Reviewer` has all permissions except `w
 
 ## Global administrators
 
-`Users.IsGlobalAdministrator` is a separate user flag set through trusted provisioning. A global administrator can manage access, see every scope, assign messages to themselves and act on another user's review. Permission, scope, review ownership and reviewer reuse checks are bypassed, even with no role assignments.
+`Users.IsGlobalAdministrator` is a separate user flag set through trusted provisioning. A global administrator can manage access, see every scope, assign messages to themselves and cancel, reject or undo another user's review under the existing policies. Permission, scope and reviewer reuse checks are bypassed, even with no role assignments. Starting or approving a review still requires assignment to that administrator; approval also requires the review author.
 
 Domain rules still apply, including valid workflow levels, state transitions and current review IDs. Undo has specific administrator exceptions described below. The current UI and API do not create users, create or rename roles, or change administrator status.
 
@@ -66,7 +66,7 @@ The server checks current rights and business state independently of frontend bu
 
 | Action | Additional rules for ordinary users |
 |---|---|
-| Assign a message | The state must allow assignment. The recipient needs visibility and the required review level in the same scope, must differ from the assigning user and current assignee, and must not have already approved a level of that message. |
+| Assign a message | The state must allow assignment. The recipient needs visibility and the required review level in the same scope, must differ from the current assignee, and must satisfy the workflow reviewer-reuse policy. Self-assignment is allowed. |
 | Start a review | The user must be the message's current assignee, have the required level permission and be allowed to review the current stage. |
 | Approve, reject or cancel | The user must own the active review and supply its current `reviewId`. |
 | Review a later level | A user who already approved a level of the message cannot review another level under the four eyes rule. |
@@ -201,3 +201,5 @@ The server checks updated rights on subsequent requests. The frontend refreshes 
 The current API registers Development-only Debug authentication. `X-Debug-User` selects an existing user by ID or login; identity and administrator status are read from the database. No alternative production authentication scheme is currently registered, and corporate identity synchronization requires separate integration.
 
 For implementation details, see the [identity model](../backend/src/ORP.Domain/Identity/IdentityEntities.cs), [administration service](../backend/src/ORP.Infrastructure/Identity/UserAdministrationService.cs), [message authorization](../backend/src/ORP.Application/Authorization/MessageAuthorizationService.cs) and [access administration reference](ACCESS_ADMINISTRATION.md).
+
+Assignment and confirmation use separate permissions. Reviewer includes `message.assign`, but runtime checks permission names, not the role name. Only the current assignee may start or approve a review, including administrators; session approval also requires the original review author. `ConfirmationActorMode` and `AllowSelfAssignment` have been removed.

@@ -32,7 +32,271 @@ namespace ORP.Importer.SqlTests;
 public sealed class ConfirmationSqlTests
 {
     [Fact]
-    public async Task AssignHttpRequiresVersionSupportsReassignmentAndRejectsStaleRequests()
+    public async Task ConcurrentAssignAndConfirmHasOnlyOneOwnerAndApproval()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct, false);
+        await PrepareCombinedAsync(fixture, setup.Message, "DOUBLE_CONFIRMATION", false, ct);
+        var gate = new SaveGate();
+        await using var firstDb = new ORPDbContext(RetryOptions(fixture, new MeetBeforeSave(gate)));
+        await using var secondDb = new ORPDbContext(RetryOptions(fixture, new MeetBeforeSave(gate)));
+        var first = Record.ExceptionAsync(() => Handlers(firstDb, setup.Actor).Combined.HandleAsync(setup.Message, new(1), ct));
+        var second = Record.ExceptionAsync(() => Handlers(secondDb, setup.Assignee).Combined.HandleAsync(setup.Message, new(1), ct));
+        var errors = await Task.WhenAll(first.AsTask(), second.AsTask()).WaitAsync(TimeSpan.FromSeconds(45), ct);
+        Assert.Equal(2, gate.Arrived);
+        Assert.Single(errors, x => x is null);
+        Assert.IsType<DomainRuleViolationException>(Assert.Single(errors, x => x is not null));
+        await using var verify = new ORPDbContext(fixture.Options);
+        var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Equal(MessageState.WaitingForSecondReview, message.State);
+        var assignment = Assert.Single(await verify.Assignments.ToListAsync(ct));
+        var review = Assert.Single(await verify.Reviews.ToListAsync(ct));
+        Assert.Equal(message.CurrentAssigneeId, assignment.AssignedTo);
+        Assert.Equal(assignment.AssignedTo, review.ReviewerId);
+        Assert.Equal(ReviewStatus.Approved, review.Status);
+        Assert.Equal(1, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.MessageAssigned, ct));
+        Assert.Equal(1, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.ReviewApproved, ct));
+    }
+
+    [Fact]
+    public async Task CombinedSaveFailureRollsBackBothActions()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct, false);
+        await PrepareCombinedAsync(fixture, setup.Message, "SINGLE_CONFIRMATION", false, ct);
+        var options = new DbContextOptionsBuilder<ORPDbContext>(fixture.Options)
+            .AddInterceptors(new FailOnSecondSave()).Options;
+        await using (var db = new ORPDbContext(options))
+            await Assert.ThrowsAsync<IOException>(() => Handlers(db, setup.Actor).Combined.HandleAsync(setup.Message, new(1), ct));
+        await using var verify = new ORPDbContext(fixture.Options);
+        Assert.Null((await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct)).CurrentAssigneeId);
+        Assert.Empty(await verify.Assignments.ToListAsync(ct));
+        Assert.Empty(await verify.Reviews.ToListAsync(ct));
+        Assert.False(await verify.AuditEvents.AnyAsync(x => x.EventType == AuditEventType.MessageAssigned ||
+            x.EventType == AuditEventType.ReviewApproved || x.EventType == AuditEventType.MessageCompleted, ct));
+    }
+
+    private sealed class FailOnSecondSave : SaveChangesInterceptor
+    {
+        private int saves;
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+            CancellationToken cancellationToken = default) => ++saves == 2
+                ? throw new IOException("Injected confirmation save failure.") : ValueTask.FromResult(result);
+    }
+
+    [Theory]
+    [InlineData("SINGLE_CONFIRMATION", 1, false)]
+    [InlineData("SINGLE_CONFIRMATION", 1, true)]
+    [InlineData("DOUBLE_CONFIRMATION", 2, false)]
+    [InlineData("DOUBLE_CONFIRMATION", 2, true)]
+    public async Task AssignAndConfirmHttpCompletesWithOneAssignment(string code, int levels, bool assigned)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct, assigned);
+        await PrepareCombinedAsync(fixture, setup.Message, code, assigned, ct);
+        await using var factory = new AssignmentFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        for (var level = 1; level <= levels; level++)
+        {
+            using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm",
+                new { level, comment = " Checked " }, ct);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        }
+        await using var verify = new ORPDbContext(fixture.Options);
+        var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Equal(MessageState.Completed, message.State);
+        Assert.Null(message.CurrentAssigneeId);
+        var assignment = Assert.Single(await verify.Assignments.Where(x => x.MessageId == setup.Message).ToListAsync(ct));
+        Assert.Equal(setup.Actor, assignment.AssignedTo);
+        Assert.NotNull(assignment.EndedAt);
+        var reviews = await verify.Reviews.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
+        Assert.Equal(levels, reviews.Count);
+        Assert.All(reviews, review =>
+        {
+            Assert.Equal(setup.Actor, review.ReviewerId);
+            Assert.Equal("Checked", review.Comment);
+            Assert.Equal(ReviewStatus.Approved, review.Status);
+        });
+        var audit = await verify.AuditEvents.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
+        Assert.Single(audit, x => x.EventType == AuditEventType.MessageAssigned);
+        Assert.Equal(levels, audit.Count(x => x.EventType == AuditEventType.ReviewApproved));
+        Assert.DoesNotContain(audit, x => x.EventType == AuditEventType.MessageReassigned);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AssignAndConfirmNeverTakesAnotherReviewersMessage(bool administrator)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        await using var db = new ORPDbContext(fixture.Options);
+        var username = administrator
+            ? await db.Users.Where(x => x.IsGlobalAdministrator).Select(x => x.UserName).SingleAsync(ct)
+            : "priya.nair";
+        var originalVersion = (await db.Messages.SingleAsync(x => x.Id == setup.Message, ct)).RowVersion.ToArray();
+        await using var factory = new AssignmentFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", username);
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm", new { level = 1 }, ct);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        db.ChangeTracker.Clear();
+        var message = await db.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Equal(setup.Actor, message.CurrentAssigneeId);
+        Assert.Equal(originalVersion, message.RowVersion);
+        Assert.Empty(await db.Reviews.ToListAsync(ct));
+        Assert.Single(await db.Assignments.ToListAsync(ct));
+    }
+
+    [Theory]
+    [InlineData("message.assign", false)]
+    [InlineData("message.assign", true)]
+    [InlineData("review.level1", false)]
+    [InlineData("review.level1", true)]
+    [InlineData("message.view", false)]
+    [InlineData("message.view", true)]
+    public async Task AssignAndConfirmRequiresBothPermissions(string missingPermission, bool assigned)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct, assigned);
+        await using var db = new ORPDbContext(fixture.Options);
+        await db.RolePermissions.Where(x => x.Permission.Name == missingPermission).ExecuteDeleteAsync(ct);
+        await using var factory = new AssignmentFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm", new { level = 1 }, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(await db.Reviews.ToListAsync(ct));
+        Assert.Equal(assigned ? setup.Actor : (int?)null, (await db.Messages.SingleAsync(x => x.Id == setup.Message, ct)).CurrentAssigneeId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedCombinedConfirmationRollsBackAssignmentAndAudit(bool sessionMode)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct, false);
+        await PrepareCombinedAsync(fixture, setup.Message, "DOUBLE_CONFIRMATION", false, ct);
+        await using var db = new ORPDbContext(fixture.Options);
+        if (sessionMode)
+        {
+            var workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == "DOUBLE_CONFIRMATION", ct);
+            workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
+            await db.SaveChangesAsync(ct);
+        }
+        var originalVersion = (await db.Messages.SingleAsync(x => x.Id == setup.Message, ct)).RowVersion.ToArray();
+        await using var factory = new AssignmentFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm",
+            new { level = sessionMode ? 1 : 2 }, ct);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        db.ChangeTracker.Clear();
+        var message = await db.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Null(message.CurrentAssigneeId);
+        Assert.Equal(originalVersion, message.RowVersion);
+        Assert.Empty(await db.Assignments.ToListAsync(ct));
+        Assert.Empty(await db.Reviews.ToListAsync(ct));
+        Assert.False(await db.AuditEvents.AnyAsync(x => x.MessageId == setup.Message &&
+            (x.EventType == AuditEventType.MessageAssigned || x.EventType == AuditEventType.ReviewStarted), ct));
+    }
+
+    private static async Task PrepareCombinedAsync(SqlImportDatabase fixture, long id, string code, bool assigned, CancellationToken ct)
+    {
+        await using var db = new ORPDbContext(fixture.Options);
+        var message = await db.Messages.SingleAsync(x => x.Id == id, ct);
+        var workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
+        message.ChangeWorkflow(workflow, []);
+        if (!assigned && message.CurrentAssigneeId is not null)
+        {
+            message.Unassign();
+            await db.Assignments.Where(x => x.MessageId == id).ExecuteDeleteAsync(ct);
+            await db.AuditEvents.Where(x => x.MessageId == id && x.EventType == AuditEventType.MessageAssigned).ExecuteDeleteAsync(ct);
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task DatabaseRowVersionStillRejectsStaleWrites()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        await using var first = new ORPDbContext(fixture.Options);
+        await using var stale = new ORPDbContext(fixture.Options);
+        var currentMessage = await first.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        var staleMessage = await stale.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        var originalVersion = staleMessage.RowVersion.ToArray();
+        currentMessage.Assign(setup.Assignee);
+        await first.SaveChangesAsync(ct);
+        Assert.False(originalVersion.SequenceEqual(currentMessage.RowVersion));
+        // Force an update from the context that read the previous rowversion.
+        staleMessage.Unassign();
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => stale.SaveChangesAsync(ct));
+        await using var verify = new ORPDbContext(fixture.Options);
+        var persisted = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+        Assert.Equal(setup.Assignee, persisted.CurrentAssigneeId);
+        Assert.Equal(currentMessage.RowVersion, persisted.RowVersion);
+    }
+
+    [Theory]
+    [InlineData("SINGLE_CONFIRMATION", 1)]
+    [InlineData("DOUBLE_CONFIRMATION", 2)]
+    public async Task OnlyCurrentAssigneeCanConfirmThroughHttp(string code, int levels)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        await using (var db = new ORPDbContext(fixture.Options))
+        {
+            var message = await db.Messages.SingleAsync(x => x.Id == setup.Message, ct);
+            var workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
+            message.ChangeWorkflow(workflow, []);
+            await db.SaveChangesAsync(ct);
+        }
+        await using var factory = new AssignmentFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        var path = $"/api/messages/{setup.Message}";
+        var details = await client.GetFromJsonAsync<JsonElement>(path, ct);
+        using var assigned = await client.PostAsJsonAsync(path + "/assign",
+            new { assignedTo = setup.Assignee }, ct);
+        Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+        details = await client.GetFromJsonAsync<JsonElement>(path, ct);
+        Assert.False(details.GetProperty("canConfirm").GetBoolean());
+        using var denied = await client.PostAsJsonAsync(path + "/reviews/confirm",
+            new { level = 1 }, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        // The same message.assign permission permits taking the message back for self-review.
+        using var selfAssigned = await client.PostAsJsonAsync(path + "/assign",
+            new { assignedTo = setup.Actor }, ct);
+        Assert.Equal(HttpStatusCode.NoContent, selfAssigned.StatusCode);
+        for (var level = 1; level <= levels; level++)
+        {
+            details = await client.GetFromJsonAsync<JsonElement>(path, ct);
+            Assert.True(details.GetProperty("canConfirm").GetBoolean());
+            Assert.Equal(level, details.GetProperty("confirmationLevel").GetInt32());
+            using var confirmed = await client.PostAsJsonAsync(path + "/reviews/confirm",
+                new { level }, ct);
+            Assert.Equal(HttpStatusCode.NoContent, confirmed.StatusCode);
+        }
+        await using var verify = new ORPDbContext(fixture.Options);
+        Assert.Equal(MessageState.Completed, (await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct)).State);
+        var reviews = await verify.Reviews.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
+        Assert.Equal(levels, reviews.Count);
+        Assert.All(reviews, review => Assert.Equal(setup.Actor, review.ReviewerId));
+    }
+
+    [Fact]
+    public async Task AssignHttpNeedsOnlyAssigneeAndStillAdvancesRowVersion()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -48,22 +312,18 @@ public sealed class ConfirmationSqlTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
         var path = $"/api/messages/{setup.Message}";
-        using var missing = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee }, ct);
-        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
-        using var invalid = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee, expectedVersion = "invalid" }, ct);
+        using var invalid = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = 0 }, ct);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         var initial = (await client.GetFromJsonAsync<JsonElement>(path, ct)).GetProperty("version").GetString()!;
-        using var assigned = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee, expectedVersion = initial }, ct);
+        using var assigned = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Assignee }, ct);
         Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
         var current = (await client.GetFromJsonAsync<JsonElement>(path, ct)).GetProperty("version").GetString()!;
         Assert.NotEqual(initial, current);
-        using var stale = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Actor, expectedVersion = initial }, ct);
-        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-        using var reassigned = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Actor, expectedVersion = current }, ct);
+        using var reassigned = await client.PostAsJsonAsync(path + "/assign", new { assignedTo = setup.Actor }, ct);
         Assert.Equal(HttpStatusCode.NoContent, reassigned.StatusCode);
         var updated = (await client.GetFromJsonAsync<JsonElement>(path, ct)).GetProperty("version").GetString()!;
         Assert.NotEqual(current, updated);
-        using var removed = await client.PostAsJsonAsync(path + "/reassign", new { assignedTo = setup.Assignee, expectedVersion = updated }, ct);
+        using var removed = await client.PostAsJsonAsync(path + "/reassign", new { assignedTo = setup.Assignee }, ct);
         Assert.Equal(HttpStatusCode.NotFound, removed.StatusCode);
         await using var verify = new ORPDbContext(fixture.Options);
         var persisted = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
@@ -84,26 +344,27 @@ public sealed class ConfirmationSqlTests
     }
 
     [Fact]
-    public async Task SelfAssignmentMigrationInitializesExistingProfilesAndDefaultsOtherWorkflowsToFalse()
+    public async Task AssignmentPolicyMigrationPreservesExistingAssignments()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
-        await SeedAsync(fixture, ct);
+        var setup = await SeedAsync(fixture, ct);
         await using var db = new ORPDbContext(fixture.Options);
-        var custom = new WorkflowDefinition("CUSTOM_POLICY", "Custom policy").AddStep(1, 1);
-        db.WorkflowDefinitions.Add(custom);
-        await db.SaveChangesAsync(ct);
         var migrator = db.GetService<IMigrator>();
         var migrations = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
-        Assert.EndsWith("_AddWorkflowSelfAssignment", migrations[^1]);
+        Assert.EndsWith("_RequireAssignedReviewer", migrations[^1]);
         await migrator.MigrateAsync(migrations[^2], ct);
+        await db.Database.ExecuteSqlRawAsync("""
+            DELETE rp FROM orp.RolePermissions rp
+            JOIN orp.Roles r ON r.Id = rp.RoleId
+            JOIN orp.Permissions p ON p.Id = rp.PermissionId
+            WHERE r.Name = N'Reviewer' AND p.Name = N'message.assign';
+            """, ct);
         await migrator.MigrateAsync(cancellationToken: ct);
-        db.ChangeTracker.Clear();
-        var workflows = await db.WorkflowDefinitions.AsNoTracking().ToListAsync(ct);
-        Assert.True(workflows.Single(x => x.Code == "SINGLE_CONFIRMATION").AllowSelfAssignment);
-        Assert.True(workflows.Single(x => x.Code == "DOUBLE_CONFIRMATION").AllowSelfAssignment);
-        Assert.False(workflows.Single(x => x.Code == "VIEW_ONLY").AllowSelfAssignment);
-        Assert.False(workflows.Single(x => x.Code == "CUSTOM_POLICY").AllowSelfAssignment);
+        Assert.True(await db.Roles.Where(x => x.Name == "Reviewer")
+            .AnyAsync(x => x.Permissions.Any(p => p.Permission.Name == "message.assign"), ct));
+        Assert.Equal(setup.Actor, (await db.Messages.SingleAsync(x => x.Id == setup.Message, ct)).CurrentAssigneeId);
+        Assert.Equal(3, await db.WorkflowDefinitions.CountAsync(ct));
     }
 
     [Theory]
@@ -128,19 +389,11 @@ public sealed class ConfirmationSqlTests
         var correlation = new Correlation();
         var authorization = new MessageAuthorizationService(store, users, user, correlation,
             NullLogger<MessageAuthorizationService>.Instance);
-        var candidates = new GetAssignmentCandidatesHandler(new AssignmentCandidateQueries(db), store, user, authorization);
+        var candidates = new GetAssignmentCandidatesHandler(new AssignmentCandidateQueries(db), store, authorization);
         Assert.Contains(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
         var assign = new AssignMessageHandler(store, users, new AssignMessageValidator(), user, correlation,
             assignments, new TransactionExecutor(db, log), authorization);
-        workflow.ConfigureSelfAssignment(false);
-        await db.SaveChangesAsync(ct);
-        Assert.DoesNotContain(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
-        await Assert.ThrowsAsync<ValidationException>(() => assign.HandleAsync(message.Id, new(setup.Actor, Convert.ToBase64String(message.RowVersion)), ct));
-        workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
-        workflow.ConfigureSelfAssignment(true);
-        await db.SaveChangesAsync(ct);
-        Assert.Contains(await candidates.HandleAsync(message.Id, ct), x => x.Id == setup.Actor);
-        await assign.HandleAsync(message.Id, new(setup.Actor, Convert.ToBase64String(message.RowVersion)), ct);
+        await assign.HandleAsync(message.Id, new(setup.Actor), ct);
         var activeAssignment = await db.Assignments.AsNoTracking().SingleAsync(x => x.MessageId == message.Id && x.EndedAt == null, ct);
         Assert.Equal(setup.Actor, activeAssignment.AssignedBy);
         Assert.Equal(setup.Actor, activeAssignment.AssignedTo);
@@ -151,7 +404,7 @@ public sealed class ConfirmationSqlTests
             var details = await DetailsAsync(db, message.Id, access, ct);
             Assert.True(details.CanConfirm);
             Assert.Equal(level, details.ConfirmationLevel);
-            await Handlers(db, setup.Actor).Confirm.HandleAsync(message.Id, new(level, details.Version), ct);
+            await Handlers(db, setup.Actor).Confirm.HandleAsync(message.Id, new(level), ct);
         }
         db.ChangeTracker.Clear();
         var completed = await db.Messages.SingleAsync(x => x.Id == message.Id, ct);
@@ -183,10 +436,10 @@ public sealed class ConfirmationSqlTests
         Assert.Equal(initial.Version, grid.Version);
         Assert.Equal(initial.CanConfirm, grid.CanConfirm);
         var handlers = Handlers(db, setup.Actor);
-        await handlers.Confirm.HandleAsync(setup.Message, new(1, initial.Version, "first"), ct);
+        await handlers.Confirm.HandleAsync(setup.Message, new(1, "first"), ct);
         var waiting = await DetailsAsync(db, setup.Message, access, ct);
         Assert.Equal(MessageState.WaitingForSecondReview, waiting.State);
-        Assert.Equal(setup.Assignee, waiting.CurrentAssigneeId);
+        Assert.Equal(setup.Actor, waiting.CurrentAssigneeId);
         Assert.NotEqual(initial.Version, waiting.Version);
         Assert.Equal(2, waiting.ConfirmationLevel);
         Assert.True(waiting.CanConfirm); // the same user may confirm again
@@ -194,12 +447,11 @@ public sealed class ConfirmationSqlTests
         await handlers.Undo.HandleAsync(setup.Message, new(approvedId), ct);
         var undone = await DetailsAsync(db, setup.Message, access, ct);
         Assert.Equal(MessageState.Assigned, undone.State);
-        Assert.Equal(setup.Assignee, undone.CurrentAssigneeId);
+        Assert.Equal(setup.Actor, undone.CurrentAssigneeId);
         Assert.NotEqual(initial.Version, undone.Version);
-        await Assert.ThrowsAsync<DomainRuleViolationException>(() => handlers.Confirm.HandleAsync(setup.Message, new(1, initial.Version), ct));
-        await handlers.Confirm.HandleAsync(setup.Message, new(1, undone.Version), ct);
+        await handlers.Confirm.HandleAsync(setup.Message, new(1), ct);
         var next = await DetailsAsync(db, setup.Message, access, ct);
-        await handlers.Confirm.HandleAsync(setup.Message, new(2, next.Version), ct);
+        await handlers.Confirm.HandleAsync(setup.Message, new(2), ct);
         var completed = await DetailsAsync(db, setup.Message, access, ct);
         Assert.Equal(MessageState.Completed, completed.State);
         Assert.Null(completed.CurrentAssigneeId);
@@ -222,24 +474,20 @@ public sealed class ConfirmationSqlTests
         await using var fixture = await SqlImportDatabase.CreateAsync();
         var setup = await SeedAsync(fixture, ct);
         long firstId = 0;
-        string version;
         await using (var db = new ORPDbContext(fixture.Options))
         {
-            var access = (await new UserAccessService(db).GetByIdAsync(setup.Actor, ct))!;
-            var initial = await DetailsAsync(db, setup.Message, access, ct);
             if (undo)
             {
-                await Handlers(db, setup.Actor).Confirm.HandleAsync(setup.Message, new(1, initial.Version), ct);
+                await Handlers(db, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct);
                 firstId = await db.Reviews.Select(x => x.Id).SingleAsync(ct);
             }
-            version = (await DetailsAsync(db, setup.Message, access, ct)).Version;
         }
         var gate = new SaveGate();
         await using var firstDb = new ORPDbContext(RetryOptions(fixture, new MeetBeforeSave(gate)));
         await using var secondDb = new ORPDbContext(RetryOptions(fixture, new MeetBeforeSave(gate)));
         var first = Handlers(firstDb, setup.Actor);
         var second = Handlers(secondDb, setup.Actor);
-        var request = new ConfirmReviewRequest(undo ? 2 : 1, version);
+        var request = new ConfirmReviewRequest(undo ? 2 : 1);
         var firstTask = Record.ExceptionAsync(() => first.Confirm.HandleAsync(setup.Message, request, ct));
         var secondTask = Record.ExceptionAsync(() => undo
             ? second.Undo.HandleAsync(setup.Message, new(firstId), ct)
@@ -256,7 +504,7 @@ public sealed class ConfirmationSqlTests
         {
             Assert.Equal(MessageState.WaitingForSecondReview, message.State);
             Assert.Equal(ReviewStatus.Approved, Assert.Single(reviews).Status);
-            Assert.Equal(setup.Assignee, message.CurrentAssigneeId);
+            Assert.Equal(setup.Actor, message.CurrentAssigneeId);
         }
         else if (message.State == MessageState.Completed)
         {
@@ -269,7 +517,7 @@ public sealed class ConfirmationSqlTests
         {
             Assert.Equal(MessageState.Assigned, message.State);
             Assert.Equal(ReviewStatus.Undone, Assert.Single(reviews).Status);
-            Assert.Equal(setup.Assignee, message.CurrentAssigneeId);
+            Assert.Equal(setup.Actor, message.CurrentAssigneeId);
             Assert.Equal(1, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.ConfirmationUndone, ct));
         }
         Assert.Equal(reviews.Count, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.ReviewApproved, ct));
@@ -286,11 +534,11 @@ public sealed class ConfirmationSqlTests
             version = Convert.ToBase64String((await read.Messages.SingleAsync(x => x.Id == setup.Message, ct)).RowVersion);
         var options = new DbContextOptionsBuilder<ORPDbContext>(fixture.Options).AddInterceptors(new FailAfterSave()).Options;
         await using (var db = new ORPDbContext(options))
-            await Assert.ThrowsAsync<IOException>(() => Handlers(db, setup.Actor).Confirm.HandleAsync(setup.Message, new(1, version), ct));
+            await Assert.ThrowsAsync<IOException>(() => Handlers(db, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct));
         await using var verify = new ORPDbContext(fixture.Options);
         var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
         Assert.Equal(MessageState.Assigned, message.State);
-        Assert.Equal(setup.Assignee, message.CurrentAssigneeId);
+        Assert.Equal(setup.Actor, message.CurrentAssigneeId);
         Assert.Empty(await verify.Reviews.ToListAsync(ct));
         Assert.False(await verify.AuditEvents.AnyAsync(x => x.EventType == AuditEventType.ReviewStarted || x.EventType == AuditEventType.ReviewApproved, ct));
         Assert.Equal(version, Convert.ToBase64String(message.RowVersion));
@@ -339,7 +587,7 @@ public sealed class ConfirmationSqlTests
         var version = Convert.ToBase64String(persisted.RowVersion);
         Assert.Equal(workflowId, persisted.WorkflowDefinitionId);
         Assert.Equal(MessageState.Assigned, persisted.State);
-        Assert.Equal(setup.Assignee, persisted.CurrentAssigneeId);
+        Assert.Equal(setup.Actor, persisted.CurrentAssigneeId);
         Assert.Equal(failAfterSave, persisted.Departments.Single(x => x.DepartmentId == tfoId).CanProcess);
         Assert.Equal(failAfterSave ? 0 : 1, await verify.AuditEvents.CountAsync(x =>
             x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
@@ -356,11 +604,7 @@ public sealed class ConfirmationSqlTests
         Assert.Equal(version, (await DetailsAsync(verify, setup.Message, access, ct)).Version);
         Assert.Equal(1, await verify.AuditEvents.CountAsync(x =>
             x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
-        var error = await Assert.ThrowsAsync<DomainRuleViolationException>(() =>
-            Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1, initialVersion), ct));
-        Assert.Contains("version has changed", error.Message);
-        Assert.Empty(await verify.Reviews.ToListAsync(ct));
-        await Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1, version), ct);
+        await Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct);
         Assert.Equal(MessageState.WaitingForSecondReview,
             (await DetailsAsync(verify, setup.Message, access, ct)).State);
     }
@@ -380,7 +624,7 @@ public sealed class ConfirmationSqlTests
     private static async Task<MessageDetailsDto> DetailsAsync(ORPDbContext db, long id, UserAccess access, CancellationToken ct) =>
         (await new MessageQueries(db).GetAsync(id, access, ct))!;
 
-    private static async Task<(long Message, int Actor, int Assignee)> SeedAsync(SqlImportDatabase fixture, CancellationToken ct)
+    private static async Task<(long Message, int Actor, int Assignee)> SeedAsync(SqlImportDatabase fixture, CancellationToken ct, bool assigned = true)
     {
         await using var db = new ORPDbContext(fixture.Options);
         var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "seed-test-data.sql"), ct);
@@ -396,12 +640,13 @@ public sealed class ConfirmationSqlTests
         var message = await db.Messages.SingleAsync(x => x.Id == db.SwiftMessages.Where(s => s.ReferenceId == "TEST-00001").Select(s => s.MessageId).Single(), ct);
         var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
         var store = new ORPStore(db, log);
-        await new AssignmentCoordinator(store, new Clock()).AssignAsync(message, assignee.Id, actor.Id, "setup", ct);
+        if (assigned)
+            await new AssignmentCoordinator(store, new Clock()).AssignAsync(message, actor.Id, actor.Id, "setup", ct);
         await db.SaveChangesAsync(ct);
         return (message.Id, actor.Id, assignee.Id);
     }
 
-    private static (ConfirmReviewHandler Confirm, UndoReviewHandler Undo) Handlers(ORPDbContext db, int actor)
+    private static (ConfirmReviewHandler Confirm, UndoReviewHandler Undo, AssignAndConfirmReviewHandler Combined) Handlers(ORPDbContext db, int actor)
     {
         var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
         var store = new ORPStore(db, log);
@@ -412,8 +657,12 @@ public sealed class ConfirmationSqlTests
         var transactions = new TransactionExecutor(db, log);
         var authorization = new MessageAuthorizationService(store, new UserAuthorizationQueries(db), user,
             correlation, NullLogger<MessageAuthorizationService>.Instance);
-        return (new(store, new ConfirmReviewValidator(), user, clock, correlation, assignments, transactions, authorization),
-            new(store, new UndoReviewValidator(), user, clock, correlation, assignments, transactions, authorization));
+        var confirm = new ConfirmReviewHandler(store, new ConfirmReviewValidator(), user, clock, correlation, assignments, transactions, authorization);
+        var assign = new AssignMessageHandler(store, new UserAuthorizationQueries(db), new AssignMessageValidator(), user,
+            correlation, assignments, transactions, authorization);
+        return (confirm,
+            new(store, new UndoReviewValidator(), user, clock, correlation, assignments, transactions, authorization),
+            new(new ConfirmReviewValidator(), user, authorization, assign, confirm, transactions));
     }
 
     private static DbContextOptions<ORPDbContext> RetryOptions(SqlImportDatabase fixture, IInterceptor interceptor) =>

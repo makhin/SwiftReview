@@ -32,7 +32,7 @@ public sealed class UndoReviewValidator : AbstractValidator<UndoReviewRequest>
 }
 
 public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRequest> validator,
-    ICurrentUser user, IClock clock, ICorrelationContext correlation, AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
+    ICurrentUser user, IClock clock, ICorrelationContext correlation, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
     public Task<long> HandleAsync(long messageId, StartReviewRequest request, CancellationToken cancellationToken)
         => transactions.ExecuteAsync(async ct =>
@@ -45,13 +45,8 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
             workflow.RequireReviewSession();
             var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
-            if (active is not null && (access.IsGlobalAdministrator ||
-                (active.ReviewerId == user.UserId && (workflow.ConfirmationActorMode == ConfirmationActorMode.AnyAuthorizedUser || message.CurrentAssigneeId == user.UserId))))
+            if (active is not null && active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)
                 return active.Id;
-            if (access.IsGlobalAdministrator && workflow.ConfirmationActorMode == ConfirmationActorMode.Assignee && message.CurrentAssigneeId != user.UserId &&
-                message.State is Domain.Messages.MessageState.Assigned or Domain.Messages.MessageState.WaitingForSecondReview or Domain.Messages.MessageState.WaitingForThirdReview)
-                await assignments.AssignAsync(message, user.UserId, user.UserId, correlation.CorrelationId,
-                    ct, allowSelfAssignment: true);
             var oldState = message.State;
             var now = clock.UtcNow;
             var review = message.StartReview(request.Level, user.UserId, workflow, reviews, now, isGlobalAdministrator: access.IsGlobalAdministrator);
@@ -71,7 +66,7 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
         => transactions.ExecuteAsync(async ct =>
         {
             var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
-                ct, request.Level, MessageActionOwnership.ActiveReviewer);
+                ct, request.Level, MessageActionOwnership.AssignedReviewer);
             await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
@@ -80,7 +75,7 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
             var now = clock.UtcNow;
-            message.Approve(review, workflow, reviews, user.UserId, request.Comment, now, access.IsGlobalAdministrator);
+            message.Approve(review, workflow, reviews, user.UserId, request.Comment, now);
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
             if (message.CurrentAssigneeId is not null &&

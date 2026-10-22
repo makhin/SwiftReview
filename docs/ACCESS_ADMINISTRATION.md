@@ -5,7 +5,7 @@ also enforces this restriction on every `/api/admin` endpoint.
 
 ## Access model
 
-- Ordinary users receive business permissions only through roles, with no direct grants. Global administrators bypass permission, branch/department and review-ownership checks even with no role assignments.
+- Ordinary users receive business permissions only through roles, with no direct grants. Global administrators bypass permission and branch/department checks; review start and approval still require current assignment even with no role assignments.
 - Each assignment is `(user, branch, department, role)`. Multiple roles may be
   assigned to the same exact branch/department pair; their permissions are combined
   only within that pair. Separate branch and department lists are not access grants.
@@ -15,7 +15,7 @@ also enforces this restriction on every `/api/admin` endpoint.
   rejection and cancellation at that level, only by the active review's owner. There is no
   separate global rejection permission.
 - `Users.IsGlobalAdministrator` controls access administration independently of
-  business roles. It grants access to all information and actions, including starting, approving, rejecting, cancelling and undoing another user's review, and self-assignment. The flag comes from server-side identity, never from an action request.
+  business roles. It grants access to all information and actions, including rejecting, cancelling and undoing another user's review, and self-assignment. Starting and approving require current assignment; approval also requires the review author. The flag comes from server-side identity, never from an action request.
   Set this flag through trusted provisioning/seed data; no UI or API changes it.
 
 ## Screens and changes

@@ -417,11 +417,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("AllowSelfAssignment")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<int>("AssignmentRetentionMode")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -431,11 +426,6 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("ConfirmationActorMode")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
 
                     b.Property<int>("ConfirmationMode")
                         .ValueGeneratedOnAdd()
@@ -477,7 +467,7 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.ToTable("WorkflowDefinitions", "orp", t =>
                         {
-                            t.HasCheckConstraint("CK_WorkflowDefinitions_ConfirmationPolicy", "[ConfirmationMode] IN (0, 1, 2) AND [ConfirmationActorMode] IN (0, 1) AND [AssignmentRetentionMode] IN (0, 1)");
+                            t.HasCheckConstraint("CK_WorkflowDefinitions_ConfirmationPolicy", "[ConfirmationMode] IN (0, 1, 2) AND [AssignmentRetentionMode] IN (0, 1)");
 
                             t.HasCheckConstraint("CK_WorkflowDefinitions_UndoPolicy", "[UndoApprovalMode] IN (0, 1, 2) AND [UndoActorMode] IN (0, 1) AND [UndoActiveReviewMode] IN (0, 1)");
                         });

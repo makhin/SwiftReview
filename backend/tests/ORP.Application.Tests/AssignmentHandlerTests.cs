@@ -41,7 +41,7 @@ public sealed class AssignmentHandlerTests
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
         await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1,
-            new AssignMessageRequest(2, Version(message)), CancellationToken.None));
+            new AssignMessageRequest(2), CancellationToken.None));
         store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
         await store.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -73,7 +73,7 @@ public sealed class AssignmentHandlerTests
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
-        await handler.HandleAsync(1, new AssignMessageRequest(2, Version(message)), TestContext.Current.CancellationToken);
+        await handler.HandleAsync(1, new AssignMessageRequest(2), TestContext.Current.CancellationToken);
 
         await store.Received(1).FindMessageAsync(1, Arg.Any<CancellationToken>());
         await store.Received(1).FindMessageSourceAsync(1, Arg.Any<CancellationToken>());
@@ -112,7 +112,7 @@ public sealed class AssignmentHandlerTests
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
 
         var exception = await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1,
-            new AssignMessageRequest(2, Version(message)), TestContext.Current.CancellationToken));
+            new AssignMessageRequest(2), TestContext.Current.CancellationToken));
 
         Assert.Equal("The assignee is not eligible to review the message in its current workflow state.", exception.Message);
         store.DidNotReceive().AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
@@ -149,7 +149,7 @@ public sealed class AssignmentHandlerTests
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
 
-        await handler.HandleAsync(1, new AssignMessageRequest(2, Version(message)), TestContext.Current.CancellationToken);
+        await handler.HandleAsync(1, new AssignMessageRequest(2), TestContext.Current.CancellationToken);
 
         store.Received(1).AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
         store.Received(1).AddAudit(Arg.Any<AuditEvent>());
@@ -157,20 +157,19 @@ public sealed class AssignmentHandlerTests
     }
 
     [Theory]
-    [InlineData("CUSTOM_WORKFLOW", true, true, true, true, true)]
-    [InlineData("DOUBLE_CONFIRMATION", true, true, true, true, true)]
-    [InlineData("SINGLE_CONFIRMATION", false, true, true, true, false)]
-    [InlineData("CUSTOM_WORKFLOW", true, false, true, true, false)]
-    [InlineData("CUSTOM_WORKFLOW", true, true, false, true, false)]
-    [InlineData("CUSTOM_WORKFLOW", true, true, true, false, false)]
-    public async Task SelfAssignmentRequiresEnabledPolicyScopeAndPermissions(string code, bool allowSelfAssignment,
+    [InlineData("CUSTOM_WORKFLOW", true, true, true, true)]
+    [InlineData("DOUBLE_CONFIRMATION", true, true, true, true)]
+    [InlineData("SINGLE_CONFIRMATION", true, true, true, true)]
+    [InlineData("CUSTOM_WORKFLOW", false, true, true, false)]
+    [InlineData("CUSTOM_WORKFLOW", true, false, true, false)]
+    [InlineData("CUSTOM_WORKFLOW", true, true, false, false)]
+    public async Task SelfAssignmentRequiresScopeAndPermissions(string code,
         bool canView, bool canReview, bool canAssign, bool allowed)
     {
         var (store, access, user, clock, correlation) = Dependencies();
         var workflow = new WorkflowDefinition(code, code).AddStep(1, 1);
-        workflow.ConfigureConfirmation(ConfirmationMode.Immediate, ConfirmationActorMode.AnyAuthorizedUser,
+        workflow.ConfigureConfirmation(ConfirmationMode.Immediate,
             true, AssignmentRetentionMode.UntilWorkflowCompleted, false);
-        workflow.ConfigureSelfAssignment(allowSelfAssignment);
         var message = new Message(1, 1, 1, 1, clock.UtcNow);
         ConfigureAssignment(store, access, message, [], user.UserId, Permissions.ReviewLevel1);
         store.FindWorkflowAsync(1, Arg.Any<CancellationToken>()).Returns(workflow);
@@ -182,7 +181,7 @@ public sealed class AssignmentHandlerTests
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
 
-        var error = await Record.ExceptionAsync(() => handler.HandleAsync(1, new(user.UserId, Version(message)),
+        var error = await Record.ExceptionAsync(() => handler.HandleAsync(1, new(user.UserId),
             TestContext.Current.CancellationToken));
 
         if (allowed)
@@ -204,12 +203,9 @@ public sealed class AssignmentHandlerTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("invalid")]
-    [InlineData("AQ==")]
-    [InlineData("AAAAAAAAAAAA")]
-    public async Task InvalidVersion_IsRejectedWithoutChanges(string? version)
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task InvalidAssigneeIsRejectedWithoutChanges(int assignedTo)
     {
         var (store, access, user, clock, correlation) = Dependencies();
         var message = new Message(1, 1, 1, 1, clock.UtcNow);
@@ -217,38 +213,8 @@ public sealed class AssignmentHandlerTests
         var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
-
-        await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1,
-            new(2, version!), TestContext.Current.CancellationToken));
-
-        Assert.Null(message.CurrentAssigneeId);
+        await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1, new(assignedTo), TestContext.Current.CancellationToken));
         store.DidNotReceive().AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
-        store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
-        await store.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task StaleVersion_RejectsAssignmentAndReassignmentWithoutChanges(bool alreadyAssigned)
-    {
-        var (store, access, user, clock, correlation) = Dependencies();
-        var message = new Message(1, 1, 1, 1, clock.UtcNow);
-        if (alreadyAssigned) message.Assign(3);
-        Version(message);
-        ConfigureAssignment(store, access, message, [], 2, Permissions.ReviewLevel1);
-        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
-            new AssignmentCoordinator(store, clock), new InlineTransactions(),
-            new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
-
-        var error = await Assert.ThrowsAsync<ORP.Domain.Common.DomainRuleViolationException>(() => handler.HandleAsync(1,
-            new(2, Convert.ToBase64String(new byte[] { 0, 0, 0, 0, 0, 0, 0, 1 })), TestContext.Current.CancellationToken));
-
-        Assert.Contains("version has changed", error.Message);
-        Assert.Equal(alreadyAssigned ? 3 : (int?)null, message.CurrentAssigneeId);
-        await store.DidNotReceive().GetActiveAssignmentAsync(Arg.Any<long>(), Arg.Any<CancellationToken>());
-        store.DidNotReceive().AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
-        store.DidNotReceive().AddAudit(Arg.Any<AuditEvent>());
         await store.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -267,7 +233,7 @@ public sealed class AssignmentHandlerTests
             new AssignmentCoordinator(store, clock), new InlineTransactions(),
             new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
 
-        await handler.HandleAsync(1, new(2, Version(message)), TestContext.Current.CancellationToken);
+        await handler.HandleAsync(1, new(2), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, message.CurrentAssigneeId);
         Assert.Equal(MessageState.Assigned, message.State);
@@ -279,13 +245,6 @@ public sealed class AssignmentHandlerTests
         Assert.Equal(3, details.RootElement.GetProperty("previousAssigneeId").GetInt32());
         Assert.Equal(2, details.RootElement.GetProperty("assigneeId").GetInt32());
         await store.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    private static string Version(Message message)
-    {
-        if (message.RowVersion.Length == 0)
-            typeof(Message).GetProperty(nameof(Message.RowVersion))!.SetValue(message, new byte[8]);
-        return Convert.ToBase64String(message.RowVersion);
     }
 
     private static (IORPStore Store, IUserAuthorizationQueries Access, ICurrentUser User, IClock Clock,

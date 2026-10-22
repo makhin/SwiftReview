@@ -146,7 +146,7 @@ public sealed class MessageWorkflowTests
     }
 
     [Fact]
-    public void AssignmentToSelf_IsRejected() => Assert.Throws<DomainRuleViolationException>(() => new Assignment(1, 7, 7, Now));
+    public void AssignmentToSelf_IsAllowed() => Assert.Equal(7, new Assignment(1, 7, 7, Now).AssignedTo);
 
     [Fact]
     public void UndoLastApproval_ReopensThatLevelWithoutLosingHistory()

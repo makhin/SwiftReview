@@ -31,9 +31,9 @@ public sealed record ReviewCapabilities(ConfirmationMode ConfirmationMode, bool 
         if (active is not null)
         {
             var canResume = workflow.ConfirmationMode == ConfirmationMode.ReviewSession && active.Level == level &&
-                (access.IsGlobalAdministrator || (active.ReviewerId == access.UserId &&
-                    (workflow.ConfirmationActorMode == ConfirmationActorMode.AnyAuthorizedUser || message.CurrentAssigneeId == access.UserId) &&
-                    (workflow.AllowReviewerReuse || !reviews.Any(x => x.Status == ReviewStatus.Approved && x.ReviewerId == access.UserId))));
+                active.ReviewerId == access.UserId && message.CurrentAssigneeId == access.UserId &&
+                (access.IsGlobalAdministrator || workflow.AllowReviewerReuse ||
+                    !reviews.Any(x => x.Status == ReviewStatus.Approved && x.ReviewerId == access.UserId));
             return unavailable with { CanReview = canResume };
         }
         try

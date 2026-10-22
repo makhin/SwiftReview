@@ -112,7 +112,8 @@ All review commands use `POST /api/messages/{id}/reviews/{action}`.
 
 | Action | Request | Success |
 | --- | --- | --- |
-| `confirm` | `{ "level": 1, "expectedVersion": "AAAAAAAAAAE=", "comment": "Checked" }` | 204 |
+| `confirm` | `{ "level": 1, "comment": "Checked" }` | 204 |
+| `assign-and-confirm` | `{ "level": 1, "comment": "Checked" }` | 204 |
 | `start` | `{ "level": 1 }` | 200, `{ "reviewId": 123 }`, no Location header |
 | `approve` | `{ "level": 1, "reviewId": 123, "comment": "Checked" }` | 204 |
 | `reject` | `{ "level": 1, "reviewId": 123, "comment": "Reason" }` | 204 |
@@ -122,20 +123,43 @@ All review commands use `POST /api/messages/{id}/reviews/{action}`.
 `confirm` is available only for `Immediate` workflows. It creates and approves the
 expected review in one transaction, including audit and assignment changes. The
 message must already be assigned; the actor is checked against `review.levelN`
-and `message.view` in the same permitted branch/department scope. Ownership and
-reviewer reuse follow workflow settings. Confirming does not reassign the message
+and `message.view` in the same permitted branch/department scope. The actor must be the current assignee.
+Reviewer reuse follows workflow settings. Confirming does not reassign the message
 to the actor. Technical InProgress states are not left persisted after success.
 
-`expectedVersion` is required: use the opaque base64 `version` returned by message
-details or the grid. It represents an 8-byte SQL Server rowversion. Malformed
-versions return 400; stale versions, repeated confirmation, wrong levels or modes
-return 409. After an uncertain network result, reload details and the audit before
-another action. Never automatically retry with a newly fetched version.
+Assign and confirm do not require or use a client version. The server reads current permissions,
+assignment, state and level inside a serializable transaction. SQL Server RowVersion
+remains an EF concurrency token; `version` remains in read responses for compatibility.
+Invalid request fields return 400; current-state or database concurrency conflicts return
+409, and authorization failures return 403. After an uncertain network result, reload
+details and audit before another action. Never retry confirmations automatically.
+
+`POST /api/messages/{id}/reviews/assign-and-confirm` combines self-assignment and
+immediate confirmation in one serializable transaction. It requires `message.assign`,
+message visibility and the current review-level permission in the processing scope,
+even when already assigned to the caller. Ordinary `confirm` still needs no assignment
+permission. No `assignedTo` or client version is supplied: the target is always the caller.
+
+- Unassigned: use the normal assignment eligibility rules, assign to the caller, confirm.
+- Assigned to the caller: confirm without creating another assignment.
+- Assigned to another user: return 409, including for administrators; never take it over.
+
+Only `Immediate` workflows are supported. Validation errors return 400; missing rights
+return 403; invalid mode/state/level or another assignee return 409. Any failure rolls
+back assignment, confirmation and their audit events together. On success, normal
+MessageAssigned, ReviewStarted, ReviewApproved and completion/unassignment events apply.
+Assignment retention and reviewer-reuse policies are unchanged.
+
+`canConfirm` describes ordinary `confirm`; it can be false for an unassigned message
+that can use the combined action. For a new message send level 1. For a waiting stage,
+use its current review level (Assigned=1, WaitingForSecondReview=2,
+WaitingForThirdReview=3), never blindly increment it. The server validates workflow
+steps and permissions. Reload after success; do not automatically retry this command.
 
 `start`, `approve`, `reject` and `cancel` are available only for `ReviewSession`
 workflows. Start creates or resumes a review; decisions target a specific
-`reviewId`. The original reviewer owns the active session (administrators retain
-their existing access). Starting ownership and reviewer reuse are configurable.
+`reviewId`. The original reviewer owns the active session. Starting and approving require current
+assignment, including for administrators. Reviewer reuse is configurable.
 Reject additionally requires `RejectAllowed`; if disabled, the server rejects the
 operation even for administrators. Allowed rejection is final. Cancel keeps the
 assignment. Assignment ends after each approval in `PerConfirmation` mode, or only
@@ -193,7 +217,7 @@ five counts need not sum to the total. Counts cover accessible messages before g
 ### Workflow definitions
 
 `GET /api/workflows` returns reusable definitions with `id`, `code`, `name`,
-`isActive`, `steps`, `confirmationMode`, `confirmationActorMode`, `allowReviewerReuse`,
+`isActive`, `steps`, `confirmationMode`, `allowReviewerReuse`,
 `assignmentRetentionMode`, `rejectAllowed`, `undoApprovalMode`, `undoActorMode` and
 `undoActiveReviewMode`. The former `messageType`, `direction`, `branchId` and
 `departmentIds` fields are removed. Ordinary users see definitions referenced by
@@ -258,3 +282,15 @@ filter or grouping option; `direction` is returned in each row.
 Manual workflow changes require a matching direction, including for administrators.
 A mismatch or missing message direction returns `409` without changing state or audit.
 The routing rules described above also apply.
+
+### Assignment and confirmation ownership
+
+`POST /api/messages/{id}/assign` requires `message.assign` and processing-scope access.
+Reviewer includes this permission. Send `{ "assignedTo": 21 }` using an eligible user ID,
+including your own. The candidate needs visibility and the current review-level
+permission in the processing scope, subject to the workflow reviewer-reuse policy.
+Only the current assignee can start or confirm; session approval also requires the review
+author. This ownership rule includes administrators. `message.assign` is not required
+to confirm an existing assignment. After reassignment, the previous assignee receives
+403. Re-fetch details for `canConfirm`/`canReview` and the next level.
+`confirmationActorMode` has been removed from workflow responses.

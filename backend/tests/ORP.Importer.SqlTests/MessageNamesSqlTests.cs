@@ -42,9 +42,11 @@ public sealed class MessageNamesSqlTests
         Assert.Null(unassigned.ActiveReviewerName);
         Assert.Equal("New", unassigned.StateName);
 
-        message.Assign(assignee.Id);
+        message.Assign(reviewer.Id);
         var review = message.StartReview(1, reviewer.Id, workflow, [], DateTimeOffset.UtcNow,
             isGlobalAdministrator: true);
+        // Preserve coverage for historical reviews created under the old ownership policy.
+        typeof(Message).GetProperty(nameof(Message.CurrentAssigneeId))!.SetValue(message, assignee.Id);
         db.Reviews.Add(review);
         await db.SaveChangesAsync(ct);
         var row = Assert.Single((await gridQueries.LoadAsync(new(), access, ct)).Items);

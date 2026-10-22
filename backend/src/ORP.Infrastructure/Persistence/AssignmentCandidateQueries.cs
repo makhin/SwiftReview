@@ -8,11 +8,11 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class AssignmentCandidateQueries(ORPDbContext db) : IAssignmentCandidateQueries
 {
     public async Task<IReadOnlyList<AssignmentCandidateDto>> GetEligibleAsync(int branchId,
-        IReadOnlyList<int> departmentIds, int reviewLevel, IReadOnlyCollection<int> excludedUserIds, int actorId,
-        int? currentAssigneeId, bool allowSelfAssignment, CancellationToken cancellationToken)
+        IReadOnlyList<int> departmentIds, int reviewLevel, IReadOnlyCollection<int> excludedUserIds,
+        int? currentAssigneeId, CancellationToken cancellationToken)
     {
         var reviewPermission = ReviewAssignmentRules.PermissionForLevel(reviewLevel);
-        var excluded = excludedUserIds.Concat(allowSelfAssignment ? Array.Empty<int>() : [actorId])
+        var excluded = excludedUserIds
             .Concat(currentAssigneeId is null ? [] : [currentAssigneeId.Value])
             .Distinct().ToArray();
         return await db.Users.AsNoTracking()

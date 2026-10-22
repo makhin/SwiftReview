@@ -6,11 +6,10 @@ using ORP.Domain.Workflows;
 
 namespace ORP.Application.Abstractions;
 
-public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo,
-    [property: Required] string ExpectedVersion);
+public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo);
 public sealed record ChangeMessageWorkflowRequest([property: Range(1, int.MaxValue)] int WorkflowDefinitionId);
 public sealed record ConfirmReviewRequest([property: Range(1, 3)] int Level,
-    [property: Required] string ExpectedVersion, [property: StringLength(2000)] string? Comment = null);
+    [property: StringLength(2000)] string? Comment = null);
 public sealed record StartReviewRequest([property: Range(1, 3)] int Level);
 public sealed record CancelReviewRequest([property: Range(1, 3)] int Level, [property: Range(1, long.MaxValue)] long ReviewId);
 public sealed record ApproveReviewRequest([property: Range(1, 3)] int Level, [property: Range(1, long.MaxValue)] long ReviewId,
@@ -85,7 +84,6 @@ public sealed record WorkflowSummaryDto(int Id, string Code, string Name, bool I
     public UndoActorMode UndoActorMode { get; init; }
     public UndoActiveReviewMode UndoActiveReviewMode { get; init; }
     public ConfirmationMode ConfirmationMode { get; init; }
-    public ConfirmationActorMode ConfirmationActorMode { get; init; }
     public bool AllowReviewerReuse { get; init; }
     public AssignmentRetentionMode AssignmentRetentionMode { get; init; }
     public bool RejectAllowed { get; init; }

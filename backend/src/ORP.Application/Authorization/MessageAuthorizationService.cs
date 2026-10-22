@@ -3,11 +3,10 @@ using ORP.Application.Abstractions;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
-using ORP.Domain.Workflows;
 
 namespace ORP.Application.Authorization;
 
-public enum MessageActionOwnership { None, Assignee, ActiveReviewer }
+public enum MessageActionOwnership { None, Assignee, ActiveReviewer, AssignedReviewer }
 
 public sealed record AuthorizedMessage(Message Message, MessageSourceDto Source, List<Review> Reviews,
     bool IsGlobalAdministrator);
@@ -31,6 +30,11 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
                 throw new UnauthorizedAccessException("The current user is not allowed to perform this action.");
             throw new ORP.Domain.Common.DomainRuleViolationException("View-only messages cannot be changed.");
         }
+        if (ownershipRequirement is MessageActionOwnership.Assignee or MessageActionOwnership.AssignedReviewer &&
+            (message.CurrentAssigneeId != currentId ||
+             (ownershipRequirement == MessageActionOwnership.AssignedReviewer &&
+              !reviews.Any(x => x.Status == ReviewStatus.InProgress && x.Level == reviewLevel && x.ReviewerId == currentId))))
+            throw new UnauthorizedAccessException("Only the assigned reviewer can confirm the message.");
         if (access.IsGlobalAdministrator) return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
         var permission = access.HasPermission;
         var branch = access.CanView;
@@ -47,7 +51,6 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
         var fourEyes = reviewLevel is null || workflow!.AllowReviewerReuse || reviews.All(x => x.Status != ReviewStatus.Approved || x.ReviewerId != currentId);
         var ownership = ownershipRequirement switch
         {
-            MessageActionOwnership.Assignee => workflow?.ConfirmationActorMode == ConfirmationActorMode.AnyAuthorizedUser || message.CurrentAssigneeId == currentId,
             MessageActionOwnership.ActiveReviewer => reviews.Any(x =>
                 x.Status == ReviewStatus.InProgress && x.Level == reviewLevel &&
                 x.ReviewerId == currentId),

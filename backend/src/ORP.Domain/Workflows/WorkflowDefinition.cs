@@ -4,7 +4,6 @@ using ORP.Domain.Messages;
 namespace ORP.Domain.Workflows;
 
 public enum ConfirmationMode { ReviewSession, Immediate, None }
-public enum ConfirmationActorMode { Assignee, AnyAuthorizedUser }
 public enum AssignmentRetentionMode { PerConfirmation, UntilWorkflowCompleted }
 
 public enum UndoApprovalMode { Disabled, LatestNonFinal, Latest }
@@ -28,9 +27,7 @@ public sealed class WorkflowDefinition
     public string Name { get; private set; } = null!;
     public bool IsActive { get; private set; }
     public ConfirmationMode ConfirmationMode { get; private set; }
-    public ConfirmationActorMode ConfirmationActorMode { get; private set; }
     public bool AllowReviewerReuse { get; private set; }
-    public bool AllowSelfAssignment { get; private set; }
     public AssignmentRetentionMode AssignmentRetentionMode { get; private set; }
     public bool RejectAllowed { get; private set; } = true;
     public UndoApprovalMode UndoApprovalMode { get; private set; }
@@ -38,19 +35,16 @@ public sealed class WorkflowDefinition
     public UndoActiveReviewMode UndoActiveReviewMode { get; private set; }
     public IReadOnlyCollection<WorkflowStep> Steps => _steps;
 
-    public void ConfigureConfirmation(ConfirmationMode mode, ConfirmationActorMode actorMode,
+    public void ConfigureConfirmation(ConfirmationMode mode,
         bool allowReviewerReuse, AssignmentRetentionMode assignmentRetentionMode, bool rejectAllowed)
     {
-        if (!Enum.IsDefined(mode) || !Enum.IsDefined(actorMode) || !Enum.IsDefined(assignmentRetentionMode))
+        if (!Enum.IsDefined(mode) || !Enum.IsDefined(assignmentRetentionMode))
             throw new DomainRuleViolationException("Unsupported confirmation policy.");
         ConfirmationMode = mode;
-        ConfirmationActorMode = actorMode;
         AllowReviewerReuse = allowReviewerReuse;
         AssignmentRetentionMode = assignmentRetentionMode;
         RejectAllowed = rejectAllowed;
     }
-
-    public void ConfigureSelfAssignment(bool allowed) => AllowSelfAssignment = allowed;
 
     public void RequireReviewSession()
     {

@@ -45,7 +45,7 @@ public static class MessageEndpoints
             .Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
         group.MapPost("/{id:long}/assign", AssignMessage)
             .WithName(nameof(AssignMessage)).WithSummary("Assign or change the assignee of a message.")
-            .WithDescription("Requires expectedVersion from the latest message version (base64 SQL rowversion, 8 bytes). Missing or invalid versions return 400; stale versions return 409. Audit records distinguish initial assignment from reassignment.")
+            .WithDescription("Checks current permissions, assignment eligibility and message state inside a transaction. Audit records distinguish initial assignment from reassignment.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{id:long}/assignment-candidates", GetAssignmentCandidates)
             .WithName(nameof(GetAssignmentCandidates)).WithSummary("Get eligible assignees for a message.")

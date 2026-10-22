@@ -13,8 +13,6 @@ its workflow. Rules retain source file, sheet and row. Excel is not read at runt
 | Column | Values | Migration default |
 | --- | --- | --- |
 | `ConfirmationMode` | 0 `ReviewSession`, 1 `Immediate`, 2 `None` | 0 |
-| `ConfirmationActorMode` | 0 `Assignee`, 1 `AnyAuthorizedUser` | 0 |
-| `AllowSelfAssignment` | 0 forbids ordinary self-assignment, 1 permits it within processing scope | 0 |
 | `AllowReviewerReuse` | 0 requires distinct approved reviewers, 1 permits reuse | 0 |
 | `AssignmentRetentionMode` | 0 `PerConfirmation`, 1 `UntilWorkflowCompleted` | 0 |
 | `RejectAllowed` | 0 disabled, 1 allowed for review sessions | 1 |
@@ -24,15 +22,13 @@ its workflow. Rules retain source file, sheet and row. Excel is not read at runt
 
 `None` requires zero steps, including optional steps. Other modes require at least
 one required level, starting at 1 and ascending in workflow order. `Immediate`
-requires assignment before confirmation, including for administrators. The same
-message assignee may remain responsible while another authorized user confirms.
+requires assignment before confirmation, including for administrators. Only the current assignee may start or confirm a review, including administrators.
 `UntilWorkflowCompleted` preserves assignment between approvals and on Undo;
 completion closes it. Undo of a final approval does not restore a closed assignment.
 
 The administrator Undo exception is retained deliberately: with no active review,
 the latest approval may be undone even if final or disabled by policy. With an
-active review, approval/active-review policy applies. Existing administrator
-exceptions for reviewer ownership and reuse also remain. Reject disabled by
+active review, approval/active-review policy applies. The administrator exception for reviewer reuse remains. Reject disabled by
 configuration cannot be bypassed by administrators.
 
 Permissions remain `review.level1`, `review.level2`, `review.level3`, `review.undo`
@@ -48,27 +44,24 @@ one permitted message branch/department scope, never be combined across scopes.
 | SINGLE_CONFIRMATION | 96 | Immediate level 1; ordinary Undo disabled |
 | DOUBLE_CONFIRMATION | 170 | Immediate levels 1, 2; any authorized actor can undo first before second completes |
 
-Self-assignment is controlled by `orp.WorkflowDefinitions.AllowSelfAssignment`, independently
-of workflow code, confirmation mode and reviewer reuse. It still requires `message.assign`,
-message access and the current review-level permission in the processing scope. The
-administrator exception remains. Assignment candidates use the same policy.
+Assignment requires `message.assign` in the message's processing scope. The Reviewer
+role includes this permission. A user may assign to themselves or another eligible
+reviewer; the recipient needs `message.view` and the current `review.level*` permission
+in that scope. Assignment candidates enforce the same rules, including reviewer reuse.
+Confirmation requires the current assignee and the level permission; `message.assign`
+is not required just to confirm a message already assigned to you.
 
-The `AddWorkflowSelfAssignment` migration adds the flag with default 0 and sets it to 1
-for the existing SINGLE_CONFIRMATION and DOUBLE_CONFIRMATION profiles to preserve their
-behavior. The seed scripts use 1 for these two profiles and 0 for VIEW_ONLY. Codes are
-used only for this data initialization, not runtime authorization. Apply the migration
-before deploying the updated API or running updated seeds; no message reset is needed.
-For other workflows, configure the flag explicitly by workflow ID, for example:
+Apply the `RequireAssignedReviewer` migration before deploying this API. It removes
+`ConfirmationActorMode` and `AllowSelfAssignment`, preserves messages/assignments/history,
+and grants `message.assign` to an existing role named Reviewer. The workflow API no
+longer returns `confirmationActorMode`. `UndoActorMode` is separate and unchanged.
+No workflow codes or role names participate in runtime authorization.
+Historical active review sessions with an author different from the current assignee
+cannot be approved. Cancel that review using the existing author/admin cancellation
+rule, assign the intended reviewer and start a new session; history is retained.
+Rollback cannot recover removed policy values: it restores Assignee ownership and
+allows self-assignment for every workflow, and retains role permission grants.
 
-```sql
-UPDATE orp.WorkflowDefinitions
-SET AllowSelfAssignment = 1
-WHERE Id = @WorkflowId;
-```
-
-`@WorkflowId` must identify the intended workflow; use 0 to disable the policy. This
-setting does not grant any permissions. The HTTP contracts are unchanged; the frontend
-continues to obtain eligible users from `assignment-candidates`.
 Both confirmation profiles allow the same actor, preserve assignment until completion,
 and disable Reject. Administrator Undo exceptions remain. No PDF or notification
 behavior is implied by any profile.
@@ -157,7 +150,17 @@ Confirm writes ReviewStarted, ReviewApproved and, on the final confirmation,
 MessageCompleted. Closing an assignment also writes MessageUnassigned. Undo retains
 ConfirmationUndone and any ReviewCancelled event. Reviews record the actual actor.
 
-Confirm requires the base64 SQL rowversion returned by details/grid. The server
-checks it inside the serializable mutation transaction. Stale requests, including
-Confirm → Undo → delayed Confirm, return 409. State, review, assignment and audit
-changes commit or roll back together. Undo continues to target its specific reviewId.
+Assign and confirm do not require a client version. The server checks current permissions,
+assignment, state and level inside a serializable mutation transaction. SQL RowVersion
+remains configured as an EF concurrency token and is still returned by details/grid.
+Changes to state, reviews, assignments and audit commit or roll back together. Database
+concurrency and invalid-state conflicts return 409. Undo continues to target its specific
+reviewId. A delayed request may succeed if it is still valid in the current state, even
+if the message changed since the client loaded it. Reload after each action; do not
+retry confirmations automatically after a conflict or an uncertain network result.
+
+The optional `reviews/assign-and-confirm` command reuses assignment and immediate
+confirmation rules inside one transaction. It requires both permissions, only assigns
+an unassigned message to the caller, reuses their existing assignment, and rejects a
+different assignee with 409. It adds no workflow setting and changes no retention,
+reviewer-reuse or undo policies. A failed confirmation rolls back the assignment too.

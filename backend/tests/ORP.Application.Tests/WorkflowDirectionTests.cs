@@ -36,7 +36,7 @@ public sealed class WorkflowDirectionTests
         var message = new Message(1, 99, 10, [20, 30], DateTimeOffset.UtcNow);
         var workflow = new WorkflowDefinition("TARGET", "Target");
         if (viewOnly)
-            workflow.ConfigureConfirmation(ConfirmationMode.None, ConfirmationActorMode.AnyAuthorizedUser, true,
+            workflow.ConfigureConfirmation(ConfirmationMode.None, true,
                 AssignmentRetentionMode.UntilWorkflowCompleted, false);
         else workflow.AddStep(1, 1);
         typeof(WorkflowDefinition).GetProperty(nameof(WorkflowDefinition.Id))!.SetValue(workflow, 42);

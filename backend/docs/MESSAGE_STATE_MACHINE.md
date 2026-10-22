@@ -114,7 +114,7 @@ At any `*ReviewInProgress` state, `Reject` moves the message directly to `Reject
 - Assignment is manual and requires `message.assign`; there is no background or automatic assignment path.
 - `Reassign` preserves the current state.
 - Reassignment is allowed only before a review starts, in `Assigned` or a waiting state. It is prohibited while a review is active and in terminal states.
-- The actor cannot assign a message to themselves. The new assignee must have message access, scope access, the permission for the current review level, and no earlier approved review for the message.
+- The actor requires `message.assign` and may assign to themselves. The new assignee must have message access, processing-scope access, the permission for the current review level, and satisfy the workflow reviewer-reuse policy.
 - After every approval or rejection, the active assignment is ended and the current assignee is cleared. A non-final approval waits for a new manual assignment.
 
 ### Start review
@@ -129,7 +129,7 @@ At any `*ReviewInProgress` state, `Reject` moves the message directly to `Reject
 ### Approve
 
 - An active `InProgress` review must exist for the requested level.
-- Only the reviewer who started that review can approve it.
+- Only the reviewer who started that review and is still the current assignee can approve it, including administrators.
 - Approval changes the review status to `Approved`.
 - If another required level remains, the message enters its waiting state.
 - If no required level remains, the message becomes `Completed`.
