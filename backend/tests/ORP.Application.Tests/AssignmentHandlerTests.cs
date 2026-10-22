@@ -21,6 +21,7 @@ public sealed class AssignmentHandlerTests
     public async Task AssigneeOutsideMessageScope_IsRejected()
     {
         var store = Substitute.For<IORPStore>();
+        store.GetActiveAssignmentsAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns([]);
         store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
             new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
@@ -50,6 +51,7 @@ public sealed class AssignmentHandlerTests
     public async Task SuccessfulAssignment_WritesCompleteAuditEvent()
     {
         var store = Substitute.For<IORPStore>();
+        store.GetActiveAssignmentsAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns([]);
         store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
             new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();
@@ -225,7 +227,7 @@ public sealed class AssignmentHandlerTests
         var message = new Message(1, 1, 1, 1, clock.UtcNow);
         message.Assign(3);
         var previous = new Domain.Assignments.Assignment(message.Id, user.UserId, 3, clock.UtcNow.AddMinutes(-1));
-        store.GetActiveAssignmentAsync(message.Id, Arg.Any<CancellationToken>()).Returns(previous);
+        store.GetActiveAssignmentsAsync(message.Id, Arg.Any<CancellationToken>()).Returns([previous]);
         ConfigureAssignment(store, access, message, [], 2, Permissions.ReviewLevel1);
         AuditEvent? audit = null;
         store.When(x => x.AddAudit(Arg.Any<AuditEvent>())).Do(x => audit = x.Arg<AuditEvent>());
@@ -247,10 +249,50 @@ public sealed class AssignmentHandlerTests
         await store.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public async Task InvalidRequestedLevelCannotWrite(int level)
+    {
+        var (store, access, user, clock, correlation) = Dependencies();
+        var message = new Message(1, 1, 1, 1, clock.UtcNow);
+        ConfigureAssignment(store, access, message, [], 2, Permissions.ReviewLevel1);
+        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
+            new AssignmentCoordinator(store, clock), new InlineTransactions(),
+            new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
+        await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1, new(2, level), TestContext.Current.CancellationToken));
+        store.DidNotReceive().AddAssignment(Arg.Any<Domain.Assignments.Assignment>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FutureLevelRequiresItsOwnPermission(bool permitted)
+    {
+        var (store, access, user, clock, correlation) = Dependencies();
+        var message = new Message(1, 1, 1, 1, clock.UtcNow);
+        ConfigureAssignment(store, access, message, [], 2, Permissions.ReviewLevel1);
+        access.CheckAsync(2, 1, Arg.Any<IReadOnlyList<int>>(), Permissions.ReviewLevel3, Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionCheck(false, true, permitted));
+        var handler = new AssignMessageHandler(store, access, new AssignMessageValidator(), user, correlation,
+            new AssignmentCoordinator(store, clock), new InlineTransactions(),
+            new MessageAuthorizationService(store, access, user, correlation, NullLogger<MessageAuthorizationService>.Instance));
+        if (permitted)
+        {
+            await handler.HandleAsync(1, new(2, 3), TestContext.Current.CancellationToken);
+            store.Received(1).AddAssignment(Arg.Is<Domain.Assignments.Assignment>(a => a.Level == 3 && a.AssignedTo == 2));
+        }
+        else
+            await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1, new(2, 3), TestContext.Current.CancellationToken));
+        Assert.Null(message.CurrentAssigneeId);
+        Assert.Equal(MessageState.New, message.State);
+    }
+
     private static (IORPStore Store, IUserAuthorizationQueries Access, ICurrentUser User, IClock Clock,
         ICorrelationContext Correlation) Dependencies()
     {
         var store = Substitute.For<IORPStore>();
+        store.GetActiveAssignmentsAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns([]);
         store.FindWorkflowAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
             new WorkflowDefinition(Guid.NewGuid().ToString("N"), "Default").AddStep(1, 1).AddStep(2, 2).AddStep(3, 3));
         var access = Substitute.For<IUserAuthorizationQueries>();

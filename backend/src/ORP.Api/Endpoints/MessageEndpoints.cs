@@ -21,7 +21,7 @@ public static class MessageEndpoints
         var group = api.MapGroup("/messages").WithTags("Message");
         group.MapGet("/state-counts", GetStateCounts)
             .WithName(nameof(GetStateCounts)).WithSummary("Get accessible message counts by state.")
-            .WithDescription("Returns items for every state, including zeros, with count and a messageType/count breakdown, and total with the same count/breakdown structure summed across all states. Counts include only accessible messages. Optional assignmentScope: null (or omission) for all accessible messages, mine for the current assignee or active reviewer. Grid filters do not apply; unsupported assignmentScope values return 400.")
+            .WithDescription("Returns items for every state, including zeros, with count and a messageType/count breakdown, and total with the same count/breakdown structure summed across all states. Counts include only accessible messages. Optional assignmentScope: null (or omission) for all accessible messages, mine for any open level assignment, current assignee or active reviewer. Grid filters do not apply; unsupported assignmentScope values return 400.")
             .Produces<MessageStateCountsDto>().ProducesProblem(400);
         group.MapPost("/grid", GetMessagesGrid)
             .WithName(nameof(GetMessagesGrid)).WithSummary("Load accessible messages with paging, filtering and sorting.")
@@ -29,15 +29,16 @@ public static class MessageEndpoints
             .Produces<PagedResult<MessageGridRowDto>>().ProducesProblem(400);
         group.MapGet("/{id:long}", GetMessage)
             .WithName(nameof(GetMessage)).WithSummary("Get an accessible message.")
-            .Produces<MessageDetailsDto>().ProducesProblem(404);
+            .WithDescription("Reads message details and assignments from one message version, retrying when it changes. Returns 409 if concurrent mutations prevent a consistent read.")
+            .Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{id:long}/view", GetMessageView)
             .WithName(nameof(GetMessageView)).WithSummary("Get a message card with approvals and complete audit history.")
             .WithDescription("Requires message and audit access. Roles are current roles in the message branch and visible departments, not historical roles. Approval levels follow the current workflow. Audit events are ordered oldest first. rawText is the stored body without conversion.")
-            .Produces<MessageViewDto>().ProducesProblem(403).ProducesProblem(404);
+            .Produces<MessageViewDto>().ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{messageId:long}/pdf", GetMessagePdf)
             .WithName(nameof(GetMessagePdf)).WithSummary("Get the PDF for an accessible message.")
             .WithDescription("Returns the message body as a PDF, preserving plain-text spacing and line breaks. Each successful generation records MessagePdfGenerated in the message audit trail.")
-            .Produces(StatusCodes.Status200OK, contentType: "application/pdf").ProducesProblem(404);
+            .Produces(StatusCodes.Status200OK, contentType: "application/pdf").ProducesProblem(404).ProducesProblem(409);
         group.MapPut("/{id:long}/workflow", ChangeMessageWorkflow)
             .WithName(nameof(ChangeMessageWorkflow)).WithSummary("Set the workflow for a message.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
@@ -46,11 +47,12 @@ public static class MessageEndpoints
             .Produces<PagedResult<MessageListItemDto>>().ProducesProblem(400);
         group.MapPost("/{id:long}/assign", AssignMessage)
             .WithName(nameof(AssignMessage)).WithSummary("Assign or change the assignee of a message.")
-            .WithDescription("Checks current permissions, assignment eligibility and message state inside a transaction. Audit records distinguish initial assignment from reassignment.")
+            .WithDescription("Assigns the requested level, including future required levels before prior approval. Omitted level selects the current stage. Checks permissions and eligibility transactionally; assignment does not allow out-of-order approval. Audit includes the level.")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{id:long}/assignment-candidates", GetAssignmentCandidates)
             .WithName(nameof(GetAssignmentCandidates)).WithSummary("Get eligible assignees for a message.")
-            .Produces<IReadOnlyList<AssignmentCandidateDto>>().ProducesProblem(404).ProducesProblem(409);
+            .WithDescription("Optional level selects a required unapproved workflow level; omission selects the current stage. Candidates exclude reviewers reserved for other levels when reuse is disabled.")
+            .Produces<IReadOnlyList<AssignmentCandidateDto>>().ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{id:long}/audit", GetAuditTrail)
             .WithName(nameof(GetAuditTrail)).WithSummary("Get a paged audit trail for a message.")
             .Produces<PagedResult<AuditEventDto>>().ProducesProblem(400).ProducesProblem(404);
@@ -101,7 +103,7 @@ public static class MessageEndpoints
     }
 
     private static Task<IReadOnlyList<AssignmentCandidateDto>> GetAssignmentCandidates(long id,
-        GetAssignmentCandidatesHandler handler, CancellationToken ct) => handler.HandleAsync(id, ct);
+        GetAssignmentCandidatesHandler handler, CancellationToken ct, int? level = null) => handler.HandleAsync(id, ct, level);
 
     private static Task<PagedResult<AuditEventDto>> GetAuditTrail(long id, GetAuditTrailHandler handler,
         CancellationToken ct, int skip = 0, int take = 100) =>

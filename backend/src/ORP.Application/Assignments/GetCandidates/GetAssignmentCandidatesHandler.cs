@@ -9,20 +9,20 @@ public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries q
     MessageAuthorizationService authorization)
 {
     public async Task<IReadOnlyList<AssignmentCandidateDto>> HandleAsync(long messageId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int? level = null)
     {
         var access = await authorization.RequireAsync(messageId, Permissions.MessageAssign, cancellationToken);
         var message = access.Message;
-        var reviewLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)
-            ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
         var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, cancellationToken)
             ?? throw new ResourceNotFoundException("Workflow was not found.");
-        if (!workflow.IsActive || !workflow.RequiredLevels().Contains(reviewLevel))
-            throw new DomainRuleViolationException("This workflow has no assignable confirmation at the current level.");
+        var reviewLevel = ReviewAssignmentRules.RequireAssignableLevel(message, workflow, access.Reviews, level);
+        var assignments = await store.GetActiveAssignmentsAsync(message.Id, cancellationToken);
         var source = access.Source;
         var reviews = access.Reviews;
         return await queries.GetEligibleAsync(source.BranchId, message.ProcessingDepartmentIds, reviewLevel,
-            workflow.AllowReviewerReuse ? [] : ReviewAssignmentRules.ApprovedReviewerIds(reviews), message.CurrentAssigneeId,
+            ReviewAssignmentRules.ExcludedReviewerIds(workflow, reviews, assignments, reviewLevel),
+            assignments.SingleOrDefault(a => a.Level == reviewLevel && a.EndedAt is null)?.AssignedTo ??
+                (reviewLevel == ReviewAssignmentRules.CurrentLevel(message.State) ? message.CurrentAssigneeId : null),
             cancellationToken);
     }
 }

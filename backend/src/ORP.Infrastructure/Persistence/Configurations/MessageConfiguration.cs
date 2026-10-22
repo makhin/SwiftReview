@@ -77,7 +77,9 @@ public sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignmen
     public void Configure(EntityTypeBuilder<Assignment> builder)
     {
         builder.ToTable("Assignments"); builder.HasKey(x => x.Id);
-        builder.HasIndex(x => x.MessageId).HasFilter("[EndedAt] IS NULL").IsUnique();
+        builder.HasIndex(x => new { x.MessageId, x.Level }).HasFilter("[EndedAt] IS NULL").IsUnique();
+        builder.ToTable(t => t.HasCheckConstraint("CK_Assignments_Level",
+            "([Level] BETWEEN 1 AND 3) AND ([EndedAt] IS NOT NULL OR [Level] IS NOT NULL)"));
         builder.HasOne<Message>().WithMany().HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.AssignedBy).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.AssignedTo).OnDelete(DeleteBehavior.Restrict);

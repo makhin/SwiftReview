@@ -31,7 +31,7 @@ internal static class GridEndpointDescriptions
         Allowed sort fields: id, externalId, sender, receiver, direction, messageType, branchId, state, receivedAt,
         currentAssigneeId, activeReviewId, activeReviewLevel, activeReviewerId, workflowDefinitionId.
         id asc is appended unless specified. Sort fields/directions are case-insensitive.
-        Optional assignmentScope: null (all accessible messages) or mine (current assignee or active reviewer).
+        Optional assignmentScope: null (all accessible messages) or mine (any open level assignment, current assignee or active reviewer).
         Response: items and totalCount after authorization/filtering, before paging. Complete rows retain action flags.
         Invalid values, unknown properties and old skip/take/filter requests return 400 ProblemDetails.
         """;

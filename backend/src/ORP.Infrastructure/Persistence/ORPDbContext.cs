@@ -49,13 +49,16 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
 
     private void EnsureWriteRules()
     {
+        var changedAssignments = ChangeTracker.Entries<Assignment>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(x => x.Entity.MessageId).ToHashSet();
         var changedProcessingScopes = ChangeTracker.Entries<MessageDepartment>()
             .Where(x => x.State == EntityState.Modified && x.Property(d => d.CanProcess).IsModified)
             .Select(x => x.Entity.MessageId).ToHashSet();
         foreach (var entry in ChangeTracker.Entries<Message>().Where(x =>
-                     x.State is EntityState.Unchanged or EntityState.Modified && changedProcessingScopes.Contains(x.Entity.Id)))
+                     x.State is EntityState.Unchanged or EntityState.Modified && (changedProcessingScopes.Contains(x.Entity.Id) || changedAssignments.Contains(x.Entity.Id))))
         {
-            // SQL rowversion belongs to Messages. Updating a child scope must also
+            // SQL rowversion belongs to Messages. Updating child scopes or assignments must also
             // update its parent, even when the workflow ID itself stays the same.
             entry.Property(x => x.WorkflowDefinitionId).IsModified = true;
         }

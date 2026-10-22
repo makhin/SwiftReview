@@ -367,6 +367,40 @@ Each state's `breakdown` contains `{ messageType, count }` entries for accessibl
 its counts sum to the state total. Empty states return `count: 0` and `breakdown: []`.
 These counts do not apply grid filters or assignment scopes.
 
+### Assignments by confirmation level
+
+`POST /api/messages/{id}/assign` accepts `{ "assignedTo": 42, "level": 2 }`.
+Each request assigns or replaces one required, unapproved workflow level. Future
+levels can be assigned before earlier approvals, including while an earlier review
+session is running. Omitting `level` selects the current stage for compatibility.
+`GET /api/messages/{id}/assignment-candidates?level=2` uses the same eligibility
+rules. A level already being reviewed cannot be reassigned.
+
+`GET /api/messages/{id}` includes `assignments`, ordered by level, with `level`,
+`assignedTo` and `assigneeName`. The `/view` approval rows also show future assignees.
+`currentAssigneeId` remains the current stage's executor. `assignmentScope=mine`
+includes all open level assignments in both grid and state counts, within the
+user's existing message access scope. Future assignees cannot approve early.
+
+Approval closes the completed level's assignment and activates the next level's
+preassignment. Without a preassignment, `UntilWorkflowCompleted` retains the
+previous executor on the next level; `PerConfirmation` waits for a new assignment.
+Permissions and reviewer-reuse policy still apply to confirmation. When reviewer
+reuse is disabled, candidates also exclude users reserved for other levels
+(with the existing global-administrator exception).
+
+Undo preserves future assignments; closed assignments are not automatically
+reopened. The retention policy still applies. Cancelling a review keeps its
+assignment; rejection, completion, or an actual workflow/processing-scope change
+closes remaining assignments. Assignment audit events include `reviewLevel`.
+Assignment changes advance the message version even for future levels.
+Message details are reread if that version changes during loading; repeated concurrent
+changes return HTTP 409 instead of combining state and assignments from different versions.
+
+Apply migration `AssignmentsByLevel` before running this version. It maps existing
+open assignments to the current stage and leaves historical levels unknown.
+Rollback refuses messages with multiple open assignments rather than losing them.
+
 ### Grid API
 
 `POST /api/messages/grid` accepts flat JSON controls: `search`, `status`, `messageType`, `direction`, `branch`,

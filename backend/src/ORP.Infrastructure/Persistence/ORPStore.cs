@@ -21,7 +21,7 @@ public sealed class ORPStore(ORPDbContext db, BusinessActionLog businessActions)
     public Task<WorkflowDefinition?> FindWorkflowAsync(int id, CancellationToken ct) => db.WorkflowDefinitions
         .Include(x => x.Steps).SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<List<Review>> GetReviewsAsync(long id, CancellationToken ct) => db.Reviews.Where(x => x.MessageId == id).OrderBy(x => x.Level).ToListAsync(ct);
-    public Task<Assignment?> GetActiveAssignmentAsync(long id, CancellationToken ct) => db.Assignments.SingleOrDefaultAsync(x => x.MessageId == id && x.EndedAt == null, ct);
+    public Task<List<Assignment>> GetActiveAssignmentsAsync(long id, CancellationToken ct) => db.Assignments.Where(x => x.MessageId == id && x.EndedAt == null).ToListAsync(ct);
     public void AddReview(Review x) => db.Reviews.Add(x);
     public void AddAssignment(Assignment x) => db.Assignments.Add(x);
     public void AddAudit(AuditEvent x) => db.AuditEvents.Add(x);

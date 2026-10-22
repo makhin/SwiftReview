@@ -6,7 +6,7 @@ using ORP.Domain.Workflows;
 
 namespace ORP.Application.Abstractions;
 
-public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo);
+public sealed record AssignMessageRequest([property: Range(1, int.MaxValue)] int AssignedTo, [property: Range(1, 3)] int? Level = null);
 public sealed record ChangeMessageWorkflowRequest([property: Range(1, int.MaxValue)] int WorkflowDefinitionId);
 public sealed record ConfirmReviewRequest([property: Range(1, 3)] int Level,
     [property: StringLength(2000)] string? Comment = null);
@@ -24,10 +24,13 @@ public sealed record CurrentUserResponse(int UserId, string UserName, string Dis
     IReadOnlyList<int> Branches, IReadOnlyList<int> Departments, bool IsGlobalAdministrator,
     IReadOnlyList<UserScopeAccess> Scopes);
 
+public sealed record LevelAssignmentDto(int Level, int AssignedTo, string AssigneeName);
+
 public sealed record MessageDetailsDto(long Id, string ExternalId, string MessageType, int BranchId, IReadOnlyList<int> DepartmentIds,
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
     string? Body, MessageDirection? Direction)
 {
+    public IReadOnlyList<LevelAssignmentDto> Assignments { get; init; } = [];
     public string Version { get; init; } = string.Empty;
     public ConfirmationMode ConfirmationMode { get; init; }
     public bool CanConfirm { get; init; }

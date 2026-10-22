@@ -15,6 +15,23 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
     public async Task<MessageDetailsDto?> GetAsync(long id, UserAccess access, CancellationToken ct)
     {
         if (!access.Permissions.Contains(Permissions.MessageView)) return null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var details = await ReadDetailsAsync(id, access, ct);
+            if (details is null) return null;
+            // Assignment/review mutations advance the parent rowversion. Recheck after
+            // all child reads so the response cannot combine different message versions.
+            var version = await Accessible(access).Where(x => x.Id == id)
+                .Select(x => x.RowVersion).SingleOrDefaultAsync(ct);
+            if (version is null) return null;
+            if (details.Version == Convert.ToBase64String(version)) return details;
+        }
+        throw new ConcurrentUpdateException("The message changed while its details were being read. Refresh and try again.",
+            new DbUpdateConcurrencyException("Message version changed during the read."));
+    }
+
+    private async Task<MessageDetailsDto?> ReadDetailsAsync(long id, UserAccess access, CancellationToken ct)
+    {
         var x = await Accessible(access).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (x is null) return null;
         var body = await db.SwiftMessages.AsNoTracking()
@@ -25,6 +42,9 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentIds,
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction)
         {
+            Assignments = await db.Assignments.AsNoTracking().Where(a => a.MessageId == id && a.EndedAt == null)
+                .OrderBy(a => a.Level).Select(a => new LevelAssignmentDto(a.Level!.Value, a.AssignedTo,
+                    db.Users.Where(u => u.Id == a.AssignedTo).Select(u => u.DisplayName).Single())).ToListAsync(ct),
             Version = Convert.ToBase64String(x.RowVersion),
             ConfirmationMode = actions.ConfirmationMode,
             CanConfirm = actions.CanConfirm,

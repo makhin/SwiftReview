@@ -25,6 +25,7 @@ public sealed class WorkflowDirectionTests
     {
         var ct = TestContext.Current.CancellationToken;
         var store = Substitute.For<IORPStore>();
+        store.GetActiveAssignmentsAsync(Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns([]);
         var users = Substitute.For<IUserAuthorizationQueries>();
         var resolver = Substitute.For<IWorkflowResolver>();
         var actor = Substitute.For<ICurrentUser>();
@@ -54,7 +55,7 @@ public sealed class WorkflowDirectionTests
         var authorization = new MessageAuthorizationService(store, users, actor, correlation,
             NullLogger<MessageAuthorizationService>.Instance);
         var handler = new ChangeMessageWorkflowHandler(store, new ChangeMessageWorkflowValidator(), resolver, actor,
-            clock, correlation, new InlineTransactions(), authorization);
+            clock, correlation, new InlineTransactions(), authorization, new ORP.Application.Assignments.AssignmentCoordinator(store, clock));
         if (matches)
         {
             await handler.HandleAsync(1, new ChangeMessageWorkflowRequest(42), ct);

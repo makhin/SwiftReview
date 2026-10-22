@@ -5,8 +5,10 @@ namespace ORP.Domain.Assignments;
 public sealed class Assignment
 {
     private Assignment() { }
-    public Assignment(long messageId, int? assignedBy, int assignedTo, DateTimeOffset createdAt)
+    public Assignment(long messageId, int? assignedBy, int assignedTo, DateTimeOffset createdAt, int level = 1)
     {
+        if (level is < 1 or > 3) throw new ArgumentOutOfRangeException(nameof(level));
+        Level = level;
         MessageId = messageId;
         AssignedBy = assignedBy;
         AssignedTo = assignedTo;
@@ -14,6 +16,7 @@ public sealed class Assignment
     }
 
     public long Id { get; private set; }
+    public int? Level { get; private set; }
     public long MessageId { get; private set; }
     public int? AssignedBy { get; private set; }
     public int AssignedTo { get; private set; }

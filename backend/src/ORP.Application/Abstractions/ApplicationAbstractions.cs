@@ -17,7 +17,7 @@ public interface IORPStore
     Task<MessageSourceDto?> FindMessageSourceAsync(long id, CancellationToken cancellationToken);
     Task<WorkflowDefinition?> FindWorkflowAsync(int id, CancellationToken cancellationToken);
     Task<List<Review>> GetReviewsAsync(long messageId, CancellationToken cancellationToken);
-    Task<Assignment?> GetActiveAssignmentAsync(long messageId, CancellationToken cancellationToken);
+    Task<List<Assignment>> GetActiveAssignmentsAsync(long messageId, CancellationToken cancellationToken);
     void AddReview(Review review);
     void AddAssignment(Assignment assignment);
     void AddAudit(AuditEvent auditEvent);

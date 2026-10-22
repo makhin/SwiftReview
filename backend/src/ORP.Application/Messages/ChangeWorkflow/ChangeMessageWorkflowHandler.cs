@@ -1,4 +1,5 @@
 using FluentValidation;
+using ORP.Application.Assignments;
 using ORP.Domain.Common;
 using ORP.Application.Authorization;
 using ORP.Domain.Identity;
@@ -15,7 +16,8 @@ public sealed class ChangeMessageWorkflowValidator : AbstractValidator<ChangeMes
 
 public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<ChangeMessageWorkflowRequest> validator,
     IWorkflowResolver routing, ICurrentUser user, IClock clock, ICorrelationContext correlation,
-    ITransactionExecutor transactions, MessageAuthorizationService authorization)
+    ITransactionExecutor transactions, MessageAuthorizationService authorization,
+    AssignmentCoordinator assignments)
 {
     public Task HandleAsync(long messageId, ChangeMessageWorkflowRequest request, CancellationToken ct)
         => transactions.ExecuteAsync(async ct =>
@@ -35,6 +37,8 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
             var previousState = message.State;
             var previousProcessing = message.ProcessingDepartmentIds.ToArray();
             message.ChangeWorkflow(workflow, reviews);
+            if (previous != workflow.Id || !previousProcessing.SequenceEqual(resolved.ProcessingDepartmentIds.Order()))
+                await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             message.ApplyRouting(workflow, resolved.ProcessingDepartmentIds);
             if (previous == workflow.Id && previousProcessing.SequenceEqual(message.ProcessingDepartmentIds)) return;
             store.AddAudit(AuditEventFactory.Create(messageId, AuditEventType.MessageWorkflowChanged, user.UserId,

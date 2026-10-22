@@ -29,7 +29,7 @@ using Xunit;
 
 namespace ORP.Importer.SqlTests;
 
-public sealed class ConfirmationSqlTests
+public sealed partial class ConfirmationSqlTests
 {
     [Fact]
     public async Task ConcurrentAssignAndConfirmHasOnlyOneOwnerAndApproval()
@@ -50,12 +50,12 @@ public sealed class ConfirmationSqlTests
         await using var verify = new ORPDbContext(fixture.Options);
         var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
         Assert.Equal(MessageState.WaitingForSecondReview, message.State);
-        var assignment = Assert.Single(await verify.Assignments.ToListAsync(ct));
+        var assignment = Assert.Single(await verify.Assignments.Where(a => a.EndedAt == null).ToListAsync(ct));
         var review = Assert.Single(await verify.Reviews.ToListAsync(ct));
         Assert.Equal(message.CurrentAssigneeId, assignment.AssignedTo);
         Assert.Equal(assignment.AssignedTo, review.ReviewerId);
         Assert.Equal(ReviewStatus.Approved, review.Status);
-        Assert.Equal(1, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.MessageAssigned, ct));
+        Assert.Equal(2, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.MessageAssigned, ct));
         Assert.Equal(1, await verify.AuditEvents.CountAsync(x => x.EventType == AuditEventType.ReviewApproved, ct));
     }
 
@@ -91,7 +91,7 @@ public sealed class ConfirmationSqlTests
     [InlineData("SINGLE_CONFIRMATION", 1, true)]
     [InlineData("DOUBLE_CONFIRMATION", 2, false)]
     [InlineData("DOUBLE_CONFIRMATION", 2, true)]
-    public async Task AssignAndConfirmHttpCompletesWithOneAssignment(string code, int levels, bool assigned)
+    public async Task AssignAndConfirmHttpCompletesWithAssignmentPerLevel(string code, int levels, bool assigned)
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -110,9 +110,9 @@ public sealed class ConfirmationSqlTests
         var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
         Assert.Equal(MessageState.Completed, message.State);
         Assert.Null(message.CurrentAssigneeId);
-        var assignment = Assert.Single(await verify.Assignments.Where(x => x.MessageId == setup.Message).ToListAsync(ct));
-        Assert.Equal(setup.Actor, assignment.AssignedTo);
-        Assert.NotNull(assignment.EndedAt);
+        var assignments = await verify.Assignments.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
+        Assert.Equal(levels, assignments.Count);
+        Assert.All(assignments, a => { Assert.Equal(setup.Actor, a.AssignedTo); Assert.NotNull(a.EndedAt); });
         var reviews = await verify.Reviews.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
         Assert.Equal(levels, reviews.Count);
         Assert.All(reviews, review =>
@@ -122,7 +122,7 @@ public sealed class ConfirmationSqlTests
             Assert.Equal(ReviewStatus.Approved, review.Status);
         });
         var audit = await verify.AuditEvents.Where(x => x.MessageId == setup.Message).ToListAsync(ct);
-        Assert.Single(audit, x => x.EventType == AuditEventType.MessageAssigned);
+        Assert.Equal(levels, audit.Count(x => x.EventType == AuditEventType.MessageAssigned));
         Assert.Equal(levels, audit.Count(x => x.EventType == AuditEventType.ReviewApproved));
         Assert.DoesNotContain(audit, x => x.EventType == AuditEventType.MessageReassigned);
     }
@@ -352,8 +352,8 @@ public sealed class ConfirmationSqlTests
         await using var db = new ORPDbContext(fixture.Options);
         var migrator = db.GetService<IMigrator>();
         var migrations = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
-        Assert.EndsWith("_RequireAssignedReviewer", migrations[^1]);
-        await migrator.MigrateAsync(migrations[^2], ct);
+        var policyIndex = Array.FindIndex(migrations, m => m.EndsWith("_RequireAssignedReviewer"));
+        await migrator.MigrateAsync(migrations[policyIndex - 1], ct);
         await db.Database.ExecuteSqlRawAsync("""
             DELETE rp FROM orp.RolePermissions rp
             JOIN orp.Roles r ON r.Id = rp.RoleId
@@ -587,7 +587,7 @@ public sealed class ConfirmationSqlTests
         var version = Convert.ToBase64String(persisted.RowVersion);
         Assert.Equal(workflowId, persisted.WorkflowDefinitionId);
         Assert.Equal(MessageState.Assigned, persisted.State);
-        Assert.Equal(setup.Actor, persisted.CurrentAssigneeId);
+        Assert.Equal(failAfterSave ? setup.Actor : (int?)null, persisted.CurrentAssigneeId);
         Assert.Equal(failAfterSave, persisted.Departments.Single(x => x.DepartmentId == tfoId).CanProcess);
         Assert.Equal(failAfterSave ? 0 : 1, await verify.AuditEvents.CountAsync(x =>
             x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
@@ -604,7 +604,7 @@ public sealed class ConfirmationSqlTests
         Assert.Equal(version, (await DetailsAsync(verify, setup.Message, access, ct)).Version);
         Assert.Equal(1, await verify.AuditEvents.CountAsync(x =>
             x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
-        await Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct);
+        await Handlers(verify, setup.Actor).Combined.HandleAsync(setup.Message, new(1), ct);
         Assert.Equal(MessageState.WaitingForSecondReview,
             (await DetailsAsync(verify, setup.Message, access, ct)).State);
     }
@@ -618,7 +618,7 @@ public sealed class ConfirmationSqlTests
         var authorization = new MessageAuthorizationService(store, new UserAuthorizationQueries(db), user,
             correlation, NullLogger<MessageAuthorizationService>.Instance);
         return new(store, new ChangeMessageWorkflowValidator(), new WorkflowResolver(db), user,
-            new Clock(), correlation, new TransactionExecutor(db, log), authorization);
+            new Clock(), correlation, new TransactionExecutor(db, log), authorization, new AssignmentCoordinator(store, new Clock()));
     }
 
     private static async Task<MessageDetailsDto> DetailsAsync(ORPDbContext db, long id, UserAccess access, CancellationToken ct) =>

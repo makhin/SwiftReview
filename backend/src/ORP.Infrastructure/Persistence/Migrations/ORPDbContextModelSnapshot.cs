@@ -43,6 +43,9 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("EndedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int?>("Level")
+                        .HasColumnType("int");
+
                     b.Property<long>("MessageId")
                         .HasColumnType("bigint");
 
@@ -52,11 +55,14 @@ namespace ORP.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AssignedTo");
 
-                    b.HasIndex("MessageId")
+                    b.HasIndex("MessageId", "Level")
                         .IsUnique()
                         .HasFilter("[EndedAt] IS NULL");
 
-                    b.ToTable("Assignments", "orp");
+                    b.ToTable("Assignments", "orp", t =>
+                        {
+                            t.HasCheckConstraint("CK_Assignments_Level", "([Level] BETWEEN 1 AND 3) AND ([EndedAt] IS NOT NULL OR [Level] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("ORP.Domain.Auditing.AccessAuditEvent", b =>

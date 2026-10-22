@@ -48,9 +48,7 @@ public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmRevi
         message.Approve(review, workflow, access.Reviews, user.UserId, comment, now);
         ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId,
             reviewingState, message.State, review, now, correlation.CorrelationId, comment);
-        if (message.CurrentAssigneeId is not null &&
-            (workflow.AssignmentRetentionMode == AssignmentRetentionMode.PerConfirmation || message.State == MessageState.Completed))
-            await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
+        await assignments.AfterApprovalAsync(message, review.Level, workflow, user.UserId, correlation.CorrelationId, ct);
         if (message.State == MessageState.Completed)
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId,
                 reviewingState, message.State, review, now, correlation.CorrelationId, comment);

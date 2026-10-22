@@ -102,7 +102,7 @@ public sealed class ConfirmReviewTests
         }
         Assert.Equal(MessageState.Completed, f.Message.State);
         Assert.All(f.Reviews, x => { Assert.Equal(22, x.ReviewerId); Assert.Equal("confirmed", x.Comment); });
-        f.Store.Received(levels * 2 + 2).AddAudit(Arg.Any<AuditEvent>());
+        f.Store.Received(levels * 4).AddAudit(Arg.Any<AuditEvent>());
         Assert.NotNull(f.Assignment.EndedAt);
     }
 
@@ -150,7 +150,8 @@ public sealed class ConfirmReviewTests
         await f.Undo.HandleAsync(1, new(f.Reviews[0].Id), CancellationToken.None);
         Assert.Equal(MessageState.Assigned, f.Message.State);
         Assert.Equal(22, f.Message.CurrentAssigneeId);
-        Assert.Null(f.Assignment.EndedAt);
+        Assert.NotNull(f.Assignment.EndedAt);
+        Assert.Contains(f.AssignmentHistory, a => a.Level == 1 && a.AssignedTo == 22 && a.EndedAt is null);
         f.Actor.UserId.Returns(22);
         await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
         await f.Confirm.HandleAsync(1, new(2), CancellationToken.None);
@@ -245,6 +246,7 @@ public sealed class ConfirmReviewTests
         public Message Message { get; } = new(1, 1, 5, 7, DateTimeOffset.UtcNow);
         public List<Review> Reviews { get; } = [];
         public Assignment Assignment { get; } = new(1, 99, 22, DateTimeOffset.UtcNow);
+        public List<Assignment> AssignmentHistory { get; } = [];
         public AssignmentCoordinator Assignments { get; }
         public MessageAuthorizationService Authorization { get; }
         public ConfirmReviewHandler Confirm { get; }
@@ -267,7 +269,9 @@ public sealed class ConfirmReviewTests
             Store.FindWorkflowAsync(1, Arg.Any<CancellationToken>()).Returns(workflow);
             Store.FindMessageSourceAsync(1, Arg.Any<CancellationToken>()).Returns(new MessageSourceDto(1, "MSG", "TYPE", 5, [7], DateTimeOffset.UtcNow, "", "", MessageDirection.Incoming));
             Store.GetReviewsAsync(1, Arg.Any<CancellationToken>()).Returns(Reviews);
-            Store.GetActiveAssignmentAsync(1, Arg.Any<CancellationToken>()).Returns(Assignment);
+            AssignmentHistory.Add(Assignment);
+            Store.GetActiveAssignmentsAsync(1, Arg.Any<CancellationToken>()).Returns(_ => AssignmentHistory.Where(a => a.EndedAt is null).ToList());
+            Store.When(x => x.AddAssignment(Arg.Any<Assignment>())).Do(call => AssignmentHistory.Add(call.Arg<Assignment>()));
             Store.When(x => x.AddReview(Arg.Any<Review>())).Do(call =>
                 typeof(Review).GetProperty(nameof(Review.Id))!.SetValue(call.Arg<Review>(), (long)Reviews.Count + 1));
             Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())

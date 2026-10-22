@@ -52,7 +52,8 @@ public static class MessageViewAdapter
                     (r.Status == ReviewStatus.Approved || r.Status == ReviewStatus.Rejected))
                 .OrderByDescending(r => r.StartedAt).ThenByDescending(r => r.Id).FirstOrDefault();
             var active = data.Reviews.SingleOrDefault(r => r.Level == level && r.Status == ReviewStatus.InProgress);
-            var assignee = level == currentLevel ? User(active?.ReviewerId ?? message.CurrentAssigneeId) : null;
+            var assignee = User(message.Assignments.SingleOrDefault(a => a.Level == level)?.AssignedTo
+                ?? (level == currentLevel ? active?.ReviewerId ?? message.CurrentAssigneeId : null));
             var approver = User(decision?.ReviewerId);
             return new MessageApprovalDto(level, level switch
             {

@@ -87,7 +87,8 @@ public sealed class MessageGridQueries(ORPDbContext db)
         {
             null => query,
             MessageAssignmentScopes.Mine => query.Where(x =>
-                x.CurrentAssigneeId == access.UserId || x.ActiveReviewerId == access.UserId),
+                x.CurrentAssigneeId == access.UserId || x.ActiveReviewerId == access.UserId ||
+                db.Assignments.Any(a => a.MessageId == x.Id && a.EndedAt == null && a.AssignedTo == access.UserId)),
             _ => throw new FormatException("Unsupported message assignment scope.")
         };
     }

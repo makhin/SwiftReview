@@ -78,9 +78,7 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
             message.Approve(review, workflow, reviews, user.UserId, request.Comment, now);
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
-            if (message.CurrentAssigneeId is not null &&
-                (workflow.AssignmentRetentionMode == AssignmentRetentionMode.PerConfirmation || message.State == Domain.Messages.MessageState.Completed))
-                await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
+            await assignments.AfterApprovalAsync(message, review.Level, workflow, user.UserId, correlation.CorrelationId, ct);
             if (message.State == Domain.Messages.MessageState.Completed)
                 ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId, oldState,
                     message.State, review, now, correlation.CorrelationId, request.Comment);
@@ -110,8 +108,7 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             message.Reject(review, user.UserId, request.Comment, now, access.IsGlobalAdministrator);
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewRejected, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, request.Comment);
-            if (message.CurrentAssigneeId is not null)
-                await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
+            await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
 }
@@ -161,8 +158,7 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
             var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ConfirmationUndone, user.UserId, oldState,
                 message.State, review, now, correlation.CorrelationId, comment);
-            if (message.CurrentAssigneeId is not null && workflow.AssignmentRetentionMode == AssignmentRetentionMode.PerConfirmation)
-                await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
+            await assignments.AfterUndoAsync(message, workflow, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
 }
