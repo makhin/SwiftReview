@@ -17,11 +17,12 @@ internal static class GridEndpointDescriptions
         """;
 
     public const string Messages = """
-        Send JSON: {"search":"","status":"New","messageType":"MT199","branch":1,
+        Send JSON: {"search":"","status":"New","messageType":"MT199","direction":"Incoming","branch":1,
         "dateFrom":"2026-10-01","dateTo":"2026-10-09","page":1,"pageSize":20}.
         Empty/null/omitted text fields mean no restriction. Filters are combined with AND.
         search: up to 100 trimmed characters, contains on externalId OR messageType using SQL Server collation.
         status: case-insensitive MessageState enum name. messageType: exact type string.
+        direction: case-insensitive Incoming or Outgoing; surrounding whitespace is ignored.
         branch: positive integer branch ID (GET /api/branches); omit it or use null for all branches.
         Dates: yyyy-MM-dd in UTC or ISO 8601 timestamps with seconds and Z/offset.
         dateFrom is inclusive; dateTo includes the entire UTC day for date-only values, or the exact timestamp inclusively.

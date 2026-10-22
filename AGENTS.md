@@ -3,6 +3,21 @@
 Before writing, reviewing, or refactoring code, read and follow the repository-local
 `karpathy-guidelines` skill at `skills/karpathy-guidelines/SKILL.md`.
 
+## Branch-specific development scope
+
+- **`custom_grid`: backend only.** Treat the frontend as absent. Do not inspect,
+  modify, start, build, test, lint or typecheck the frontend. Do not run
+  `api:check` or `api:generate`, regenerate frontend contracts, or adapt backend
+  changes to the existing frontend. Frontend code, dependencies and grid-library
+  choices do not constrain backend development in this branch. Run only relevant
+  backend verification, including when HTTP contracts change.
+- **`main`: backend and frontend.** Both are in scope; implement changes and run
+  the relevant verification for each affected part, including frontend contract
+  checks when HTTP contracts change.
+
+These branch-specific rules take precedence over the grid-library, application
+startup and verification instructions below wherever they concern the frontend.
+
 For server-backed DevExtreme grids, keep data loading in `CustomStore` backed by
 `DevExtreme.AspNet.Data`; do not use TanStack Query for grid load operations.
 

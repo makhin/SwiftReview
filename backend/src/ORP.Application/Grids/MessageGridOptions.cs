@@ -16,6 +16,7 @@ public static class MessageGridOptions
         void Add(string field, string op, object value) => filters.Add(Condition(field, op, value));
         if (!string.IsNullOrWhiteSpace(request.Status)) Add("state", "eq", request.Status.Trim());
         if (!string.IsNullOrWhiteSpace(request.MessageType)) Add("messageType", "eq", request.MessageType.Trim());
+        if (!string.IsNullOrWhiteSpace(request.Direction)) Add("direction", "eq", request.Direction.Trim());
         if (request.Branch is { } branch)
         {
             if (branch < 1)

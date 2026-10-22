@@ -369,9 +369,10 @@ These counts do not apply grid filters or assignment scopes.
 
 ### Grid API
 
-`POST /api/messages/grid` accepts flat JSON controls: `search`, `status`, `messageType`, `branch`,
+`POST /api/messages/grid` accepts flat JSON controls: `search`, `status`, `messageType`, `direction`, `branch`,
 `dateFrom`, `dateTo`, `page` (one-based, default 1), `pageSize` (default 20, maximum 500).
 Empty/null text controls impose no filter. Optional sorting and assignment scopes remain supported.
+`direction` accepts `Incoming` or `Outgoing` (case-insensitive, trimmed); invalid values return 400.
 The response is `{ items, totalCount }`; authorization and filters precede counting and paging.
 Old skip/take/filter message requests are rejected. Frontend adaptation is required; generated contracts are unchanged.
 

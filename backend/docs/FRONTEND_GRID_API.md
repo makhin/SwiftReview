@@ -14,7 +14,8 @@ For a complete status, type, branch, date range and paging example, see [Message
 ## Load a page
 
 Messages use the flat controls described in [Message grid sample request](FRONTEND_GRID_SAMPLE.md):
-`search`, `status`, `messageType`, `branch`, `dateFrom`, `dateTo`, `page`, `pageSize`.
+`search`, `status`, `messageType`, `direction`, `branch`, `dateFrom`, `dateTo`, `page`, `pageSize`.
+`direction` accepts `Incoming` or `Outgoing` (case-insensitive, trimmed); omit it or use null/empty text for all directions.
 Empty text controls mean no filter. Page numbers start at 1; pageSize defaults to 20 and accepts 1–500.
 Optional `sort` and `assignmentScope` remain supported. `departments` is not supported in the grid request and returns 400. The old skip/take/filter message body is rejected.
 

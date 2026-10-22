@@ -7,6 +7,7 @@ Send the frontend controls directly as JSON to `POST /api/messages/grid` with au
   "search": "",
   "status": "New",
   "messageType": "MT199",
+  "direction": "",
   "branch": 1,
   "dateFrom": "2026-10-01",
   "dateTo": "2026-10-09",
@@ -35,6 +36,7 @@ const controls = {
   search: "",
   status: "New",
   messageType: "MT199",
+  direction: "", // Incoming or Outgoing; empty means all directions
   branch: londonBranchId, // ID from GET /api/branches
   dateFrom: "2026-10-01",
   dateTo: "2026-10-09",
@@ -56,6 +58,8 @@ const { items, totalCount } = await response.json();
 Use the application's existing authentication setup. The development curl example uses a debug header; production requests use the application's configured authentication.
 
 ## Control values and paging
+
+`direction` accepts `Incoming` or `Outgoing`, ignoring case and surrounding whitespace. Omit it or send null/empty text to include all directions, including messages with unknown direction. Invalid names and numeric values return 400. For example, add `"direction": "Incoming"` to restrict the sample to incoming messages.
 
 All text controls may be omitted, null or empty to clear them. Filters combine with AND. `search` accepts up to 100 trimmed characters and performs contains matching on external ID or message type using SQL Server collation. `status` is a state name, `messageType` is an exact type, and `branch` is a positive integer ID from the branch lookup; omit it or use null for all branches. Send `page` and `pageSize` as JSON numbers.
 
