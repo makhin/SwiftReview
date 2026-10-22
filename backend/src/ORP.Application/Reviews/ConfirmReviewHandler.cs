@@ -1,3 +1,4 @@
+using ORP.Domain.Assignments;
 using FluentValidation;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
@@ -22,17 +23,24 @@ public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmRevi
     ICurrentUser user, IClock clock, ICorrelationContext correlation, AssignmentCoordinator assignments,
     ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task HandleAsync(long messageId, ConfirmReviewRequest request, CancellationToken cancellationToken) =>
-        transactions.ExecuteAsync(ct => HandleInTransactionAsync(messageId, request, ct), cancellationToken);
-
-    // The caller must own the transaction; shared with assign-and-confirm.
-    internal async Task HandleInTransactionAsync(long messageId, ConfirmReviewRequest request, CancellationToken ct)
+    public async Task HandleAsync(long messageId, ConfirmReviewRequest request, CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(request, ct);
-        var access = await authorization.RequireAsync(messageId,
-            MessageAuthorizationService.ReviewPermission(request.Level), ct, ownershipRequirement: MessageActionOwnership.Assignee);
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        await transactions.ExecuteAsync(async ct =>
+        {
+            var access = await authorization.RequireAsync(messageId,
+                ReviewAssignmentRules.PermissionForLevel(request.Level), ct, ownershipRequirement: MessageActionOwnership.Assignee);
+            var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, access.Message.WorkflowDefinitionId, ct);
+            await ApplyAsync(access, workflow, await store.GetActiveAssignmentsAsync(messageId, ct), request, ct);
+        }, cancellationToken);
+    }
+
+    // The caller owns validation, authorization and the transaction.
+    internal async Task ApplyAsync(AuthorizedMessage access, WorkflowDefinition workflow,
+        List<Assignment> activeAssignments, ConfirmReviewRequest request, CancellationToken ct)
+    {
         var message = access.Message;
-        var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+        var messageId = message.Id;
         if (workflow.ConfirmationMode != ConfirmationMode.Immediate)
             throw new DomainRuleViolationException("This workflow does not use immediate confirmations.");
         var now = clock.UtcNow;
@@ -48,7 +56,7 @@ public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmRevi
         message.Approve(review, workflow, access.Reviews, user.UserId, comment, now);
         ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewApproved, user.UserId,
             reviewingState, message.State, review, now, correlation.CorrelationId, comment);
-        await assignments.AfterApprovalAsync(message, review.Level, workflow, user.UserId, correlation.CorrelationId, ct);
+        await assignments.AfterApprovalAsync(message, review.Level, workflow, user.UserId, correlation.CorrelationId, ct, activeAssignments);
         if (message.State == MessageState.Completed)
             ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.MessageCompleted, user.UserId,
                 reviewingState, message.State, review, now, correlation.CorrelationId, comment);

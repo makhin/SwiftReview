@@ -21,11 +21,10 @@ public sealed class MessageGridQueries(ORPDbContext db)
 
     public async Task<PagedResult<MessageGridRowDto>> LoadAsync(MessageGridRequest request, UserAccess access, CancellationToken ct)
     {
-        var options = GridQuery<MessageReadRow>.Create(MessageGridOptions.Create(request), GridFields.Messages, 500, 5, new SortClause("receivedAt", "desc"));
+        var options = MessageGridOptions.Create(request);
         var query = AccessibleMessages(access, request.AssignmentScope);
         query = options.Filter(query);
         var count = await query.CountAsync(ct);
-        var undoCandidates = db.ReadUndoCandidates(access);
         var rows = options.Page(query)
             .Select(x => new MessageGridRowDto
             {
@@ -59,8 +58,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
                             view.DepartmentId == role.DepartmentId && view.Role.Permissions.Any(grant =>
                                 grant.Permission.Name == Permissions.MessageView)) &&
                         role.Role.Permissions.Any(grant => grant.Permission.Name == Permissions.WorkflowManage))),
-                UndoReviewId = undoCandidates.Where(candidate => candidate.MessageId == x.Id)
-                    .Select(candidate => (long?)candidate.ReviewId).FirstOrDefault(),
+                UndoReviewId = null,
                 RequiredReviewLevels = db.WorkflowSteps
                     .Where(step => step.WorkflowDefinitionId == x.WorkflowDefinitionId && step.Required)
                     .OrderBy(step => step.Order)
@@ -76,6 +74,7 @@ public sealed class MessageGridQueries(ORPDbContext db)
             item.CanConfirm = actions.CanConfirm;
             item.ConfirmationLevel = actions.ConfirmationLevel;
             item.CanReview = actions.CanReview;
+            item.UndoReviewId = actions.UndoReviewId;
         }
         return new(items, count);
     }

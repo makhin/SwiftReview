@@ -86,32 +86,54 @@ public sealed class Message
     }
 
     public Review StartReview(int level, int reviewerId, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
-        DateTimeOffset now, bool preventReviewerReuse = true, bool isGlobalAdministrator = false)
+        DateTimeOffset now, bool isGlobalAdministrator = false)
     {
-        ValidateReviewStart(level, reviewerId, workflow, reviews, preventReviewerReuse, isGlobalAdministrator);
+        ValidateReviewStart(level, reviewerId, workflow, reviews, isGlobalAdministrator);
         State = MessageStateTransitions.StartReview(State, level);
         return new Review(Id, level, reviewerId, now);
     }
 
     public void ValidateReviewStart(int level, int reviewerId, WorkflowDefinition workflow,
-        IReadOnlyCollection<Review> reviews, bool preventReviewerReuse = true, bool isGlobalAdministrator = false)
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false)
     {
-        EnsureWorkflow(workflow);
-        if (workflow.ConfirmationMode == ConfirmationMode.None)
-            throw new DomainRuleViolationException("This workflow has no confirmations.");
-        if (workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null)
-            throw new DomainRuleViolationException("Assign the message before confirming it.");
-        if (CurrentAssigneeId != reviewerId)
-            throw new DomainRuleViolationException("Only the assigned reviewer can start the review.");
-        var expected = MessageReviewRules.ExpectedLevel(workflow, reviews);
-        if (expected != level) throw new DomainRuleViolationException($"Review level {level} is not currently active.");
-        if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
-            throw new DomainRuleViolationException("This review level has already been started.");
-        if (!isGlobalAdministrator && preventReviewerReuse && !workflow.AllowReviewerReuse && reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved))
-            throw new DomainRuleViolationException("Four-eyes principle: a reviewer cannot be reused.");
-
-        _ = MessageStateTransitions.StartReview(State, level);
+        if (GetReviewStartError(level, reviewerId, workflow, reviews, isGlobalAdministrator) is { } error)
+            throw new DomainRuleViolationException(error);
     }
+
+    public string? GetReviewStartError(int level, int reviewerId, WorkflowDefinition workflow,
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false)
+    {
+        if (WorkflowError(workflow) is { } workflowError) return workflowError;
+        if (workflow.ConfirmationMode == ConfirmationMode.None) return "This workflow has no confirmations.";
+        if (workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null)
+            return "Assign the message before confirming it.";
+        if (CurrentAssigneeId != reviewerId) return "Only the assigned reviewer can start the review.";
+        if (MessageReviewRules.ExpectedLevel(workflow, reviews) != level)
+            return $"Review level {level} is not currently active.";
+        if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
+            return "This review level has already been started.";
+        if (!ReviewerAllowed(reviewerId, workflow, reviews, isGlobalAdministrator))
+            return "Four-eyes principle: a reviewer cannot be reused.";
+        return State != MessageState.New && State.AssignableReviewLevel() == level
+            ? null : $"Action 'StartReview' is not allowed while message is in state '{State}'.";
+    }
+
+    // Session actions retain their existing participation restrictions, including administrator overrides.
+    public bool CanParticipateInReview(int level, int reviewerId, WorkflowDefinition workflow,
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator) => isGlobalAdministrator ||
+        (State != MessageState.New && State.ReviewLevel() == level && ReviewerAllowed(reviewerId, workflow, reviews, false));
+
+    public bool CanResumeReview(int level, int reviewerId, WorkflowDefinition workflow,
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false) =>
+        WorkflowError(workflow) is null && workflow.ConfirmationMode == ConfirmationMode.ReviewSession &&
+        State.IsReviewInProgress() && State.ReviewLevel() == level && CurrentAssigneeId == reviewerId &&
+        reviews.Any(r => r.Status == ReviewStatus.InProgress && r.Level == level && r.ReviewerId == reviewerId) &&
+        ReviewerAllowed(reviewerId, workflow, reviews, isGlobalAdministrator);
+
+    private static bool ReviewerAllowed(int reviewerId, WorkflowDefinition workflow,
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator) =>
+        isGlobalAdministrator || workflow.AllowReviewerReuse ||
+        !reviews.Any(x => x.ReviewerId == reviewerId && x.Status == ReviewStatus.Approved);
 
     public void Approve(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
         int actorId, string? comment, DateTimeOffset now)
@@ -151,21 +173,37 @@ public sealed class Message
     public Review? UndoLastApproval(Review review, WorkflowDefinition workflow,
         IReadOnlyCollection<Review> reviews, int actorId, DateTimeOffset now, bool isGlobalAdministrator = false)
     {
-        EnsureWorkflow(workflow);
-        if (review.MessageId != Id || !reviews.Contains(review)) throw new DomainRuleViolationException("Review does not belong to this message.");
-        var decision = MessageReviewRules.CheckUndo(workflow, reviews, review, actorId, isGlobalAdministrator);
-        if (decision.ActiveReview is not null && decision.ActiveReview.MessageId != Id)
-            throw new DomainRuleViolationException("Only the active next workflow step can be cancelled by undo.");
-        var target = MessageStateTransitions.Undo(State, review.Level, decision.NextLevel, decision.ActiveReview?.Level);
-        decision.ActiveReview?.Cancel(now);
+        if (GetUndoError(review, workflow, reviews, actorId, isGlobalAdministrator) is { } error)
+            throw new DomainRuleViolationException(error);
+        var activeReview = reviews.SingleOrDefault(x => x.Status == ReviewStatus.InProgress);
+        var nextLevel = workflow.RequiredLevels().FirstOrDefault(level => level > review.Level);
+        var target = MessageStateTransitions.Undo(State, review.Level, nextLevel, activeReview?.Level);
+        activeReview?.Cancel(now);
         review.Undo(now);
         State = target;
-        return decision.ActiveReview;
+        return activeReview;
     }
+
+    public string? GetUndoError(Review review, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
+        int actorId, bool isGlobalAdministrator = false)
+    {
+        if (WorkflowError(workflow) is { } workflowError) return workflowError;
+        if (review.MessageId != Id || !reviews.Contains(review)) return "Review does not belong to this message.";
+        if (MessageReviewRules.UndoError(workflow, reviews, review, actorId, isGlobalAdministrator) is { } policyError)
+            return policyError;
+        var active = reviews.SingleOrDefault(x => x.Status == ReviewStatus.InProgress);
+        if (active is not null && active.MessageId != Id)
+            return "Only the active next workflow step can be cancelled by undo.";
+        var nextLevel = workflow.RequiredLevels().FirstOrDefault(level => level > review.Level);
+        return MessageStateTransitions.UndoError(State, nextLevel, active?.Level);
+    }
+
+    private string? WorkflowError(WorkflowDefinition workflow) =>
+        !workflow.IsActive || workflow.Id != WorkflowDefinitionId
+            ? "The configured workflow is not active for this message." : null;
 
     private void EnsureWorkflow(WorkflowDefinition workflow)
     {
-        if (!workflow.IsActive || workflow.Id != WorkflowDefinitionId)
-            throw new DomainRuleViolationException("The configured workflow is not active for this message.");
+        if (WorkflowError(workflow) is { } error) throw new DomainRuleViolationException(error);
     }
 }

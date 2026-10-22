@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ORP.Application.Abstractions;
+using ORP.Application.Grids;
 using ORP.Application.Messages.Get;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -167,6 +168,7 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
                         approvalMode != UndoApprovalMode.Disabled && (!final || approvalMode == UndoApprovalMode.Latest) &&
                         (caller != "other" || actorMode == UndoActorMode.AnyAuthorizedUser) &&
                         (!active || activeMode == UndoActiveReviewMode.Cancel);
+                    Assert.Equal(allowed ? reviewId : (long?)null, (await h.GridRow(id, actor)).UndoReviewId);
                     if (!allowed)
                         await h.Reject(id, "reviews/undo", new { reviewId }, HttpStatusCode.Conflict, actor);
                     else
@@ -378,6 +380,7 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
     private sealed class Harness(SqlImportDatabase fixture, Factory factory, HttpClient client,
         int[] reviewers, int admin, int branch, int department) : IAsyncDisposable
     {
+        private readonly Dictionary<long, string> references = [];
         public CancellationToken Ct => TestContext.Current.CancellationToken;
         public int[] Reviewers => reviewers;
         public int Admin => admin;
@@ -441,6 +444,7 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
             var message = new Message(source.MessageId, workflow.Id, branch, department, DateTimeOffset.UtcNow);
             if (workflow.ConfirmationMode == ConfirmationMode.None) message.ApplyRouting(workflow, []);
             db.Messages.Add(message); await db.SaveChangesAsync(Ct);
+            references[message.Id] = key;
             return message.Id;
         }
         private async Task<HttpResponseMessage> Send(HttpMethod method, string path, object? body, int? actor)
@@ -457,6 +461,12 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
             return (await response.Content.ReadFromJsonAsync<T>(Json, Ct))!;
         }
         public Task<MessageDetailsDto> Details(long id, int? actor = null) => Get<MessageDetailsDto>($"/api/messages/{id}", actor);
+        public async Task<MessageGridRowDto> GridRow(long id, int actor)
+        {
+            using var response = await Send(HttpMethod.Post, "/api/messages/grid", new { search = references[id] }, actor);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return Assert.Single((await response.Content.ReadFromJsonAsync<PagedResult<MessageGridRowDto>>(Json, Ct))!.Items);
+        }
         public async Task Post(long id, string action, object body, int? actor = null)
         {
             using var response = await Send(HttpMethod.Post, $"/api/messages/{id}/{action}", body, actor);

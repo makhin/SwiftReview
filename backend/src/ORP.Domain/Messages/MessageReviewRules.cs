@@ -1,4 +1,3 @@
-using ORP.Domain.Common;
 using ORP.Domain.Reviews;
 using ORP.Domain.Workflows;
 
@@ -18,14 +17,14 @@ internal static class MessageReviewRules
         return workflow.RequiredLevels().FirstOrDefault(level => !approved.Contains(level));
     }
 
-    public static UndoDecision CheckUndo(WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
+    public static string? UndoError(WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
         Review review, int actorId, bool isGlobalAdministrator)
     {
         var levels = workflow.RequiredLevels();
         var latestApprovedLevel = levels.LastOrDefault(level =>
             reviews.Any(x => x.Level == level && x.Status == ReviewStatus.Approved));
         if (review.Status != ReviewStatus.Approved || latestApprovedLevel == 0 || review.Level != latestApprovedLevel)
-            throw new DomainRuleViolationException("Only the latest approved workflow step can be undone.");
+            return "Only the latest approved workflow step can be undone.";
 
         var activeReview = reviews.SingleOrDefault(x => x.Status == ReviewStatus.InProgress);
         var administratorOverride = isGlobalAdministrator && activeReview is null;
@@ -33,15 +32,14 @@ internal static class MessageReviewRules
         {
             if (workflow.UndoApprovalMode == UndoApprovalMode.Disabled ||
                 (workflow.UndoApprovalMode == UndoApprovalMode.LatestNonFinal && review.Level == levels[^1]))
-                throw new DomainRuleViolationException("The workflow policy does not allow undoing this confirmation.");
+                return "The workflow policy does not allow undoing this confirmation.";
             if (!isGlobalAdministrator && workflow.UndoActorMode == UndoActorMode.OriginalReviewer && review.ReviewerId != actorId)
-                throw new DomainRuleViolationException("Only the reviewer who approved can undo confirmation.");
+                return "Only the reviewer who approved can undo confirmation.";
             if (activeReview is not null && workflow.UndoActiveReviewMode != UndoActiveReviewMode.Cancel)
-                throw new DomainRuleViolationException("The workflow policy blocks undo while a review is active.");
+                return "The workflow policy blocks undo while a review is active.";
         }
 
-        return new UndoDecision(activeReview, levels.FirstOrDefault(level => level > review.Level));
+        return null;
     }
 
-    internal readonly record struct UndoDecision(Review? ActiveReview, int NextLevel);
 }

@@ -33,7 +33,7 @@ public static class MessageEndpoints
             .Produces<MessageDetailsDto>().ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{id:long}/view", GetMessageView)
             .WithName(nameof(GetMessageView)).WithSummary("Get a message card with approvals and complete audit history.")
-            .WithDescription("Requires message and audit access. Roles are current roles in the message branch and visible departments, not historical roles. Approval levels follow the current workflow. Audit events are ordered oldest first. rawText is the stored body without conversion.")
+            .WithDescription("Requires message and audit access. Retries the whole card when the message version changes during reading; returns 409 after repeated changes. Roles are current roles in the message branch and visible departments, not historical roles. Approval levels follow the current workflow. Audit events are ordered oldest first and reflect the history read by the audit query. rawText is the stored body without conversion.")
             .Produces<MessageViewDto>().ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/{messageId:long}/pdf", GetMessagePdf)
             .WithName(nameof(GetMessagePdf)).WithSummary("Get the PDF for an accessible message.")

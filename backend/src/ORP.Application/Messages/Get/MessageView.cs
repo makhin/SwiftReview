@@ -21,21 +21,18 @@ public sealed record MessageViewData(IReadOnlyList<int> Levels, IReadOnlyList<Re
 
 public interface IMessageViewQueries
 {
-    Task<MessageViewData?> GetViewDataAsync(MessageDetailsDto message, UserAccess access, CancellationToken ct);
+    Task<MessageViewDto?> GetAsync(long id, UserAccess access, CancellationToken ct);
 }
 
-public sealed class GetMessageViewHandler(IMessageQueries messages, IMessageViewQueries views,
+public sealed class GetMessageViewHandler(IMessageViewQueries views,
     IUserAccessService users, ICurrentUser current)
 {
     public async Task<MessageViewDto> HandleAsync(long id, CancellationToken ct)
     {
         var access = await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException();
         if (!access.Permissions.Contains(Permissions.AuditView)) throw new UnauthorizedAccessException();
-        var message = await messages.GetAsync(id, access, ct)
+        return await views.GetAsync(id, access, ct)
             ?? throw new ResourceNotFoundException("Message was not found or is outside the user's access scope.");
-        var data = await views.GetViewDataAsync(message, access, ct)
-            ?? throw new ResourceNotFoundException("Message was not found or is outside the user's access scope.");
-        return MessageViewAdapter.Map(message, data);
     }
 }
 

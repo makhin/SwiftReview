@@ -11,26 +11,10 @@ namespace ORP.Application.Assignments;
 
 public static class ReviewAssignmentRules
 {
-    public static int? AssignmentLevelForState(MessageState state) => state switch
-    {
-        MessageState.New or MessageState.Assigned => 1,
-        MessageState.WaitingForSecondReview => 2,
-        MessageState.WaitingForThirdReview => 3,
-        _ => null
-    };
-
-    public static int? CurrentLevel(MessageState state) => state switch
-    {
-        MessageState.FirstReviewInProgress => 1,
-        MessageState.SecondReviewInProgress => 2,
-        MessageState.ThirdReviewInProgress => 3,
-        _ => AssignmentLevelForState(state)
-    };
-
     public static int RequireAssignableLevel(Message message, WorkflowDefinition workflow,
         IReadOnlyCollection<Review> reviews, int? requestedLevel)
     {
-        var current = CurrentLevel(message.State)
+        var current = message.State.ReviewLevel()
             ?? throw new DomainRuleViolationException($"Assignment is not allowed while message is in state '{message.State}'.");
         var level = requestedLevel ?? current;
         if (level is < 1 or > 3) throw new ValidationException("Level must be between 1 and 3.");

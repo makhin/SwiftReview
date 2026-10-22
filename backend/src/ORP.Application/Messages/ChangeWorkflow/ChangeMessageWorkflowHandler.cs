@@ -19,11 +19,12 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
     ITransactionExecutor transactions, MessageAuthorizationService authorization,
     AssignmentCoordinator assignments)
 {
-    public Task HandleAsync(long messageId, ChangeMessageWorkflowRequest request, CancellationToken ct)
-        => transactions.ExecuteAsync(async ct =>
+    public async Task HandleAsync(long messageId, ChangeMessageWorkflowRequest request, CancellationToken ct)
+    {
+        await validator.ValidateAndThrowAsync(request, ct);
+        await transactions.ExecuteAsync(async ct =>
         {
             var access = await authorization.RequireAsync(messageId, Permissions.WorkflowManage, ct);
-            await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var workflow = await store.FindWorkflowAsync(request.WorkflowDefinitionId, ct) ?? throw new ResourceNotFoundException("Workflow was not found.");
             if (access.Source.Direction is null)
@@ -46,4 +47,5 @@ public sealed class ChangeMessageWorkflowHandler(IORPStore store, IValidator<Cha
                 new AuditEventDetailsDto(WorkflowDefinitionId: workflow.Id, PreviousWorkflowDefinitionId: previous), correlation.CorrelationId));
             await store.SaveChangesAsync(ct);
         }, ct);
+    }
 }

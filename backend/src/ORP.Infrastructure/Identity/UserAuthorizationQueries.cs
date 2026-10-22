@@ -28,9 +28,4 @@ public sealed class UserAuthorizationQueries(ORPDbContext db) : IUserAuthorizati
                     r.Role.Permissions.Any(p => p.Permission.Name == permission))))
             .SingleOrDefaultAsync(ct);
 
-    public Task<bool> CanAccessWorkflowAsync(int userId, int workflowId, CancellationToken ct) =>
-        db.DepartmentRoutingRules.AnyAsync(rule => rule.IsActive && rule.WorkflowDefinitionId == workflowId &&
-            db.UserRoles.Any(r => r.UserId == userId && rule.DepartmentId == r.DepartmentId &&
-                (rule.BranchId == null || r.BranchId == rule.BranchId) &&
-                r.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)), ct);
 }

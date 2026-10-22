@@ -23,7 +23,7 @@ internal static class MessageReviewCapabilityQueries
         return messages.ToDictionary(x => x.Id, x =>
             x.RowVersion.SequenceEqual(versions[x.Id])
                 ? ReviewCapabilities.For(x, workflows[x.WorkflowDefinitionId], reviews[x.Id].ToArray(),
-                    x.BranchId!.Value, x.DepartmentIds, access)
+                    x.BranchId!.Value, access)
                 : new ReviewCapabilities(workflows[x.WorkflowDefinitionId].ConfirmationMode, false, null, false));
     }
 }

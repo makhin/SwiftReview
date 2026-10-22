@@ -11,13 +11,12 @@ namespace ORP.Application.Tests;
 public sealed class UndoAuthorizationTests
 {
     [Theory]
-    [InlineData(true, true, true, false, true)]
-    [InlineData(false, true, true, false, false)]
-    [InlineData(true, false, true, false, false)]
-    [InlineData(true, true, false, false, true)]
-    [InlineData(false, false, false, true, true)]
+    [InlineData(true, true, false, true)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, false, true, true)]
     public async Task UndoUsesMessageSnapshotInsteadOfCurrentWorkflowVisibility(
-        bool view, bool permission, bool workflow, bool administrator, bool allowed)
+        bool view, bool permission, bool administrator, bool allowed)
     {
         var ct = TestContext.Current.CancellationToken;
         var store = Substitute.For<IORPStore>();
@@ -31,7 +30,6 @@ public sealed class UndoAuthorizationTests
         store.FindMessageSourceAsync(1, ct).Returns(new MessageSourceDto(1, "MSG", "MT199", 10, [20], DateTimeOffset.UtcNow, "", "", MessageDirection.Incoming));
         store.GetReviewsAsync(1, ct).Returns([]);
         users.CheckAsync(7, 10, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 20 })), Permissions.ReviewUndo, ct).Returns(new UserPermissionCheck(administrator, view, permission));
-        users.CanAccessWorkflowAsync(7, 9, ct).Returns(workflow);
         var service = new MessageAuthorizationService(store, users, actor, correlation, NullLogger<MessageAuthorizationService>.Instance);
         if (allowed)
         {

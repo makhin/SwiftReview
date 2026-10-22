@@ -1,25 +1,28 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using ORP.Infrastructure.Persistence;
 using ORP.Application.Grids;
 using ORP.Domain.Messages;
 using Xunit;
 
-namespace ORP.Application.Tests;
+namespace ORP.Importer.Tests;
 
 public sealed class MessageGridOptionsTests
 {
-    private static GridQuery<MessageGridRowDto> Prepare(MessageGridRequest request) =>
-        GridQuery<MessageGridRowDto>.Create(MessageGridOptions.Create(request), GridFields.Messages, 500, 5, new("receivedAt", "desc"));
+    private static MessageGridOptions Prepare(MessageGridRequest request) =>
+        MessageGridOptions.Create(request);
 
-    private static MessageGridRowDto Row(long id, string date, int branch = 1, string type = "MT199", string externalId = "TEST",
+    private static MessageReadRow Row(long id, string date, int branch = 1, string type = "MT199", string externalId = "TEST",
         string sender = "SENDER", string receiver = "RECEIVER", MessageDirection? direction = null) => new()
     {
         Id = id, ExternalId = externalId, MessageType = type, BranchId = branch, DepartmentIds = [1],
-        BranchName = "Paris", DepartmentNames = "CS", CurrentAssigneeName = null,
+        BranchName = "Paris", DepartmentNames = ["CS"], CurrentAssigneeName = null,
         ActiveReviewerName = null, WorkflowDefinitionName = "Default",
         Sender = sender, Receiver = receiver,
         State = MessageState.New, ReceivedAt = DateTimeOffset.Parse(date), Direction = direction,
         CurrentAssigneeId = null, ActiveReviewId = null, ActiveReviewLevel = null, ActiveReviewerId = null,
-        UndoReviewId = null, WorkflowDefinitionId = 1, CanReview = false, CanChangeWorkflow = false, RequiredReviewLevels = []
+        WorkflowDefinitionId = 1
     };
 
     [Fact]
@@ -28,10 +31,10 @@ public sealed class MessageGridOptionsTests
         var request = JsonSerializer.Deserialize<MessageGridRequest>("""
             {"search":"","status":"","messageType":"","branch":null,"dateFrom":"","dateTo":"","page":1,"pageSize":20}
             """, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-        Assert.Null(MessageGridOptions.Create(request).Filter);
-        Assert.Equal(0, MessageGridOptions.Create(new()).Skip);
-        Assert.Equal(20, MessageGridOptions.Create(new()).Take);
-        Assert.Null(MessageGridOptions.Create(new(" ", " ", " ", null, " ", " ")).Filter);
+        var rows = Enumerable.Range(1, 25).Select(id => Row(id, "2026-10-09T12:00:00Z")).AsQueryable();
+        Assert.Equal(25, Prepare(request).Filter(rows).Count());
+        Assert.Equal(Enumerable.Range(1, 20).Select(id => (long)id), Prepare(request).Page(rows).Select(x => x.Id));
+        Assert.Equal(25, Prepare(new(" ", " ", " ", null, " ", " ")).Filter(rows).Count());
         foreach (var json in new[] { "{\"skip\":0}", "{\"filter\":null}", "{\"page\":\"1\"}", "{\"branch\":\"1\"}", "{\"branch\":\"\"}", "{\"branch\":1.5}", "{\"branch\":2147483648}", "{\"departments\":[1]}", "{\"departments\":null}" })
             Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<MessageGridRequest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     }
@@ -43,7 +46,8 @@ public sealed class MessageGridOptionsTests
         {
             var request = JsonSerializer.Deserialize<MessageGridRequest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
             Assert.Null(request.Branch);
-            Assert.Null(MessageGridOptions.Create(request).Filter);
+            Assert.Equal(2, Prepare(request).Filter(new[] { Row(1, "2026-10-09T12:00:00Z", branch: 1),
+                Row(2, "2026-10-09T12:00:00Z", branch: 2) }.AsQueryable()).Count());
         }
         foreach (var branch in new[] { 1, int.MaxValue })
         {
@@ -80,7 +84,8 @@ public sealed class MessageGridOptionsTests
     {
         var request = JsonSerializer.Deserialize<MessageGridRequest>(
             JsonSerializer.Serialize(new { direction }), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-        Assert.Null(MessageGridOptions.Create(request).Filter);
+        Assert.Equal(2, Prepare(request).Filter(new[] { Row(1, "2026-10-09T12:00:00Z", branch: 1),
+                Row(2, "2026-10-09T12:00:00Z", branch: 2) }.AsQueryable()).Count());
     }
 
     [Theory]
@@ -175,5 +180,44 @@ public sealed class MessageGridOptionsTests
         foreach (var scope in new string?[] { null, "mine" }) Prepare(new(AssignmentScope: scope));
         Prepare(new(PageSize: 500));
         Assert.Throws<FormatException>(() => Prepare(new(Sort: [new("unknown", "asc")])));
+    }
+    [Fact]
+    public void FlatMessageControlsTranslateToParameterizedSql()
+    {
+        var compilations = 0;
+        using var db = CreateContext(() => compilations++);
+        string Sql(string search, int branch)
+        {
+            var options = MessageGridOptions.Create(new(Search: search, Status: "New", MessageType: "MT199",
+                Branch: branch, DateFrom: "2026-10-01", DateTo: "2026-10-09", Page: 2, PageSize: 5));
+            return options.Page(options.Filter(db.Set<MessageReadRow>())).ToQueryString();
+        }
+        var first = Sql("Alice", 1);
+        var second = Sql("Bob", 2);
+        Assert.Equal(1, compilations);
+        Assert.Equal(Statement(first), Statement(second));
+        Assert.Contains(" OR ", first);
+        Assert.Contains("OFFSET", first);
+        Assert.Contains("FETCH NEXT", first);
+        Assert.DoesNotContain("Alice", Statement(first));
+    }
+
+    [Fact]
+    public async Task AdminSearchLengthIsValidatedBeforeDatabaseAccess()
+    {
+        using var db = new ORPDbContext(new DbContextOptionsBuilder<ORPDbContext>()
+            .UseSqlServer("Server=unused;Database=unused;Integrated Security=true").Options);
+        await Assert.ThrowsAsync<FormatException>(() => new AdminUserGridQueries(db)
+            .LoadAsync(new(Search: new string('a', 101)), TestContext.Current.CancellationToken));
+    }
+
+    private static string Statement(string sql) => sql[sql.IndexOf("SELECT ", StringComparison.Ordinal)..];
+    private static QueryContext CreateContext(Action compiled) => new(new DbContextOptionsBuilder<QueryContext>()
+        .UseSqlServer("Server=localhost;Database=GridQueryParameterizationTests;Integrated Security=true")
+        .EnableServiceProviderCaching(false)
+        .LogTo(_ => compiled(), [CoreEventId.QueryCompilationStarting]).Options);
+    private sealed class QueryContext(DbContextOptions<QueryContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder) => modelBuilder.Entity<MessageReadRow>().HasKey(x => x.Id);
     }
 }

@@ -11,18 +11,21 @@ namespace ORP.Application.Assignments;
 public sealed class AssignmentCoordinator(IORPStore store, IClock clock)
 {
     public async Task AssignAsync(Message message, int assignedTo, int assignedBy, string correlationId,
-        CancellationToken cancellationToken, int? level = null)
+        CancellationToken cancellationToken, int? level = null, List<Assignment>? activeAssignments = null)
     {
-        var targetLevel = level ?? ReviewAssignmentRules.AssignmentLevelForState(message.State)
+        var targetLevel = level ?? message.State.AssignableReviewLevel()
             ?? throw new DomainRuleViolationException("The message has no assignable level.");
         var oldState = message.State;
-        var previous = (await store.GetActiveAssignmentsAsync(message.Id, cancellationToken))
+        activeAssignments ??= await store.GetActiveAssignmentsAsync(message.Id, cancellationToken);
+        var previous = activeAssignments
             .SingleOrDefault(a => a.Level == targetLevel && a.EndedAt is null);
         var previousAssigneeId = previous?.AssignedTo;
         var now = clock.UtcNow;
         previous?.End(now);
-        if (targetLevel == ReviewAssignmentRules.CurrentLevel(message.State)) message.Assign(assignedTo);
-        store.AddAssignment(new Assignment(message.Id, assignedBy, assignedTo, now, targetLevel));
+        if (targetLevel == message.State.ReviewLevel()) message.Assign(assignedTo);
+        var assignment = new Assignment(message.Id, assignedBy, assignedTo, now, targetLevel);
+        store.AddAssignment(assignment);
+        if (!activeAssignments.Contains(assignment)) activeAssignments.Add(assignment);
         store.AddAudit(AuditEventFactory.Create(message.Id,
             previousAssigneeId is null ? AuditEventType.MessageAssigned : AuditEventType.MessageReassigned,
             assignedBy, now, oldState, message.State,
@@ -39,44 +42,44 @@ public sealed class AssignmentCoordinator(IORPStore store, IClock clock)
     }
 
     public async Task UnassignAsync(Message message, int actorId, string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, List<Assignment>? activeAssignments = null)
     {
-        foreach (var assignment in (await store.GetActiveAssignmentsAsync(message.Id, cancellationToken))
+        foreach (var assignment in (activeAssignments ?? await store.GetActiveAssignmentsAsync(message.Id, cancellationToken))
                      .Where(a => a.EndedAt is null))
             End(message, assignment, actorId, correlationId);
         if (message.CurrentAssigneeId is not null) message.Unassign();
     }
 
     public async Task AfterApprovalAsync(Message message, int approvedLevel, WorkflowDefinition workflow,
-        int actorId, string correlationId, CancellationToken ct)
+        int actorId, string correlationId, CancellationToken ct, List<Assignment>? activeAssignments = null)
     {
         if (message.State == MessageState.Completed)
         {
-            await UnassignAsync(message, actorId, correlationId, ct);
+            await UnassignAsync(message, actorId, correlationId, ct, activeAssignments);
             return;
         }
-        var active = await store.GetActiveAssignmentsAsync(message.Id, ct);
+        var active = activeAssignments ?? await store.GetActiveAssignmentsAsync(message.Id, ct);
         var previousAssignee = message.CurrentAssigneeId;
         var completed = active.SingleOrDefault(a => a.Level == approvedLevel && a.EndedAt is null);
         if (completed is not null) End(message, completed, actorId, correlationId);
         if (message.CurrentAssigneeId is not null) message.Unassign();
-        var nextLevel = ReviewAssignmentRules.AssignmentLevelForState(message.State)!.Value;
+        var nextLevel = message.State.AssignableReviewLevel()!.Value;
         var next = active.SingleOrDefault(a => a.Level == nextLevel && a.EndedAt is null);
         if (next is not null) message.Assign(next.AssignedTo);
         else if (workflow.AssignmentRetentionMode == AssignmentRetentionMode.UntilWorkflowCompleted && previousAssignee is int retained)
-            await AssignAsync(message, retained, actorId, correlationId, ct, nextLevel);
+            await AssignAsync(message, retained, actorId, correlationId, ct, nextLevel, active);
     }
 
     public async Task AfterUndoAsync(Message message, WorkflowDefinition workflow,
-        int actorId, string correlationId, CancellationToken ct)
+        int actorId, string correlationId, CancellationToken ct, List<Assignment>? activeAssignments = null)
     {
         var retained = message.CurrentAssigneeId;
         if (retained is not null) message.Unassign();
-        var level = ReviewAssignmentRules.AssignmentLevelForState(message.State)!.Value;
-        var active = await store.GetActiveAssignmentsAsync(message.Id, ct);
+        var level = message.State.AssignableReviewLevel()!.Value;
+        var active = activeAssignments ?? await store.GetActiveAssignmentsAsync(message.Id, ct);
         var assignment = active.SingleOrDefault(a => a.Level == level && a.EndedAt is null);
         if (assignment is not null) message.Assign(assignment.AssignedTo);
         else if (workflow.AssignmentRetentionMode == AssignmentRetentionMode.UntilWorkflowCompleted && retained is int assignee)
-            await AssignAsync(message, assignee, actorId, correlationId, ct, level);
+            await AssignAsync(message, assignee, actorId, correlationId, ct, level, active);
     }
 }

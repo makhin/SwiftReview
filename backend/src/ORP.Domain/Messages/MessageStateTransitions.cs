@@ -37,19 +37,25 @@ internal static class MessageStateTransitions
 
     public static MessageState Undo(MessageState state, int approvedLevel, int nextLevel, int? activeLevel)
     {
+        if (UndoError(state, nextLevel, activeLevel) is { } error) throw new DomainRuleViolationException(error);
+        return WaitingBeforeLevel(approvedLevel);
+    }
+
+    public static string? UndoError(MessageState state, int nextLevel, int? activeLevel)
+    {
         if (activeLevel is not null)
         {
             if (activeLevel != nextLevel || state != ReviewState(activeLevel.Value))
-                throw new DomainRuleViolationException("Only the active next workflow step can be cancelled by undo.");
+                return "Only the active next workflow step can be cancelled by undo.";
         }
         else
         {
             if (state is MessageState.FirstReviewInProgress or MessageState.SecondReviewInProgress or MessageState.ThirdReviewInProgress)
-                throw new DomainRuleViolationException("The active review was not found.");
+                return "The active review was not found.";
             var expected = nextLevel == 0 ? MessageState.Completed : WaitingAfterApproval(nextLevel);
-            if (state != expected) throw Invalid("Undo", state);
+            if (state != expected) return $"Action 'Undo' is not allowed while message is in state '{state}'.";
         }
-        return WaitingBeforeLevel(approvedLevel);
+        return null;
     }
 
     private static void EnsureActiveLevel(MessageState state, int level)

@@ -662,7 +662,7 @@ public sealed partial class ConfirmationSqlTests
             correlation, assignments, transactions, authorization);
         return (confirm,
             new(store, new UndoReviewValidator(), user, clock, correlation, assignments, transactions, authorization),
-            new(new ConfirmReviewValidator(), user, authorization, assign, confirm, transactions));
+            new(new ConfirmReviewValidator(), user, authorization, assign, confirm, transactions, store));
     }
 
     private static DbContextOptions<ORPDbContext> RetryOptions(SqlImportDatabase fixture, IInterceptor interceptor) =>

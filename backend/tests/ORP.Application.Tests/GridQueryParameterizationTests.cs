@@ -65,28 +65,6 @@ public sealed class GridQueryParameterizationTests
         Assert.DoesNotContain("Bob", Statement(secondSql));
     }
 
-    [Fact]
-    public void FlatMessageControlsTranslateToParameterizedSql()
-    {
-        var compilations = 0;
-        using var db = CreateContext(() => compilations++);
-        string Sql(string search, int branch)
-        {
-            var request = MessageGridOptions.Create(new(Search: search, Status: "New", MessageType: "MT199",
-                Branch: branch, DateFrom: "2026-10-01", DateTo: "2026-10-09", Page: 2, PageSize: 5));
-            var options = GridQuery<MessageGridRowDto>.Create(request, GridFields.Messages, 500, 5, new("receivedAt", "desc"));
-            return options.Page(options.Filter(db.Set<MessageGridRowDto>())).ToQueryString();
-        }
-        var first = Sql("Alice", 1);
-        var second = Sql("Bob", 2);
-        Assert.Equal(1, compilations);
-        Assert.Equal(Statement(first), Statement(second));
-        Assert.Contains(" OR ", first);
-        Assert.Contains("OFFSET", first);
-        Assert.Contains("FETCH NEXT", first);
-        Assert.DoesNotContain("Alice", Statement(first));
-    }
-
     private static GridFilter Condition(string field, string op, string json) => new()
     {
         Field = field, Operator = op, Value = JsonSerializer.Deserialize<JsonElement>(json)

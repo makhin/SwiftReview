@@ -123,15 +123,13 @@ public sealed class MessageViewTests
     [Fact]
     public async Task HandlerRequiresAuditPermissionBeforeReadingData()
     {
-        var messages = Substitute.For<IMessageQueries>();
         var views = Substitute.For<IMessageViewQueries>();
         var users = Substitute.For<IUserAccessService>();
         var current = Substitute.For<ICurrentUser>();
         users.GetByIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(new UserAccess(1, "u", "U", false,
             [new(1, 1, [], [Permissions.MessageView])]));
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new GetMessageViewHandler(messages, views, users, current)
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new GetMessageViewHandler(views, users, current)
             .HandleAsync(901, TestContext.Current.CancellationToken));
-        Assert.Empty(messages.ReceivedCalls());
         Assert.Empty(views.ReceivedCalls());
     }
 }

@@ -8,6 +8,7 @@ public sealed class AdminUserGridQueries(ORPDbContext db)
 {
     public async Task<PagedResult<AdminUserGridRow>> LoadAsync(AdminUserGridRequest request, CancellationToken ct)
     {
+        if (request.Search?.Length > 100) throw new FormatException("User search cannot exceed 100 characters.");
         var options = GridQuery<AdminUserGridRow>.Create(request, GridFields.Users, 100, 3, new SortClause("displayName", "asc"));
         var query = db.Users.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(request.Search))

@@ -71,7 +71,7 @@ public sealed class MessageGridRowDto
     public required int? ActiveReviewLevel { get; init; }
     public required int? ActiveReviewerId { get; init; }
     public required string? ActiveReviewerName { get; init; }
-    public required long? UndoReviewId { get; init; }
+    public required long? UndoReviewId { get; set; }
     public required int WorkflowDefinitionId { get; init; }
     public required string WorkflowDefinitionName { get; init; }
     public bool CanReview { get; set; }

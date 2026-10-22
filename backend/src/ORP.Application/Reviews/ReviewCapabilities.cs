@@ -1,6 +1,5 @@
 using ORP.Application.Abstractions;
-using ORP.Application.Authorization;
-using ORP.Domain.Common;
+using ORP.Application.Assignments;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
@@ -10,39 +9,29 @@ namespace ORP.Application.Reviews;
 
 public sealed record ReviewCapabilities(ConfirmationMode ConfirmationMode, bool CanConfirm, int? ConfirmationLevel, bool CanReview)
 {
+    public long? UndoReviewId { get; init; }
+
     public static ReviewCapabilities For(Message message, WorkflowDefinition workflow,
-        IReadOnlyCollection<Review> reviews, int branchId, IReadOnlyList<int> departmentIds, UserAccess access)
+        IReadOnlyCollection<Review> reviews, int branchId, UserAccess access)
     {
+        bool Permitted(string permission) => access.IsGlobalAdministrator || message.ProcessingDepartmentIds.Any(department =>
+            access.CanAccess(branchId, department) && access.HasPermission(permission, branchId, department));
+
         var unavailable = new ReviewCapabilities(workflow.ConfirmationMode, false, null, false);
         if (!workflow.IsActive || workflow.ConfirmationMode == ConfirmationMode.None) return unavailable;
-        var level = message.State switch
-        {
-            MessageState.Assigned or MessageState.FirstReviewInProgress => 1,
-            MessageState.WaitingForSecondReview or MessageState.SecondReviewInProgress => 2,
-            MessageState.WaitingForThirdReview or MessageState.ThirdReviewInProgress => 3,
-            _ => 0
-        };
-        if (level == 0) return unavailable;
-        var permitted = access.IsGlobalAdministrator || message.ProcessingDepartmentIds.Any(department =>
-            access.CanAccess(branchId, department) &&
-            access.HasPermission(MessageAuthorizationService.ReviewPermission(level), branchId, department));
-        if (!permitted) return unavailable;
-        var active = reviews.SingleOrDefault(x => x.Status == ReviewStatus.InProgress);
-        if (active is not null)
-        {
-            var canResume = workflow.ConfirmationMode == ConfirmationMode.ReviewSession && active.Level == level &&
-                active.ReviewerId == access.UserId && message.CurrentAssigneeId == access.UserId &&
-                (access.IsGlobalAdministrator || workflow.AllowReviewerReuse ||
-                    !reviews.Any(x => x.Status == ReviewStatus.Approved && x.ReviewerId == access.UserId));
-            return unavailable with { CanReview = canResume };
-        }
-        try
-        {
-            message.ValidateReviewStart(level, access.UserId, workflow, reviews, isGlobalAdministrator: access.IsGlobalAdministrator);
-            return workflow.ConfirmationMode == ConfirmationMode.Immediate
-                ? unavailable with { CanConfirm = true, ConfirmationLevel = level }
-                : unavailable with { CanReview = true };
-        }
-        catch (DomainRuleViolationException) { return unavailable; }
+        if (Permitted(Permissions.ReviewUndo))
+            unavailable = unavailable with { UndoReviewId = reviews
+                .Where(r => r.Status == ReviewStatus.Approved)
+                .OrderByDescending(r => r.Level)
+                .FirstOrDefault(r => message.GetUndoError(r, workflow, reviews, access.UserId, access.IsGlobalAdministrator) is null)?.Id };
+        if (message.State == MessageState.New || message.State.ReviewLevel() is not { } level ||
+            !Permitted(ReviewAssignmentRules.PermissionForLevel(level))) return unavailable;
+        if (reviews.Any(x => x.Status == ReviewStatus.InProgress))
+            return unavailable with { CanReview = message.CanResumeReview(level, access.UserId, workflow, reviews, access.IsGlobalAdministrator) };
+        if (message.GetReviewStartError(level, access.UserId, workflow, reviews, access.IsGlobalAdministrator) is not null)
+            return unavailable;
+        return workflow.ConfirmationMode == ConfirmationMode.Immediate
+            ? unavailable with { CanConfirm = true, ConfirmationLevel = level }
+            : unavailable with { CanReview = true };
     }
 }

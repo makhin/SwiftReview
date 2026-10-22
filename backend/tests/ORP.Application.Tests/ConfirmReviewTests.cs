@@ -40,7 +40,7 @@ public sealed class ConfirmReviewTests
         var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
         var access = new UserAccess(22, "actor", "Actor", administrator,
             [new(5, 7, [], [Permissions.MessageView, Permissions.ReviewLevel1])]);
-        Assert.False(ReviewCapabilities.For(f.Message, workflow, f.Reviews, 5, [7], access).CanConfirm);
+        Assert.False(ReviewCapabilities.For(f.Message, workflow, f.Reviews, 5, access).CanConfirm);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             f.Confirm.HandleAsync(1, new(1), CancellationToken.None));
         f.Store.DidNotReceive().AddReview(Arg.Any<Review>());
@@ -78,6 +78,7 @@ public sealed class ConfirmReviewTests
         workflow.ConfigureConfirmation(ConfirmationMode.ReviewSession, true,
             AssignmentRetentionMode.UntilWorkflowCompleted, false);
         var review = f.Message.StartReview(1, 22, workflow, f.Reviews, f.Clock.UtcNow);
+        typeof(Review).GetProperty(nameof(Review.Id))!.SetValue(review, 1L);
         f.Reviews.Add(review);
         f.Actor.UserId.Returns(33);
         f.Users.CheckAsync(33, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -146,7 +147,6 @@ public sealed class ConfirmReviewTests
         f.Actor.UserId.Returns(33);
         f.Users.CheckAsync(33, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new UserPermissionCheck(false, true, true));
-        f.Users.CanAccessWorkflowAsync(33, 0, Arg.Any<CancellationToken>()).Returns(true);
         await f.Undo.HandleAsync(1, new(f.Reviews[0].Id), CancellationToken.None);
         Assert.Equal(MessageState.Assigned, f.Message.State);
         Assert.Equal(22, f.Message.CurrentAssigneeId);
@@ -230,10 +230,78 @@ public sealed class ConfirmReviewTests
                 : actionInScope ? [Permissions.ReviewLevel1] : []),
             new(5, 8, [], [Permissions.MessageView, Permissions.ReviewLevel1])
         ]);
-        var capabilities = ReviewCapabilities.For(f.Message, workflow, f.Reviews, 5, [7], access);
+        var capabilities = ReviewCapabilities.For(f.Message, workflow, f.Reviews, 5, access);
         Assert.Equal(expected, capabilities.CanConfirm);
         Assert.False(capabilities.CanReview);
         Assert.Equal(expected ? 1 : (int?)null, capabilities.ConfirmationLevel);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CombinedActionLoadsOneContextAndPreservesSeparateSaves(bool assigned)
+    {
+        var f = new Fixture();
+        if (!assigned)
+        {
+            f.Message.Unassign();
+            f.Assignment.End(f.Clock.UtcNow);
+        }
+        var transactions = new InlineTransactions();
+        var assign = new ORP.Application.Assignments.Assign.AssignMessageHandler(f.Store, f.Users,
+            new ORP.Application.Assignments.Assign.AssignMessageValidator(), f.Actor, f.Correlation,
+            f.Assignments, transactions, f.Authorization);
+        var combined = new AssignAndConfirmReviewHandler(new ConfirmReviewValidator(), f.Actor,
+            f.Authorization, assign, f.Confirm, transactions, f.Store);
+        f.Store.ClearReceivedCalls();
+        await combined.HandleAsync(1, new(1), CancellationToken.None);
+        Assert.Equal(MessageState.Completed, f.Message.State);
+        Assert.Single(f.Reviews);
+        Assert.All(f.AssignmentHistory, a => Assert.NotNull(a.EndedAt));
+        await f.Store.Received(1).FindMessageAsync(1, Arg.Any<CancellationToken>());
+        await f.Store.Received(1).FindMessageSourceAsync(1, Arg.Any<CancellationToken>());
+        await f.Store.Received(1).GetReviewsAsync(1, Arg.Any<CancellationToken>());
+        await f.Store.Received(1).FindWorkflowAsync(1, Arg.Any<CancellationToken>());
+        await f.Store.Received(1).GetActiveAssignmentsAsync(1, Arg.Any<CancellationToken>());
+        await f.Store.Received(assigned ? 1 : 2).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await f.Users.Received(1).CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Permissions.MessageAssign, Arg.Any<CancellationToken>());
+        await f.Users.Received().CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Permissions.ReviewLevel1, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidSessionLevelDoesNotStartTransactionOrReadData()
+    {
+        var f = new Fixture();
+        var transactions = Substitute.For<ITransactionExecutor>();
+        var handler = new StartReviewHandler(f.Store, new StartReviewValidator(), f.Actor, f.Clock,
+            f.Correlation, transactions, f.Authorization);
+        f.Store.ClearReceivedCalls();
+        await Assert.ThrowsAsync<ValidationException>(() => handler.HandleAsync(1, new(4), CancellationToken.None));
+        Assert.Empty(transactions.ReceivedCalls());
+        Assert.Empty(f.Store.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    public async Task UndoCapabilityRequiresViewAndUndoInTheSameProcessingScope(bool viewInScope, bool undoInScope, bool expected)
+    {
+        var f = new Fixture();
+        var workflow = (await f.Store.FindWorkflowAsync(1, CancellationToken.None))!;
+        workflow.ConfigureUndo(UndoApprovalMode.Latest, UndoActorMode.AnyAuthorizedUser, UndoActiveReviewMode.Cancel);
+        await f.Confirm.HandleAsync(1, new(1), CancellationToken.None);
+        var access = new UserAccess(22, "actor", "Actor", false,
+        [
+            new(5, 7, [], viewInScope ? undoInScope ? [Permissions.MessageView, Permissions.ReviewUndo] : [Permissions.MessageView]
+                : undoInScope ? [Permissions.ReviewUndo] : []),
+            new(5, 8, [], [Permissions.MessageView, Permissions.ReviewUndo]),
+            new(6, 7, [], [Permissions.MessageView, Permissions.ReviewUndo])
+        ]);
+        var capabilities = ReviewCapabilities.For(f.Message, workflow, f.Reviews, 5, access);
+        Assert.Equal(expected ? f.Reviews[0].Id : (long?)null, capabilities.UndoReviewId);
+        Assert.Equal(ReviewStatus.Approved, f.Reviews[0].Status);
+        Assert.Equal(MessageState.Completed, f.Message.State);
     }
 
     private sealed class Fixture
@@ -276,7 +344,6 @@ public sealed class ConfirmReviewTests
                 typeof(Review).GetProperty(nameof(Review.Id))!.SetValue(call.Arg<Review>(), (long)Reviews.Count + 1));
             Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns(new UserPermissionCheck(false, true, true));
-            Users.CanAccessWorkflowAsync(22, 0, Arg.Any<CancellationToken>()).Returns(true);
             Assignments = new AssignmentCoordinator(Store, Clock);
             Authorization = new MessageAuthorizationService(Store, Users, Actor, Correlation, NullLogger<MessageAuthorizationService>.Instance);
             Confirm = new(Store, new ConfirmReviewValidator(), Actor, Clock, Correlation, Assignments, new InlineTransactions(), Authorization);

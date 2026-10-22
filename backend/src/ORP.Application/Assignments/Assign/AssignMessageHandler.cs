@@ -1,3 +1,6 @@
+using ORP.Domain.Assignments;
+using ORP.Domain.Workflows;
+using ORP.Domain.Messages;
 using FluentValidation;
 using ORP.Application.Authorization;
 using ORP.Domain.Identity;
@@ -20,19 +23,24 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQuer
     IValidator<AssignMessageRequest> validator, ICurrentUser user, ICorrelationContext correlation,
     AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task HandleAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken) =>
-        transactions.ExecuteAsync(ct => HandleInTransactionAsync(messageId, request, ct), cancellationToken);
-
-    // The caller must own the transaction; shared with assign-and-confirm.
-    internal async Task HandleInTransactionAsync(long messageId, AssignMessageRequest request, CancellationToken ct)
+    public async Task HandleAsync(long messageId, AssignMessageRequest request, CancellationToken cancellationToken)
     {
-        var access = await authorization.RequireAsync(messageId, Permissions.MessageAssign, ct);
-        await validator.ValidateAndThrowAsync(request, ct);
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        await transactions.ExecuteAsync(async ct =>
+        {
+            var access = await authorization.RequireAsync(messageId, Permissions.MessageAssign, ct);
+            var workflow = await store.FindWorkflowAsync(access.Message.WorkflowDefinitionId, ct)
+                ?? throw new ResourceNotFoundException("Workflow was not found.");
+            await ApplyAsync(access, workflow, await store.GetActiveAssignmentsAsync(messageId, ct), request, ct);
+        }, cancellationToken);
+    }
+
+    // The caller owns validation, authorization and the transaction.
+    internal async Task ApplyAsync(AuthorizedMessage access, WorkflowDefinition workflow,
+        List<Assignment> activeAssignments, AssignMessageRequest request, CancellationToken ct)
+    {
         var message = access.Message;
-        var workflow = await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
-            ?? throw new ResourceNotFoundException("Workflow was not found.");
         var reviewLevel = ReviewAssignmentRules.RequireAssignableLevel(message, workflow, access.Reviews, request.Level);
-        var activeAssignments = await store.GetActiveAssignmentsAsync(message.Id, ct);
         var source = access.Source;
         var target = await accessService.CheckAsync(request.AssignedTo, source.BranchId, message.ProcessingDepartmentIds,
             ReviewAssignmentRules.PermissionForLevel(reviewLevel), ct)
@@ -41,10 +49,10 @@ public sealed class AssignMessageHandler(IORPStore store, IUserAuthorizationQuer
         if (!ReviewAssignmentRules.IsEligible(request.AssignedTo, target,
                 ReviewAssignmentRules.ExcludedReviewerIds(workflow, reviews, activeAssignments, reviewLevel),
                 activeAssignments.SingleOrDefault(a => a.Level == reviewLevel && a.EndedAt is null)?.AssignedTo ??
-                    (reviewLevel == ReviewAssignmentRules.CurrentLevel(message.State) ? message.CurrentAssigneeId : null)))
+                    (reviewLevel == message.State.ReviewLevel() ? message.CurrentAssigneeId : null)))
             throw new ValidationException("The assignee is not eligible to review the message in its current workflow state.");
         await assignments.AssignAsync(message, request.AssignedTo, user.UserId, correlation.CorrelationId,
-            ct, reviewLevel);
+            ct, reviewLevel, activeAssignments);
         await store.SaveChangesAsync(ct);
     }
 }

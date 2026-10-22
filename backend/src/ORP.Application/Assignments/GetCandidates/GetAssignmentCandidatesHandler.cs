@@ -1,3 +1,5 @@
+using ORP.Domain.Messages;
+using ORP.Application.Assignments;
 using ORP.Application.Abstractions;
 using ORP.Application.Authorization;
 using ORP.Domain.Identity;
@@ -22,7 +24,7 @@ public sealed class GetAssignmentCandidatesHandler(IAssignmentCandidateQueries q
         return await queries.GetEligibleAsync(source.BranchId, message.ProcessingDepartmentIds, reviewLevel,
             ReviewAssignmentRules.ExcludedReviewerIds(workflow, reviews, assignments, reviewLevel),
             assignments.SingleOrDefault(a => a.Level == reviewLevel && a.EndedAt is null)?.AssignedTo ??
-                (reviewLevel == ReviewAssignmentRules.CurrentLevel(message.State) ? message.CurrentAssigneeId : null),
+                (reviewLevel == message.State.ReviewLevel() ? message.CurrentAssigneeId : null),
             cancellationToken);
     }
 }

@@ -509,6 +509,21 @@ statement. Development authentication loads identity fields only. Full access sn
 for `/me` and access-management screens. Authorization returns the loaded message, source and reviews
 to the handler, so they are reused within that attempt and reloaded on retry.
 
+Request-shape validation for message mutations runs before the transaction. Permission, ownership
+and workflow checks still run inside it. Assign-and-confirm shares one loaded message, workflow,
+review list and assignment list within an attempt, while checking both required permissions.
+Assignment and confirmation retain their separate saves inside the same outer transaction.
+
+Review start/resume and undo availability use the same domain rules as mutations. The grid evaluates
+these rules for the loaded page; undo policy is not duplicated in a SQL predicate. Its fixed message
+filters use typed LINQ predicates, while the administrative user grid retains its dynamic filters.
+
+The message card (`GET /api/messages/{id}/view`) checks the message version after reading its
+approvals and audit history, retrying the whole card up to three times and returning 409 if it keeps
+changing. This prevents mixed message/assignment/review versions. Audit-only additions such as PDF
+generation do not advance the message version: the card includes the history read by its audit query,
+not a transaction-wide snapshot of every audit addition or current user-role change.
+
 `BusinessActionCommitted` is emitted only after the outer transaction commit is acknowledged.
 Events from failed attempts are discarded. If commit throws (including cancellation or connection
 loss), the outcome is unknown: no success event is emitted and the mutation is not automatically

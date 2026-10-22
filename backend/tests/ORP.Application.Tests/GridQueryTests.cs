@@ -169,7 +169,6 @@ public sealed class GridQueryTests
         Prepare(new(Take: 500));
         PrepareUsers(new(Take: 100, Search: new string('a', 100)));
         Assert.Throws<FormatException>(() => PrepareUsers(new(Take: 101)));
-        Assert.Throws<FormatException>(() => PrepareUsers(new(Search: new string('a', 101))));
         Assert.Throws<FormatException>(() => Prepare(new(Sort: Enumerable.Repeat(new SortClause("id", "asc"), 6).ToArray())));
         Assert.Throws<FormatException>(() => PrepareUsers(new(Sort: Enumerable.Repeat(new SortClause("id", "asc"), 4).ToArray())));
         Assert.Throws<FormatException>(() => Prepare(new(Sort: [new("id", "sideways")])));

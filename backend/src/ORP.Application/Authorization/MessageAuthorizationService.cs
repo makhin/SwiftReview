@@ -20,6 +20,15 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
         var message = await store.FindMessageAsync(messageId, ct) ?? throw new ResourceNotFoundException("Message not found.");
         var source = await store.FindMessageSourceAsync(messageId, ct) ?? throw new ResourceNotFoundException("SWIFT message not found.");
         var reviews = await store.GetReviewsAsync(messageId, ct);
+        return await RequireAsync(new AuthorizedMessage(message, source, reviews, false), permissionName, ct,
+            reviewLevel, ownershipRequirement);
+    }
+
+    // Reuse a context only within the same transaction attempt; permission reads remain fresh.
+    public async Task<AuthorizedMessage> RequireAsync(AuthorizedMessage context, string permissionName, CancellationToken ct,
+        int? reviewLevel = null, MessageActionOwnership ownershipRequirement = MessageActionOwnership.None)
+    {
+        var (message, source, reviews, _) = context;
         var viewOnlyMutation = message.State == MessageState.ViewOnly && permissionName != Permissions.MessageView;
         var currentId = current.UserId;
         var access = await users.CheckAsync(currentId, source.BranchId,
@@ -36,19 +45,6 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
               !reviews.Any(x => x.Status == ReviewStatus.InProgress && x.Level == reviewLevel && x.ReviewerId == currentId))))
             throw new UnauthorizedAccessException("Only the assigned reviewer can confirm the message.");
         if (access.IsGlobalAdministrator) return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
-        var permission = access.HasPermission;
-        var branch = access.CanView;
-        var department = branch;
-        var stateOk = reviewLevel switch
-        {
-            1 => message.State is MessageState.Assigned or MessageState.FirstReviewInProgress,
-            2 => message.State is MessageState.WaitingForSecondReview or MessageState.SecondReviewInProgress,
-            3 => message.State is MessageState.WaitingForThirdReview or MessageState.ThirdReviewInProgress,
-            _ => true
-        };
-        var workflow = reviewLevel is null ? null : await store.FindWorkflowAsync(message.WorkflowDefinitionId, ct)
-            ?? throw new ResourceNotFoundException("Workflow was not found.");
-        var fourEyes = reviewLevel is null || workflow!.AllowReviewerReuse || reviews.All(x => x.Status != ReviewStatus.Approved || x.ReviewerId != currentId);
         var ownership = ownershipRequirement switch
         {
             MessageActionOwnership.ActiveReviewer => reviews.Any(x =>
@@ -57,17 +53,13 @@ public sealed class MessageAuthorizationService(IORPStore store, IUserAuthorizat
             _ => true
         };
 
-        if (permission && branch && stateOk && fourEyes && ownership)
+        if (access.HasPermission && access.CanView && ownership)
             return new AuthorizedMessage(message, source, reviews, access.IsGlobalAdministrator);
 
-        AuthorizationLog.MessageAuthorizationDenied(logger, messageId, currentId, permissionName, reviewLevel,
-            ownershipRequirement.ToString(), permission, branch, department, stateOk, fourEyes, ownership,
+        AuthorizationLog.MessageAuthorizationDenied(logger, message.Id, currentId, permissionName, reviewLevel,
+            ownershipRequirement.ToString(), access.HasPermission, access.CanView, ownership,
             correlation.CorrelationId);
         throw new UnauthorizedAccessException("The current user is not allowed to perform this action.");
     }
 
-    public static string ReviewPermission(int level) => level switch
-    {
-        1 => Permissions.ReviewLevel1, 2 => Permissions.ReviewLevel2, 3 => Permissions.ReviewLevel3, _ => "invalid"
-    };
 }

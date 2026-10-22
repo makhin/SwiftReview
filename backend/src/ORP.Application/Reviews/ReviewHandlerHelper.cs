@@ -15,6 +15,13 @@ internal static class ReviewHandlerHelper
         await store.FindWorkflowAsync(workflowId, cancellationToken)
             ?? throw new ResourceNotFoundException("Workflow was not found.");
 
+    public static void RequireSessionParticipation(Message message, WorkflowDefinition workflow,
+        IReadOnlyCollection<Review> reviews, int level, int actorId, bool isGlobalAdministrator)
+    {
+        if (!message.CanParticipateInReview(level, actorId, workflow, reviews, isGlobalAdministrator))
+            throw new UnauthorizedAccessException("The current user is not allowed to perform this action.");
+    }
+
     public static Review RequireActiveReview(IEnumerable<Review> reviews, long reviewId, int level) =>
         reviews.SingleOrDefault(x => x.Id == reviewId && x.Level == level && x.Status == ReviewStatus.InProgress)
             ?? throw new DomainRuleViolationException("This review attempt is no longer active. Close this window and refresh the message before reviewing again.");

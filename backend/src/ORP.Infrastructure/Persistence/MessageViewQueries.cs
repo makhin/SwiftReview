@@ -1,12 +1,31 @@
 using Microsoft.EntityFrameworkCore;
 using ORP.Application.Abstractions;
 using ORP.Application.Messages.Get;
+using ORP.Domain.Identity;
 
 namespace ORP.Infrastructure.Persistence;
 
 public sealed class MessageViewQueries(ORPDbContext db, IMessageQueries messages) : IMessageViewQueries
 {
-    public async Task<MessageViewData?> GetViewDataAsync(MessageDetailsDto message, UserAccess access, CancellationToken ct)
+    public async Task<MessageViewDto?> GetAsync(long id, UserAccess access, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var message = await messages.GetAsync(id, access, ct);
+            if (message is null) return null;
+            var data = await GetViewDataAsync(message, access, ct);
+            if (data is null) return null;
+            // Cover the whole card, including the review and audit reads after GetAsync.
+            var version = await db.ReadAccessibleMessages(access.UserId, Permissions.AuditView)
+                .Where(x => x.Id == id).Select(x => x.RowVersion).SingleOrDefaultAsync(ct);
+            if (version is null) return null;
+            if (message.Version == Convert.ToBase64String(version)) return MessageViewAdapter.Map(message, data);
+        }
+        throw new ConcurrentUpdateException("The message changed while its card was being read. Refresh and try again.",
+            new DbUpdateConcurrencyException("Message version changed during the card read."));
+    }
+
+    private async Task<MessageViewData?> GetViewDataAsync(MessageDetailsDto message, UserAccess access, CancellationToken ct)
     {
         // Reuse the scoped audit access check and its existing detail filtering. This internal
         // request intentionally reads the full history; the public paged endpoint is unchanged.

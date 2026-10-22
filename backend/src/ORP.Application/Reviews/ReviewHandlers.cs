@@ -34,18 +34,21 @@ public sealed class UndoReviewValidator : AbstractValidator<UndoReviewRequest>
 public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRequest> validator,
     ICurrentUser user, IClock clock, ICorrelationContext correlation, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task<long> HandleAsync(long messageId, StartReviewRequest request, CancellationToken cancellationToken)
-        => transactions.ExecuteAsync(async ct =>
+    public async Task<long> HandleAsync(long messageId, StartReviewRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        return await transactions.ExecuteAsync(async ct =>
         {
-            var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
+            var access = await authorization.RequireAsync(messageId, ReviewAssignmentRules.PermissionForLevel(request.Level),
                 ct, request.Level, MessageActionOwnership.Assignee);
-            await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            ReviewHandlerHelper.RequireSessionParticipation(message, workflow, reviews, request.Level, user.UserId,
+                access.IsGlobalAdministrator);
             workflow.RequireReviewSession();
             var active = reviews.SingleOrDefault(r => r.Level == request.Level && r.Status == ReviewStatus.InProgress);
-            if (active is not null && active.ReviewerId == user.UserId && message.CurrentAssigneeId == user.UserId)
+            if (active is not null && message.CanResumeReview(request.Level, user.UserId, workflow, reviews, access.IsGlobalAdministrator))
                 return active.Id;
             var oldState = message.State;
             var now = clock.UtcNow;
@@ -56,21 +59,25 @@ public sealed class StartReviewHandler(IORPStore store, IValidator<StartReviewRe
             await store.SaveChangesAsync(ct);
             return review.Id;
         }, cancellationToken);
+    }
 }
 
 public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveReviewRequest> validator,
     ICurrentUser user, IClock clock, ICorrelationContext correlation,
     AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task HandleAsync(long messageId, ApproveReviewRequest request, CancellationToken cancellationToken)
-        => transactions.ExecuteAsync(async ct =>
+    public async Task HandleAsync(long messageId, ApproveReviewRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        await transactions.ExecuteAsync(async ct =>
         {
-            var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
+            var access = await authorization.RequireAsync(messageId, ReviewAssignmentRules.PermissionForLevel(request.Level),
                 ct, request.Level, MessageActionOwnership.AssignedReviewer);
-            await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            ReviewHandlerHelper.RequireSessionParticipation(message, workflow, reviews, request.Level, user.UserId,
+                access.IsGlobalAdministrator);
             workflow.RequireReviewSession();
             var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
@@ -84,21 +91,25 @@ public sealed class ApproveReviewHandler(IORPStore store, IValidator<ApproveRevi
                     message.State, review, now, correlation.CorrelationId, request.Comment);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
+    }
 }
 
 public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReviewRequest> validator,
     ICurrentUser user, IClock clock, ICorrelationContext correlation,
     AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task HandleAsync(long messageId, RejectReviewRequest request, CancellationToken cancellationToken)
-        => transactions.ExecuteAsync(async ct =>
+    public async Task HandleAsync(long messageId, RejectReviewRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        await transactions.ExecuteAsync(async ct =>
         {
-            var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
+            var access = await authorization.RequireAsync(messageId, ReviewAssignmentRules.PermissionForLevel(request.Level),
                 ct, request.Level, MessageActionOwnership.ActiveReviewer);
-            await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            ReviewHandlerHelper.RequireSessionParticipation(message, workflow, reviews, request.Level, user.UserId,
+                access.IsGlobalAdministrator);
             workflow.RequireReviewSession();
             if (!workflow.RejectAllowed)
                 throw new DomainRuleViolationException("Rejection is disabled for this workflow.");
@@ -111,20 +122,24 @@ public sealed class RejectReviewHandler(IORPStore store, IValidator<RejectReview
             await assignments.UnassignAsync(message, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
+    }
 }
 
 public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReviewRequest> validator,
     ICurrentUser user, IClock clock, ICorrelationContext correlation, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task HandleAsync(long messageId, CancelReviewRequest request, CancellationToken cancellationToken)
-        => transactions.ExecuteAsync(async ct =>
+    public async Task HandleAsync(long messageId, CancelReviewRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        await transactions.ExecuteAsync(async ct =>
         {
-            var access = await authorization.RequireAsync(messageId, MessageAuthorizationService.ReviewPermission(request.Level),
+            var access = await authorization.RequireAsync(messageId, ReviewAssignmentRules.PermissionForLevel(request.Level),
                 ct, request.Level, MessageActionOwnership.ActiveReviewer);
-            await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
+            ReviewHandlerHelper.RequireSessionParticipation(message, workflow, reviews, request.Level, user.UserId,
+                access.IsGlobalAdministrator);
             workflow.RequireReviewSession();
             var review = ReviewHandlerHelper.RequireActiveReview(reviews, request.ReviewId, request.Level);
             var oldState = message.State;
@@ -134,17 +149,19 @@ public sealed class CancelReviewHandler(IORPStore store, IValidator<CancelReview
                 message.State, review, now, correlation.CorrelationId);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
+    }
 }
 
 public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequest> validator,
     ICurrentUser user, IClock clock, ICorrelationContext correlation,
     AssignmentCoordinator assignments, ITransactionExecutor transactions, MessageAuthorizationService authorization)
 {
-    public Task HandleAsync(long messageId, UndoReviewRequest request, CancellationToken cancellationToken)
-        => transactions.ExecuteAsync(async ct =>
+    public async Task HandleAsync(long messageId, UndoReviewRequest request, CancellationToken cancellationToken)
+    {
+        await validator.ValidateAndThrowAsync(request, cancellationToken);
+        await transactions.ExecuteAsync(async ct =>
         {
             var access = await authorization.RequireAsync(messageId, Permissions.ReviewUndo, ct);
-            await validator.ValidateAndThrowAsync(request, ct);
             var message = access.Message;
             var reviews = access.Reviews;
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);
@@ -161,4 +178,5 @@ public sealed class UndoReviewHandler(IORPStore store, IValidator<UndoReviewRequ
             await assignments.AfterUndoAsync(message, workflow, user.UserId, correlation.CorrelationId, ct);
             await store.SaveChangesAsync(ct);
         }, cancellationToken);
+    }
 }
