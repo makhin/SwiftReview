@@ -23,9 +23,9 @@ public sealed class ImportToApprovalTests
         using var second = env.Client("e2e.second");
         var initial = await DetailsAsync(first, id, ct);
         Assert.Equal("New", initial.GetProperty("state").GetString());
-        Assert.Equal("MT199", initial.GetProperty("messageType").GetString());
-        Assert.Equal("Paris", initial.GetProperty("branchName").GetString());
-        Assert.Equal("CS", initial.GetProperty("departmentNames").GetString());
+        Assert.Equal(env.MessageType, initial.GetProperty("messageType").GetString());
+        Assert.Equal(env.BranchName, initial.GetProperty("branchName").GetString());
+        Assert.Equal(env.DepartmentName, initial.GetProperty("departmentNames").GetString());
         Assert.Equal("Immediate", initial.GetProperty("confirmationMode").GetString());
         await CompleteAsync(env, id, first, second, ct);
         await AssertCompletedAsync(env, id, second, ct);
@@ -40,9 +40,9 @@ public sealed class ImportToApprovalTests
         using var first = env.Client("e2e.first");
         using var second = env.Client("e2e.second");
         await CompleteAsync(env, id, first, second, ct);
-        var before = await SnapshotAsync(env, ct);
+        var before = await SnapshotAsync(env, id, ct);
         Assert.Equal(SaaFileImportResult.AlreadyImported, await env.ImportAsync(ct));
-        Assert.Equal(before, await SnapshotAsync(env, ct));
+        Assert.Equal(before, await SnapshotAsync(env, id, ct));
         await AssertCompletedAsync(env, id, second, ct);
     }
 
@@ -55,10 +55,10 @@ public sealed class ImportToApprovalTests
         using var first = env.Client("e2e.first");
         using var second = env.Client("e2e.second");
         await AssignAsync(first, id, env.FirstReviewerId, ct);
-        var before = await SnapshotAsync(env, ct);
+        var before = await SnapshotAsync(env, id, ct);
         using var denied = await second.PostAsJsonAsync($"/api/messages/{id}/reviews/confirm", new { level = 1 }, ct);
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
-        Assert.Equal(before, await SnapshotAsync(env, ct));
+        Assert.Equal(before, await SnapshotAsync(env, id, ct));
         await ConfirmAsync(first, id, 1, ct);
         await AssignAsync(second, id, env.SecondReviewerId, ct);
         await ConfirmAsync(second, id, 2, ct);
@@ -78,10 +78,10 @@ public sealed class ImportToApprovalTests
         await AssignAsync(second, id, env.SecondReviewerId, ct);
         // The current owner has permission for level 1: rejection must come from
         // workflow validation, rather than the ownership check tested above.
-        var before = await SnapshotAsync(env, ct);
+        var before = await SnapshotAsync(env, id, ct);
         using var duplicate = await second.PostAsJsonAsync($"/api/messages/{id}/reviews/confirm", new { level = 1 }, ct);
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
-        Assert.Equal(before, await SnapshotAsync(env, ct));
+        Assert.Equal(before, await SnapshotAsync(env, id, ct));
         await ConfirmAsync(second, id, 2, ct);
         await AssertCompletedAsync(env, id, second, ct);
     }
@@ -90,19 +90,19 @@ public sealed class ImportToApprovalTests
     {
         Assert.Equal(SaaFileImportResult.Imported, await env.ImportAsync(ct));
         await using var db = new ORPDbContext(env.Options);
-        var message = Assert.Single(await db.Messages.Include(m => m.Departments).ToListAsync(ct));
-        var source = Assert.Single(await db.SwiftMessages.ToListAsync(ct));
+        var message = Assert.Single(await db.Messages.Where(m => m.BranchId == env.BranchId).Include(m => m.Departments).ToListAsync(ct));
+        var source = Assert.Single(await db.SwiftMessages.Where(m => m.FilePath == env.FileName).ToListAsync(ct));
         Assert.Equal(source.MessageId, message.Id);
         Assert.Equal(env.WorkflowId, message.WorkflowDefinitionId);
         Assert.Equal(env.BranchId, message.BranchId);
         Assert.Equal(env.DepartmentId, Assert.Single(message.Departments).DepartmentId);
-        Assert.Equal("E2E-APPROVAL", source.ReferenceId);
-        Assert.Equal("MT199", source.MessageType);
+        Assert.Equal(env.Reference, source.ReferenceId);
+        Assert.Equal(env.MessageType, source.MessageType);
         Assert.Equal(MessageDirection.Incoming, source.Direction);
         Assert.Equal("SENDERXX", source.Sender);
         Assert.Equal("RECEIVERXX", source.Receiver);
         Assert.Equal(ImportApprovalEnvironment.Body, source.Body);
-        Assert.Equal(AuditEventType.MessageRegistered, Assert.Single(await db.AuditEvents.ToListAsync(ct)).EventType);
+        Assert.Equal(AuditEventType.MessageRegistered, Assert.Single(await db.AuditEvents.Where(a => a.MessageId == message.Id).ToListAsync(ct)).EventType);
         return message.Id;
     }
 
@@ -117,10 +117,10 @@ public sealed class ImportToApprovalTests
         Assert.Empty(waiting.GetProperty("assignments").EnumerateArray());
         await using (var db = new ORPDbContext(env.Options))
         {
-            var review = Assert.Single(await db.Reviews.ToListAsync(ct));
+            var review = Assert.Single(await db.Reviews.Where(r => r.MessageId == id).ToListAsync(ct));
             Assert.Equal(1, review.Level);
             Assert.Equal(ReviewStatus.Approved, review.Status);
-            Assert.NotNull(Assert.Single(await db.Assignments.ToListAsync(ct)).EndedAt);
+            Assert.NotNull(Assert.Single(await db.Assignments.Where(a => a.MessageId == id).ToListAsync(ct)).EndedAt);
         }
         await AssignAsync(second, id, env.SecondReviewerId, ct);
         await ConfirmAsync(second, id, 2, ct);
@@ -163,17 +163,17 @@ public sealed class ImportToApprovalTests
         Assert.Equal(new[] { "create", "assign", "start", "approve", "assign", "start", "approve", "complete" },
             history.Select(a => a.GetProperty("type").GetString()).Where(t => t != "unassign"));
         await using var db = new ORPDbContext(env.Options);
-        var message = Assert.Single(await db.Messages.ToListAsync(ct));
+        var message = Assert.Single(await db.Messages.Where(m => m.Id == id).ToListAsync(ct));
         Assert.Equal(MessageState.Completed, message.State);
         Assert.Null(message.CurrentAssigneeId);
-        var reviews = await db.Reviews.OrderBy(r => r.Level).ToListAsync(ct);
+        var reviews = await db.Reviews.Where(r => r.MessageId == id).OrderBy(r => r.Level).ToListAsync(ct);
         Assert.Equal(new[] { 1, 2 }, reviews.Select(r => r.Level));
         Assert.Equal(new[] { env.FirstReviewerId, env.SecondReviewerId }, reviews.Select(r => r.ReviewerId));
         Assert.All(reviews, r => { Assert.Equal(ReviewStatus.Approved, r.Status); Assert.NotNull(r.CompletedAt); });
-        var assignments = await db.Assignments.OrderBy(a => a.Level).ToListAsync(ct);
+        var assignments = await db.Assignments.Where(a => a.MessageId == id).OrderBy(a => a.Level).ToListAsync(ct);
         Assert.Equal(new[] { env.FirstReviewerId, env.SecondReviewerId }, assignments.Select(a => a.AssignedTo));
         Assert.All(assignments, a => Assert.NotNull(a.EndedAt));
-        var audit = await db.AuditEvents.OrderBy(a => a.Timestamp).ThenBy(a => a.Id).ToListAsync(ct);
+        var audit = await db.AuditEvents.Where(a => a.MessageId == id).OrderBy(a => a.Timestamp).ThenBy(a => a.Id).ToListAsync(ct);
         // Unassignment takes its own timestamp, while confirmation events share
         // the operation's start time. Check its presence separately from this sequence.
         Assert.Equal(new[] { AuditEventType.MessageRegistered, AuditEventType.MessageAssigned,
@@ -189,17 +189,17 @@ public sealed class ImportToApprovalTests
         Assert.Equal(2, audit.Count(a => a.EventType == AuditEventType.ReviewStarted));
     }
 
-    private static async Task<string> SnapshotAsync(ImportApprovalEnvironment env, CancellationToken ct)
+    private static async Task<string> SnapshotAsync(ImportApprovalEnvironment env, long id, CancellationToken ct)
     {
         await using var db = new ORPDbContext(env.Options);
         return JsonSerializer.Serialize(new
         {
-            Messages = await db.Messages.OrderBy(m => m.Id).Select(m => new
+            Messages = await db.Messages.Where(m => m.BranchId == env.BranchId).OrderBy(m => m.Id).Select(m => new
                 { m.Id, m.State, m.CurrentAssigneeId, m.WorkflowDefinitionId, m.RowVersion }).ToListAsync(ct),
-            Sources = await db.SwiftMessages.OrderBy(m => m.MessageId).ToListAsync(ct),
-            Assignments = await db.Assignments.OrderBy(a => a.Id).ToListAsync(ct),
-            Reviews = await db.Reviews.OrderBy(r => r.Id).ToListAsync(ct),
-            Audit = await db.AuditEvents.OrderBy(a => a.Id).Select(a => new
+            Sources = await db.SwiftMessages.Where(m => m.FilePath == env.FileName).OrderBy(m => m.MessageId).ToListAsync(ct),
+            Assignments = await db.Assignments.Where(a => a.MessageId == id).OrderBy(a => a.Id).ToListAsync(ct),
+            Reviews = await db.Reviews.Where(r => r.MessageId == id).OrderBy(r => r.Id).ToListAsync(ct),
+            Audit = await db.AuditEvents.Where(a => a.MessageId == id).OrderBy(a => a.Id).Select(a => new
                 { a.Id, a.MessageId, a.EventType, a.UserId, a.Timestamp, a.OldState, a.NewState, a.DetailsJson, a.ReviewId, a.CorrelationId }).ToListAsync(ct)
         });
     }
