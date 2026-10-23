@@ -18,6 +18,7 @@ internal sealed class ImportApprovalEnvironment : IAsyncDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "orp-e2e-" + Guid.NewGuid().ToString("N"));
     private readonly string connection;
     private ApiFactory? factory;
+    private bool dataCreated;
     private SaaFileImportService importer = null!;
     public DbContextOptions<ORPDbContext> Options { get; }
     public int FirstReviewerId { get; private set; }
@@ -97,6 +98,7 @@ internal sealed class ImportApprovalEnvironment : IAsyncDisposable
         workflow.ConfigureConfirmation(ConfirmationMode.Immediate, false, AssignmentRetentionMode.PerConfirmation, false);
         db.AddRange(branch, department, first, second, role, workflow);
         await db.SaveChangesAsync(ct);
+        dataCreated = true;
         BranchId = branch.Id;
         DepartmentId = department.Id;
         WorkflowId = workflow.Id;
@@ -159,7 +161,26 @@ internal sealed class ImportApprovalEnvironment : IAsyncDisposable
         }
         finally
         {
-            if (Directory.Exists(root)) Directory.Delete(root, true);
+            try
+            {
+                if (dataCreated)
+                {
+                    var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
+                        "Fixtures", "delete-messages-by-id-range.sql"));
+                    script = script.Replace("DECLARE @TestRunId varchar(32) = NULL;", "DECLARE @TestRunId varchar(32) = @RunId;")
+                        .Replace("DECLARE @DryRun bit = 1;", "DECLARE @DryRun bit = 0;");
+                    await using var sql = new SqlConnection(connection);
+                    await sql.OpenAsync();
+                    await using var command = new SqlCommand(script, sql);
+                    command.Parameters.AddWithValue("@RunId", runId);
+                    await command.ExecuteNonQueryAsync();
+                    dataCreated = false;
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
     }
 

@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
+using ORP.Domain.Identity;
 using ORP.Domain.Auditing;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
@@ -84,6 +86,122 @@ public sealed class ImportToApprovalTests
         Assert.Equal(before, await SnapshotAsync(env, id, ct));
         await ConfirmAsync(second, id, 2, ct);
         await AssertCompletedAsync(env, id, second, ct);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task CleanupRemovesAllOwnFixturesAndPreservesEarlierRun(bool useRangeScript, bool import)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var earlier = await ImportApprovalEnvironment.CreateAsync(ct);
+        var earlierId = await ImportAsync(earlier, ct);
+        var before = await SnapshotAsync(earlier, earlierId, ct);
+        var current = await ImportApprovalEnvironment.CreateAsync(ct);
+        await using (current)
+        {
+            if (import)
+            {
+                var id = await ImportAsync(current, ct);
+                using var first = current.Client("e2e.first");
+                using var second = current.Client("e2e.second");
+                await CompleteAsync(current, id, first, second, ct);
+                if (useRangeScript)
+                {
+                    var currentBefore = await SnapshotAsync(current, id, ct);
+                    await RunRangeCleanupAsync(current, id, true, ct);
+                    Assert.Equal(currentBefore, await SnapshotAsync(current, id, ct));
+                    await RunRangeCleanupAsync(current, id, false, ct);
+                    await AssertCleanedAsync(current, ct);
+                }
+            }
+            else
+            {
+                // A failed/ignored import can leave a disposition without a message.
+                await using var db = new ORPDbContext(current.Options);
+                db.IgnoredImportFiles.Add(new IgnoredImportFile { FilePath = current.FileName,
+                    ContentHash = new string('a', 64), IgnoredAtUtc = DateTimeOffset.UtcNow, Reason = "NoDepartmentRule" });
+                await db.SaveChangesAsync(ct);
+            }
+        }
+        await AssertCleanedAsync(current, ct);
+        Assert.Equal(before, await SnapshotAsync(earlier, earlierId, ct));
+        // Verify that the earlier run's directories and permissions still work.
+        using var earlierFirst = earlier.Client("e2e.first");
+        using var earlierSecond = earlier.Client("e2e.second");
+        await CompleteAsync(earlier, earlierId, earlierFirst, earlierSecond, ct);
+        await AssertCompletedAsync(earlier, earlierId, earlierSecond, ct);
+    }
+
+    [Fact]
+    public async Task CleanupRollsBackRatherThanDeleteAnotherRunsRoleGrant()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var earlier = await ImportApprovalEnvironment.CreateAsync(ct);
+        await using var current = await ImportApprovalEnvironment.CreateAsync(ct);
+        var id = await ImportAsync(current, ct);
+        int roleId;
+        await using (var db = new ORPDbContext(current.Options))
+        {
+            roleId = await db.Roles.Where(r => r.Name == current.BranchName).Select(r => r.Id).SingleAsync(ct);
+            db.UserRoles.Add(new UserRole { UserId = earlier.FirstReviewerId, RoleId = roleId,
+                BranchId = earlier.BranchId, DepartmentId = earlier.DepartmentId });
+            await db.SaveChangesAsync(ct);
+        }
+        try
+        {
+            var before = await SnapshotAsync(current, id, ct);
+            var error = await Assert.ThrowsAsync<SqlException>(() => RunRangeCleanupAsync(current, id, false, ct));
+            Assert.Equal(51002, error.Number);
+            Assert.Equal(before, await SnapshotAsync(current, id, ct));
+            await using var verify = new ORPDbContext(current.Options);
+            Assert.True(await verify.UserRoles.AnyAsync(r => r.UserId == earlier.FirstReviewerId && r.RoleId == roleId, ct));
+            Assert.True(await verify.WorkflowDefinitions.AnyAsync(w => w.Id == current.WorkflowId, ct));
+        }
+        finally
+        {
+            // This link was added by this test, not by either fixture.
+            await using var db = new ORPDbContext(current.Options);
+            await db.UserRoles.Where(r => r.UserId == earlier.FirstReviewerId && r.RoleId == roleId
+                && r.BranchId == earlier.BranchId && r.DepartmentId == earlier.DepartmentId).ExecuteDeleteAsync(ct);
+        }
+    }
+
+    private static async Task RunRangeCleanupAsync(ImportApprovalEnvironment env, long id, bool dryRun, CancellationToken ct)
+    {
+        var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "delete-messages-by-id-range.sql"), ct);
+        script = script.Replace("DECLARE @FromId bigint = NULL;", "DECLARE @FromId bigint = @Id;")
+            .Replace("DECLARE @ToId bigint = NULL;", "DECLARE @ToId bigint = @Id;")
+            .Replace("DECLARE @DryRun bit = 1;", $"DECLARE @DryRun bit = {(dryRun ? 1 : 0)};");
+        await using var db = new ORPDbContext(env.Options);
+        await db.Database.OpenConnectionAsync(ct);
+        await using var command = db.Database.GetDbConnection().CreateCommand();
+        command.CommandText = script;
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@Id";
+        parameter.Value = id;
+        command.Parameters.Add(parameter);
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task AssertCleanedAsync(ImportApprovalEnvironment env, CancellationToken ct)
+    {
+        await using var db = new ORPDbContext(env.Options);
+        Assert.False(await db.Messages.AnyAsync(m => m.BranchId == env.BranchId, ct));
+        Assert.False(await db.SwiftMessages.AnyAsync(m => m.FilePath == env.FileName, ct));
+        Assert.False(await db.IgnoredImportFiles.AnyAsync(m => m.FilePath == env.FileName, ct));
+        Assert.False(await db.Branches.AnyAsync(b => b.Id == env.BranchId, ct));
+        Assert.False(await db.Departments.AnyAsync(d => d.Id == env.DepartmentId, ct));
+        Assert.False(await db.Roles.AnyAsync(r => r.Name == env.BranchName, ct));
+        Assert.False(await db.Users.AnyAsync(u => u.Id == env.FirstReviewerId || u.Id == env.SecondReviewerId, ct));
+        Assert.False(await db.WorkflowDefinitions.AnyAsync(w => w.Id == env.WorkflowId, ct));
+        Assert.False(await db.WorkflowSteps.AnyAsync(w => w.WorkflowDefinitionId == env.WorkflowId, ct));
+        Assert.False(await db.DepartmentRoutingRules.AnyAsync(r => r.BranchId == env.BranchId, ct));
+        Assert.False(await db.UserRoles.AnyAsync(r => r.BranchId == env.BranchId, ct));
+        // Remaining child rows would also prevent deletion via foreign keys.
+        Assert.True(await db.Permissions.AnyAsync(p => p.Name == Permissions.MessageView, ct));
     }
 
     private static async Task<long> ImportAsync(ImportApprovalEnvironment env, CancellationToken ct)

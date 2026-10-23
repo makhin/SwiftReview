@@ -3,7 +3,7 @@
 These tests import a real temporary SAA `.prt` file through `SaaFileImportService`,
 then assign and confirm it through the API hosted by `WebApplicationFactory`.
 Tests use the existing application database named in the connection string.
-They do not create/drop databases, run migrations, or delete database records.
+They do not create/drop databases or run migrations.
 Apply the application's migrations before running them; pending migrations cause
 a clear failure before test data is inserted.
 
@@ -11,9 +11,43 @@ Each scenario adds uniquely named E2E branches, departments, workflows, scoped
 reviewers and a branch-specific routing rule. A synthetic MX type avoids matches
 with existing global routing rules. The imported file path and reference are
 unique too; assertions select only that scenario's records. No messages are
-inserted by the test setup. Database records deliberately remain after tests,
-including failed runs; only temporary files and the test API host are disposed.
-Repeated runs can use the same database without cleaning previous E2E data.
+inserted by the test setup. On disposal (including failed tests/setup), the fixture
+removes its own messages, audit, reviews, assignments, routing, user-role grants,
+role permissions, workflow steps, workflows, users, roles, branches and departments.
+Shared permissions and all earlier/unrelated data are preserved. Temporary files
+and the test API host are disposed too.
+
+Cleanup uses `scripts/delete-messages-by-id-range.sql` with the exact run UUID.
+The same script recognizes fixture ownership from the message metadata when run
+manually by ID range. Preview is the default. If another scope references a fixture
+object, ownership checks and foreign keys abort and roll back cleanup rather than remove that scope's
+links. Interrupted processes can still leave records; use the range script or its
+exclusive `@TestRunId` parameter to clean a known run, including setup-only runs.
+There is no broad deletion of all names starting with E2E.
+
+For manual cleanup of all E2E leftovers, including runs whose messages have already
+been removed, use these declarations in `scripts/delete-messages-by-id-range.sql`:
+
+```sql
+DECLARE @FromId bigint = NULL;
+DECLARE @ToId bigint = NULL;
+DECLARE @DryRun bit = 1;
+DECLARE @TestRunId varchar(32) = NULL;
+DECLARE @AllE2E bit = 1;
+```
+
+Review the selected messages and fixture IDs, then change `@DryRun` to `0`.
+Discovery checks all fixture root tables for the reserved exact UUID-bearing
+names: `E2E-<32 lowercase hex>` directories/roles, `E2E_<uuid>` workflows,
+`e2e.first.<uuid>` / `e2e.second.<uuid>` users, `e2e-<uuid>` routing sources and
+`approval-<uuid>.prt` file records. Ordinary preexisting data, shared permissions
+and merely similar prefixes are not selected. All-E2E mode also removes leftovers
+from older test runs, not only the most recent one. Objects without these ownership
+markers cannot safely be inferred to be test data and are left alone.
+
+The three selection modes (range, exact run, all E2E) are mutually exclusive.
+External references abort the entire transaction; they are never automatically
+removed to make cleanup succeed. Run manual cleanup with API/importers/tests stopped.
 
 Coverage: two independent approvals, reimport after completion, non-assignee
 rejection, and rejection of an already approved level. Assertions cover HTTP

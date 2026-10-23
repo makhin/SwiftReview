@@ -14,6 +14,7 @@
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="../../scripts/delete-messages-by-id-range.sql" Link="Fixtures/delete-messages-by-id-range.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Update="appsettings.json" TargetPath="EndToEndSettings/appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="appsettings.Development.json" TargetPath="EndToEndSettings/appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="appsettings.EndToEnd.local.json" TargetPath="EndToEndSettings/appsettings.EndToEnd.local.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
