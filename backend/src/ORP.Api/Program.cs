@@ -15,6 +15,7 @@ using ORP.Api.Endpoints;
 using ORP.Api.Errors;
 using ORP.Api.Infrastructure;
 using ORP.Application;
+using ORP.Application.Reviews;
 using ORP.Application.Abstractions;
 using ORP.Infrastructure;
 using ORP.Infrastructure.Persistence;
@@ -73,7 +74,7 @@ builder.Services.AddOpenTelemetry().ConfigureResource(r => r.AddService("ORP.Api
     })
     .WithMetrics(m =>
     {
-        m.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();
+        m.AddMeter(BulkApprovalMetrics.MeterName).AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"])) m.AddOtlpExporter();
     });
 

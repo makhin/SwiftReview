@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using FluentValidation;
+using ORP.Application.Errors;
 using Microsoft.Extensions.Logging;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
@@ -33,41 +35,53 @@ public sealed class BulkApproveReviewsHandler(IValidator<BulkApproveReviewsReque
     {
         await validator.ValidateAndThrowAsync(request, ct);
         var results = new List<BulkApproveMessageResult>(request.MessageIds.Count);
-        foreach (var id in request.MessageIds)
+        var started = Stopwatch.GetTimestamp();
+        var outcome = "completed";
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            try
+            foreach (var id in request.MessageIds)
             {
-                results.Add(await transactions.ExecuteAsync(token => ApproveAsync(id, request.Comment, token), ct));
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception exception)
-            {
-                var (status, code, detail) = exception switch
+                ct.ThrowIfCancellationRequested();
+                try
                 {
-                    UnauthorizedAccessException => (403, "forbidden", "The current user is not allowed to perform this action."),
-                    ResourceNotFoundException => (404, "not_found", exception.Message),
-                    DomainRuleViolationException => (409, "domain_conflict", exception.Message),
-                    ConcurrentUpdateException => (409, "concurrent_update", exception.Message),
-                    TransactionCommitOutcomeUnknownException => (500, "commit_outcome_unknown",
-                        "The commit outcome is unknown. Reload the message before retrying."),
-                    _ => (500, "unexpected_error", "An unexpected error occurred. Reload the message before retrying.")
-                };
-                if (status == 500)
-                    logger.LogError(exception, "Bulk approval failed for message {MessageId}, user {UserId}, correlation {CorrelationId}",
-                        id, user.UserId, correlation.CorrelationId);
-                else
-                    logger.LogWarning("Bulk approval rejected for message {MessageId}, user {UserId}, code {Code}, correlation {CorrelationId}",
-                        id, user.UserId, code, correlation.CorrelationId);
-                results.Add(new(id, status) { Error = new(code, detail) });
+                    results.Add(await transactions.ExecuteAsync(token => ApproveAsync(id, request.Comment, token), ct));
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception exception)
+                {
+                    var error = OperationError.From(exception);
+                    var (status, code, _, detail) = error;
+                    if (status == 500)
+                        logger.LogError(exception, "Bulk approval failed for message {MessageId}, user {UserId}, correlation {CorrelationId}",
+                            id, user.UserId, correlation.CorrelationId);
+                    else
+                        logger.LogWarning("Bulk approval rejected for message {MessageId}, user {UserId}, code {Code}, correlation {CorrelationId}",
+                            id, user.UserId, code, correlation.CorrelationId);
+                    results.Add(new(id, status) { Error = new(code, detail) });
+                }
+                BulkApprovalMetrics.RecordMessage(results[^1]);
             }
+            return new(results);
         }
-        return new(results);
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            outcome = "cancelled";
+            throw;
+        }
+        catch
+        {
+            outcome = "failed";
+            throw;
+        }
+        finally
+        {
+            BulkApprovalMetrics.RecordBatch(Stopwatch.GetElapsedTime(started), outcome);
+        }
     }
 
     private async Task<BulkApproveMessageResult> ApproveAsync(long id, string? comment, CancellationToken ct)
     {
-        var access = await authorization.RequireAsync(id, Permissions.ReviewBulkApprove, ct);
+        var access = await authorization.RequireWithPermissionsAsync(id, Permissions.ReviewBulkApprove, ct);
         access = await authorization.RequireAsync(access, Permissions.MessageAssign, ct);
         var message = access.Message;
         var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, message.WorkflowDefinitionId, ct);

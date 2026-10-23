@@ -28,6 +28,11 @@ public sealed class ProblemDetailsAuthorizationResultHandler(IProblemDetailsServ
             ProblemDetails = new ProblemDetails
             {
                 Status = status,
+                Extensions =
+                {
+                    ["code"] = status == StatusCodes.Status403Forbidden ? "forbidden" : "unauthorized",
+                    ["correlationId"] = ApiLog.CorrelationId(context)
+                },
                 Title = status == StatusCodes.Status403Forbidden ? "Forbidden" : "Unauthorized",
                 Detail = status == StatusCodes.Status403Forbidden
                     ? "The current user is not allowed to perform this action."

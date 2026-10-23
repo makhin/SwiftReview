@@ -457,6 +457,25 @@ outcome is never replayed automatically: reload that message before retrying.
 Repeating approval for a completed message returns 409 without new review/audit
 records. Cancellation stops further processing; earlier commits remain persisted.
 
+Bulk approval loads scoped permissions in one SQL query per message, inside that
+message's transaction attempt. Permissions are included only from departments where
+the user also has `message.view`; branches and processing departments remain isolated.
+The snapshot is discarded between messages and reloaded on transaction retry.
+
+Meter `ORP.Application.Reviews` is registered with the API's OpenTelemetry pipeline:
+
+- `orp.bulk_approve.messages` (counter, unit `{message}`) records one final result per
+  processed message after transaction retries, with `outcome=success` or an error code
+  such as `forbidden`, `domain_conflict`, `unexpected_error`, `commit_outcome_unknown`.
+- `orp.bulk_approve.batch.duration` (histogram, seconds) records validated batch duration,
+  including retries, with `outcome=completed|cancelled|failed`. `completed` means the
+  loop finished, not that every message succeeded. Invalid requests rejected before
+  processing are excluded. Cancellation counts completed message outcomes only;
+  unprocessed messages are not counted as failures.
+
+Metric tags contain no message IDs, user IDs, comments or correlation IDs. An unknown
+commit outcome is never counted as success, even if the database committed it.
+
 ### Grid API
 
 `POST /api/messages/grid` accepts flat JSON controls: `search`, `status`, `messageType`, `direction`, `branch`,
@@ -474,6 +493,32 @@ See [frontend grid integration](docs/FRONTEND_GRID_API.md),
 [stage counts](docs/FRONTEND_MESSAGE_STAGE_COUNTS.md) for contracts, limits and examples.
 
 Request and response schemas and Problem Details are documented in OpenAPI. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export traces and metrics through OTLP.
+
+### Error responses
+
+Exception and authorization responses use Problem Details with stable `code` and
+`correlationId` extensions. Codes are `validation_failed` (400, or the original HTTP
+request-binding status), `unauthorized` (401), `forbidden` (403), `not_found` (404),
+`domain_conflict` / `concurrent_update` (409), `unexpected_error` /
+`commit_outcome_unknown` (500). Single-message commands and bulk items share the
+same exception-to-code mapping; unexpected internal exception details are hidden.
+A `commit_outcome_unknown` response instructs the caller to reload the message before
+retrying, since the database may already have committed it.
+
+FluentValidation failures additionally include `errors`, mapping JSON field names
+(including paths such as `messageIds[0]`) to arrays of distinct messages. Existing
+`status`, `title` and `detail` fields remain present. For example:
+
+```json
+{
+  "status": 400,
+  "title": "Validation failed",
+  "detail": "Validation failed: ...",
+  "code": "validation_failed",
+  "correlationId": "request-123",
+  "errors": { "comment": ["The length of 'Comment' must be 2000 characters or fewer."] }
+}
+```
 
 ## Build and test
 

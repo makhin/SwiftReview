@@ -1,4 +1,9 @@
 using System.Net;
+using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
@@ -168,6 +173,9 @@ public sealed partial class ConfirmationSqlTests
         {
             using var response = await client.PostAsJsonAsync("/api/messages/reviews/bulk-approve", request, ct);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+            Assert.Equal("validation_failed", problem.GetProperty("code").GetString());
+            Assert.NotEmpty(problem.GetProperty("errors").EnumerateObject());
         }
         await using var verify = new ORPDbContext(fixture.Options);
         Assert.Empty(await verify.Assignments.ToListAsync(ct));
@@ -269,6 +277,39 @@ public sealed partial class ConfirmationSqlTests
         Assert.Equal(MessageState.Completed, (await verify.Messages.SingleAsync(m => m.Id == setup.Message, ct)).State);
         Assert.Equal(2, await verify.Reviews.CountAsync(ct));
         Assert.Equal(1, await verify.AuditEvents.CountAsync(a => a.EventType == AuditEventType.MessageCompleted, ct));
+    }
+
+    [Fact]
+    public async Task OrdinaryHttpConfirmationReportsUnknownCommitWithoutReplay()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var setup = await SeedAsync(fixture, ct);
+        var interceptor = new LoseBulkCommitAcknowledgement();
+        await using var factory = new CommitFailureFactory(fixture.ConnectionString, interceptor);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", "ordinary-unknown-commit");
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/confirm", new { level = 1 }, ct);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+        Assert.Equal("commit_outcome_unknown", body.GetProperty("code").GetString());
+        Assert.Equal("ordinary-unknown-commit", body.GetProperty("correlationId").GetString());
+        Assert.Contains("Reload the message before retrying", body.GetProperty("detail").GetString());
+        Assert.Equal(1, interceptor.Commits);
+        await using var verify = new ORPDbContext(fixture.Options);
+        Assert.Equal(1, await verify.Reviews.CountAsync(r => r.MessageId == setup.Message && r.Status == ReviewStatus.Approved, ct));
+        Assert.Equal(1, await verify.AuditEvents.CountAsync(a => a.MessageId == setup.Message && a.EventType == AuditEventType.ReviewApproved, ct));
+    }
+
+    private sealed class CommitFailureFactory(string connection, IInterceptor interceptor) : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder) => builder
+            .UseEnvironment("Development")
+            .UseSetting("ConnectionStrings:ORP", connection)
+            .UseSetting("BootstrapDatabase", "false")
+            .ConfigureLogging(logging => logging.ClearProviders())
+            .ConfigureServices(services => services.AddDbContext<ORPDbContext>(options => options.AddInterceptors(interceptor)));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using FluentValidation;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -63,8 +64,9 @@ public sealed class BulkApproveReviewsTests
     public async Task ChecksEveryPermissionAndScopeBeforeMutation(string permission, bool view, bool permitted)
     {
         var f = new Fixture(3);
-        f.Users.CheckAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), permission, Arg.Any<CancellationToken>())
-            .Returns(new UserPermissionCheck(false, view, permitted));
+        f.Users.GetPermissionsAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionSet(false, Permissions.All.Where(p =>
+                (view || p != Permissions.MessageView) && (permitted || p != permission)).ToArray()));
         var result = Assert.Single((await f.Bulk.HandleAsync(new([1]), CancellationToken.None)).Results);
         Assert.Equal(403, result.Status);
         Assert.Equal("forbidden", result.Error?.Code);
@@ -160,6 +162,68 @@ public sealed class BulkApproveReviewsTests
         Assert.Empty(f.Reviews);
     }
 
+    [Fact]
+    public async Task PermissionsAreReadOncePerMessageAndReloadedOnNextRequest()
+    {
+        var f = new Fixture(3);
+        Assert.Equal(200, Assert.Single((await f.Bulk.HandleAsync(new([1]), CancellationToken.None)).Results).Status);
+        await f.Users.Received(1).GetPermissionsAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
+        Assert.DoesNotContain(f.Users.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(IUserAuthorizationQueries.CheckAsync));
+        f.Users.GetPermissionsAsync(22, 5, Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(new UserPermissionSet(false, []));
+        Assert.Equal(403, Assert.Single((await f.Bulk.HandleAsync(new([1]), CancellationToken.None)).Results).Status);
+    }
+
+    [Fact]
+    public async Task MetricsCountFinalMessageOutcomesAndCancelledBatchDuration()
+    {
+        var active = new AsyncLocal<bool> { Value = true };
+        var messages = new List<string>();
+        var batches = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, current) =>
+        {
+            if (instrument.Meter.Name == BulkApprovalMetrics.MeterName) current.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+        {
+            if (!active.Value) return;
+            Assert.Equal("orp.bulk_approve.messages", instrument.Name);
+            Assert.Equal(1, value);
+            Assert.Equal(1, tags.Length);
+            messages.Add((string)tags[0].Value!);
+        });
+        listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
+        {
+            if (!active.Value) return;
+            Assert.Equal("orp.bulk_approve.batch.duration", instrument.Name);
+            Assert.True(value >= 0);
+            Assert.Equal(1, tags.Length);
+            batches.Add((string)tags[0].Value!);
+        });
+        listener.Start();
+        var f = new Fixture();
+        await f.Bulk.HandleAsync(new([1, 99]), CancellationToken.None);
+        var unknown = Substitute.For<ITransactionExecutor>();
+        unknown.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<BulkApproveMessageResult>>>(), Arg.Any<CancellationToken>())
+            .Returns<Task<BulkApproveMessageResult>>(_ => throw new TransactionCommitOutcomeUnknownException());
+        await f.CreateBulk(unknown).HandleAsync(new([1]), CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        var cancel = Substitute.For<ITransactionExecutor>();
+        var attempted = 0;
+        cancel.ExecuteAsync(Arg.Any<Func<CancellationToken, Task<BulkApproveMessageResult>>>(), Arg.Any<CancellationToken>())
+            .Returns<Task<BulkApproveMessageResult>>(_ =>
+            {
+                if (++attempted == 1) return Task.FromResult(new BulkApproveMessageResult(1, 200));
+                cancellation.Cancel();
+                throw new OperationCanceledException(cancellation.Token);
+            });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            f.CreateBulk(cancel).HandleAsync(new([1, 2]), cancellation.Token));
+        Assert.Equal(new[] { "success", "not_found", "commit_outcome_unknown", "success" }, messages);
+        Assert.Equal(new[] { "completed", "completed", "cancelled" }, batches);
+    }
+
     private sealed class Fixture
     {
         public IORPStore Store { get; } = Substitute.For<IORPStore>();
@@ -195,6 +259,8 @@ public sealed class BulkApproveReviewsTests
             Store.When(s => s.AddAudit(Arg.Any<AuditEvent>())).Do(c => Audit.Add(c.Arg<AuditEvent>()));
             Users.CheckAsync(22, 5, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 7 })), Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns(new UserPermissionCheck(false, true, true));
+            Users.GetPermissionsAsync(22, 5, Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 7 })), Arg.Any<CancellationToken>())
+                .Returns(new UserPermissionSet(false, Permissions.All));
             Assignments = new(Store, clock);
             Authorization = new(Store, Users, Actor, Correlation, NullLogger<MessageAuthorizationService>.Instance);
             Confirm = new(Store, new ConfirmReviewValidator(), Actor, clock, Correlation, Assignments, new InlineTransactions(), Authorization);

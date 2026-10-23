@@ -16,6 +16,16 @@ public sealed class UserAuthorizationQueries(ORPDbContext db) : IUserAuthorizati
     public Task<UserIdentity?> GetIdentityAsync(string userName, CancellationToken ct) =>
         Identities(db.Users.Where(u => u.UserName == userName)).SingleOrDefaultAsync(ct);
 
+    public Task<UserPermissionSet?> GetPermissionsAsync(int userId, int branchId, IReadOnlyList<int> departmentIds, CancellationToken ct) =>
+        db.Users.AsNoTracking().Where(u => u.Id == userId)
+            .Select(u => new UserPermissionSet(u.IsGlobalAdministrator,
+                db.UserRoles.Where(r => r.UserId == u.Id && r.BranchId == branchId && departmentIds.Contains(r.DepartmentId) &&
+                    db.UserRoles.Any(view => view.UserId == u.Id && view.BranchId == branchId &&
+                        view.DepartmentId == r.DepartmentId &&
+                        view.Role.Permissions.Any(p => p.Permission.Name == Permissions.MessageView)))
+                    .SelectMany(r => r.Role.Permissions.Select(p => p.Permission.Name)).Distinct().ToArray()))
+            .SingleOrDefaultAsync(ct);
+
     public Task<UserPermissionCheck?> CheckAsync(int userId, int branchId, IReadOnlyList<int> departmentIds, string permission, CancellationToken ct) =>
         db.Users.AsNoTracking().Where(u => u.Id == userId)
             .Select(u => new UserPermissionCheck(u.IsGlobalAdministrator,
