@@ -19,7 +19,7 @@ public sealed class TransactionExecutor(ORPDbContext db, BusinessActionLog busin
             {
                 // Never replay a mutation once commit might have reached the server.
                 if (commitStarted)
-                    throw new InvalidOperationException("Transaction commit outcome is unknown. Reload persisted state before retrying.");
+                    throw new TransactionCommitOutcomeUnknownException();
                 businessActions.Clear();
                 // Each attempt must read fresh state, including permissions, after acquiring the transaction.
                 db.ChangeTracker.Clear();
@@ -32,7 +32,7 @@ public sealed class TransactionExecutor(ORPDbContext db, BusinessActionLog busin
                 }
                 catch (Exception exception)
                 {
-                    throw new InvalidOperationException("Transaction commit outcome is unknown. Reload persisted state before retrying.", exception);
+                    throw new TransactionCommitOutcomeUnknownException(exception);
                 }
                 return value;
             }, cancellationToken);

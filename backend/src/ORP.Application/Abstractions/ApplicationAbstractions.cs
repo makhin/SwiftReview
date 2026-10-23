@@ -51,6 +51,9 @@ public interface IAssignmentCandidateQueries
 public sealed class ConcurrentUpdateException(string message, Exception innerException)
     : Exception(message, innerException);
 
+public sealed class TransactionCommitOutcomeUnknownException(Exception? innerException = null)
+    : InvalidOperationException("Transaction commit outcome is unknown. Reload persisted state before retrying.", innerException);
+
 public sealed record WorkflowResolution(WorkflowDefinition Workflow, IReadOnlyList<int> DepartmentIds, IReadOnlyList<int> ProcessingDepartmentIds);
 
 public interface IWorkflowResolver

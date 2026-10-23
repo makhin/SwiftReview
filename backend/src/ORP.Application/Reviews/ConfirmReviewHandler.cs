@@ -37,7 +37,8 @@ public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmRevi
 
     // The caller owns validation, authorization and the transaction.
     internal async Task ApplyAsync(AuthorizedMessage access, WorkflowDefinition workflow,
-        List<Assignment> activeAssignments, ConfirmReviewRequest request, CancellationToken ct)
+        List<Assignment> activeAssignments, ConfirmReviewRequest request, CancellationToken ct,
+        bool allowReviewerReuse = false)
     {
         var message = access.Message;
         var messageId = message.Id;
@@ -47,7 +48,7 @@ public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmRevi
         var oldState = message.State;
         var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
         var review = message.StartReview(request.Level, user.UserId, workflow, access.Reviews, now,
-            isGlobalAdministrator: access.IsGlobalAdministrator);
+            isGlobalAdministrator: access.IsGlobalAdministrator, allowReviewerReuse: allowReviewerReuse);
         store.AddReview(review);
         access.Reviews.Add(review);
         ReviewHandlerHelper.AddEvent(store, messageId, AuditEventType.ReviewStarted, user.UserId,

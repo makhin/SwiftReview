@@ -174,8 +174,9 @@ public sealed partial class ConfirmationSqlTests
         await db.SaveChangesAsync(ct);
         var migrator = db.GetService<IMigrator>();
         var migrations = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
-        Assert.EndsWith("_AssignmentsByLevel", migrations[^1]);
-        await migrator.MigrateAsync(migrations[^2], ct);
+        var index = Array.FindIndex(migrations, migration => migration.EndsWith("_AssignmentsByLevel", StringComparison.Ordinal));
+        Assert.True(index > 0);
+        await migrator.MigrateAsync(migrations[index - 1], ct);
         await migrator.MigrateAsync(cancellationToken: ct);
         db.ChangeTracker.Clear();
         var rows = await db.Assignments.ToListAsync(ct);

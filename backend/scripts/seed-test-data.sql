@@ -71,7 +71,7 @@ BEGIN TRY
 
     INSERT INTO [orp].[Permissions] ([Name]) VALUES
         (N'message.view'),(N'message.assign'),(N'review.level1'),(N'review.level2'),
-        (N'review.level3'),(N'review.undo'),(N'audit.view'),(N'workflow.manage');
+        (N'review.level3'),(N'review.bulk-approve'),(N'review.undo'),(N'audit.view'),(N'workflow.manage');
 
     INSERT INTO [orp].[Roles] ([Name]) VALUES (N'Reviewer'),(N'Operations manager');
 
@@ -80,7 +80,7 @@ BEGIN TRY
     WHERE r.[Name]=N'Operations manager'
         OR (r.[Name]=N'Reviewer'
             AND p.[Name] IN (N'message.view',N'message.assign',N'review.level1',
-                N'review.level2',N'review.level3',N'review.undo',N'audit.view'));
+                N'review.level2',N'review.level3',N'review.bulk-approve',N'review.undo',N'audit.view'));
 
     -- 3. Users and exact branch/department scopes.
     DECLARE @users TABLE ([UserName] nvarchar(80),[DisplayName] nvarchar(160),

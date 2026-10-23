@@ -86,22 +86,22 @@ public sealed class Message
     }
 
     public Review StartReview(int level, int reviewerId, WorkflowDefinition workflow, IReadOnlyCollection<Review> reviews,
-        DateTimeOffset now, bool isGlobalAdministrator = false)
+        DateTimeOffset now, bool isGlobalAdministrator = false, bool allowReviewerReuse = false)
     {
-        ValidateReviewStart(level, reviewerId, workflow, reviews, isGlobalAdministrator);
+        ValidateReviewStart(level, reviewerId, workflow, reviews, isGlobalAdministrator, allowReviewerReuse);
         State = MessageStateTransitions.StartReview(State, level);
         return new Review(Id, level, reviewerId, now);
     }
 
     public void ValidateReviewStart(int level, int reviewerId, WorkflowDefinition workflow,
-        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false)
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false, bool allowReviewerReuse = false)
     {
-        if (GetReviewStartError(level, reviewerId, workflow, reviews, isGlobalAdministrator) is { } error)
+        if (GetReviewStartError(level, reviewerId, workflow, reviews, isGlobalAdministrator, allowReviewerReuse) is { } error)
             throw new DomainRuleViolationException(error);
     }
 
     public string? GetReviewStartError(int level, int reviewerId, WorkflowDefinition workflow,
-        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false)
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false, bool allowReviewerReuse = false)
     {
         if (WorkflowError(workflow) is { } workflowError) return workflowError;
         if (workflow.ConfirmationMode == ConfirmationMode.None) return "This workflow has no confirmations.";
@@ -112,7 +112,7 @@ public sealed class Message
             return $"Review level {level} is not currently active.";
         if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
             return "This review level has already been started.";
-        if (!ReviewerAllowed(reviewerId, workflow, reviews, isGlobalAdministrator))
+        if (!allowReviewerReuse && !ReviewerAllowed(reviewerId, workflow, reviews, isGlobalAdministrator))
             return "Four-eyes principle: a reviewer cannot be reused.";
         return State != MessageState.New && State.AssignableReviewLevel() == level
             ? null : $"Action 'StartReview' is not allowed while message is in state '{State}'.";

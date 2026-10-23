@@ -236,7 +236,7 @@ The script creates three branches, three departments, four reviewers and one glo
 administrator (`admin`), three common workflows and 100
 synthetic Swift messages with registration audit events. Messages start in `New` state
 without an assignee. The single `Reviewer` role grants message viewing, Assign, review
-levels 1–3, Undo and audit viewing. Three reviewers have access to all nine branch/department
+levels 1–3, bulk approve, Undo and audit viewing. Three reviewers have access to all nine branch/department
 pairs; Amelia is scoped to London/CS for access-control examples. `Operations manager`
 retains all permissions; reviewers do not receive workflow management or global
 administrator access.
@@ -400,6 +400,62 @@ changes return HTTP 409 instead of combining state and assignments from differen
 Apply migration `AssignmentsByLevel` before running this version. It maps existing
 open assignments to the current stage and leaves historical levels unknown.
 Rollback refuses messages with multiple open assignments rather than losing them.
+
+### Bulk approve
+
+`POST /api/messages/reviews/bulk-approve` assigns messages to the authenticated user
+and approves **all remaining required levels** in one request. Only active
+`Immediate` workflows are supported. Previously approved levels are preserved.
+
+```json
+{
+  "messageIds": [101, 102],
+  "comment": "Checked"
+}
+```
+
+Supply 1–100 unique positive IDs and an optional comment of at most 2000 characters.
+Invalid input returns HTTP 400 before any message is processed. The user needs
+`review.bulk-approve`, `message.assign` and `review.levelN` for **every remaining
+level**, with the existing branch/processing-department access checks. The new
+bulk permission allows the same reviewer to approve multiple levels even when
+`AllowReviewerReuse=false`; ordinary confirmation endpoints keep their existing
+rules. The permission migration grants it to an existing `Reviewer` role;
+GlobalAdministrator retains its existing permission override.
+
+Messages are processed sequentially, each in its own transaction. Another user's
+assignment on the current or any remaining level is a conflict, including for an
+administrator. Own assignments are reused. Completed, rejected, view-only,
+in-progress and non-Immediate messages return conflicts without new approvals.
+On success the message reaches `Completed`, assignments end according to the
+existing workflow lifecycle, and the normal per-level review and assignment
+audit records retain the actual actor, comment and request correlation ID.
+
+HTTP 200 contains one result per input ID in input order, including failures:
+
+```json
+{
+  "results": [
+    { "messageId": 101, "status": 200, "approvedLevels": [1, 2] },
+    {
+      "messageId": 102,
+      "status": 409,
+      "error": {
+        "code": "domain_conflict",
+        "detail": "The message or a remaining level is assigned to another reviewer."
+      }
+    }
+  ]
+}
+```
+
+Per-message error codes are `forbidden` (403), `not_found` (404),
+`domain_conflict` / `concurrent_update` (409), and sanitized `unexpected_error`
+or `commit_outcome_unknown` (500). Failure before commit rolls back that message's
+assignments, approvals and audit, while other messages continue. An unknown commit
+outcome is never replayed automatically: reload that message before retrying.
+Repeating approval for a completed message returns 409 without new review/audit
+records. Cancellation stops further processing; earlier commits remain persisted.
 
 ### Grid API
 
