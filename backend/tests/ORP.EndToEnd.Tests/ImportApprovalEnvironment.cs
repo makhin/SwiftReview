@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ORP.Domain.Identity;
 using ORP.Domain.Workflows;
@@ -38,9 +39,26 @@ internal sealed class ImportApprovalEnvironment : IAsyncDisposable
 
     public static async Task<ImportApprovalEnvironment> CreateAsync(CancellationToken ct)
     {
-        var server = Environment.GetEnvironmentVariable("ORP_TEST_SQL_SERVER");
+        // Test runners do not apply launchSettings.json. Default to Development
+        // there too, while respecting an explicitly selected environment.
+        var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+        // Keep our standard appsettings filenames separate from the referenced
+        // API's settings in the build output.
+        var builder = new ConfigurationBuilder()
+            .SetBasePath(Path.Combine(AppContext.BaseDirectory, "EndToEndSettings"))
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile($"appsettings.{environmentName}.json", optional: true);
+        if (string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase))
+            builder.AddJsonFile("appsettings.EndToEnd.local.json", optional: true)
+                .AddUserSecrets<ImportApprovalEnvironment>(optional: true);
+        using var configuration = (ConfigurationRoot)builder.AddEnvironmentVariables().Build();
+        var server = configuration["ORP_TEST_SQL_SERVER"];
+        if (string.IsNullOrWhiteSpace(server)) server = configuration.GetConnectionString("ORP");
         if (string.IsNullOrWhiteSpace(server))
-            throw new InvalidOperationException("ORP_TEST_SQL_SERVER is required for EndToEnd tests; use test-backend.docker.sh.");
+            throw new InvalidOperationException("Configure ConnectionStrings:ORP in User Secrets (SwiftReview-ORP-Api), " +
+                "appsettings.EndToEnd.local.json or ConnectionStrings__ORP; alternatively set ORP_TEST_SQL_SERVER " +
+                "or use test-backend.docker.sh. The SQL login must be able to create/drop test databases.");
         var environment = new ImportApprovalEnvironment(server);
         try
         {
