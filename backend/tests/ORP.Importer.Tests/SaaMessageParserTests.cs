@@ -24,7 +24,13 @@ public sealed class SaaMessageParserTests
         Assert.EndsWith(".prt", file);
         using var document = JsonDocument.Parse(json);
         var expected = document.RootElement;
-        var actual = parser.ParseLine(expected.GetProperty("Line").GetString()!);
+        var line = expected.GetProperty("Line").GetString()!;
+        if (expected.GetProperty("Direction").ValueKind == JsonValueKind.Null)
+        {
+            Assert.Contains("'DIRECTION' must not be empty", Assert.Throws<FormatException>(() => parser.ParseLine(line)).Message);
+            return;
+        }
+        var actual = parser.ParseLine(line);
 
         Assert.Equal(expected.GetProperty("Branch").GetString(), actual.Branch);
         Assert.Equal(expected.GetProperty("MessageType").GetString(), actual.MessageType);
@@ -53,14 +59,28 @@ public sealed class SaaMessageParserTests
     }
 
     [Fact]
-    public void EmptyValuesAreNull()
+    public void OptionalEmptyValuesAreNull()
     {
-        var result = parser.ParseLine("Branch: PARIS |MessageType: MT199|Reference#:|DIRECTION: |SENDER:|RECEIVER:|Host:|Time:14/10/26 04:35:39 AM");
+        var result = parser.ParseLine("Branch: PARIS |MessageType: MT199|Reference#:|DIRECTION:Incoming|SENDER:|RECEIVER:|Host:|Time:14/10/26 04:35:39 AM");
         Assert.Null(result.ReferenceId);
-        Assert.Null(result.Direction);
+        Assert.Equal(SaaMessageDirection.Incoming, result.Direction);
         Assert.Null(result.Sender);
         Assert.Null(result.Receiver);
         Assert.Null(result.Host);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void RejectsEmptyDirectionWithFileAndLine(string direction)
+    {
+        using var file = new ImportTestFile();
+        file.Write(direction: direction);
+        var error = Assert.Throws<SaaMessageFormatException>(() => parser.ParseFile(file.Path));
+        Assert.Equal(file.Path, error.FilePath);
+        Assert.Equal(1, error.LineNumber);
+        Assert.Equal("Header field 'DIRECTION' must not be empty. Expected Incoming or Outgoing.", error.Reason);
     }
 
     [Theory]

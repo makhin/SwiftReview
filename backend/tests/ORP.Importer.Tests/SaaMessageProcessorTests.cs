@@ -4,50 +4,14 @@ namespace ORP.Importer.Tests;
 
 public sealed class SaaMessageProcessorTests
 {
-    [Theory]
-    [InlineData(SaaMessageDirection.Incoming)]
-    [InlineData(SaaMessageDirection.Outgoing)]
-    public void AppliesDefaultDirectionOnlyWhenTheHeaderIsEmpty(SaaMessageDirection fallback)
-    {
-        using var file = new ImportTestFile();
-        file.Write(direction: "");
-        var processor = Processor(defaultDirection: fallback);
-        var result = processor.Process(new SaaMessageParser().ParseFile(file.Path));
-        Assert.Equal(fallback, result.Direction);
-        Assert.Equal([7], result.DepartmentIds);
-        Assert.Null(result.Document.Header.Direction);
-        file.Write();
-        Assert.Equal(SaaMessageDirection.Incoming, processor.Process(new SaaMessageParser().ParseFile(file.Path)).Direction);
-    }
-
     [Fact]
     public void RejectsMissingDirectionInsteadOfIgnoringTheFile()
     {
         using var file = new ImportTestFile();
         file.Write(direction: "");
-        Assert.Contains("Direction", Assert.Throws<SaaMessageFormatException>(() =>
+        Assert.Contains("'DIRECTION' must not be empty", Assert.Throws<SaaMessageFormatException>(() =>
             Processor().Process(new SaaMessageParser().ParseFile(file.Path))).Message);
     }
-
-    [Fact]
-    public void MatchesRulesUsingTheEffectiveDefaultDirection()
-    {
-        using var file = new ImportTestFile();
-        file.Write(direction: "");
-        var rule = ImportTestFile.Rule("MT199");
-        rule.Direction = SaaMessageDirection.Outgoing;
-        var processor = Processor(new SaaDepartmentRuleResolver(new[] { rule }), SaaMessageDirection.Outgoing);
-        var result = processor.Process(new SaaMessageParser().ParseFile(file.Path));
-        Assert.Equal(SaaRoutingStatus.Matched, result.Status);
-        Assert.Equal([7], result.DepartmentIds);
-        Assert.Null(result.Document.Header.Direction);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(3)]
-    public void RejectsInvalidDefaultDirection(int direction) =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => Processor(defaultDirection: (SaaMessageDirection)direction));
 
     [Fact]
     public void RoutesHeaderTypeWithoutAnAllowlistOrChangingItsSpelling()
@@ -100,9 +64,8 @@ public sealed class SaaMessageProcessorTests
         Assert.Equal([7, 8], processor.Process(new SaaMessageParser().ParseFile(file.Path)).DepartmentIds);
     }
 
-    internal static SaaMessageProcessor Processor(ISaaMessageDepartmentResolver? departments = null,
-        SaaMessageDirection? defaultDirection = null) => new(departments ?? new Departments(),
-        new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) }), defaultDirection: defaultDirection);
+    internal static SaaMessageProcessor Processor(ISaaMessageDepartmentResolver? departments = null) => new(departments ?? new Departments(),
+        new SaaMessageBranchResolver(new[] { new KeyValuePair<string, int>("Paris", 3) }));
 
     private sealed class Branches(int? id) : ISaaMessageBranchResolver
     {

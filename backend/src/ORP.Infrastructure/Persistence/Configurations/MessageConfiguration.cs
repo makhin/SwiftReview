@@ -48,6 +48,8 @@ public sealed class SwiftMessageRecordConfiguration : IEntityTypeConfiguration<S
         builder.Property(x => x.Branch).HasMaxLength(100);
         builder.Property(x => x.MessageType).HasMaxLength(100);
         builder.Property(x => x.ReferenceId).HasMaxLength(255);
+        builder.Property(x => x.TransactionReferenceNumber).HasMaxLength(255);
+        builder.Property(x => x.RelatedReference).HasMaxLength(255);
         builder.ToTable(t => t.HasCheckConstraint("CK_SwiftMessages_Direction", "[Direction] IN (1, 2)"));
         builder.Property(x => x.Sender).HasMaxLength(100);
         builder.Property(x => x.Receiver).HasMaxLength(100);

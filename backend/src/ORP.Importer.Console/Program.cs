@@ -51,11 +51,10 @@ ConsoleImportLog.ScanStarted(logger, directory, retryIgnored);
 
 try
 {
-    var defaultDirection = builder.Configuration.GetValue<SaaMessageDirection?>("Importer:DefaultDirection");
     var branches = await catalog.LoadBranchResolverAsync();
     var departments = await catalog.LoadDepartmentResolverAsync();
     var processor = new SaaMessageProcessor(departments, branches,
-        loggerFactory.CreateLogger<SaaMessageProcessor>(), defaultDirection);
+        loggerFactory.CreateLogger<SaaMessageProcessor>());
     var importer = new SaaFileImportService(new SaaSourceFileReader(),
         new SaaMessageParser(loggerFactory.CreateLogger<SaaMessageParser>()), processor, store);
     var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)

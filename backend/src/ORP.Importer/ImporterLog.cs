@@ -4,10 +4,6 @@ namespace ORP.Importer;
 
 internal static partial class ImporterLog
 {
-    [LoggerMessage(EventId = 3008, EventName = "DirectionDefaulted", Level = LogLevel.Information,
-        Message = "Using configured default direction {Direction} for SAA file {FilePath}")]
-    public static partial void DirectionDefaulted(ILogger logger, string filePath, SaaMessageDirection direction);
-
     [LoggerMessage(EventId = 3004, EventName = "BranchResolved", Level = LogLevel.Debug,
         Message = "Resolved BranchId {BranchId} for SAA file {FilePath}")]
     public static partial void BranchResolved(ILogger logger, string filePath, int branchId);

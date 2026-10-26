@@ -5,14 +5,19 @@ public sealed class SaaMessageDocument
     public SaaMessageHeader Header { get; }
     /// <summary>Text starting at line four, including its original line endings.</summary>
     public string Body { get; }
+    public string? TransactionReferenceNumber { get; }
+    public string? RelatedReference { get; }
     public string FileName { get; }
     public string FilePath { get; }
     /// <summary>Lowercase SHA-256 of the entire original file, including any BOM.</summary>
     public string ContentHash { get; }
 
-    internal SaaMessageDocument(SaaMessageHeader header, string body, string filePath, string contentHash)
+    internal SaaMessageDocument(SaaMessageHeader header, string body, string filePath, string contentHash,
+        string? transactionReferenceNumber = null, string? relatedReference = null)
     {
         Header = header;
+        TransactionReferenceNumber = transactionReferenceNumber;
+        RelatedReference = relatedReference;
         Body = body;
         FilePath = filePath;
         FileName = Path.GetFileName(filePath);

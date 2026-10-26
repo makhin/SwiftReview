@@ -128,8 +128,19 @@ followed by the SAA print timestamp and separator. Raw SAA print reports startin
 with a print timestamp are rejected with `no import metadata header`; branch and routing
 metadata are not inferred from printer codes or message text.
 
-`Importer__DefaultDirection` optionally supplies `Incoming` or `Outgoing` for empty header
-directions and never overrides an explicit direction. The original header stays unchanged.
+Duplicate notices printed before `Instance Type and Transmission` are accepted and retained
+in the original body. Printed tags `20` (`Transaction Reference Number` / `Sender's Reference`)
+and `21` (`Related Reference` / `Transaction Reference`) in `Message Text` are saved in
+`orp.SwiftMessages.TransactionReferenceNumber` and `RelatedReference` respectively.
+The first occurrence is used for repeating transaction sequences; absent fields are null.
+Quoted references inside `Narrative` and tags such as `20C` do not populate these columns.
+`ReferenceId` still comes from the metadata header. Apply the `AddSwiftMessageReferences`
+migration before running the updated importer. Existing rows are not backfilled by this
+migration or by an unchanged-file reimport.
+
+`DIRECTION` must contain `Incoming` or `Outgoing`. Empty or whitespace-only values are
+rejected at line 1 with `Header field 'DIRECTION' must not be empty. Expected Incoming or Outgoing.`
+The former `Importer__DefaultDirection` fallback is no longer used.
 An ignored `src/ORP.Importer.Console/appsettings.Importer.local.json` can hold local Development settings.
 It is loaded only in Development and overrides `appsettings.Development.json` next to the executable;
 environment variables override both.
@@ -202,7 +213,7 @@ selects structured JSON output for a captured run.
 ```csharp
 var catalog = new SaaRoutingCatalog(connectionString);
 var processor = new SaaMessageProcessor(await catalog.LoadDepartmentResolverAsync(),
-    await catalog.LoadBranchResolverAsync(), defaultDirection: defaultDirection);
+    await catalog.LoadBranchResolverAsync());
 var importer = new SaaFileImportService(new SaaSourceFileReader(), new SaaMessageParser(),
     processor, new SqlSaaImportStore(connectionString));
 var result = await importer.ImportAsync(path, rootDirectory, retryIgnored: false);

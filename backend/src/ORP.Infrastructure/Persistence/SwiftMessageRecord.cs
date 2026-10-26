@@ -8,6 +8,8 @@ public sealed class SwiftMessageRecord
     public string? Branch { get; init; }
     public string? MessageType { get; init; }
     public string? ReferenceId { get; init; }
+    public string? TransactionReferenceNumber { get; init; }
+    public string? RelatedReference { get; init; }
     public MessageDirection? Direction { get; init; }
     public string? Sender { get; init; }
     public string? Receiver { get; init; }

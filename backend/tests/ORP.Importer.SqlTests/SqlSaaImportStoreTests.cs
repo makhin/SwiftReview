@@ -12,6 +12,22 @@ namespace ORP.Importer.SqlTests;
 public sealed class SqlSaaImportStoreTests
 {
     [Fact]
+    public async Task PersistsPrintedReferencesAndPreservesThemOnReimport()
+    {
+        await using var fixture = await SqlImportDatabase.CreateAsync();
+        var file = fixture.File("--- Message Text ---\n        20: Transaction Reference Number\n            8801IC000673\n        21: Related Reference\n            1234\n        79: Narrative\n            20:OTHER\n            21:OTHER");
+        var service = new SaaFileImportService(new SaaSourceFileReader(), new SaaMessageParser(), fixture.Processor, fixture.Store);
+        Assert.Equal(SaaFileImportResult.Imported, await service.ImportAsync(file.FilePath, fixture.Root, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(SaaFileImportResult.AlreadyImported, await service.ImportAsync(file.FilePath, fixture.Root, cancellationToken: TestContext.Current.CancellationToken));
+        await using var db = new ORPDbContext(fixture.Options);
+        var saved = await db.SwiftMessages.SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("8801IC000673", saved.TransactionReferenceNumber);
+        Assert.Equal("1234", saved.RelatedReference);
+        Assert.Equal("test", saved.ReferenceId);
+        Assert.Equal(new SaaMessageParser().Parse(file).Body, saved.Body);
+    }
+
+    [Fact]
     public async Task SeededMxRulesMatchSaaHeadersAndLegacyUpgradePreservesRuleSettings()
     {
         await using var fixture = await SqlImportDatabase.CreateAsync();

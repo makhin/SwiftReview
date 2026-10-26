@@ -90,13 +90,63 @@ public sealed class SaaMessageParser : ISaaMessageParser
         if (blankLine is null || !string.IsNullOrWhiteSpace(blankLine))
             throw new SaaMessageFormatException(filePath, 4, "Expected a blank line before the message section.");
 
+        var sectionLine = 5;
         var section = ReadLine(text, ref offset);
+        while (section is not null && IsDuplicateNotice(section.Trim()))
+        {
+            section = ReadLine(text, ref offset);
+            sectionLine++;
+            while (section is not null && string.IsNullOrWhiteSpace(section))
+            {
+                section = ReadLine(text, ref offset);
+                sectionLine++;
+            }
+        }
         if (section is null || !Regex.IsMatch(section, @"\A[ \t]*-{3,}[ \t]+Instance Type and Transmission[ \t]+-{3,}[ \t]*\z"))
-            throw new SaaMessageFormatException(filePath, 5, "Expected the Instance Type and Transmission section.");
+            throw new SaaMessageFormatException(filePath, sectionLine, "Expected the Instance Type and Transmission section.");
         if (string.IsNullOrWhiteSpace(text.Substring(offset)))
-            throw new SaaMessageFormatException(filePath, 6, "Expected message content after the section heading.");
+            throw new SaaMessageFormatException(filePath, sectionLine + 1, "Expected message content after the section heading.");
 
-        return new SaaMessageDocument(header, text.Substring(bodyOffset), filePath, file.ContentHash);
+        var body = text.Substring(bodyOffset);
+        return new SaaMessageDocument(header, body, filePath, file.ContentHash,
+            ReadReference(body, "20"), ReadReference(body, "21"));
+    }
+
+    private static bool IsDuplicateNotice(string line) =>
+        line == "Possible duplicate information received from network" ||
+        line == "Possible duplicate indicator set locally" ||
+        line == "Duplicate detected by interface";
+
+    // Only printed fields in Message Text count; references quoted in Narrative do not.
+    // For repeating transaction sequences, retain the first occurrence in the message.
+    private static string? ReadReference(string body, string tag)
+    {
+        var offset = 0;
+        var inMessageText = false;
+        int? fieldColumn = null;
+        string? line;
+        while ((line = ReadLine(body, ref offset)) is not null)
+        {
+            if (Regex.IsMatch(line, @"\A[ \t]*-{3,}[ \t]+Message Text[ \t]+-{3,}[ \t]*\z"))
+            {
+                inMessageText = true;
+                continue;
+            }
+            if (!inMessageText) continue;
+            if (Regex.IsMatch(line, @"\A[ \t]*-{3,}[ \t]+Message Trailer[ \t]+-{3,}")) break;
+            if (fieldColumn is null && Regex.IsMatch(line, @"\A[ \t]*[0-9]{2,3}[A-Z]?:[ \t]+\S"))
+                fieldColumn = line.IndexOf(':');
+            if (line.IndexOf(':') != fieldColumn) continue;
+            var label = tag == "20" ? @"(?:Transaction Reference Number|Sender's Reference)"
+                : @"(?:Related Reference|Transaction Reference)";
+            var field = Regex.Match(line, @"\A(?<indent>[ \t]*)" + tag + @":[ \t]+" + label + @"[ \t]*\z");
+            if (!field.Success) continue;
+            var value = ReadLine(body, ref offset);
+            if (value is null || string.IsNullOrWhiteSpace(value)) return null;
+            var indent = value.Length - value.TrimStart(' ', '\t').Length;
+            return indent > field.Groups["indent"].Length ? value.Trim() : null;
+        }
+        return null;
     }
 
     private static string? ReadLine(string text, ref int offset)
@@ -155,10 +205,10 @@ public sealed class SaaMessageParser : ISaaMessageParser
         };
     }
 
-    private static SaaMessageDirection? ParseDirection(string? value)
+    private static SaaMessageDirection ParseDirection(string? value)
     {
         if (value is null)
-            return null;
+            throw new FormatException("Header field 'DIRECTION' must not be empty. Expected Incoming or Outgoing.");
         if (string.Equals(value, "Incoming", StringComparison.OrdinalIgnoreCase))
             return SaaMessageDirection.Incoming;
         if (string.Equals(value, "Outgoing", StringComparison.OrdinalIgnoreCase))

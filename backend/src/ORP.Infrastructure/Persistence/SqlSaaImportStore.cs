@@ -90,7 +90,7 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
     private async Task<SaaFileImportResult> RegisterCoreAsync(SaaSourceFileSnapshot file, SaaProcessedMessage processed,
         CancellationToken cancellationToken)
     {
-        var record = CreateRecord(processed.Document, file.RootDirectory, processed.Direction);
+        var record = CreateRecord(processed.Document, file.RootDirectory);
         await using var db = new ORPDbContext(options);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await AcquirePathLockAsync(db, file.RelativePath, cancellationToken);
@@ -141,8 +141,7 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
         return result;
     }
 
-    internal static SwiftMessageRecord CreateRecord(SaaMessageDocument document, string rootDirectory,
-        SaaMessageDirection? defaultDirection = null)
+    internal static SwiftMessageRecord CreateRecord(SaaMessageDocument document, string rootDirectory)
     {
         var path = SaaSourceFileReader.GetRelativePath(document.FilePath, rootDirectory);
 
@@ -151,6 +150,8 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
         EnsureLength(document.Header.Branch, 100, "Branch");
         EnsureLength(document.Header.MessageType, 100, "MessageType");
         EnsureLength(document.Header.ReferenceId, 255, "ReferenceId");
+        EnsureLength(document.TransactionReferenceNumber, 255, "TransactionReferenceNumber");
+        EnsureLength(document.RelatedReference, 255, "RelatedReference");
         EnsureLength(document.Header.Sender, 100, "Sender");
         EnsureLength(document.Header.Receiver, 100, "Receiver");
         EnsureLength(document.Header.Host, 255, "Host");
@@ -160,7 +161,9 @@ IF @result < 0 THROW 51000, 'Cannot acquire SAA import file lock.', 1;", cancell
             Branch = document.Header.Branch,
             MessageType = document.Header.MessageType,
             ReferenceId = document.Header.ReferenceId,
-            Direction = (document.Header.Direction ?? defaultDirection) switch
+            TransactionReferenceNumber = document.TransactionReferenceNumber,
+            RelatedReference = document.RelatedReference,
+            Direction = document.Header.Direction switch
             {
                 SaaMessageDirection.Incoming => MessageDirection.Incoming,
                 SaaMessageDirection.Outgoing => MessageDirection.Outgoing,

@@ -22,6 +22,13 @@ public sealed class SaaMessageDocumentTests
         var text = string.Join("\n", row.GetProperty("Line").GetString(), row.GetProperty("PrintLine").GetString(), Separator, "", Section, Content);
         WithFile(Encoding.UTF8.GetBytes(text), path =>
         {
+            if (row.GetProperty("Direction").ValueKind == JsonValueKind.Null)
+            {
+                var error = Assert.Throws<SaaMessageFormatException>(() => parser.ParseFile(path));
+                Assert.Equal(1, error.LineNumber);
+                Assert.Contains("'DIRECTION' must not be empty", error.Reason);
+                return;
+            }
             var result = parser.ParseFile(path);
             Assert.EndsWith(".prt", sourceFile);
             Assert.Equal(row.GetProperty("Branch").GetString(), result.Header.Branch);
