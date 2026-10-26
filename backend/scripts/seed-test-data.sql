@@ -62,6 +62,8 @@ BEGIN TRY
     DELETE FROM [orp].[Users];
     DELETE FROM [orp].[Roles];
     DELETE FROM [orp].[Permissions];
+    IF OBJECT_ID(N'orp.DistributionLists', N'U') IS NOT NULL
+        DELETE FROM [orp].[DistributionLists]; -- Email items are deleted by the cascading foreign key.
     DELETE FROM [orp].[Branches];
     DELETE FROM [orp].[Departments];
 
@@ -70,7 +72,8 @@ BEGIN TRY
     INSERT INTO [orp].[Departments] ([Name]) VALUES (N'CS'),(N'TFO'),(N'DC');
 
     INSERT INTO [orp].[Permissions] ([Name]) VALUES
-        (N'message.view'),(N'message.assign'),(N'review.level1'),(N'review.level2'),
+        (N'message.view'),(N'message.assign'),(N'message.forward'),(N'distribution-list.manage'),
+        (N'review.level1'),(N'review.level2'),
         (N'review.level3'),(N'review.bulk-approve'),(N'review.undo'),(N'audit.view'),(N'workflow.manage');
 
     INSERT INTO [orp].[Roles] ([Name]) VALUES (N'Reviewer'),(N'Operations manager');
@@ -79,7 +82,7 @@ BEGIN TRY
     SELECT r.[Id],p.[Id] FROM [orp].[Roles] r CROSS JOIN [orp].[Permissions] p
     WHERE r.[Name]=N'Operations manager'
         OR (r.[Name]=N'Reviewer'
-            AND p.[Name] IN (N'message.view',N'message.assign',N'review.level1',
+            AND p.[Name] IN (N'message.view',N'message.assign',N'message.forward',N'distribution-list.manage',N'review.level1',
                 N'review.level2',N'review.level3',N'review.bulk-approve',N'review.undo',N'audit.view'));
 
     -- 3. Users and exact branch/department scopes.

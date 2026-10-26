@@ -14,9 +14,10 @@ using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
 using ORP.Domain.Workflows;
 using ORP.Infrastructure.Persistence;
+using ORP.Importer.SqlTests;
 using Xunit;
 
-namespace ORP.Importer.SqlTests;
+namespace ORP.OperationMatrix.Tests;
 
 public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
 {

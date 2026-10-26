@@ -55,7 +55,9 @@ details/card responses, persisted reviews and assignments, and business audit.
 Authentication uses Development `X-Debug-User`; external authentication, browser
 interaction and the importer console process are outside this suite.
 
-From the repository root, run the full local backend suite:
+E2E tests run only by an explicit project command. They are excluded from both
+`ORP.sln` and the local `ORP.Docker.sln`, so the regular backend command does not
+run them:
 
 ```sh
 ./test-backend.docker.sh -m:1
@@ -102,8 +104,19 @@ dotnet test tests/ORP.EndToEnd.Tests/ORP.EndToEnd.Tests.csproj -p:ORPLinuxBuild=
 
 The connection must explicitly name an existing application database; an empty
 catalog or a SQL Server system database is rejected. `ORP_TEST_SQL_SERVER` also
-uses its catalog as-is. Missing configuration fails explicitly. The project
-belongs to the ignored local `ORP.Docker.sln`, not
-the versioned `ORP.sln`. In a newly prepared Docker workspace, register it with
-`dotnet sln ORP.Docker.sln add tests/ORP.EndToEnd.Tests/ORP.EndToEnd.Tests.csproj`
-from `backend`.
+uses its catalog as-is. Missing configuration fails explicitly. Keep this project
+out of the application solutions; use the explicit project command above for
+manual E2E runs.
+
+## Department distribution list tests
+
+`DistributionListTests` uses the same connection configuration and an in-process
+API against real SQL Server. It requires current migrations and does not apply
+them. Each test creates UUID-named branches, departments, users and roles;
+cleanup deletes only the exact recorded fixture IDs and their distribution lists
+in a transaction, preserving shared permissions and existing data.
+
+Coverage includes CRUD, department and branch scope permissions, administrator
+access, validation, database uniqueness and cascade constraints, atomic rollback,
+Reviewer migration grants, internal rowversion checks, and synchronized HTTP
+updates that return one success and one conflict without retrying the loser.

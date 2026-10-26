@@ -13,6 +13,7 @@ public static class ApiEndpoints
         api.MapDashboardEndpoints();
         api.MapCurrentUserEndpoints();
         api.MapAdministrationEndpoints();
+        api.MapDistributionListEndpoints();
         return endpoints;
     }
 }

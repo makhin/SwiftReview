@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ORP.Domain.Assignments;
+using ORP.Domain.DistributionLists;
 using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
@@ -24,6 +25,8 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<DistributionList> DistributionLists => Set<DistributionList>();
+    public DbSet<DistributionListEmail> DistributionListEmails => Set<DistributionListEmail>();
     public DbSet<DepartmentRoutingRule> DepartmentRoutingRules => Set<DepartmentRoutingRule>();
     public DbSet<IgnoredImportFile> IgnoredImportFiles => Set<IgnoredImportFile>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
@@ -49,6 +52,13 @@ public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbCon
 
     private void EnsureWriteRules()
     {
+        var changedDistributionLists = ChangeTracker.Entries<DistributionListEmail>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(x => x.Entity.DistributionListId).ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<DistributionList>().Where(x =>
+                     x.State is EntityState.Unchanged or EntityState.Modified && changedDistributionLists.Contains(x.Entity.Id)))
+            entry.Property(x => x.Name).IsModified = true;
+
         var changedAssignments = ChangeTracker.Entries<Assignment>()
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .Select(x => x.Entity.MessageId).ToHashSet();

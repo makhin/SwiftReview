@@ -11,9 +11,10 @@ using ORP.Importer;
 using ORP.Infrastructure.Identity;
 using ORP.Infrastructure.Logging;
 using ORP.Infrastructure.Persistence;
+using ORP.Importer.SqlTests;
 using Xunit;
 
-namespace ORP.Importer.SqlTests;
+namespace ORP.OperationMatrix.Tests;
 
 public sealed class WorkflowMatrixSqlTests
 {

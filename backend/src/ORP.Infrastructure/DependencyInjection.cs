@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IUserAccessService, UserAccessService>();
         services.AddScoped<IUserAuthorizationQueries, UserAuthorizationQueries>();
         services.AddScoped<ORP.Application.Administration.IUserAdministrationService, UserAdministrationService>();
+        services.AddScoped<ORP.Application.DistributionLists.IDistributionListService, DistributionListService>();
         services.AddScoped<IAssignmentCandidateQueries, AssignmentCandidateQueries>();
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();
         services.AddScoped<IWorkflowResolver, WorkflowResolver>();

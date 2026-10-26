@@ -162,6 +162,62 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditEvents", "orp");
                 });
 
+            modelBuilder.Entity("ORP.Domain.DistributionLists.DistributionList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .UseCollation("Latin1_General_100_CI_AS_SC");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("DistributionLists", "orp");
+                });
+
+            modelBuilder.Entity("ORP.Domain.DistributionLists.DistributionListEmail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DistributionListId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)")
+                        .UseCollation("Latin1_General_100_CI_AS_SC");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DistributionListId", "Email")
+                        .IsUnique();
+
+                    b.ToTable("DistributionListEmails", "orp");
+                });
+
             modelBuilder.Entity("ORP.Domain.Identity.Branch", b =>
                 {
                     b.Property<int>("Id")
@@ -742,6 +798,24 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ORP.Domain.DistributionLists.DistributionList", b =>
+                {
+                    b.HasOne("ORP.Domain.Identity.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ORP.Domain.DistributionLists.DistributionListEmail", b =>
+                {
+                    b.HasOne("ORP.Domain.DistributionLists.DistributionList", null)
+                        .WithMany("Emails")
+                        .HasForeignKey("DistributionListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ORP.Domain.Identity.RolePermission", b =>
                 {
                     b.HasOne("ORP.Domain.Identity.Permission", "Permission")
@@ -869,6 +943,11 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("WorkflowDefinitionId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ORP.Domain.DistributionLists.DistributionList", b =>
+                {
+                    b.Navigation("Emails");
                 });
 
             modelBuilder.Entity("ORP.Domain.Identity.Role", b =>

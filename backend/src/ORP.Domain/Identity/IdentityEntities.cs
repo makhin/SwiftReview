@@ -46,6 +46,8 @@ public static class Permissions
 {
     public const string MessageView = "message.view";
     public const string MessageAssign = "message.assign";
+    public const string MessageForward = "message.forward";
+    public const string DistributionListManage = "distribution-list.manage";
     public const string ReviewLevel1 = "review.level1";
     public const string ReviewLevel2 = "review.level2";
     public const string ReviewLevel3 = "review.level3";
@@ -53,5 +55,5 @@ public static class Permissions
     public const string ReviewUndo = "review.undo";
     public const string AuditView = "audit.view";
     public const string WorkflowManage = "workflow.manage";
-    public static readonly string[] All = [MessageView, MessageAssign, ReviewLevel1, ReviewLevel2, ReviewLevel3, ReviewBulkApprove, ReviewUndo, AuditView, WorkflowManage];
+    public static readonly string[] All = [MessageView, MessageAssign, MessageForward, DistributionListManage, ReviewLevel1, ReviewLevel2, ReviewLevel3, ReviewBulkApprove, ReviewUndo, AuditView, WorkflowManage];
 }

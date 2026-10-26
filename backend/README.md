@@ -364,6 +364,36 @@ dotnet ef migrations add MigrationName \
 
 All application endpoints are under `/api` and require authentication. The API exposes message search and detail operations, independent message and user grid endpoints, assignment and review actions, audit history, dashboard summaries, and reference data.
 
+### Department distribution lists
+
+`/api/departments/{departmentId}/distribution-lists` supports GET (all lists) and
+POST (create); `/{id}` supports GET, PUT (complete replacement) and DELETE.
+POST/PUT accept `{ "name": "Operations", "emails": ["ops@example.com"] }`.
+Responses contain `{ id, departmentId, name, emails }`; POST returns 201 with
+Location, PUT returns 200, and DELETE returns 204. Lists are sorted by name and ID.
+
+Lists belong to a department across all branches. Reading requires
+`message.forward` or `distribution-list.manage` in any scope of that department;
+writing requires `distribution-list.manage`. No additional `message.view` grant
+is needed. Global administrators have full access. The migration adds both
+permissions to the catalog and grants them to the existing `Reviewer` role.
+
+Names are trimmed, required, limited to 200 characters and unique within the
+department without regard to case. Emails are trimmed single addresses without
+display names, up to 254 characters each and 1000 per list; an empty list is valid.
+Duplicates within a list are rejected without regard to case. Invalid data returns
+400, forbidden access 403, missing resources 404, and uniqueness or detected
+concurrent-write conflicts 409, using the standard ProblemDetails response.
+
+Name and address changes are atomic. SQL rowversion protects the aggregate,
+including address-only changes; detected write conflicts are not automatically
+retried. Versions are internal: responses have no version field or ETag and
+mutations require no version or If-Match. Consequently, an older form can overwrite
+a change committed before its request started. These endpoints manage recipient
+lists; they do not send email.
+
+### Message responses
+
 Message objects returned by `POST /api/messages/grid`, `POST /api/messages/search`,
 `GET /api/messages/{id}` and `GET /api/messages/{id}/view` include
 `transactionReferenceNumber` (printed tag 20) and `relatedReference` (printed tag 21).
@@ -555,6 +585,20 @@ Unit tests can be run without SQL Server:
 dotnet test tests/ORP.Domain.Tests/ORP.Domain.Tests.csproj
 dotnet test tests/ORP.Application.Tests/ORP.Application.Tests.csproj
 ```
+
+E2E tests and the full operation matrix are excluded from the application solutions
+and regular backend launchers. Run them explicitly from `backend`:
+
+```bash
+dotnet test tests/ORP.EndToEnd.Tests/ORP.EndToEnd.Tests.csproj -p:ORPLinuxBuild=true -m:1
+dotnet test tests/ORP.OperationMatrix.Tests/ORP.OperationMatrix.Tests.csproj -p:ORPLinuxBuild=true -m:1
+```
+
+E2E tests use the existing application connection and require current migrations;
+see [E2E configuration](tests/ORP.EndToEnd.Tests/README.md). The operation matrix
+requires `ORP_TEST_SQL_SERVER` and creates isolated temporary databases;
+see [matrix configuration](tests/ORP.OperationMatrix.Tests/README.md).
+The local Docker backend suite continues to run the regular SQL regression tests.
 
 ### Preformatted text to PDF
 
