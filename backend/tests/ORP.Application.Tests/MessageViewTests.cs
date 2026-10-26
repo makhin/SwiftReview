@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using NSubstitute;
 using ORP.Application.Abstractions;
 using ORP.Application.Messages.Get;
@@ -6,6 +7,7 @@ using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
+using ORP.Domain.Workflows;
 using Xunit;
 
 namespace ORP.Application.Tests;
@@ -30,7 +32,14 @@ public sealed class MessageViewTests
         var message = Message(count == 0 ? MessageState.ViewOnly : MessageState.Assigned) with
         {
             TransactionReferenceNumber = count == 0 ? null : "8801IC000673",
-            RelatedReference = count == 0 ? null : "1234"
+            RelatedReference = count == 0 ? null : "1234",
+            CurrentAssigneeId = count == 0 ? null : 7,
+            CurrentAssigneeName = count == 0 ? null : "Jordan",
+            ConfirmationMode = count == 0 ? ConfirmationMode.None
+                : count == 1 ? ConfirmationMode.Immediate : ConfirmationMode.ReviewSession,
+            CanConfirm = count == 1,
+            ConfirmationLevel = count == 1 ? 1 : null,
+            CanReview = count > 1
         };
         var result = MessageViewAdapter.Map(message, Data(Enumerable.Range(1, count).ToArray()));
         Assert.Equal(count, result.Approvals.Count);
@@ -40,14 +49,22 @@ public sealed class MessageViewTests
             Assert.Equal("Jordan", result.Approvals[0].Assignee);
             Assert.All(result.Approvals.Skip(1), a => { Assert.Equal("waiting", a.Status); Assert.Null(a.Assignee); });
         }
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        jsonOptions.Converters.Add(new JsonStringEnumConverter());
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, jsonOptions));
         var root = json.RootElement;
         Assert.Equal("901", root.GetProperty("id").GetString());
         Assert.Equal(message.Body, root.GetProperty("rawText").GetString());
         Assert.Equal(message.StateName, root.GetProperty("status").GetString());
         Assert.Equal(message.TransactionReferenceNumber, root.GetProperty("transactionReferenceNumber").GetString());
         Assert.Equal(message.RelatedReference, root.GetProperty("relatedReference").GetString());
-        Assert.Equal(15, root.EnumerateObject().Count());
+        Assert.Equal(message.CurrentAssigneeId, root.GetProperty("currentAssigneeId").Deserialize<int?>());
+        Assert.Equal(message.CurrentAssigneeName, root.GetProperty("currentAssigneeName").GetString());
+        Assert.Equal(message.ConfirmationMode.ToString(), root.GetProperty("confirmationMode").GetString());
+        Assert.Equal(message.CanConfirm, root.GetProperty("canConfirm").GetBoolean());
+        Assert.Equal(message.ConfirmationLevel, root.GetProperty("confirmationLevel").Deserialize<int?>());
+        Assert.Equal(message.CanReview, root.GetProperty("canReview").GetBoolean());
+        Assert.Equal(21, root.EnumerateObject().Count());
         if (count > 0)
         {
             var approval = root.GetProperty("approvals")[0];

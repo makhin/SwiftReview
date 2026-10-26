@@ -4,6 +4,7 @@ using ORP.Domain.Auditing;
 using ORP.Domain.Identity;
 using ORP.Domain.Messages;
 using ORP.Domain.Reviews;
+using ORP.Domain.Workflows;
 
 namespace ORP.Application.Messages.Get;
 
@@ -14,6 +15,12 @@ public sealed record MessageViewDto(string Id, string Reference, string MessageT
 {
     public string? TransactionReferenceNumber { get; init; }
     public string? RelatedReference { get; init; }
+    public int? CurrentAssigneeId { get; init; }
+    public string? CurrentAssigneeName { get; init; }
+    public ConfirmationMode ConfirmationMode { get; init; }
+    public bool CanConfirm { get; init; }
+    public int? ConfirmationLevel { get; init; }
+    public bool CanReview { get; init; }
 }
 public sealed record MessageApprovalDto(int Level, string Label, string Status, string? Assignee,
     string? Approver, string? Role, string? Comment, DateTimeOffset? At);
@@ -105,7 +112,13 @@ public static class MessageViewAdapter
             message.BranchName, message.ReceivedAt, approvals, audit, message.Body)
         {
             TransactionReferenceNumber = message.TransactionReferenceNumber,
-            RelatedReference = message.RelatedReference
+            RelatedReference = message.RelatedReference,
+            CurrentAssigneeId = message.CurrentAssigneeId,
+            CurrentAssigneeName = message.CurrentAssigneeName,
+            ConfirmationMode = message.ConfirmationMode,
+            CanConfirm = message.CanConfirm,
+            ConfirmationLevel = message.ConfirmationLevel,
+            CanReview = message.CanReview
         };
     }
 }
