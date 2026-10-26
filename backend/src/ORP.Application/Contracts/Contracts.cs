@@ -22,7 +22,10 @@ public sealed record UndoReviewRequest([property: Range(1, long.MaxValue)] long 
 public sealed record StartReviewResponse(long ReviewId);
 public sealed record CurrentUserResponse(int UserId, string UserName, string DisplayName, IReadOnlyList<string> Permissions,
     IReadOnlyList<int> Branches, IReadOnlyList<int> Departments, bool IsGlobalAdministrator,
-    IReadOnlyList<UserScopeAccess> Scopes);
+    IReadOnlyList<UserScopeAccess> Scopes)
+{
+    public string RolesAndDepartments { get; init; } = string.Empty;
+}
 
 public sealed record LevelAssignmentDto(int Level, int AssignedTo, string AssigneeName);
 

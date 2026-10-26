@@ -17,6 +17,9 @@ public static class CurrentUserEndpoints
         var access = await users.GetByIdAsync(current.UserId, ct) ?? throw new UnauthorizedAccessException();
         return new CurrentUserResponse(access.UserId, access.UserName, access.DisplayName,
             access.Permissions.Order().ToArray(), access.BranchIds.Order().ToArray(),
-            access.DepartmentIds.Order().ToArray(), access.IsGlobalAdministrator, access.Scopes);
+            access.DepartmentIds.Order().ToArray(), access.IsGlobalAdministrator, access.Scopes)
+        {
+            RolesAndDepartments = await users.GetRolesAndDepartmentsAsync(access, ct)
+        };
     }
 }

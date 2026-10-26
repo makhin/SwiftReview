@@ -39,6 +39,7 @@ public interface IMessageQueries
 public interface IUserAccessService
 {
     Task<UserAccess?> GetByIdAsync(int userId, CancellationToken cancellationToken);
+    Task<string> GetRolesAndDepartmentsAsync(UserAccess access, CancellationToken cancellationToken);
 }
 
 public interface IAssignmentCandidateQueries
