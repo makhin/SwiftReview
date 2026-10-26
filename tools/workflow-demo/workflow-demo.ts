@@ -9,78 +9,136 @@ const COMMENT = process.env.DEMO_COMMENT ?? 'Looks good';
 const PAUSE = process.env.DEMO_PAUSE !== 'false';
 const PAGE = Number(process.env.DEMO_PAGE ?? 1);
 const PAGE_SIZE = Number(process.env.DEMO_PAGE_SIZE ?? 20);
+const STATUS = process.env.DEMO_STATUS ?? ''; // Empty: all states, including assigned messages.
+const ACTIONS = process.env.DEMO_ACTIONS ?? ''; // Empty: interactive commands.
 
 const terminal = createInterface({ input: process.stdin, output: process.stdout });
+let user = USER;
 
 // All HTTP calls go through this function so we can print them and pause.
 async function request(method: string, path: string, body?: object) {
-  console.log(`\n→ ${method} ${API_URL}${path}`);
+  console.log(`\n→ ${method} ${API_URL}${path} (user: ${user})`);
   if (body) console.log(JSON.stringify(body, null, 2));
   if (PAUSE) await terminal.question('Press Enter to send (Ctrl+C to stop): ');
 
   const response = await fetch(API_URL + path, {
     method,
-    headers: { 'X-Debug-User': USER, 'Content-Type': 'application/json' },
+    headers: { 'X-Debug-User': user, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   console.log(`← HTTP ${response.status}`);
-
-  // Stop on an error. Never automatically retry an approval.
   if (!response.ok) throw new Error(await response.text());
-  if (response.status === 204) return; // Successful command, no JSON body.
+  if (response.status === 204) return;
 
   const data = await response.json();
   console.log(JSON.stringify(data, null, 2));
   return data;
 }
 
+function positiveNumber(value: string) {
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number <= 0) throw new Error('Enter a positive integer.');
+  return number;
+}
+
 async function main() {
-  // 1. Get our user ID and find the workflow selected in the settings.
-  const me = await request('GET', '/me');
+  let me = await request('GET', '/me');
   const workflows = await request('GET', '/workflows');
   const workflow = workflows.find((w: any) =>
     w.code === WORKFLOW || w.name === WORKFLOW || String(w.id) === WORKFLOW);
   if (!workflow) throw new Error('Workflow not found. Check WORKFLOW.');
-  if (workflow.confirmationMode !== 'Immediate') throw new Error('Choose an Immediate workflow for this demo.');
 
-  // 2. Load one page of new messages and show those belonging to our workflow.
   const grid = await request('POST', '/messages/grid', {
-    status: 'New', page: PAGE, pageSize: PAGE_SIZE,
+    ...(STATUS ? { status: STATUS } : {}), page: PAGE, pageSize: PAGE_SIZE,
   });
   const messages = grid.items.filter((m: any) => m.workflowDefinitionId === workflow.id);
-  console.table(messages.map((m: any) => ({ id: m.id, reference: m.externalId })));
-
+  console.table(messages.map((m: any) => ({ id: m.id, reference: m.externalId, state: m.state })));
   const messageId = MESSAGE_ID || await terminal.question('Enter a message ID from this list: ');
   const selected = messages.find((m: any) => String(m.id) === messageId.trim());
-  if (!selected) throw new Error('Message not found on this page. Change PAGE or PAGE_SIZE.');
+  if (!selected) throw new Error('Message not found on this page. Change PAGE, PAGE_SIZE or STATUS.');
   const path = `/messages/${selected.id}`;
-  let message = await request('GET', path);
+  let message = await request('GET', `${path}/view`);
+  let review: { reviewId: number; level: number } | undefined;
+  const actions = ACTIONS.split(',').map(a => a.trim()).filter(Boolean);
 
-  while (message.state !== 'Completed') {
-    // 3. Show eligible reviewers and assign ourselves if assignment is needed.
-    if (message.currentAssigneeId === null) {
-      await request('GET', `${path}/assignment-candidates`);
-      await request('POST', `${path}/assign`, { assignedTo: me.userId });
-      message = await request('GET', path);
+  console.log(`
+Commands:
+  confirm          Confirm the available level (automatically assigns yourself).
+  confirm:1        Send a specific level, e.g. to check a duplicate or forbidden action.
+  complete         Confirm all available levels; stop if another reviewer is needed.
+  candidates       Show eligible assignees for the current level.
+  assign           Assign the current level to yourself.
+  assign:21        Assign the current level to another user ID.
+  user:username    Switch caller and read /me and /view again.
+  start            Start/resume a ReviewSession and remember its reviewId.
+  approve          Approve the session started by this script.
+  reject           Reject that session, if allowed by the workflow.
+  cancel           Cancel that session.
+  refresh          Read /view again.
+  quit             Stop.
+`);
+
+  while (true) {
+    const input = ACTIONS ? actions.shift() : await terminal.question('Action: ');
+    if (input === undefined || input.trim() === 'quit') break;
+    const [action, argument] = input.trim().split(':');
+    try {
+      if (action === 'user') {
+        if (!argument) throw new Error('Use user:username or user:ID.');
+        user = argument;
+        message = undefined; // Never use another caller's capabilities after a switch.
+        review = undefined;
+        me = undefined;
+        me = await request('GET', '/me');
+      } else if (action === 'refresh') {
+        // The common read below refreshes the view.
+      } else {
+        if (!message || !me) throw new Error('Select a user who can read this message first.');
+        if (action === 'confirm' || action === 'complete') {
+          do {
+            if (action === 'complete' && message.approvals.length > 0 &&
+                message.approvals.every((a: any) => a.status === 'approved')) break;
+            const level = argument ? positiveNumber(argument) : message.confirmationLevel;
+            if (!argument && (!message.canConfirm || level == null))
+              throw new Error('Confirmation unavailable. Check permissions, assignment and reviewer reuse.');
+            await request('POST', `${path}/reviews/confirm`, { level, comment: COMMENT });
+            message = await request('GET', `${path}/view`);
+          } while (action === 'complete');
+        } else if (action === 'candidates') {
+          await request('GET', `${path}/assignment-candidates`);
+        } else if (action === 'assign') {
+          await request('POST', `${path}/assign`, { assignedTo: argument ? positiveNumber(argument) : me.userId });
+          review = undefined;
+        } else if (action === 'start') {
+          const level = message.approvals.find((a: any) => a.status === 'pending')?.level;
+          if (!message.canReview || level == null) throw new Error('Review session unavailable.');
+          const result = await request('POST', `${path}/reviews/start`, { level });
+          review = { reviewId: result.reviewId, level };
+        } else if (['approve', 'reject', 'cancel'].includes(action)) {
+          if (!review) throw new Error('Run start first to obtain the reviewId.');
+          await request('POST', `${path}/reviews/${action}`, {
+            ...review, ...(action === 'cancel' ? {} : { comment: COMMENT }),
+          });
+          review = undefined;
+        } else {
+          throw new Error('Unknown action. Use one of the commands above.');
+        }
+      }
+      if (action !== 'confirm' && action !== 'complete')
+        message = await request('GET', `${path}/view`);
+      console.log(`Status: ${message.status}; canConfirm: ${message.canConfirm}; level: ${message.confirmationLevel}; canReview: ${message.canReview}`);
+    } catch (error) {
+      // Scripted scenarios stop on any error. Interactive mode lets you choose another action.
+      // No mutation is retried automatically, even after an uncertain network result.
+      if (ACTIONS) throw error;
+      console.error((error as Error).message);
+      message = undefined;
+      review = undefined;
+      console.log('Use refresh or user:username before the next action.');
     }
-
-    // 4. The backend tells us the current level. Do not calculate them here.
-    if (!message.canConfirm) throw new Error('Confirmation is unavailable. See the last message response.');
-    await request('POST', `${path}/reviews/confirm`, {
-      level: message.confirmationLevel,
-      comment: COMMENT,
-    });
-
-    // 5. Read the new state and available action before the next confirmation.
-    const previousState = message.state;
-    message = await request('GET', path);
-    console.log(`State: ${previousState} → ${message.state}`);
   }
-
-  // 6. Show approvals, audit history and updated counters.
-  await request('GET', `${path}/view`);
   await request('GET', '/messages/state-counts');
-  console.log(`\nCompleted: message ${selected.id}, workflow ${workflow.code}, user ${me.userName}.`);
+  console.log(`\nFinished: message ${selected.id}.`);
 }
 
 main().catch(error => {
