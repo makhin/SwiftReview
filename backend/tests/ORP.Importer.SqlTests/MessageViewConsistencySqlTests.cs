@@ -73,7 +73,7 @@ public sealed partial class ConfirmationSqlTests
         await using var db = new ORPDbContext(fixture.Options);
         var admin = await db.Users.Where(u => u.IsGlobalAdministrator).Select(u => u.Id).SingleAsync(ct);
         foreach (var actor in new[] { setup.Actor, setup.Assignee, admin })
-        foreach (var action in new[] { "start", "approve", "reject", "cancel", "confirm", "assign-and-confirm" })
+        foreach (var action in new[] { "start", "approve", "reject", "cancel", "confirm" })
         {
             client.DefaultRequestHeaders.Remove("X-Debug-User");
             client.DefaultRequestHeaders.Add("X-Debug-User", actor.ToString());

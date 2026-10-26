@@ -20,10 +20,16 @@ internal static class MessageReviewCapabilityQueries
             .Where(x => workflowIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
         var reviews = (await db.Reviews.AsNoTracking().Where(x => ids.Contains(x.MessageId)).ToListAsync(ct))
             .ToLookup(x => x.MessageId);
+        var selfAssignmentIds = messages.Where(x => x.CurrentAssigneeId is null &&
+                !access.IsGlobalAdministrator && !workflows[x.WorkflowDefinitionId].AllowReviewerReuse)
+            .Select(x => x.Id).ToArray();
+        var assignments = (selfAssignmentIds.Length == 0 ? [] : await db.Assignments.AsNoTracking()
+            .Where(x => selfAssignmentIds.Contains(x.MessageId) && x.EndedAt == null).ToListAsync(ct))
+            .ToLookup(x => x.MessageId);
         return messages.ToDictionary(x => x.Id, x =>
             x.RowVersion.SequenceEqual(versions[x.Id])
                 ? ReviewCapabilities.For(x, workflows[x.WorkflowDefinitionId], reviews[x.Id].ToArray(),
-                    x.BranchId!.Value, access)
+                    x.BranchId!.Value, access, assignments[x.Id].ToArray())
                 : new ReviewCapabilities(workflows[x.WorkflowDefinitionId].ConfirmationMode, false, null, false));
     }
 }

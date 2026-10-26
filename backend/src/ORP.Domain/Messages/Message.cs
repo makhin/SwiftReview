@@ -101,20 +101,22 @@ public sealed class Message
     }
 
     public string? GetReviewStartError(int level, int reviewerId, WorkflowDefinition workflow,
-        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false, bool allowReviewerReuse = false)
+        IReadOnlyCollection<Review> reviews, bool isGlobalAdministrator = false, bool allowReviewerReuse = false,
+        bool allowSelfAssignment = false)
     {
         if (WorkflowError(workflow) is { } workflowError) return workflowError;
         if (workflow.ConfirmationMode == ConfirmationMode.None) return "This workflow has no confirmations.";
-        if (workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null)
+        var selfAssignment = allowSelfAssignment && workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null;
+        if (workflow.ConfirmationMode == ConfirmationMode.Immediate && CurrentAssigneeId is null && !selfAssignment)
             return "Assign the message before confirming it.";
-        if (CurrentAssigneeId != reviewerId) return "Only the assigned reviewer can start the review.";
+        if (CurrentAssigneeId != reviewerId && !selfAssignment) return "Only the assigned reviewer can start the review.";
         if (MessageReviewRules.ExpectedLevel(workflow, reviews) != level)
             return $"Review level {level} is not currently active.";
         if (reviews.Any(x => x.Level == level && x.Status is not (ReviewStatus.Undone or ReviewStatus.Cancelled)))
             return "This review level has already been started.";
         if (!allowReviewerReuse && !ReviewerAllowed(reviewerId, workflow, reviews, isGlobalAdministrator))
             return "Four-eyes principle: a reviewer cannot be reused.";
-        return State != MessageState.New && State.AssignableReviewLevel() == level
+        return (State != MessageState.New || selfAssignment) && State.AssignableReviewLevel() == level
             ? null : $"Action 'StartReview' is not allowed while message is in state '{State}'.";
     }
 

@@ -19,17 +19,17 @@ For an **Assign to me and confirm** button, replace the separate assign and firs
 confirm calls with:
 
 ```http
-POST /api/messages/1001/reviews/assign-and-confirm
+POST /api/messages/1001/reviews/confirm
 
 { "level": 1, "comment": "Looks good" }
 ```
 
 Success: `204`. This assigns an unassigned message to the caller and confirms in one
 transaction. If already assigned to the caller, it only confirms; if assigned to
-someone else, it returns `409`. Both `message.assign` and the level permission are
-required. Any failure rolls back both actions. Only Immediate workflows are supported.
-For DOUBLE_CONFIRMATION, reload and explicitly confirm level 2 using either endpoint.
-`canConfirm` may be false before assignment; it describes the separate confirm action.
+someone else, it returns `403`. The level permission is required; `message.assign` is
+additionally required only when the message is unassigned. Any failure rolls back both actions. Only Immediate workflows are supported.
+For DOUBLE_CONFIRMATION, reload and explicitly confirm level 2 through `confirm`.
+`canConfirm` includes automatic self-assignment; `confirmationLevel` identifies the available level.
 No automatic retries after a conflict or uncertain response.
 
 ## 1. Select a message

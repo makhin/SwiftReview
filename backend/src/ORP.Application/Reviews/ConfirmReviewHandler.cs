@@ -1,4 +1,6 @@
 using ORP.Domain.Assignments;
+using ORP.Application.Assignments.Assign;
+using ORP.Domain.Identity;
 using FluentValidation;
 using ORP.Application.Abstractions;
 using ORP.Application.Assignments;
@@ -21,7 +23,7 @@ public sealed class ConfirmReviewValidator : AbstractValidator<ConfirmReviewRequ
 
 public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmReviewRequest> validator,
     ICurrentUser user, IClock clock, ICorrelationContext correlation, AssignmentCoordinator assignments,
-    ITransactionExecutor transactions, MessageAuthorizationService authorization)
+    ITransactionExecutor transactions, MessageAuthorizationService authorization, AssignMessageHandler assign)
 {
     public async Task HandleAsync(long messageId, ConfirmReviewRequest request, CancellationToken cancellationToken)
     {
@@ -29,9 +31,21 @@ public sealed class ConfirmReviewHandler(IORPStore store, IValidator<ConfirmRevi
         await transactions.ExecuteAsync(async ct =>
         {
             var access = await authorization.RequireAsync(messageId,
-                ReviewAssignmentRules.PermissionForLevel(request.Level), ct, ownershipRequirement: MessageActionOwnership.Assignee);
+                ReviewAssignmentRules.PermissionForLevel(request.Level), ct);
+            if (access.Message.CurrentAssigneeId is int assignee && assignee != user.UserId)
+                throw new UnauthorizedAccessException("The message is assigned to another reviewer.");
             var workflow = await ReviewHandlerHelper.LoadWorkflowAsync(store, access.Message.WorkflowDefinitionId, ct);
-            await ApplyAsync(access, workflow, await store.GetActiveAssignmentsAsync(messageId, ct), request, ct);
+            if (workflow.ConfirmationMode != ConfirmationMode.Immediate)
+                throw new DomainRuleViolationException("This workflow does not use immediate confirmations.");
+            if (access.Message.State.AssignableReviewLevel() != request.Level)
+                throw new DomainRuleViolationException("Only the current workflow level can be confirmed.");
+            var activeAssignments = await store.GetActiveAssignmentsAsync(messageId, ct);
+            if (access.Message.CurrentAssigneeId is null)
+            {
+                await authorization.RequireAsync(access, Permissions.MessageAssign, ct);
+                await assign.ApplyAsync(access, workflow, activeAssignments, new(user.UserId, request.Level), ct);
+            }
+            await ApplyAsync(access, workflow, activeAssignments, request, ct);
         }, cancellationToken);
     }
 

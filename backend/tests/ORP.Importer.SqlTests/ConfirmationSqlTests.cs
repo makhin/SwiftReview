@@ -11,6 +11,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using FluentValidation;
 using Microsoft.Extensions.Logging.Abstractions;
 using ORP.Application.Abstractions;
+using ORP.Application.Grids;
+using ORP.Application.Messages.Get;
 using ORP.Application.Assignments;
 using ORP.Application.Assignments.Assign;
 using ORP.Application.Assignments.GetCandidates;
@@ -32,7 +34,7 @@ namespace ORP.Importer.SqlTests;
 public sealed partial class ConfirmationSqlTests
 {
     [Fact]
-    public async Task ConcurrentAssignAndConfirmHasOnlyOneOwnerAndApproval()
+    public async Task ConcurrentConfirmHasOnlyOneOwnerAndApproval()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -41,12 +43,12 @@ public sealed partial class ConfirmationSqlTests
         var gate = new SaveGate();
         await using var firstDb = new ORPDbContext(RetryOptions(fixture, new MeetBeforeSave(gate)));
         await using var secondDb = new ORPDbContext(RetryOptions(fixture, new MeetBeforeSave(gate)));
-        var first = Record.ExceptionAsync(() => Handlers(firstDb, setup.Actor).Combined.HandleAsync(setup.Message, new(1), ct));
-        var second = Record.ExceptionAsync(() => Handlers(secondDb, setup.Assignee).Combined.HandleAsync(setup.Message, new(1), ct));
+        var first = Record.ExceptionAsync(() => Handlers(firstDb, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct));
+        var second = Record.ExceptionAsync(() => Handlers(secondDb, setup.Assignee).Confirm.HandleAsync(setup.Message, new(1), ct));
         var errors = await Task.WhenAll(first.AsTask(), second.AsTask()).WaitAsync(TimeSpan.FromSeconds(45), ct);
         Assert.Equal(2, gate.Arrived);
         Assert.Single(errors, x => x is null);
-        Assert.IsType<DomainRuleViolationException>(Assert.Single(errors, x => x is not null));
+        Assert.IsType<UnauthorizedAccessException>(Assert.Single(errors, x => x is not null));
         await using var verify = new ORPDbContext(fixture.Options);
         var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
         Assert.Equal(MessageState.WaitingForSecondReview, message.State);
@@ -60,7 +62,7 @@ public sealed partial class ConfirmationSqlTests
     }
 
     [Fact]
-    public async Task CombinedSaveFailureRollsBackBothActions()
+    public async Task ConfirmSaveFailureRollsBackBothActions()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -69,7 +71,7 @@ public sealed partial class ConfirmationSqlTests
         var options = new DbContextOptionsBuilder<ORPDbContext>(fixture.Options)
             .AddInterceptors(new FailOnSecondSave()).Options;
         await using (var db = new ORPDbContext(options))
-            await Assert.ThrowsAsync<IOException>(() => Handlers(db, setup.Actor).Combined.HandleAsync(setup.Message, new(1), ct));
+            await Assert.ThrowsAsync<IOException>(() => Handlers(db, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct));
         await using var verify = new ORPDbContext(fixture.Options);
         Assert.Null((await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct)).CurrentAssigneeId);
         Assert.Empty(await verify.Assignments.ToListAsync(ct));
@@ -91,21 +93,53 @@ public sealed partial class ConfirmationSqlTests
     [InlineData("SINGLE_CONFIRMATION", 1, true)]
     [InlineData("DOUBLE_CONFIRMATION", 2, false)]
     [InlineData("DOUBLE_CONFIRMATION", 2, true)]
-    public async Task AssignAndConfirmHttpCompletesWithAssignmentPerLevel(string code, int levels, bool assigned)
+    public async Task ConfirmHttpCompletesWithAssignmentPerLevel(string code, int levels, bool assigned)
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
         var setup = await SeedAsync(fixture, ct, assigned);
         await PrepareCombinedAsync(fixture, setup.Message, code, assigned, ct);
+        await using (var db = new ORPDbContext(fixture.Options))
+        {
+            var workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
+            workflow.ConfigureConfirmation(ConfirmationMode.Immediate, true, AssignmentRetentionMode.PerConfirmation, false);
+            await db.SaveChangesAsync(ct);
+        }
         await using var factory = new AssignmentFactory(fixture.ConnectionString);
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
+        async Task CheckCapabilities(int? expectedLevel)
+        {
+            var details = (await client.GetFromJsonAsync<MessageDetailsDto>(
+                $"/api/messages/{setup.Message}", LevelJsonOptions, ct))!;
+            var view = (await client.GetFromJsonAsync<MessageViewDto>(
+                $"/api/messages/{setup.Message}/view", LevelJsonOptions, ct))!;
+            using var response = await client.PostAsJsonAsync("/api/messages/grid", new MessageGridRequest(Search: details.ExternalId), ct);
+            response.EnsureSuccessStatusCode();
+            var page = (await response.Content.ReadFromJsonAsync<PagedResult<MessageGridRowDto>>(LevelJsonOptions, ct))!;
+            var row = Assert.Single(page.Items, x => x.Id == setup.Message);
+            foreach (var actual in new[]
+            {
+                (details.ConfirmationMode, details.CanConfirm, details.ConfirmationLevel, details.CanReview),
+                (view.ConfirmationMode, view.CanConfirm, view.ConfirmationLevel, view.CanReview),
+                (row.ConfirmationMode, row.CanConfirm, row.ConfirmationLevel, row.CanReview)
+            })
+                Assert.Equal((ConfirmationMode.Immediate, expectedLevel.HasValue, expectedLevel, false), actual);
+            if (!assigned || expectedLevel != 1)
+            {
+                Assert.Null(details.CurrentAssigneeId);
+                Assert.Null(view.CurrentAssigneeId);
+                Assert.Null(row.CurrentAssigneeId);
+            }
+        }
         for (var level = 1; level <= levels; level++)
         {
-            using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm",
+            await CheckCapabilities(level);
+            using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/confirm",
                 new { level, comment = " Checked " }, ct);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
+        await CheckCapabilities(null);
         await using var verify = new ORPDbContext(fixture.Options);
         var message = await verify.Messages.SingleAsync(x => x.Id == setup.Message, ct);
         Assert.Equal(MessageState.Completed, message.State);
@@ -130,7 +164,7 @@ public sealed partial class ConfirmationSqlTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task AssignAndConfirmNeverTakesAnotherReviewersMessage(bool administrator)
+    public async Task ConfirmNeverTakesAnotherReviewersMessage(bool administrator)
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -143,8 +177,8 @@ public sealed partial class ConfirmationSqlTests
         await using var factory = new AssignmentFactory(fixture.ConnectionString);
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", username);
-        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm", new { level = 1 }, ct);
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/confirm", new { level = 1 }, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         db.ChangeTracker.Clear();
         var message = await db.Messages.SingleAsync(x => x.Id == setup.Message, ct);
         Assert.Equal(setup.Actor, message.CurrentAssigneeId);
@@ -160,7 +194,7 @@ public sealed partial class ConfirmationSqlTests
     [InlineData("review.level1", true)]
     [InlineData("message.view", false)]
     [InlineData("message.view", true)]
-    public async Task AssignAndConfirmRequiresBothPermissions(string missingPermission, bool assigned)
+    public async Task ConfirmRequiresPermissionsForRequestedActions(string missingPermission, bool assigned)
     {
         var ct = TestContext.Current.CancellationToken;
         await using var fixture = await SqlImportDatabase.CreateAsync();
@@ -170,7 +204,13 @@ public sealed partial class ConfirmationSqlTests
         await using var factory = new AssignmentFactory(fixture.ConnectionString);
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
-        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm", new { level = 1 }, ct);
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/confirm", new { level = 1 }, ct);
+        if (assigned && missingPermission == "message.assign")
+        {
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Single(await db.Reviews.ToListAsync(ct));
+            return;
+        }
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await db.Reviews.ToListAsync(ct));
         Assert.Equal(assigned ? setup.Actor : (int?)null, (await db.Messages.SingleAsync(x => x.Id == setup.Message, ct)).CurrentAssigneeId);
@@ -196,7 +236,7 @@ public sealed partial class ConfirmationSqlTests
         await using var factory = new AssignmentFactory(fixture.ConnectionString);
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Debug-User", "theo.mercer");
-        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/assign-and-confirm",
+        using var response = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/confirm",
             new { level = sessionMode ? 1 : 2 }, ct);
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         db.ChangeTracker.Clear();
@@ -604,7 +644,7 @@ public sealed partial class ConfirmationSqlTests
         Assert.Equal(version, (await DetailsAsync(verify, setup.Message, access, ct)).Version);
         Assert.Equal(1, await verify.AuditEvents.CountAsync(x =>
             x.MessageId == setup.Message && x.EventType == AuditEventType.MessageWorkflowChanged, ct));
-        await Handlers(verify, setup.Actor).Combined.HandleAsync(setup.Message, new(1), ct);
+        await Handlers(verify, setup.Actor).Confirm.HandleAsync(setup.Message, new(1), ct);
         Assert.Equal(MessageState.WaitingForSecondReview,
             (await DetailsAsync(verify, setup.Message, access, ct)).State);
     }
@@ -646,7 +686,7 @@ public sealed partial class ConfirmationSqlTests
         return (message.Id, actor.Id, assignee.Id);
     }
 
-    private static (ConfirmReviewHandler Confirm, UndoReviewHandler Undo, AssignAndConfirmReviewHandler Combined) Handlers(ORPDbContext db, int actor)
+    private static (ConfirmReviewHandler Confirm, UndoReviewHandler Undo) Handlers(ORPDbContext db, int actor)
     {
         var log = new BusinessActionLog(NullLogger<ORPStore>.Instance);
         var store = new ORPStore(db, log);
@@ -657,12 +697,11 @@ public sealed partial class ConfirmationSqlTests
         var transactions = new TransactionExecutor(db, log);
         var authorization = new MessageAuthorizationService(store, new UserAuthorizationQueries(db), user,
             correlation, NullLogger<MessageAuthorizationService>.Instance);
-        var confirm = new ConfirmReviewHandler(store, new ConfirmReviewValidator(), user, clock, correlation, assignments, transactions, authorization);
         var assign = new AssignMessageHandler(store, new UserAuthorizationQueries(db), new AssignMessageValidator(), user,
             correlation, assignments, transactions, authorization);
+        var confirm = new ConfirmReviewHandler(store, new ConfirmReviewValidator(), user, clock, correlation, assignments, transactions, authorization, assign);
         return (confirm,
-            new(store, new UndoReviewValidator(), user, clock, correlation, assignments, transactions, authorization),
-            new(new ConfirmReviewValidator(), user, authorization, assign, confirm, transactions, store));
+            new(store, new UndoReviewValidator(), user, clock, correlation, assignments, transactions, authorization));
     }
 
     private static DbContextOptions<ORPDbContext> RetryOptions(SqlImportDatabase fixture, IInterceptor interceptor) =>

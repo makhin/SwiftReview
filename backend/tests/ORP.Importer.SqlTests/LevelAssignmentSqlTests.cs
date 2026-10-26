@@ -60,7 +60,9 @@ public sealed partial class ConfirmationSqlTests
             new MessageGridRequest { AssignmentScope = "mine" }, ct);
         gridResponse.EnsureSuccessStatusCode();
         var grid = (await gridResponse.Content.ReadFromJsonAsync<PagedResult<MessageGridRowDto>>(LevelJsonOptions, ct))!;
-        Assert.Contains(grid.Items, m => m.Id == setup.Message && !m.CanConfirm && !m.CanReview);
+        // Reuse is allowed: a future assignee may now claim the unassigned current level.
+        Assert.Contains(grid.Items, m => m.Id == setup.Message &&
+            m.CanConfirm == (mode == ConfirmationMode.Immediate) && !m.CanReview);
         var counts = (await client.GetFromJsonAsync<MessageStateCountsDto>("/api/messages/state-counts?assignmentScope=mine", LevelJsonOptions, ct))!;
         Assert.Equal(grid.TotalCount, counts.Total.Count);
         var early = await client.PostAsJsonAsync($"/api/messages/{setup.Message}/reviews/confirm", new { level = 3 }, ct);

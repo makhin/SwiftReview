@@ -56,12 +56,12 @@ The comment is optional. The body and `reviewId` are required.
 
 **All mutation endpoints listed above return `204 No Content`, not updated message details.** After success, reload the message, grid and counters.
 
-Assignment requires `message.assign` (included in the Reviewer role). You can assign to yourself or another eligible reviewer. Confirmation needs the current level permission, not `message.assign`; it never assigns the message automatically. Reassignment immediately removes the previous assignee's ability to confirm.
+Assignment requires `message.assign` (included in the Reviewer role). You can assign to yourself or another eligible reviewer. Confirmation needs the current level permission. For an unassigned message, it also requires `message.assign` and assigns the caller atomically. Reassignment immediately removes the previous assignee's ability to confirm.
 
 For a one-click **Assign to me and confirm** action, use
-`POST /api/messages/{id}/reviews/assign-and-confirm` with `{ "level": 1, "comment": "Looks good" }`.
-It requires both permissions, assigns only an unassigned message to the caller, and
-confirms an existing own assignment without duplicating it. Another assignee returns
-409. Both actions and audit commit or roll back together; success is 204. Immediate
-workflows only. `canConfirm` still describes ordinary confirm and may be false before
-assignment. Refresh after success and do not retry automatically.
+`POST /api/messages/{id}/reviews/confirm` with `{ "level": 1, "comment": "Looks good" }`.
+It requires the level permission and, only when unassigned, `message.assign`. It assigns
+an unassigned message to the caller or confirms an existing own assignment. Another assignee returns
+403. Both actions and audit commit or roll back together; success is 204. Immediate
+workflows only. `canConfirm` includes automatic self-assignment and `confirmationLevel`
+identifies the available level. Refresh after success and do not retry automatically.

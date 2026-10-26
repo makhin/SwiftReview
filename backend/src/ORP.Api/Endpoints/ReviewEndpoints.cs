@@ -13,11 +13,8 @@ public static class ReviewEndpoints
             .Produces<BulkApproveReviewsResponse>().ProducesProblem(400).ProducesProblem(401);
         var group = api.MapGroup("/messages/{id:long}/reviews").WithTags("Review");
         group.MapPost("/confirm", ConfirmReview)
-            .WithName(nameof(ConfirmReview)).WithSummary("Complete the requested confirmation atomically for the current assignee.")
-            .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
-        group.MapPost("/assign-and-confirm", AssignAndConfirmReview)
-            .WithName(nameof(AssignAndConfirmReview)).WithSummary("Assign an unassigned message to yourself and confirm atomically.")
-            .WithDescription("Requires message.assign and the review-level permission. Confirms an existing own assignment without replacing it; returns 409 for another assignee. Immediate workflows only.")
+            .WithName(nameof(ConfirmReview)).WithSummary("Assign to yourself if unassigned and complete the current confirmation atomically.")
+            .WithDescription("Immediate workflows only. Requires the review-level permission; message.assign is additionally required when unassigned. Never replaces another reviewer's assignment (403).")
             .Produces(StatusCodes.Status204NoContent).ProducesProblem(400).ProducesProblem(403).ProducesProblem(404).ProducesProblem(409);
         group.MapPost("/start", StartReview)
             .WithName(nameof(StartReview)).WithSummary("Start or resume a review.")
@@ -40,13 +37,6 @@ public static class ReviewEndpoints
         BulkApproveReviewsHandler handler, CancellationToken ct) => Results.Ok(await handler.HandleAsync(request, ct));
 
     private static async Task<IResult> ConfirmReview(long id, ConfirmReviewRequest request, ConfirmReviewHandler handler, CancellationToken ct)
-    {
-        await handler.HandleAsync(id, request, ct);
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> AssignAndConfirmReview(long id, ConfirmReviewRequest request,
-        AssignAndConfirmReviewHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(id, request, ct);
         return Results.NoContent();

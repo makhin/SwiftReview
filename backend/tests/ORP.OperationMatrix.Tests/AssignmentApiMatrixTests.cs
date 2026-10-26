@@ -124,7 +124,7 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
                         Assert.Null(after.CurrentAssigneeId);
                     }
                     await h.Reject(id, mode == ConfirmationMode.Immediate ? "reviews/confirm" : "reviews/approve",
-                        new { level, reviewId = review }, mode == ConfirmationMode.Immediate && after.CurrentAssigneeId == actor
+                        new { level, reviewId = review }, mode == ConfirmationMode.Immediate && (after.CurrentAssigneeId is null || after.CurrentAssigneeId == actor)
                             ? HttpStatusCode.Conflict : HttpStatusCode.Forbidden, actor);
                 }
                 await h.Reject(id, "assign", new { assignedTo = h.Reviewers[0], level = 1 }, HttpStatusCode.Conflict);
@@ -268,17 +268,17 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
                 await h.Reject(id, "assign", new { assignedTo = 0, level = 1 }, HttpStatusCode.BadRequest);
                 await h.Reject(id, "assign", new { assignedTo = int.MaxValue, level = 1 }, HttpStatusCode.NotFound);
                 foreach (var future in levels.Skip(1))
-                    await h.Reject(id, "reviews/assign-and-confirm", new { level = future }, HttpStatusCode.Conflict, h.Reviewers[0]);
+                    await h.Reject(id, "reviews/confirm", new { level = future }, HttpStatusCode.Conflict, h.Reviewers[0]);
                 // Omitting level remains compatible with current-stage assignment.
                 await h.Post(id, "assign", new { assignedTo = h.Reviewers[0] });
                 Assert.Equal(1, Assert.Single((await h.Details(id)).Assignments).Level);
                 await h.Reject(id, "assign", new { assignedTo = h.Reviewers[0] }, HttpStatusCode.BadRequest);
-                await h.Reject(id, "reviews/assign-and-confirm", new { level = 1 }, HttpStatusCode.Conflict, h.Reviewers[1]);
+                await h.Reject(id, "reviews/confirm", new { level = 1 }, HttpStatusCode.Forbidden, h.Reviewers[1]);
                 if (mode == ConfirmationMode.ReviewSession)
                 {
-                    await h.Reject(id, "reviews/assign-and-confirm", new { level = 1 }, HttpStatusCode.Conflict, h.Reviewers[0]);
+                    await h.Reject(id, "reviews/confirm", new { level = 1 }, HttpStatusCode.Conflict, h.Reviewers[0]);
                     var unassigned = await h.Message(workflow);
-                    await h.Reject(unassigned, "reviews/assign-and-confirm", new { level = 1 }, HttpStatusCode.Conflict, h.Reviewers[0]);
+                    await h.Reject(unassigned, "reviews/confirm", new { level = 1 }, HttpStatusCode.Conflict, h.Reviewers[0]);
                 }
                 else
                 {
@@ -288,7 +288,7 @@ public sealed class AssignmentApiMatrixTests(ITestOutputHelper output)
                         var current = (await h.Details(id)).CurrentAssigneeId;
                         if (current.HasValue && current != actor)
                             await h.Post(id, "assign", new { assignedTo = actor, level });
-                        await h.Post(id, "reviews/assign-and-confirm", new { level }, actor);
+                        await h.Post(id, "reviews/confirm", new { level }, actor);
                         await h.Reject(id, "assign", new { assignedTo = h.Admin, level }, HttpStatusCode.Conflict);
                     }
                     Assert.Equal(MessageState.Completed, (await h.Details(id)).State);

@@ -263,7 +263,10 @@ public sealed class BulkApproveReviewsTests
                 .Returns(new UserPermissionSet(false, Permissions.All));
             Assignments = new(Store, clock);
             Authorization = new(Store, Users, Actor, Correlation, NullLogger<MessageAuthorizationService>.Instance);
-            Confirm = new(Store, new ConfirmReviewValidator(), Actor, clock, Correlation, Assignments, new InlineTransactions(), Authorization);
+            var assign = new ORP.Application.Assignments.Assign.AssignMessageHandler(Store, Users,
+                new ORP.Application.Assignments.Assign.AssignMessageValidator(), Actor, Correlation, Assignments,
+                new InlineTransactions(), Authorization);
+            Confirm = new(Store, new ConfirmReviewValidator(), Actor, clock, Correlation, Assignments, new InlineTransactions(), Authorization, assign);
         }
 
         public BulkApproveReviewsHandler CreateBulk(ITransactionExecutor transactions) => new(new BulkApproveReviewsValidator(),
