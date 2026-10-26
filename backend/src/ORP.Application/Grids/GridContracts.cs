@@ -54,6 +54,8 @@ public sealed class MessageGridRowDto
     public int? ConfirmationLevel { get; set; }
     public required long Id { get; init; }
     public required string ExternalId { get; init; }
+    public string? TransactionReferenceNumber { get; init; }
+    public string? RelatedReference { get; init; }
     public required string Sender { get; init; }
     public required string Receiver { get; init; }
     public required MessageDirection? Direction { get; init; }

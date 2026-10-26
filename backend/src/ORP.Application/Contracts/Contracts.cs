@@ -30,6 +30,8 @@ public sealed record MessageDetailsDto(long Id, string ExternalId, string Messag
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, string Sender, string Receiver,
     string? Body, MessageDirection? Direction)
 {
+    public string? TransactionReferenceNumber { get; init; }
+    public string? RelatedReference { get; init; }
     public IReadOnlyList<LevelAssignmentDto> Assignments { get; init; } = [];
     public string Version { get; init; } = string.Empty;
     public ConfirmationMode ConfirmationMode { get; init; }
@@ -45,6 +47,8 @@ public sealed record MessageListItemDto(long Id, string ExternalId, string Messa
     MessageState State, DateTimeOffset ReceivedAt, int? CurrentAssigneeId, long? ActiveReviewId,
     int? ActiveReviewLevel, int? ActiveReviewerId, MessageDirection? Direction)
 {
+    public string? TransactionReferenceNumber { get; init; }
+    public string? RelatedReference { get; init; }
     public string BranchName { get; init; } = string.Empty;
     public string DepartmentNames { get; init; } = string.Empty;
     public string? CurrentAssigneeName { get; init; }

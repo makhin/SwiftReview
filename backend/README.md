@@ -364,6 +364,12 @@ dotnet ef migrations add MigrationName \
 
 All application endpoints are under `/api` and require authentication. The API exposes message search and detail operations, independent message and user grid endpoints, assignment and review actions, audit history, dashboard summaries, and reference data.
 
+Message objects returned by `POST /api/messages/grid`, `POST /api/messages/search`,
+`GET /api/messages/{id}` and `GET /api/messages/{id}/view` include
+`transactionReferenceNumber` (printed tag 20) and `relatedReference` (printed tag 21).
+Both are nullable strings read from the stored message; absent values are returned as JSON `null`.
+These fields are separate from the existing `externalId` / card `reference`.
+
 `GET /api/messages/{id}/audit` returns a newest-first paged history. It accepts `skip` (default `0`) and
 `take` (default `100`, maximum `500`) and requires the `audit.view` permission plus access to the message's
 branch and department.

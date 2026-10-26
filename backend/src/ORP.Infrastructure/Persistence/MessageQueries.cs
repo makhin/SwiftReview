@@ -42,6 +42,8 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
         return new MessageDetailsDto(x.Id, x.ExternalId, x.MessageType, x.BranchId, x.DepartmentIds,
             x.State, x.ReceivedAt, x.CurrentAssigneeId, x.Sender, x.Receiver, body, x.Direction)
         {
+            TransactionReferenceNumber = x.TransactionReferenceNumber,
+            RelatedReference = x.RelatedReference,
             Assignments = await db.Assignments.AsNoTracking().Where(a => a.MessageId == id && a.EndedAt == null)
                 .OrderBy(a => a.Level).Select(a => new LevelAssignmentDto(a.Level!.Value, a.AssignedTo,
                     db.Users.Where(u => u.Id == a.AssignedTo).Select(u => u.DisplayName).Single())).ToListAsync(ct),
@@ -78,6 +80,8 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             x.DepartmentIds, x.State, x.ReceivedAt, x.CurrentAssigneeId, x.ActiveReviewId, x.ActiveReviewLevel,
             x.ActiveReviewerId, x.Direction)
             {
+                TransactionReferenceNumber = x.TransactionReferenceNumber,
+                RelatedReference = x.RelatedReference,
                 BranchName = x.BranchName,
                 DepartmentNames = string.Join(", ", x.DepartmentNames),
                 CurrentAssigneeName = x.CurrentAssigneeName,

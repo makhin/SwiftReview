@@ -31,6 +31,8 @@ public sealed class MessageGridQueries(ORPDbContext db)
                 Id = x.Id,
                 Version = Convert.ToBase64String(x.RowVersion),
                 ExternalId = x.ExternalId,
+                TransactionReferenceNumber = x.TransactionReferenceNumber,
+                RelatedReference = x.RelatedReference,
                 Sender = x.Sender,
                 Receiver = x.Receiver,
                 MessageType = x.MessageType,

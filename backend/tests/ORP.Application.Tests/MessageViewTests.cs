@@ -27,7 +27,11 @@ public sealed class MessageViewTests
     [InlineData(3)]
     public void LevelsAndJsonFollowContract(int count)
     {
-        var message = Message(count == 0 ? MessageState.ViewOnly : MessageState.Assigned);
+        var message = Message(count == 0 ? MessageState.ViewOnly : MessageState.Assigned) with
+        {
+            TransactionReferenceNumber = count == 0 ? null : "8801IC000673",
+            RelatedReference = count == 0 ? null : "1234"
+        };
         var result = MessageViewAdapter.Map(message, Data(Enumerable.Range(1, count).ToArray()));
         Assert.Equal(count, result.Approvals.Count);
         if (count > 0)
@@ -41,7 +45,9 @@ public sealed class MessageViewTests
         Assert.Equal("901", root.GetProperty("id").GetString());
         Assert.Equal(message.Body, root.GetProperty("rawText").GetString());
         Assert.Equal(message.StateName, root.GetProperty("status").GetString());
-        Assert.Equal(13, root.EnumerateObject().Count());
+        Assert.Equal(message.TransactionReferenceNumber, root.GetProperty("transactionReferenceNumber").GetString());
+        Assert.Equal(message.RelatedReference, root.GetProperty("relatedReference").GetString());
+        Assert.Equal(15, root.EnumerateObject().Count());
         if (count > 0)
         {
             var approval = root.GetProperty("approvals")[0];

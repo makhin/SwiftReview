@@ -10,7 +10,11 @@ namespace ORP.Application.Messages.Get;
 public sealed record MessageViewDto(string Id, string Reference, string MessageType, string Sender,
     string Receiver, MessageDirection? Direction, string Department, string Status, string Branch,
     DateTimeOffset ReceivedAt, IReadOnlyList<MessageApprovalDto> Approvals,
-    IReadOnlyList<MessageAuditDto> AuditLog, string? RawText);
+    IReadOnlyList<MessageAuditDto> AuditLog, string? RawText)
+{
+    public string? TransactionReferenceNumber { get; init; }
+    public string? RelatedReference { get; init; }
+}
 public sealed record MessageApprovalDto(int Level, string Label, string Status, string? Assignee,
     string? Approver, string? Role, string? Comment, DateTimeOffset? At);
 public sealed record MessageAuditDto(string Id, DateTimeOffset At, string User, string? Role,
@@ -98,6 +102,10 @@ public static class MessageViewAdapter
         }).ToArray();
         return new(message.Id.ToString(CultureInfo.InvariantCulture), message.ExternalId, message.MessageType,
             message.Sender, message.Receiver, message.Direction, message.DepartmentNames, message.StateName,
-            message.BranchName, message.ReceivedAt, approvals, audit, message.Body);
+            message.BranchName, message.ReceivedAt, approvals, audit, message.Body)
+        {
+            TransactionReferenceNumber = message.TransactionReferenceNumber,
+            RelatedReference = message.RelatedReference
+        };
     }
 }

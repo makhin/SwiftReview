@@ -9,6 +9,8 @@ internal sealed class MessageReadRow
     public byte[] RowVersion { get; init; } = [];
     public long Id { get; init; }
     public string ExternalId { get; init; } = null!;
+    public string? TransactionReferenceNumber { get; init; }
+    public string? RelatedReference { get; init; }
     public MessageDirection? Direction { get; init; }
     public string MessageType { get; init; } = null!;
     public int BranchId { get; init; }
@@ -64,6 +66,8 @@ internal static class MessageReadModels
             Id = message.Id,
             RowVersion = message.RowVersion,
             ExternalId = source.ReferenceId ?? source.FileName,
+            TransactionReferenceNumber = source.TransactionReferenceNumber,
+            RelatedReference = source.RelatedReference,
             MessageType = source.MessageType!,
             Direction = source.Direction,
             BranchId = message.BranchId!.Value,
