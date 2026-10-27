@@ -7,9 +7,63 @@ requests and responses and pauses before each request. All message reads use
 Requires **Node.js 24+**, a Development API from the matching branch and test
 messages. No npm install or build is needed.
 
+This is a teaching example: settings, IDs and commands are assumed to be correct.
+It does not validate input or command order. The API checks permissions and
+workflow rules. Any runtime or HTTP error ends the demo.
+
 ```bash
 npm --prefix tools/workflow-demo start
 ```
+
+## First run, step by step
+
+1. Start the Development API and run the command above.
+2. Press Enter before each HTTP request. The script prints the request first,
+   then sends it and prints the response.
+3. The script reads your user (`/me`), the workflows (`/workflows`) and one page
+   of messages (`/messages/grid`). Enter a message ID from the displayed table.
+4. The script reads `/messages/{id}/view`. This response tells you what the
+   current user can do with this message.
+5. At `Action:`, enter `confirm` to confirm one level. The default workflow uses
+   this command. The script sends the confirmation and reads `/view` again.
+6. Enter `quit` to show the counters and exit.
+
+There are two ways to confirm a message, depending on its workflow:
+
+| Workflow mode | Commands to enter, one at a time | What happens |
+|---|---|---|
+| `Immediate` | `confirm` | Confirm one level. The server also assigns it to you if it is unassigned. |
+| `ReviewSession` | `assign`, then `start`, then `approve` | Assign yourself, open a review session, then approve that session. |
+
+`complete` repeats `confirm` while `/view.canConfirm` is true. When it becomes
+false, the command ends normally: all levels may be approved, or the next level
+may need another reviewer. Read the printed `/view` response to see which.
+A workflow with mode `None` is read-only.
+
+## How to read the code
+
+Open [workflow-demo.ts](workflow-demo.ts) and start with `main()`. Its numbered
+steps follow the same order as the first run above:
+
+1. Find the user and workflow.
+2. Load and display the messages.
+3. Select a message and read `/view`.
+4. Read a command and execute its `case` in the `switch`.
+5. Read the counters and finish.
+
+Each command's `case` shows its HTTP requests and the data sent to the API.
+`confirm` and `complete` share `confirmMessage()`: it sends one confirmation and
+reads the updated `/view`. It gets the next level from the server.
+
+The three pieces of changing data are `currentUserDetails` (the caller),
+`message` (the latest `/view` response) and `activeReview` (the session returned
+by `start`). Switching users reloads the caller and message. Run `start` as the
+new user before using a review-session command.
+
+The `request()` helper at the top only prints, pauses and sends HTTP requests.
+It throws an error for unsuccessful responses; it never retries a request.
+
+## Settings
 
 Change the constants at the top of [workflow-demo.ts](workflow-demo.ts), or use:
 
@@ -27,14 +81,14 @@ Change the constants at the top of [workflow-demo.ts](workflow-demo.ts), or use:
 | DEMO_ACTIONS | Empty | Interactive menu; otherwise comma-separated commands |
 
 The script reads one grid page and displays messages matching the workflow.
-MESSAGE_ID must be on that page. Change PAGE, PAGE_SIZE or STATUS if necessary.
+Choose an ID from that page, or set MESSAGE_ID to an already known message ID.
 To run without prompts, set MESSAGE_ID, ACTIONS and `DEMO_PAUSE=false`.
 
 ## Commands
 
 | Command | Action |
 |---|---|
-| `confirm` | Confirm `confirmationLevel` from `/view`, if `canConfirm` is true. Automatically assigns an unassigned level to the caller. |
+| `confirm` | Send `confirmationLevel` from `/view` to the API. The server checks whether confirmation is allowed and assigns an unassigned level to the caller. |
 | `confirm:1` | Send an explicit level to test repeated, wrong-level or forbidden requests. |
 | `complete` | Confirm all available levels. Stops if a different reviewer or permission is needed. |
 | `candidates` | Show eligible assignees for the current level. |
@@ -102,16 +156,13 @@ require their own permissions: `message.assign` for assignment and `review.level
 for confirmation. Confirming an existing own assignment does not require
 `message.assign`. The backend enforces ownership and workflow policies.
 
-`/view.status` is a display label. The demo uses `canConfirm`, `confirmationLevel`,
-`canReview` and `approvals` for actions; completion means all required approvals
-are `approved`. It does not assume consecutive levels such as 1, 2, 3.
+`/view.status` is a display label. The demo gets each confirmation level from
+`confirmationLevel` and the review-session level from the pending entry in
+`approvals`. It does not assume consecutive levels such as 1, 2, 3.
 
-Interactive errors return to the menu: use `refresh` or switch user before the next
-action. Scripted sequences stop with a nonzero exit code on the first error, even
-when the scenario is intended to demonstrate a denial. No request is retried
-automatically. Successful earlier commands remain saved if you stop or encounter
-an error. After an uncertain response, inspect the refreshed view and audit before
-choosing another mutation. Ctrl+C stops the demo.
+Both interactive and scripted runs stop with a nonzero exit code on the first
+error. No request is retried automatically. Successful earlier commands remain
+saved. Ctrl+C stops the demo.
 
 Run CLI tests against a local HTTP stub (no database changes):
 

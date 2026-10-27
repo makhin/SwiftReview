@@ -126,7 +126,7 @@ test('another assignee is not taken over by confirm', async () => {
 
 test('complete stops when reviewer reuse is disabled', async () => {
   const result = await runDemo([1, 2], 'complete', { reuse: false });
-  assert.equal(result.code, 1);
+  assert.equal(result.code, 0, result.output);
   assert.equal(result.calls.filter(c => c.path.endsWith('/confirm')).length, 1);
 });
 
@@ -158,9 +158,17 @@ test('HTTP conflict is never retried', async () => {
   assert.equal(result.calls.filter(c => c.path.endsWith('/confirm')).length, 1);
 });
 
-test('interactive mode can switch user and continue after an ownership error', { timeout: 5000 }, async () => {
+test('interactive mode stops on an ownership error', { timeout: 5000 }, async () => {
   const result = await runDemo([1], 'confirm:1,user:second,confirm,quit', { owner: 43, interactive: true });
-  assert.equal(result.code, 0, result.output);
+  assert.equal(result.code, 1);
   assert.match(result.output, /Assigned to another reviewer/);
-  assert.deepEqual(result.calls.filter(c => c.path.endsWith('/confirm')).map(c => c.user), ['ordinary', 'second']);
+  assert.deepEqual(result.calls.filter(c => c.path.endsWith('/confirm')).map(c => c.user), ['ordinary']);
+  assert(!result.calls.some(c => c.user === 'second'));
+});
+
+test('interactive mode can switch reviewers after complete stops', { timeout: 5000 }, async () => {
+  const result = await runDemo([1, 2], 'complete,user:second,complete,quit', { reuse: false, interactive: true });
+  assert.equal(result.code, 0, result.output);
+  assert.deepEqual(result.calls.filter(c => c.path.endsWith('/confirm')).map(c => ({ user: c.user, level: c.body.level })),
+    [{ user: 'ordinary', level: 1 }, { user: 'second', level: 2 }]);
 });
