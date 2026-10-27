@@ -103,6 +103,7 @@ public sealed partial class ConfirmationSqlTests
         {
             var workflow = await db.WorkflowDefinitions.Include(x => x.Steps).SingleAsync(x => x.Code == code, ct);
             workflow.ConfigureConfirmation(ConfirmationMode.Immediate, true, AssignmentRetentionMode.PerConfirmation, false);
+            workflow.ConfigureUndo(UndoApprovalMode.Latest, UndoActorMode.OriginalReviewer, UndoActiveReviewMode.Block);
             await db.SaveChangesAsync(ct);
         }
         await using var factory = new AssignmentFactory(fixture.ConnectionString);
@@ -118,6 +119,13 @@ public sealed partial class ConfirmationSqlTests
             response.EnsureSuccessStatusCode();
             var page = (await response.Content.ReadFromJsonAsync<PagedResult<MessageGridRowDto>>(LevelJsonOptions, ct))!;
             var row = Assert.Single(page.Items, x => x.Id == setup.Message);
+            await using var verifyCapabilities = new ORPDbContext(fixture.Options);
+            var expectedUndoReviewId = await verifyCapabilities.Reviews
+                .Where(r => r.MessageId == setup.Message && r.Status == ReviewStatus.Approved)
+                .OrderByDescending(r => r.Level).Select(r => (long?)r.Id).FirstOrDefaultAsync(ct);
+            Assert.Equal(expectedUndoReviewId, row.UndoReviewId);
+            Assert.Equal(expectedUndoReviewId, details.UndoReviewId);
+            Assert.Equal(expectedUndoReviewId, view.UndoReviewId);
             foreach (var actual in new[]
             {
                 (details.ConfirmationMode, details.CanConfirm, details.ConfirmationLevel, details.CanReview),

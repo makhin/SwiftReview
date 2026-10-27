@@ -41,6 +41,7 @@ public sealed record MessageDetailsDto(long Id, string ExternalId, string Messag
     public bool CanConfirm { get; init; }
     public int? ConfirmationLevel { get; init; }
     public bool CanReview { get; init; }
+    public long? UndoReviewId { get; init; }
     public string BranchName { get; init; } = string.Empty;
     public string DepartmentNames { get; init; } = string.Empty;
     public string? CurrentAssigneeName { get; init; }

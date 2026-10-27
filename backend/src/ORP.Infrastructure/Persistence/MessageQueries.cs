@@ -52,6 +52,7 @@ public sealed class MessageQueries(ORPDbContext db) : IMessageQueries
             CanConfirm = actions.CanConfirm,
             ConfirmationLevel = actions.ConfirmationLevel,
             CanReview = actions.CanReview,
+            UndoReviewId = actions.UndoReviewId,
             BranchName = x.BranchName,
             DepartmentNames = string.Join(", ", x.DepartmentNames),
             CurrentAssigneeName = x.CurrentAssigneeName

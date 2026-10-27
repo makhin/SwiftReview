@@ -21,6 +21,7 @@ public sealed record MessageViewDto(string Id, string Reference, string MessageT
     public bool CanConfirm { get; init; }
     public int? ConfirmationLevel { get; init; }
     public bool CanReview { get; init; }
+    public long? UndoReviewId { get; init; }
 }
 public sealed record MessageApprovalDto(int Level, string Label, string Status, string? Assignee,
     string? Approver, string? Role, string? Comment, DateTimeOffset? At);
@@ -118,7 +119,8 @@ public static class MessageViewAdapter
             ConfirmationMode = message.ConfirmationMode,
             CanConfirm = message.CanConfirm,
             ConfirmationLevel = message.ConfirmationLevel,
-            CanReview = message.CanReview
+            CanReview = message.CanReview,
+            UndoReviewId = message.UndoReviewId
         };
     }
 }

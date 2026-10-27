@@ -39,7 +39,8 @@ public sealed class MessageViewTests
                 : count == 1 ? ConfirmationMode.Immediate : ConfirmationMode.ReviewSession,
             CanConfirm = count == 1,
             ConfirmationLevel = count == 1 ? 1 : null,
-            CanReview = count > 1
+            CanReview = count > 1,
+            UndoReviewId = count > 1 ? 456L : null
         };
         var result = MessageViewAdapter.Map(message, Data(Enumerable.Range(1, count).ToArray()));
         Assert.Equal(count, result.Approvals.Count);
@@ -64,7 +65,8 @@ public sealed class MessageViewTests
         Assert.Equal(message.CanConfirm, root.GetProperty("canConfirm").GetBoolean());
         Assert.Equal(message.ConfirmationLevel, root.GetProperty("confirmationLevel").Deserialize<int?>());
         Assert.Equal(message.CanReview, root.GetProperty("canReview").GetBoolean());
-        Assert.Equal(21, root.EnumerateObject().Count());
+        Assert.Equal(message.UndoReviewId, root.GetProperty("undoReviewId").Deserialize<long?>());
+        Assert.Equal(22, root.EnumerateObject().Count());
         if (count > 0)
         {
             var approval = root.GetProperty("approvals")[0];
