@@ -88,6 +88,7 @@ public static class MessageViewAdapter
                 AuditEventType.ReviewCancelled => ("cancel", "Review cancelled"),
                 AuditEventType.MessageWorkflowChanged => ("workflowChange", "Message workflow changed"),
                 AuditEventType.MessagePdfGenerated => ("pdfGenerate", "Message PDF generated"),
+                AuditEventType.EmailCreated => ("emailCreate", "Email saved for sending"),
                 _ => throw new ArgumentOutOfRangeException(nameof(a.EventType))
             };
             var details = new List<string>();

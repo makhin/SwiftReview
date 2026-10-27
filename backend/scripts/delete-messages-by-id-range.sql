@@ -139,6 +139,9 @@ BEGIN TRY
     UNION ALL SELECT 'Reviews', COUNT_BIG(*) FROM orp.Reviews r JOIN @Targets t ON t.MessageId = r.MessageId
     UNION ALL SELECT 'Assignments', COUNT_BIG(*) FROM orp.Assignments a JOIN @Targets t ON t.MessageId = a.MessageId
     UNION ALL SELECT 'MessageDepartments', COUNT_BIG(*) FROM orp.MessageDepartments d JOIN @Targets t ON t.MessageId = d.MessageId
+    UNION ALL SELECT 'OutgoingEmails', COUNT_BIG(*) FROM orp.OutgoingEmails e JOIN @Targets t ON t.MessageId = e.MessageId
+    UNION ALL SELECT 'EmailRecipients', COUNT_BIG(*) FROM orp.EmailRecipients r JOIN orp.OutgoingEmails e ON e.Id = r.OutgoingEmailId JOIN @Targets t ON t.MessageId = e.MessageId
+    UNION ALL SELECT 'EmailAttachments', COUNT_BIG(*) FROM orp.EmailAttachments a JOIN orp.OutgoingEmails e ON e.Id = a.OutgoingEmailId JOIN @Targets t ON t.MessageId = e.MessageId
     UNION ALL SELECT 'Messages', COUNT_BIG(*) FROM orp.Messages m JOIN @Targets t ON t.MessageId = m.MessageId
     UNION ALL SELECT 'SwiftMessages', COUNT_BIG(*) FROM @Targets
     UNION ALL SELECT 'IgnoredImportFiles', COUNT_BIG(*) FROM orp.IgnoredImportFiles i JOIN @ImportPaths t ON t.FilePath = i.FilePath;
@@ -169,6 +172,8 @@ BEGIN TRY
     DELETE r FROM orp.Reviews r JOIN @Targets t ON t.MessageId = r.MessageId;
     DELETE a FROM orp.Assignments a JOIN @Targets t ON t.MessageId = a.MessageId;
     DELETE d FROM orp.MessageDepartments d JOIN @Targets t ON t.MessageId = d.MessageId;
+    -- Recipients and attachment bytes are removed by the email's cascading foreign keys.
+    DELETE e FROM orp.OutgoingEmails e JOIN @Targets t ON t.MessageId = e.MessageId;
     DELETE m FROM orp.Messages m JOIN @Targets t ON t.MessageId = m.MessageId;
     DELETE i FROM orp.IgnoredImportFiles i JOIN @ImportPaths t ON t.FilePath = i.FilePath;
     DELETE s FROM orp.SwiftMessages s JOIN @Targets t ON t.MessageId = s.MessageId;

@@ -17,7 +17,8 @@ public enum AuditEventType
     ConfirmationUndone,
     ReviewCancelled,
     MessageWorkflowChanged,
-    MessagePdfGenerated
+    MessagePdfGenerated,
+    EmailCreated
 }
 
 public sealed class AuditEvent

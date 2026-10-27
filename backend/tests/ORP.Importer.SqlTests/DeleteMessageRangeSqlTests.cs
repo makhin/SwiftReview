@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using ORP.Domain.Assignments;
 using ORP.Domain.Auditing;
+using ORP.Domain.Emails;
 using ORP.Domain.Identity;
 using ORP.Domain.Reviews;
 using ORP.Infrastructure.Persistence;
@@ -17,6 +18,8 @@ public sealed class DeleteMessageRangeSqlTests
     [InlineData("empty")]
     [InlineData("invalid")]
     [InlineData("rollback")]
+    [InlineData("clear")]
+    [InlineData("clear-rollback")]
     public async Task DeletesOnlyInclusiveRangeAndRollsBackOnFailure(string scenario)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -41,6 +44,14 @@ public sealed class DeleteMessageRangeSqlTests
                 db.Assignments.Add(new Assignment(id, user.Id, user.Id, DateTimeOffset.UtcNow));
                 db.AuditEvents.Add(new AuditEvent(id, AuditEventType.ReviewApproved, user.Id,
                     DateTimeOffset.UtcNow, null, null, "{}", "range-test", review));
+                db.OutgoingEmails.Add(new OutgoingEmail
+                {
+                    MessageId = id, CreatedByUserId = user.Id, CreatedAt = DateTimeOffset.UtcNow,
+                    FromAddress = "sender@example.com", Subject = "Cleanup regression", Body = "Body",
+                    Recipients = [new EmailRecipient { Kind = EmailRecipientKind.To, Address = "recipient@example.com" }],
+                    Attachments = [new EmailAttachment { FileName = "test.bin", ContentType = "application/octet-stream",
+                        Content = [1, 2, 3], Size = 3, Source = EmailAttachmentSource.Upload }]
+                });
             }
             foreach (var source in await db.SwiftMessages.ToListAsync(ct))
                 db.IgnoredImportFiles.Add(new IgnoredImportFile
@@ -49,7 +60,7 @@ public sealed class DeleteMessageRangeSqlTests
                     IgnoredAtUtc = DateTimeOffset.UtcNow, Reason = "NoDepartmentRule"
                 });
             await db.SaveChangesAsync(ct);
-            if (scenario == "rollback")
+            if (scenario is "rollback" or "clear-rollback")
                 await db.Database.ExecuteSqlRawAsync("""
                     CREATE TRIGGER orp.FailRangeDelete ON orp.SwiftMessages AFTER DELETE AS
                     BEGIN
@@ -63,10 +74,12 @@ public sealed class DeleteMessageRangeSqlTests
         script = script.Replace("DECLARE @FromId bigint = NULL;", $"DECLARE @FromId bigint = {from};")
             .Replace("DECLARE @ToId bigint = NULL;", $"DECLARE @ToId bigint = {to};")
             .Replace("DECLARE @DryRun bit = 1;", $"DECLARE @DryRun bit = {(scenario == "preview" ? 1 : 0)};");
+        if (scenario is "clear" or "clear-rollback")
+            script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "clear-imported-messages.sql"), ct);
         await using var connection = new SqlConnection(fixture.ConnectionString);
         await connection.OpenAsync(ct);
         await using var command = new SqlCommand(script, connection);
-        if (scenario is "invalid" or "rollback")
+        if (scenario is "invalid" or "rollback" or "clear-rollback")
         {
             var error = await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync(ct));
             Assert.Equal(scenario == "invalid" ? 51000 : 51001, error.Number);
@@ -75,7 +88,16 @@ public sealed class DeleteMessageRangeSqlTests
             await command.ExecuteNonQueryAsync(ct);
 
         await using var verify = new ORPDbContext(fixture.Options);
-        var expected = scenario == "delete" ? new[] { ids[0], ids[3] } : ids;
+        var expected = scenario == "clear" ? [] : scenario == "delete" ? new[] { ids[0], ids[3] } : ids;
+        var emails = await verify.OutgoingEmails.Include(e => e.Recipients).Include(e => e.Attachments).OrderBy(e => e.MessageId).ToArrayAsync(ct);
+        Assert.Equal(expected, emails.Select(e => e.MessageId).ToArray());
+        Assert.Equal(expected.Length, await verify.Set<EmailRecipient>().CountAsync(ct));
+        Assert.Equal(expected.Length, await verify.Set<EmailAttachment>().CountAsync(ct));
+        foreach (var email in emails)
+        {
+            Assert.Equal("recipient@example.com", Assert.Single(email.Recipients).Address);
+            Assert.Equal(new byte[] { 1, 2, 3 }, Assert.Single(email.Attachments).Content);
+        }
         Assert.Equal(expected, await verify.Messages.OrderBy(m => m.Id).Select(m => m.Id).ToArrayAsync(ct));
         Assert.Equal(expected, await verify.SwiftMessages.OrderBy(m => m.MessageId).Select(m => m.MessageId).ToArrayAsync(ct));
         Assert.Equal(expected, await verify.Reviews.OrderBy(r => r.MessageId).Select(r => r.MessageId).ToArrayAsync(ct));
@@ -83,7 +105,7 @@ public sealed class DeleteMessageRangeSqlTests
         Assert.Equal(expected, await verify.MessageDepartments.OrderBy(d => d.MessageId).Select(d => d.MessageId).ToArrayAsync(ct));
         Assert.Equal(expected, await verify.AuditEvents.Select(a => a.MessageId).Distinct().OrderBy(id => id).ToArrayAsync(ct));
         Assert.Equal(expected.Length * 2, await verify.AuditEvents.CountAsync(ct));
-        var expectedPaths = scenario == "delete" ? new[] { "range-0.prt", "range-3.prt" }
+        var expectedPaths = scenario == "clear" ? [] : scenario == "delete" ? new[] { "range-0.prt", "range-3.prt" }
             : new[] { "range-0.prt", "range-1.prt", "range-2.prt", "range-3.prt" };
         Assert.Equal(expectedPaths, await verify.IgnoredImportFiles.OrderBy(f => f.FilePath).Select(f => f.FilePath).ToArrayAsync(ct));
         Assert.True(await verify.Users.AnyAsync(u => u.UserName == "range-reviewer", ct));

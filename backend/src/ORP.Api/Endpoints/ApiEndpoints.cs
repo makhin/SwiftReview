@@ -14,6 +14,7 @@ public static class ApiEndpoints
         api.MapCurrentUserEndpoints();
         api.MapAdministrationEndpoints();
         api.MapDistributionListEndpoints();
+        api.MapEmailEndpoints();
         return endpoints;
     }
 }

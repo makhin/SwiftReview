@@ -8,6 +8,8 @@ DELETE FROM [orp].[AuditEvents];
 DELETE FROM [orp].[Reviews];
 DELETE FROM [orp].[Assignments];
 DELETE FROM [orp].[MessageDepartments];
+-- Cascades to EmailRecipients and EmailAttachments.
+DELETE FROM [orp].[OutgoingEmails];
 DELETE FROM [orp].[Messages];
 DELETE FROM [orp].[SwiftMessages];
 DELETE FROM [orp].[IgnoredImportFiles];

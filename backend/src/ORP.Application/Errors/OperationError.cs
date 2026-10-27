@@ -8,6 +8,8 @@ public sealed record OperationError(int Status, string Code, string Title, strin
 {
     public static OperationError From(Exception exception) => exception switch
     {
+        Emails.EmailNotConfiguredException => new(503, "email_not_configured", "Email unavailable", exception.Message),
+        Emails.EmailSizeLimitException => new(413, "email_size_limit", "Email size limit exceeded", exception.Message),
         ValidationException or FormatException => new(400, "validation_failed", "Validation failed", exception.Message),
         ResourceNotFoundException => new(404, "not_found", "Resource not found", exception.Message),
         UnauthorizedAccessException => new(403, "forbidden", "Forbidden", "The current user is not allowed to perform this action."),
