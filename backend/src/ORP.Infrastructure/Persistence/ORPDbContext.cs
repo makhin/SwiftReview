@@ -12,6 +12,7 @@ namespace ORP.Infrastructure.Persistence;
 public sealed class ORPDbContext(DbContextOptions<ORPDbContext> options) : DbContext(options)
 {
     public DbSet<ORP.Domain.Emails.OutgoingEmail> OutgoingEmails => Set<ORP.Domain.Emails.OutgoingEmail>();
+    public DbSet<ORP.Domain.Emails.ForwardingSubjectRule> ForwardingSubjectRules => Set<ORP.Domain.Emails.ForwardingSubjectRule>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageDepartment> MessageDepartments => Set<MessageDepartment>();
     public DbSet<SwiftMessageRecord> SwiftMessages => Set<SwiftMessageRecord>();

@@ -64,6 +64,8 @@ BEGIN TRY
     DELETE FROM [orp].[Permissions];
     IF OBJECT_ID(N'orp.DistributionLists', N'U') IS NOT NULL
         DELETE FROM [orp].[DistributionLists]; -- Email items are deleted by the cascading foreign key.
+    IF OBJECT_ID(N'orp.ForwardingSubjectRules', N'U') IS NOT NULL
+        DELETE FROM [orp].[ForwardingSubjectRules];
     DELETE FROM [orp].[Branches];
     DELETE FROM [orp].[Departments];
 
@@ -186,6 +188,10 @@ BEGIN TRY
         CONCAT(N'{"workflowDefinitionId":',[WorkflowDefinitionId],N'}'),N'sql-test-seed-v2',NULL
     FROM [orp].[Messages];
 
+    IF OBJECT_ID(N'orp.ForwardingSubjectRules', N'U') IS NOT NULL
+        INSERT INTO orp.ForwardingSubjectRules (Name, IsActive, Priority, DepartmentId, Template)
+        SELECT N'TFO forwarding subject', 1, 100, Id, N'FW: {MessageType} - {Field21}'
+        FROM orp.Departments WHERE Name = N'TFO';
     COMMIT;
     PRINT 'Loaded 5 users, 3 common workflows and 100 unassigned demo messages.';
 END TRY

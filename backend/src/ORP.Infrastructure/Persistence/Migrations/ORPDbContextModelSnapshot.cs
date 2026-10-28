@@ -290,6 +290,52 @@ namespace ORP.Infrastructure.Persistence.Migrations
                     b.ToTable("EmailRecipients", "orp");
                 });
 
+            modelBuilder.Entity("ORP.Domain.Emails.ForwardingSubjectRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MessageType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ForwardingSubjectRules", "orp");
+                });
+
             modelBuilder.Entity("ORP.Domain.Emails.OutgoingEmail", b =>
                 {
                     b.Property<long>("Id")
@@ -963,6 +1009,19 @@ namespace ORP.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OutgoingEmailId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ORP.Domain.Emails.ForwardingSubjectRule", b =>
+                {
+                    b.HasOne("ORP.Domain.Identity.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ORP.Domain.Identity.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ORP.Domain.Emails.OutgoingEmail", b =>

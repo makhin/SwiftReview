@@ -31,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<IUserAuthorizationQueries, UserAuthorizationQueries>();
         services.AddScoped<ORP.Application.Administration.IUserAdministrationService, UserAdministrationService>();
         services.AddScoped<ORP.Application.DistributionLists.IDistributionListService, DistributionListService>();
+        services.AddScoped<ORP.Application.Emails.ForwardingSubjectResolver>();
+        services.AddScoped<ORP.Application.Emails.IForwardingSubjectService, ForwardingSubjectService>();
         services.AddScoped<ORP.Application.Emails.IOutgoingEmailService, OutgoingEmailService>();
         services.AddScoped<IAssignmentCandidateQueries, AssignmentCandidateQueries>();
         services.AddScoped<IReferenceDataQueries, ReferenceDataQueries>();

@@ -17,7 +17,7 @@ using Xunit;
 
 namespace ORP.Importer.SqlTests;
 
-public sealed class OutgoingEmailHttpSqlTests
+public sealed partial class OutgoingEmailHttpSqlTests
 {
     private const string Metadata = """
         {"to":[{"address":" user@example.com ","displayName":"Recipient"}],

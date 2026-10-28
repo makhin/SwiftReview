@@ -13,6 +13,7 @@
   <ItemGroup>
     <None Include="../../scripts/seed-department-routing-rules.sql" Link="Fixtures/seed-department-routing-rules.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/fix-department-routing-mx-prefix.sql" Link="Fixtures/fix-department-routing-mx-prefix.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/seed-forwarding-subject-rules.sql" Link="Fixtures/seed-forwarding-subject-rules.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/seed-test-data.sql" Link="Fixtures/seed-test-data.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/delete-messages-by-id-range.sql" Link="Fixtures/delete-messages-by-id-range.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/clear-imported-messages.sql" Link="Fixtures/clear-imported-messages.sql" CopyToOutputDirectory="PreserveNewest" />

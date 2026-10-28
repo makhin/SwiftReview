@@ -19,6 +19,17 @@ public static class EmailEndpoints
 
     public static void MapEmailEndpoints(this RouteGroupBuilder api)
     {
+        api.MapGet("/messages/{messageId:long}/forwarding-subject",
+            async (long messageId, IForwardingSubjectService service, CancellationToken ct) =>
+                Results.Text(await service.GetAsync(messageId, ct), "text/plain; charset=utf-8"))
+            .WithTags("Email").WithName("GetForwardingSubject")
+            .WithSummary("Get the suggested forwarding email subject.")
+            .WithDescription("Requires message.forward; ViewOnly is forbidden. Returns plain text without creating an email. " +
+                "Rules match message type, branch and processing departments. Default: FW: <MessageType>, " +
+                "or FW: SWIFT message when the type is unavailable. The caller may edit the subject before saving an email.")
+            .Produces<string>(200, "text/plain").ProducesProblem(401).ProducesProblem(403)
+            .ProducesProblem(404).ProducesProblem(409);
+
         api.MapPost("/messages/{messageId:long}/emails", CreateEmail)
             .WithTags("Email").WithName("CreateMessageEmail")
             .WithSummary("Save an outgoing email and attachments for a SWIFT message.")

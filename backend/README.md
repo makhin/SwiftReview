@@ -693,3 +693,39 @@ replayed. The request fails; reload persisted state before deciding whether to s
 This does not provide exactly-once logging: a process failure after commit can leave a committed
 SQL audit event without a corresponding application log entry. See
 [EF Core commit failures](https://learn.microsoft.com/en-us/ef/core/miscellaneous/connection-resiliency#transaction-commit-failure-and-the-idempotency-issue).
+
+### Forwarding email subject
+
+`GET /api/messages/{messageId}/forwarding-subject` returns the suggested subject as
+`text/plain; charset=utf-8`. It requires `message.forward` in the message's processing
+scope; ViewOnly messages are rejected using the existing action authorization policy.
+The request does not create an email or change the message. The caller may edit the
+result and pass it as `subject` to `POST /api/messages/{messageId}/emails`.
+
+Apply the `AddForwardingSubjectRules` migration before using this endpoint. It creates
+`orp.ForwardingSubjectRules` and installs the TFO rule if that department already
+exists. If departments are provisioned later, run
+`scripts/seed-forwarding-subject-rules.sql` against the same database. This script
+requires an existing TFO department and preserves an existing rule with the same name,
+including any customizations. The demo reset seed also reinstalls the TFO rule.
+
+Rules are edited through SQL and read on each request; no restart is needed.
+`Name` is unique, `IsActive` enables a rule, and larger `Priority` values win, with
+ascending `Id` breaking ties. Nullable `MessageType`, `BranchId`, and `DepartmentId`
+filters mean any value when NULL. Non-null filters must all match: message type uses
+an exact case-insensitive comparison, branch comes from the message, and department
+must belong to its processing departments, independently of the requesting user's
+roles. Branch and department references cannot be deleted while used by a rule.
+
+`Template` supports only `{MessageType}`, `{Field20}`, and `{Field21}` (case-sensitive
+placeholder names, no brace escaping). Field20 is `TransactionReferenceNumber` and
+Field21 is `RelatedReference`. Substituted values are not interpreted as templates.
+Missing or whitespace-only values skip that rule. Malformed templates or results
+that violate email subject validation are skipped and logged by rule ID without
+logging message content. A valid subject is nonblank, at most 500 characters, and
+contains no CR/LF, matching the outgoing-email validator.
+
+The initial TFO rule has priority 100, any branch/type, and template
+`FW: {MessageType} - {Field21}`. Field20 is not required. If no rule produces a valid
+subject, the response is `FW: <MessageType>`, or `FW: SWIFT message` if the type is
+missing or cannot form a valid subject. There is no rule-management HTTP API.
